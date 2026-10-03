@@ -1,0 +1,33 @@
+import { AccessLogEntry, DocumentShare } from '../types/sharing';
+
+export const shares: DocumentShare[] = [
+{ id: 's-01', documentId: 'd-001', recipientType: 'user', recipientId: 'u-07', recipientName: 'Dr. Teresita A. Gonzaga', recipientRole: 'Faculty', canView: true, canDownload: true, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-28T10:12:00', expiresAt: '2026-12-31', revokedAt: null },
+{ id: 's-02', documentId: 'd-001', recipientType: 'user', recipientId: 'u-13', recipientName: 'Juan Dela Cruz', recipientRole: 'Staff', canView: true, canDownload: false, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-28T10:12:00', expiresAt: '2026-12-31', revokedAt: null },
+{ id: 's-03', documentId: 'd-001', recipientType: 'user', recipientId: 'u-11', recipientName: 'Dr. Victor S. Manalo', recipientRole: 'Accreditor', canView: true, canDownload: true, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-28T10:14:00', expiresAt: null, revokedAt: null },
+{ id: 's-04', documentId: 'd-001', recipientType: 'user', recipientId: 'u-08', recipientName: 'Prof. Arnel B. Lupian', recipientRole: 'Faculty', canView: true, canDownload: false, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-29T09:00:00', expiresAt: '2026-12-31', revokedAt: null },
+{ id: 's-05', documentId: 'd-001', recipientType: 'user', recipientId: 'u-09', recipientName: 'Dr. Gemma R. Plaza', recipientRole: 'Faculty', canView: true, canDownload: true, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-29T09:00:00', expiresAt: '2026-12-31', revokedAt: null },
+{ id: 's-06', documentId: 'd-002', recipientType: 'user', recipientId: 'u-11', recipientName: 'Dr. Victor S. Manalo', recipientRole: 'Accreditor', canView: true, canDownload: false, sharedBy: 'Prof. Liza M. Cabrera', sharedAt: '2026-09-25T14:30:00', expiresAt: '2026-11-30', revokedAt: null },
+{ id: 's-07', documentId: 'd-005', recipientType: 'user', recipientId: 'u-09', recipientName: 'Dr. Gemma R. Plaza', recipientRole: 'Faculty', canView: true, canDownload: true, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-27T11:05:00', expiresAt: null, revokedAt: null },
+{ id: 's-08', documentId: 'd-005', recipientType: 'role', recipientId: 'role-Accreditor', recipientName: 'All Accreditors', recipientRole: 'Accreditor', canView: true, canDownload: false, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-27T11:06:00', expiresAt: '2026-12-31', revokedAt: null },
+{ id: 's-09', documentId: 'd-014', recipientType: 'user', recipientId: 'u-11', recipientName: 'Dr. Victor S. Manalo', recipientRole: 'Accreditor', canView: true, canDownload: true, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-24T15:20:00', expiresAt: null, revokedAt: '2026-10-01T08:15:00' },
+{ id: 's-10', documentId: 'd-010', recipientType: 'role', recipientId: 'role-Faculty', recipientName: 'All Faculty', recipientRole: 'Faculty', canView: true, canDownload: true, sharedBy: 'Prof. Liza M. Cabrera', sharedAt: '2026-08-22T08:00:00', expiresAt: null, revokedAt: null },
+{ id: 's-11', documentId: 'd-017', recipientType: 'user', recipientId: 'u-08', recipientName: 'Prof. Arnel B. Lupian', recipientRole: 'Faculty', canView: true, canDownload: true, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-19T13:40:00', expiresAt: '2027-03-31', revokedAt: null },
+{ id: 's-12', documentId: 'd-017', recipientType: 'user', recipientId: 'u-10', recipientName: 'Dr. Rosario C. Delos Reyes', recipientRole: 'Accreditor', canView: true, canDownload: false, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-20T09:10:00', expiresAt: '2026-10-31', revokedAt: null },
+{ id: 's-13', documentId: 'd-007', recipientType: 'user', recipientId: 'u-14', recipientName: 'Rhea Mae Tolentino', recipientRole: 'Staff', canView: true, canDownload: false, sharedBy: 'Jun Carlo P. Esteban', sharedAt: '2026-07-01T10:00:00', expiresAt: '2026-09-15', revokedAt: null },
+{ id: 's-14', documentId: 'd-020', recipientType: 'user', recipientId: 'u-07', recipientName: 'Dr. Teresita A. Gonzaga', recipientRole: 'Faculty', canView: true, canDownload: true, sharedBy: 'Prof. Liza M. Cabrera', sharedAt: '2026-05-25T09:30:00', expiresAt: '2026-06-30', revokedAt: null },
+{ id: 's-15', documentId: 'd-008', recipientType: 'user', recipientId: 'u-14', recipientName: 'Rhea Mae Tolentino', recipientRole: 'Staff', canView: true, canDownload: true, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-06T15:45:00', expiresAt: null, revokedAt: null },
+{ id: 's-16', documentId: 'd-011', recipientType: 'user', recipientId: 'u-13', recipientName: 'Juan Dela Cruz', recipientRole: 'Staff', canView: true, canDownload: false, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-07-02T08:20:00', expiresAt: '2027-06-30', revokedAt: null }];
+
+
+export const accessLog: AccessLogEntry[] = [
+{ id: 'l-01', actor: 'Dr. Teresita A. Gonzaga', actorRole: 'Faculty', action: 'Downloaded', documentId: 'd-001', at: '2026-10-01T09:01:00' },
+{ id: 'l-02', actor: 'Dr. Teresita A. Gonzaga', actorRole: 'Faculty', action: 'Viewed', documentId: 'd-001', at: '2026-10-01T08:58:00' },
+{ id: 'l-03', actor: 'Dr. Maria L. Santos', actorRole: 'Administrator', action: 'Access revoked', documentId: 'd-014', detail: 'Dr. Victor S. Manalo', at: '2026-10-01T08:15:00' },
+{ id: 'l-04', actor: 'Dr. Victor S. Manalo', actorRole: 'Accreditor', action: 'Viewed', documentId: 'd-002', at: '2026-09-30T16:40:00' },
+{ id: 'l-05', actor: 'Rhea Mae Tolentino', actorRole: 'Staff', action: 'Access denied', documentId: 'd-007', detail: 'Share expired on Sep 15, 2026', at: '2026-09-30T11:20:00' },
+{ id: 'l-06', actor: 'Dr. Maria L. Santos', actorRole: 'Administrator', action: 'Permission changed', documentId: 'd-001', detail: 'Juan Dela Cruz: View + Download → View only', at: '2026-09-29T09:05:00' },
+{ id: 'l-07', actor: 'Dr. Maria L. Santos', actorRole: 'Administrator', action: 'Shared', documentId: 'd-001', detail: 'Prof. Arnel B. Lupian · View only; Dr. Gemma R. Plaza · View + Download', at: '2026-09-29T09:00:00' },
+{ id: 'l-08', actor: 'Dr. Gemma R. Plaza', actorRole: 'Faculty', action: 'Downloaded', documentId: 'd-005', at: '2026-09-28T14:12:00' },
+{ id: 'l-09', actor: 'Dr. Maria L. Santos', actorRole: 'Administrator', action: 'Shared', documentId: 'd-005', detail: 'All Accreditors · View only · expires Dec 31, 2026', at: '2026-09-27T11:06:00' },
+{ id: 'l-10', actor: 'System', actorRole: 'System', action: 'Access expired', documentId: 'd-007', detail: 'Rhea Mae Tolentino', at: '2026-09-16T00:00:00' },
+{ id: 'l-11', actor: 'Prof. Liza M. Cabrera', actorRole: 'QA Personnel', action: 'Shared', documentId: 'd-002', detail: 'Dr. Victor S. Manalo · View only · expires Nov 30, 2026', at: '2026-09-25T14:30:00' }];
