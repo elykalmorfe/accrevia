@@ -9,8 +9,9 @@ import { CoverageReport } from '../components/reports/CoverageReport';
 import { SharingStatistics } from '../components/reports/SharingStatistics';
 import { SearchAnalytics } from '../components/reports/SearchAnalytics';
 import { RetrievalPerformance } from '../components/reports/RetrievalPerformance';
+import { AccreditationMasterReport } from '../components/reports/AccreditationMasterReport';
 
-type ReportTab = 'statistics' | 'coverage' | 'sharing' | 'search' | 'performance';
+type ReportTab = 'statistics' | 'accreditation' | 'coverage' | 'sharing' | 'search' | 'performance';
 
 export function ReportsAnalytics() {
   const [params, setParams] = useSearchParams();
@@ -34,6 +35,7 @@ export function ReportsAnalytics() {
         className="mb-5"
         tabs={[
         { id: 'statistics', label: 'Evidence Statistics' },
+        { id: 'accreditation', label: 'AACCUP & COPC Master Report' },
         { id: 'coverage', label: 'Accreditation Coverage' },
         { id: 'sharing', label: 'Sharing Statistics' },
         { id: 'search', label: 'Search Analytics' },
@@ -41,6 +43,7 @@ export function ReportsAnalytics() {
         } />
       
       {tab === 'statistics' && <EvidenceStatistics />}
+      {tab === 'accreditation' && <AccreditationMasterReport />}
       {tab === 'coverage' && <CoverageReport />}
       {tab === 'sharing' && <SharingStatistics />}
       {tab === 'search' && <SearchAnalytics />}
