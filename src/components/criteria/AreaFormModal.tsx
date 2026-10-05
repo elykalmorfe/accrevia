@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import { AccreditationArea } from '../../types/evidence';
