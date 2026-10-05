@@ -9,6 +9,14 @@ import { users as initialUsers } from '../data/users';
 import { shares as initialShares, accessLog as initialAccessLog } from '../data/shares';
 import { recentSearchActivity } from '../data/analytics';
 import {
+  campuses as initialCampuses,
+  initialCampusIA,
+  initialCampusPQA,
+  initialProgramAccreditations,
+  initialCOPCRecords,
+  initialISORecords
+} from '../data/accreditationData';
+import {
   AccreditationArea,
   Criterion,
   DocumentMetadata,
@@ -16,8 +24,21 @@ import {
   EvidenceRequirement,
   Framework,
   Indicator,
-  PendingDocument } from
-'../types/evidence';
+  PendingDocument
+} from '../types/evidence';
+import {
+  Campus,
+  CampusId,
+  CampusIAStatus,
+  CampusPQAStatus,
+  COPCRecord,
+  COPCRequirementItem,
+  IARequirementItem,
+  ISOCorrectiveAction,
+  ISOSurveillanceRecord,
+  ProgramAccreditation,
+  ProgramRequirementItem
+} from '../types/accreditation';
 import { PortalUser, PortalViewRole, UserStatus } from '../types/user';
 import { AccessAction, AccessLogEntry, DocumentShare, ShareRecipientInput } from '../types/sharing';
 import { metadataToPatch } from '../utils/metadata';
@@ -57,6 +78,29 @@ interface PortalContextValue {
   addRecentSearch: (query: string) => void;
   savedIds: string[];
   toggleSaved: (id: string) => boolean;
+
+  // ================= Accreditation & QA Core =================
+  campuses: Campus[];
+  iaRecords: CampusIAStatus[];
+  updateCampusIA: (campusId: CampusId, patch: Partial<CampusIAStatus>) => void;
+  updateIARequirement: (campusId: CampusId, reqId: string, patch: Partial<IARequirementItem>) => void;
+
+  pqaRecords: CampusPQAStatus[];
+  updateCampusPQA: (campusId: CampusId, patch: Partial<CampusPQAStatus>) => void;
+
+  programAccreditations: ProgramAccreditation[];
+  saveProgramAccreditation: (program: ProgramAccreditation) => void;
+  deleteProgramAccreditation: (id: string) => void;
+  updateProgramRequirement: (programId: string, reqId: string, patch: Partial<ProgramRequirementItem>) => void;
+
+  copcRecords: COPCRecord[];
+  updateCOPCRecord: (id: string, patch: Partial<COPCRecord>) => void;
+  updateCOPCRequirement: (copcId: string, reqId: string, patch: Partial<COPCRequirementItem>) => void;
+
+  isoRecords: ISOSurveillanceRecord[];
+  saveISOSurveillanceRecord: (record: ISOSurveillanceRecord) => void;
+  addISOCorrectiveAction: (recordId: string, car: ISOCorrectiveAction) => void;
+  updateISOCorrectiveAction: (recordId: string, carId: string, patch: Partial<ISOCorrectiveAction>) => void;
 }
 
 const PortalContext = createContext<PortalContextValue | null>(null);
@@ -68,11 +112,28 @@ const viewAsUserId: Record<PortalViewRole, string> = {
   Accreditor: 'u-11'
 };
 
-function upsert<T extends {id: string;}>(list: T[], item: T): T[] {
-  return list.some((i) => i.id === item.id) ? list.map((i) => i.id === item.id ? item : i) : [...list, item];
+function upsert<T extends { id: string }>(list: T[], item: T): T[] {
+  return list.some((i) => i.id === item.id) ? list.map((i) => (i.id === item.id ? item : i)) : [...list, item];
 }
 
-export function PortalProvider({ children, viewAs = 'Administrator' }: {children: ReactNode;viewAs?: PortalViewRole;}) {
+function loadStorage<T>(key: string, defaultValue: T): T {
+  try {
+    const raw = localStorage.getItem(`accrevia_${key}`);
+    return raw ? JSON.parse(raw) : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+}
+
+function saveStorage<T>(key: string, value: T) {
+  try {
+    localStorage.setItem(`accrevia_${key}`, JSON.stringify(value));
+  } catch {
+    // Ignore storage quota errors in sandbox
+  }
+}
+
+export function PortalProvider({ children, viewAs = 'Administrator' }: { children: ReactNode; viewAs?: PortalViewRole }) {
   const [frameworks, setFrameworks] = useState(initialFrameworks);
   const [areas, setAreas] = useState(initialAreas);
   const [criteria, setCriteria] = useState(initialCriteria);
@@ -85,12 +146,22 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: {children
   const [recentSearches, setRecentSearches] = useState<string[]>(() => recentSearchActivity.map((s) => s.query));
   const [savedIds, setSavedIds] = useState<string[]>(['d-002', 'd-001']);
 
+  // Accreditation & QA State
+  const [campuses] = useState<Campus[]>(() => loadStorage('campuses', initialCampuses));
+  const [iaRecords, setIaRecords] = useState<CampusIAStatus[]>(() => loadStorage('iaRecords', initialCampusIA));
+  const [pqaRecords, setPqaRecords] = useState<CampusPQAStatus[]>(() => loadStorage('pqaRecords', initialCampusPQA));
+  const [programAccreditations, setProgramAccreditations] = useState<ProgramAccreditation[]>(() =>
+    loadStorage('programAccreditations', initialProgramAccreditations)
+  );
+  const [copcRecords, setCopcRecords] = useState<COPCRecord[]>(() => loadStorage('copcRecords', initialCOPCRecords));
+  const [isoRecords, setIsoRecords] = useState<ISOSurveillanceRecord[]>(() => loadStorage('isoRecords', initialISORecords));
+
   const currentUser = users.find((u) => u.id === viewAsUserId[viewAs]) ?? users[0];
   const isAdmin = isAdminRole(currentUser.role);
 
   const saveFramework = useCallback((f: Framework) => setFrameworks((prev) => upsert(prev, f)), []);
   const setFrameworkActive = useCallback(
-    (id: string, active: boolean) => setFrameworks((prev) => prev.map((f) => f.id === id ? { ...f, active } : f)),
+    (id: string, active: boolean) => setFrameworks((prev) => prev.map((f) => (f.id === id ? { ...f, active } : f))),
     []
   );
   const saveArea = useCallback((a: AccreditationArea) => setAreas((prev) => upsert(prev, a)), []);
@@ -98,11 +169,11 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: {children
   const saveIndicator = useCallback((i: Indicator) => setIndicators((prev) => upsert(prev, i)), []);
   const addRequirement = useCallback(
     (indicatorId: string, req: EvidenceRequirement) =>
-    setIndicators((prev) => prev.map((i) => i.id === indicatorId ? { ...i, requirements: [...i.requirements, req] } : i)),
+      setIndicators((prev) => prev.map((i) => (i.id === indicatorId ? { ...i, requirements: [...i.requirements, req] } : i))),
     []
   );
   const updateDocument = useCallback(
-    (id: string, patch: Partial<EvidenceDocument>) => setDocuments((prev) => prev.map((d) => d.id === id ? { ...d, ...patch } : d)),
+    (id: string, patch: Partial<EvidenceDocument>) => setDocuments((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d))),
     []
   );
   const addPending = useCallback((doc: PendingDocument) => setPending((prev) => [doc, ...prev]), []);
@@ -114,9 +185,23 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: {children
       const today = new Date().toISOString().slice(0, 10);
       const newDoc: EvidenceDocument = {
         id: `d-${Date.now()}`,
-        title: '', description: '', keywords: [], frameworkId: '', areaId: '', criterionId: '', indicatorId: '',
-        docType: 'Other', academicYear: '', cycle: '', program: '', college: '', department: '', office: '', campus: '',
-        documentDate: today, confidentiality: 'Internal',
+        title: '',
+        description: '',
+        keywords: [],
+        frameworkId: '',
+        areaId: '',
+        criterionId: '',
+        indicatorId: '',
+        docType: 'Other',
+        academicYear: '',
+        cycle: '',
+        program: '',
+        college: '',
+        department: '',
+        office: '',
+        campus: '',
+        documentDate: today,
+        confidentiality: 'Internal',
         ...metadataToPatch(meta),
         status: 'Indexed',
         dateAdded: today,
@@ -133,26 +218,29 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: {children
     [pending]
   );
 
-  const saveUser = useCallback((u: PortalUser) => setUsers((prev) => prev.some((x) => x.id === u.id) ? upsert(prev, u) : [u, ...prev]), []);
+  const saveUser = useCallback(
+    (u: PortalUser) => setUsers((prev) => (prev.some((x) => x.id === u.id) ? upsert(prev, u) : [u, ...prev])),
+    []
+  );
   const setUserStatus = useCallback(
-    (id: string, status: UserStatus) => setUsers((prev) => prev.map((u) => u.id === id ? { ...u, status } : u)),
+    (id: string, status: UserStatus) => setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status } : u))),
     []
   );
 
   const logAccess = useCallback(
     (action: AccessAction, documentId: string, detail?: string) =>
-    setAccessLog((prev) => [
-    {
-      id: `l-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      actor: currentUser.name,
-      actorRole: currentUser.role,
-      action,
-      documentId,
-      detail,
-      at: nowIso()
-    },
-    ...prev]
-    ),
+      setAccessLog((prev) => [
+        {
+          id: `l-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          actor: currentUser.name,
+          actorRole: currentUser.role,
+          action,
+          documentId,
+          detail,
+          at: nowIso()
+        },
+        ...prev
+      ]),
     [currentUser]
   );
 
@@ -167,9 +255,9 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: {children
             next[idx] = { ...next[idx], canView: r.canView, canDownload: r.canDownload, expiresAt };
           } else {
             next = [
-            { id: `s-${Date.now()}-${i}`, documentId, ...r, sharedBy: currentUser.name, sharedAt: at, expiresAt, revokedAt: null },
-            ...next];
-
+              { id: `s-${Date.now()}-${i}`, documentId, ...r, sharedBy: currentUser.name, sharedAt: at, expiresAt, revokedAt: null },
+              ...next
+            ];
           }
         });
         return next;
@@ -184,8 +272,12 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: {children
     (shareId: string, canDownload: boolean) => {
       const share = shares.find((s) => s.id === shareId);
       if (!share) return;
-      setShares((prev) => prev.map((s) => s.id === shareId ? { ...s, canDownload } : s));
-      logAccess('Permission changed', share.documentId, `${share.recipientName}: ${permissionLabel(share.canDownload)} → ${permissionLabel(canDownload)}`);
+      setShares((prev) => prev.map((s) => (s.id === shareId ? { ...s, canDownload } : s)));
+      logAccess(
+        'Permission changed',
+        share.documentId,
+        `${share.recipientName}: ${permissionLabel(share.canDownload)} → ${permissionLabel(canDownload)}`
+      );
     },
     [shares, logAccess]
   );
@@ -194,7 +286,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: {children
     (shareId: string, expiresAt: string | null) => {
       const share = shares.find((s) => s.id === shareId);
       if (!share) return;
-      setShares((prev) => prev.map((s) => s.id === shareId ? { ...s, expiresAt } : s));
+      setShares((prev) => prev.map((s) => (s.id === shareId ? { ...s, expiresAt } : s)));
       logAccess('Access extended', share.documentId, `${share.recipientName} · ${expiresAt ? `until ${formatDate(expiresAt)}` : 'no expiry'}`);
     },
     [shares, logAccess]
@@ -204,7 +296,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: {children
     (shareId: string) => {
       const share = shares.find((s) => s.id === shareId);
       if (!share) return;
-      setShares((prev) => prev.map((s) => s.id === shareId ? { ...s, revokedAt: nowIso() } : s));
+      setShares((prev) => prev.map((s) => (s.id === shareId ? { ...s, revokedAt: nowIso() } : s)));
       logAccess('Access revoked', share.documentId, share.recipientName);
     },
     [shares, logAccess]
@@ -219,31 +311,225 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: {children
   const toggleSaved = useCallback(
     (id: string) => {
       const willSave = !savedIds.includes(id);
-      setSavedIds((prev) => willSave ? [...prev, id] : prev.filter((x) => x !== id));
+      setSavedIds((prev) => (willSave ? [...prev, id] : prev.filter((x) => x !== id)));
       return willSave;
     },
     [savedIds]
   );
 
+  // ================= Accreditation Mutations =================
+  const updateCampusIA = useCallback((campusId: CampusId, patch: Partial<CampusIAStatus>) => {
+    setIaRecords((prev) => {
+      const next = prev.map((item) => (item.campusId === campusId ? { ...item, ...patch } : item));
+      saveStorage('iaRecords', next);
+      return next;
+    });
+  }, []);
+
+  const updateIARequirement = useCallback((campusId: CampusId, reqId: string, patch: Partial<IARequirementItem>) => {
+    setIaRecords((prev) => {
+      const next = prev.map((campus) => {
+        if (campus.campusId !== campusId) return campus;
+        const updatedReqs = campus.requirements.map((r) => (r.id === reqId ? { ...r, ...patch, lastUpdated: new Date().toISOString() } : r));
+        return { ...campus, requirements: updatedReqs };
+      });
+      saveStorage('iaRecords', next);
+      return next;
+    });
+  }, []);
+
+  const updateCampusPQA = useCallback((campusId: CampusId, patch: Partial<CampusPQAStatus>) => {
+    setPqaRecords((prev) => {
+      const next = prev.map((item) => (item.campusId === campusId ? { ...item, ...patch } : item));
+      saveStorage('pqaRecords', next);
+      return next;
+    });
+  }, []);
+
+  const saveProgramAccreditation = useCallback((prog: ProgramAccreditation) => {
+    setProgramAccreditations((prev) => {
+      const next = upsert(prev, prog);
+      saveStorage('programAccreditations', next);
+      return next;
+    });
+  }, []);
+
+  const deleteProgramAccreditation = useCallback((id: string) => {
+    setProgramAccreditations((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      saveStorage('programAccreditations', next);
+      return next;
+    });
+  }, []);
+
+  const updateProgramRequirement = useCallback((programId: string, reqId: string, patch: Partial<ProgramRequirementItem>) => {
+    setProgramAccreditations((prev) => {
+      const next = prev.map((prog) => {
+        if (prog.id !== programId) return prog;
+        const reqs = (prog.requirements || []).map((r) => (r.id === reqId ? { ...r, ...patch } : r));
+        return { ...prog, requirements: reqs };
+      });
+      saveStorage('programAccreditations', next);
+      return next;
+    });
+  }, []);
+
+  const updateCOPCRecord = useCallback((id: string, patch: Partial<COPCRecord>) => {
+    setCopcRecords((prev) => {
+      const next = prev.map((item) => (item.id === id ? { ...item, ...patch } : item));
+      saveStorage('copcRecords', next);
+      return next;
+    });
+  }, []);
+
+  const updateCOPCRequirement = useCallback((copcId: string, reqId: string, patch: Partial<COPCRequirementItem>) => {
+    setCopcRecords((prev) => {
+      const next = prev.map((copc) => {
+        if (copc.id !== copcId) return copc;
+        const reqs = copc.requirements.map((r) => (r.id === reqId ? { ...r, ...patch } : r));
+        return { ...copc, requirements: reqs };
+      });
+      saveStorage('copcRecords', next);
+      return next;
+    });
+  }, []);
+
+  const saveISOSurveillanceRecord = useCallback((rec: ISOSurveillanceRecord) => {
+    setIsoRecords((prev) => {
+      const next = upsert(prev, rec);
+      saveStorage('isoRecords', next);
+      return next;
+    });
+  }, []);
+
+  const addISOCorrectiveAction = useCallback((recordId: string, car: ISOCorrectiveAction) => {
+    setIsoRecords((prev) => {
+      const next = prev.map((rec) => {
+        if (rec.id !== recordId) return rec;
+        return { ...rec, correctiveActions: [car, ...rec.correctiveActions] };
+      });
+      saveStorage('isoRecords', next);
+      return next;
+    });
+  }, []);
+
+  const updateISOCorrectiveAction = useCallback((recordId: string, carId: string, patch: Partial<ISOCorrectiveAction>) => {
+    setIsoRecords((prev) => {
+      const next = prev.map((rec) => {
+        if (rec.id !== recordId) return rec;
+        const actions = rec.correctiveActions.map((c) => (c.id === carId ? { ...c, ...patch } : c));
+        return { ...rec, correctiveActions: actions };
+      });
+      saveStorage('isoRecords', next);
+      return next;
+    });
+  }, []);
+
   const value = useMemo<PortalContextValue>(
     () => ({
-      currentUser, isAdmin,
-      frameworks, saveFramework, setFrameworkActive,
-      areas, saveArea,
-      criteria, saveCriterion,
-      indicators, saveIndicator, addRequirement,
-      documents, updateDocument,
-      pending, addPending, classifyPending,
-      users, saveUser, setUserStatus,
-      shares, shareDocument, updateSharePermission, extendShare, revokeShare, removeShare,
-      accessLog, logAccess,
-      recentSearches, addRecentSearch,
-      savedIds, toggleSaved
+      currentUser,
+      isAdmin,
+      frameworks,
+      saveFramework,
+      setFrameworkActive,
+      areas,
+      saveArea,
+      criteria,
+      saveCriterion,
+      indicators,
+      saveIndicator,
+      addRequirement,
+      documents,
+      updateDocument,
+      pending,
+      addPending,
+      classifyPending,
+      users,
+      saveUser,
+      setUserStatus,
+      shares,
+      shareDocument,
+      updateSharePermission,
+      extendShare,
+      revokeShare,
+      removeShare,
+      accessLog,
+      logAccess,
+      recentSearches,
+      addRecentSearch,
+      savedIds,
+      toggleSaved,
+
+      // Accreditation & QA
+      campuses,
+      iaRecords,
+      updateCampusIA,
+      updateIARequirement,
+      pqaRecords,
+      updateCampusPQA,
+      programAccreditations,
+      saveProgramAccreditation,
+      deleteProgramAccreditation,
+      updateProgramRequirement,
+      copcRecords,
+      updateCOPCRecord,
+      updateCOPCRequirement,
+      isoRecords,
+      saveISOSurveillanceRecord,
+      addISOCorrectiveAction,
+      updateISOCorrectiveAction
     }),
-    [currentUser, isAdmin, frameworks, saveFramework, setFrameworkActive, areas, saveArea, criteria, saveCriterion, indicators,
-    saveIndicator, addRequirement, documents, updateDocument, pending, addPending, classifyPending, users, saveUser, setUserStatus,
-    shares, shareDocument, updateSharePermission, extendShare, revokeShare, removeShare, accessLog, logAccess, recentSearches,
-    addRecentSearch, savedIds, toggleSaved]
+    [
+      currentUser,
+      isAdmin,
+      frameworks,
+      saveFramework,
+      setFrameworkActive,
+      areas,
+      saveArea,
+      criteria,
+      saveCriterion,
+      indicators,
+      saveIndicator,
+      addRequirement,
+      documents,
+      updateDocument,
+      pending,
+      addPending,
+      classifyPending,
+      users,
+      saveUser,
+      setUserStatus,
+      shares,
+      shareDocument,
+      updateSharePermission,
+      extendShare,
+      revokeShare,
+      removeShare,
+      accessLog,
+      logAccess,
+      recentSearches,
+      addRecentSearch,
+      savedIds,
+      toggleSaved,
+      campuses,
+      iaRecords,
+      updateCampusIA,
+      updateIARequirement,
+      pqaRecords,
+      updateCampusPQA,
+      programAccreditations,
+      saveProgramAccreditation,
+      deleteProgramAccreditation,
+      updateProgramRequirement,
+      copcRecords,
+      updateCOPCRecord,
+      updateCOPCRequirement,
+      isoRecords,
+      saveISOSurveillanceRecord,
+      addISOCorrectiveAction,
+      updateISOCorrectiveAction
+    ]
   );
 
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
