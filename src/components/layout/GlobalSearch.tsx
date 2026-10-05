@@ -214,7 +214,7 @@ export function GlobalSearch() {
           }}
           onBlur={() => setFocused(false)}
           onKeyDown={onKeyDown}
-          className="h-10 w-full rounded-lg border border-line-strong bg-canvas pl-10 pr-20 text-[15px] text-ink placeholder:text-ink-subtle transition-colors duration-150 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/15" />
+          className="h-10 w-full rounded-2xl border border-slate-200/80 bg-slate-50/70 pl-10 pr-20 text-[14px] text-ink placeholder:text-ink-subtle transition-all duration-200 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 shadow-none hover:bg-slate-100/60" />
         
         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
           {query ?

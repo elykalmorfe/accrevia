@@ -27,7 +27,7 @@ export function AppShell() {
       </a>
       <Header onOpenMenu={() => setMobileOpen(true)} />
       <div className="flex">
-        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-72 shrink-0 overflow-y-auto border-r border-line bg-white lg:block">
+        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 xl:w-72 shrink-0 overflow-y-auto border-r border-slate-100 bg-white lg:block">
           <Sidebar />
         </aside>
 

@@ -1,19 +1,19 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 
 export function Brand({ showSubtitle = true }: {showSubtitle?: boolean;}) {
   return (
-    <Link to="/" className="flex shrink-0 items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
-      <span className="relative grid h-9 w-9 place-items-center rounded-md bg-brand-700 font-serif text-lg font-bold text-white" aria-hidden="true">
-        A
-        <span className="absolute bottom-1.5 left-2.5 right-2.5 h-0.5 bg-gold-500" />
-      </span>
-      <span className="hidden leading-tight sm:block">
-        <span className="block font-serif text-[17px] font-bold tracking-[0.08em] text-brand-800">ACCREVIA</span>
-        {showSubtitle &&
-        <span className="hidden whitespace-nowrap text-[11px] text-ink-muted xl:block">Accreditation Evidence Retrieval System</span>
-        }
-      </span>
-    </Link>);
-
-}
+    <Link to="/" className="flex shrink-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+      <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-brand-600 text-white shadow-sm shadow-brand-500/30 transition-transform hover:scale-105" aria-hidden="true">
+        <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+        </svg>
+      </div>
+      <div className="leading-tight">
+        <span className="block font-sans text-[17px] font-extrabold tracking-tight text-ink">Accrevia</span>
+        {showSubtitle && (
+          <span className="block text-[11px] font-medium text-ink-subtle">QA & Accreditation</span>
+        )}
+      </div>
+    </Link>
+  );
+}
