@@ -23,11 +23,12 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
   const { campuses, saveISOSurveillanceRecord, currentUser } = usePortal();
 
   const campus = campuses.find((c) => c.id === campusId) || campuses[0];
+  const [standardVersion, setStandardVersion] = useState('ISO 9001:2015');
   const [auditDate, setAuditDate] = useState(new Date().toISOString().slice(0, 10));
   const [cycle, setCycle] = useState('2025 Surveillance Audit 1');
-  const [auditType, setAuditType] = useState<'Surveillance Audit 1' | 'Surveillance Audit 2' | 'Recertification Audit' | 'Internal Quality Audit'>(
-    'Surveillance Audit 1'
-  );
+  const [auditType, setAuditType] = useState<
+    'For Surveillance' | '2nd Surveillance' | 'Recertification' | 'Surveillance Audit 1' | 'Surveillance Audit 2' | 'Recertification Audit' | 'Internal Quality Audit'
+  >('For Surveillance');
   const [leadAuditor, setLeadAuditor] = useState(currentUser.name || 'Lead Quality Auditor');
   const [auditorRole, setAuditorRole] = useState('Certified ISO 9001:2015 Auditor');
   const [scope, setScope] = useState('Higher & Advanced Education, Research, Extension, and Support Operations');
@@ -94,6 +95,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
       id: `iso-${campus.id}-${Date.now()}`,
       campusId: campus.id,
       campusName: campus.name,
+      standardVersion,
       auditDate,
       cycle,
       auditType,
@@ -101,7 +103,8 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
       auditorRole,
       scope,
       complianceStatus,
-      summary: summary.trim() || `Conducted ${auditType} for ${campus.name}. All core clauses inspected for conformance with standard parameters.`,
+      summary: summary.trim() || `Conducted ${auditType} under ${standardVersion} for ${campus.name}. All core clauses inspected for conformance with standard parameters.`,
+      isHistorical: false,
       findingsCount: {
         conformances,
         ofi,
@@ -115,7 +118,9 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
     };
 
     saveISOSurveillanceRecord(newRecord);
-    toast.success(`ISO Surveillance record saved for ${campus.name}`);
+    toast.success(`ISO record saved for ${campus.name}`, {
+      description: `New standard cycle registered. All previous standards and audit cycles preserved in historical archive.`
+    });
     onClose();
   };
 
@@ -123,13 +128,13 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
     <Modal
       open={open}
       onClose={onClose}
-      title={`Conduct ISO Surveillance & Monitoring Audit`}
-      description={`Record official ISO 9001:2015 quality surveillance, clause conformance checks, and issue CARs for ${campus.name}.`}
+      title={`Conduct ISO Surveillance & Standard Audit`}
+      description={`Record official ISO surveillance, add standard cycles, and preserve historical audits for ${campus.name}.`}
       size="xl"
       footer={
         <div className="flex w-full items-center justify-between">
           <span className="text-xs text-ink-subtle">
-            ISO Surveillance records are certified under university quality assurance protocol.
+            All previous ISO standards and records are preserved for historical reference and never overwritten.
           </span>
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="btn btn-secondary">
@@ -143,8 +148,21 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
       }
     >
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Preservation Guarantee Note */}
+        <div className="rounded-lg border border-brand-200 bg-brand-50/70 p-3 text-xs text-brand-900">
+          <strong className="font-semibold">Historical Preservation Guarantee:</strong> Saving this audit will register the new cycle while preserving all previous ISO standards, surveillance audits, and records for historical reference.
+        </div>
+
         <div className="rounded-lg border border-line bg-canvas/60 p-4">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-4">
+            <TextField
+              label="Standard Version"
+              value={standardVersion}
+              onChange={(e) => setStandardVersion(e.target.value)}
+              placeholder="e.g. ISO 9001:2015, ISO 9001:2026"
+              required
+            />
+
             <TextField
               label="Audit Date"
               type="date"
@@ -157,15 +175,18 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
               label="Audit Cycle"
               value={cycle}
               onChange={(e) => setCycle(e.target.value)}
-              placeholder="e.g. 2025 Surveillance Audit 1"
+              placeholder="e.g. 2026 Surveillance Audit 1"
               required
             />
 
             <SelectField
-              label="Audit Type"
+              label="Audit Type / Stage"
               value={auditType}
-              onChange={(e) => setAuditType(e.target.value as 'Surveillance Audit 1' | 'Surveillance Audit 2' | 'Recertification Audit' | 'Internal Quality Audit')}
+              onChange={(e) => setAuditType(e.target.value as any)}
               options={[
+                { value: 'For Surveillance', label: 'For Surveillance' },
+                { value: '2nd Surveillance', label: '2nd Surveillance' },
+                { value: 'Recertification', label: 'Recertification' },
                 { value: 'Surveillance Audit 1', label: 'Surveillance Audit 1' },
                 { value: 'Surveillance Audit 2', label: 'Surveillance Audit 2' },
                 { value: 'Recertification Audit', label: 'Recertification Audit' },
