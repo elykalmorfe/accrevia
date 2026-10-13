@@ -94,7 +94,7 @@ export function CampusPQAView() {
           </span>
         }
         title="Philippine Quality Award (PQA) Framework"
-        description="Campus-level performance excellence evaluation modeled after the Malcolm Baldrige Quality Framework across 7 strategic management dimensions."
+        description="Campus-level performance excellence evaluation administered and evaluated by the Development Academy of the Philippines (DAP) across 7 Malcolm Baldrige quality dimensions."
       />
 
       {/* Campus Selector Pills */}
@@ -146,7 +146,13 @@ export function CampusPQAView() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div>
+              <span className="text-xs text-ink-muted">Evaluating Body</span>
+              <p className="text-xs font-semibold text-brand-700 mt-0.5">
+                {pqaRecord.evaluatingBody || 'DAP (Development Academy of the Philippines)'}
+              </p>
+            </div>
             <div>
               <span className="text-xs text-ink-muted">Last Assessment Date</span>
               <p className="text-xs font-semibold text-ink mt-0.5">{pqaRecord.lastAssessmentDate}</p>
@@ -159,7 +165,7 @@ export function CampusPQAView() {
 
           <div className="mt-4 rounded-md border border-line bg-canvas p-3">
             <p className="text-xs text-ink-muted">
-              <strong className="text-ink">PQA Assessors Feedback:</strong> {pqaRecord.feedbackSummary}
+              <strong className="text-ink">PQA Assessors Feedback (DAP):</strong> {pqaRecord.feedbackSummary}
             </p>
           </div>
         </div>
@@ -308,7 +314,7 @@ export function CampusPQAView() {
                 label={`Awarded Score (Max: ${activeCategory.maxScore} pts)`}
                 type="number"
                 value={editScore.toString()}
-                onChange={(e) => setEditScore(Math.min(activeCategory.maxScore, Math.max(0, Number(e.target.value))))}
+                onChange={(val) => setEditScore(Math.min(activeCategory.maxScore, Math.max(0, Number(val))))}
                 required
               />
 

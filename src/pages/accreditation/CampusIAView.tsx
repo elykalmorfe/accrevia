@@ -168,8 +168,10 @@ export function CampusIAView() {
 
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <div>
-              <span className="text-xs text-ink-muted">Accreditation Body</span>
-              <p className="text-xs font-semibold text-ink mt-0.5">{iaRecord.surveyBody}</p>
+              <span className="text-xs text-ink-muted">Evaluating Body</span>
+              <p className="text-xs font-semibold text-brand-700 mt-0.5">
+                {iaRecord.surveyBody.includes('AACCUP') ? iaRecord.surveyBody : 'AACCUP (Accrediting Agency of Chartered Colleges and Universities in the Philippines)'}
+              </p>
             </div>
             <div>
               <span className="text-xs text-ink-muted">Last Formal Survey</span>

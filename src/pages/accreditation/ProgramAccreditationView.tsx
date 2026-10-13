@@ -125,6 +125,55 @@ export function ProgramAccreditationView() {
     });
   };
 
+  // Summary view mode: AACCUP or COPC
+  const [summaryMode, setSummaryMode] = useState<'aaccup' | 'copc'>('aaccup');
+
+  // Overall calculations across all programs
+  const totalPrograms = programAccreditations.length;
+  const accreditedCount = useMemo(
+    () => programAccreditations.filter((p) => ['Level 1', 'Level 2', 'Level 3', 'Level 4'].includes(p.status)).length,
+    [programAccreditations]
+  );
+  const candidateCount = useMemo(
+    () => programAccreditations.filter((p) => p.status === 'Candidate').length,
+    [programAccreditations]
+  );
+  const pendingSurveyCount = useMemo(
+    () => programAccreditations.filter((p) => !['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Candidate'].includes(p.status)).length,
+    [programAccreditations]
+  );
+  const candidateOrPendingCount = candidateCount + pendingSurveyCount;
+  const accreditationRate = totalPrograms > 0 ? ((accreditedCount / totalPrograms) * 100).toFixed(2) : '0';
+
+  // COPC metrics
+  const copcCompliantCount = useMemo(
+    () => programAccreditations.filter((p) => p.copcStatus === 'Compliant').length,
+    [programAccreditations]
+  );
+  const copcPendingCount = useMemo(
+    () => programAccreditations.filter((p) => p.copcStatus === 'Pending' || p.copcStatus === 'Not Applicable').length,
+    [programAccreditations]
+  );
+  const copcRate = totalPrograms > 0 ? ((copcCompliantCount / totalPrograms) * 100).toFixed(2) : '0';
+
+  // Level counts
+  const level4Count = useMemo(
+    () => programAccreditations.filter((p) => p.status === 'Level 4').length,
+    [programAccreditations]
+  );
+  const level3Count = useMemo(
+    () => programAccreditations.filter((p) => p.status === 'Level 3').length,
+    [programAccreditations]
+  );
+  const level2Count = useMemo(
+    () => programAccreditations.filter((p) => p.status === 'Level 2').length,
+    [programAccreditations]
+  );
+  const level1Count = useMemo(
+    () => programAccreditations.filter((p) => p.status === 'Level 1').length,
+    [programAccreditations]
+  );
+
   return (
     <>
       <PageHeader
@@ -151,6 +200,189 @@ export function ProgramAccreditationView() {
           </button>
         }
       />
+
+      {/* Mode Switcher Tabs for Summary Cards */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 rounded-lg border border-line bg-canvas p-1">
+          <button
+            type="button"
+            onClick={() => setSummaryMode('aaccup')}
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+              summaryMode === 'aaccup'
+                ? 'bg-white text-brand-700 shadow-xs border border-line'
+                : 'text-ink-muted hover:text-ink'
+            }`}
+          >
+            AACCUP Accreditation Summary ({accreditationRate}%)
+          </button>
+          <button
+            type="button"
+            onClick={() => setSummaryMode('copc')}
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+              summaryMode === 'copc'
+                ? 'bg-white text-success-700 shadow-xs border border-line'
+                : 'text-ink-muted hover:text-ink'
+            }`}
+          >
+            CHED COPC Compliance Summary ({copcRate}%)
+          </button>
+        </div>
+
+        <span className="text-xs text-ink-muted hidden sm:inline">
+          {summaryMode === 'aaccup'
+            ? 'AACCUP Survey Levels 1–4 vs Candidate Status'
+            : 'CHED Certificate of Program Compliance Alignment'}
+        </span>
+      </div>
+
+      {/* Institutional Summary Cards (Reflects 2nd Image Reference) */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {summaryMode === 'aaccup' ? (
+          <>
+            <div className="panel p-4">
+              <span className="text-xs text-ink-muted">Total Programs Monitored</span>
+              <p className="mt-1 text-2xl font-bold text-ink">{totalPrograms}</p>
+              <p className="text-[11px] text-ink-subtle">University-wide degree offerings</p>
+            </div>
+
+            <div className="panel p-4">
+              <span className="text-xs text-ink-muted">Accredited Programs (Levels 1–4)</span>
+              <p className="mt-1 text-2xl font-bold text-success-700">{accreditedCount}</p>
+              <p className="text-[11px] text-ink-subtle">AACCUP surveyed & certified</p>
+            </div>
+
+            <div className="panel p-4">
+              <span className="text-xs text-ink-muted">Institutional Accreditation Rate</span>
+              <p className="mt-1 text-2xl font-bold text-brand-700">{accreditationRate}%</p>
+              <p className="text-[11px] text-ink-subtle">Target: 100% accredited</p>
+            </div>
+
+            <div className="panel p-4">
+              <span className="text-xs text-ink-muted">Candidate / Under Evaluation</span>
+              <p className="mt-1 text-2xl font-bold text-warning-700">{candidateOrPendingCount}</p>
+              <p className="text-[11px] text-ink-subtle">{candidateCount} Candidate · {pendingSurveyCount} Pending Visit</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="panel p-4">
+              <span className="text-xs text-ink-muted">Total Programs Monitored</span>
+              <p className="mt-1 text-2xl font-bold text-ink">{totalPrograms}</p>
+              <p className="text-[11px] text-ink-subtle">University-wide degree offerings</p>
+            </div>
+
+            <div className="panel p-4">
+              <span className="text-xs text-ink-muted">Programs with Active COPC</span>
+              <p className="mt-1 text-2xl font-bold text-success-700">{copcCompliantCount}</p>
+              <p className="text-[11px] text-ink-subtle">Issued by CHED Regional Office</p>
+            </div>
+
+            <div className="panel p-4">
+              <span className="text-xs text-ink-muted">Institutional COPC Compliance</span>
+              <p className="mt-1 text-2xl font-bold text-brand-700">{copcRate}%</p>
+              <p className="text-[11px] text-ink-subtle">Target: 100% compliance</p>
+            </div>
+
+            <div className="panel p-4">
+              <span className="text-xs text-ink-muted">Under Evaluation / Pending</span>
+              <p className="mt-1 text-2xl font-bold text-warning-700">{copcPendingCount}</p>
+              <p className="text-[11px] text-ink-subtle">Submitted renewal applications</p>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Campus Distribution Breakdown Grid (Master Reference) */}
+      <div className="mb-6 panel p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+            {summaryMode === 'aaccup'
+              ? 'Campus AACCUP Accreditation Distribution (Master Reference)'
+              : 'Campus COPC Compliance Distribution (Master Reference)'}
+          </h3>
+          {selectedCampus !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setSelectedCampus('all')}
+              className="text-[11px] text-brand-600 font-semibold hover:underline"
+            >
+              Clear Campus Filter (Show All 7)
+            </button>
+          )}
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
+          {campuses.map((c) => {
+            const campusRecs = programAccreditations.filter((p) => p.campusId === c.id);
+            const total = campusRecs.length;
+
+            if (summaryMode === 'aaccup') {
+              const accredited = campusRecs.filter((p) =>
+                ['Level 1', 'Level 2', 'Level 3', 'Level 4'].includes(p.status)
+              ).length;
+              const rate = total > 0 ? ((accredited / total) * 100).toFixed(1) : '0';
+              const isFull = accredited === total && total > 0;
+
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCampus(c.id === selectedCampus ? 'all' : c.id)}
+                  className={`rounded-lg border p-3 text-left transition-all ${
+                    selectedCampus === c.id
+                      ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500 shadow-xs'
+                      : 'border-line hover:bg-canvas'
+                  }`}
+                  title={`Filter by ${c.name} (${accredited}/${total} accredited)`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-ink">{c.shortName}</span>
+                    {isFull ? (
+                      <span className="text-[10px] font-semibold text-success-700">100%</span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-brand-700">{rate}%</span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-base font-extrabold text-brand-900">
+                    {accredited} / {total}
+                  </p>
+                  <p className="text-[10px] text-ink-muted">programs accredited</p>
+                </button>
+              );
+            } else {
+              const comp = campusRecs.filter((p) => p.copcStatus === 'Compliant').length;
+              const isFull = comp === total && total > 0;
+
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCampus(c.id === selectedCampus ? 'all' : c.id)}
+                  className={`rounded-lg border p-3 text-left transition-all ${
+                    selectedCampus === c.id
+                      ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500 shadow-xs'
+                      : 'border-line hover:bg-canvas'
+                  }`}
+                  title={`Filter by ${c.name} (${comp}/${total} COPC compliant)`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-ink">{c.shortName}</span>
+                    {isFull ? (
+                      <span className="text-[10px] font-semibold text-success-700">100%</span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-warning-700">Pending</span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-base font-extrabold text-brand-900">
+                    {comp} / {total}
+                  </p>
+                  <p className="text-[10px] text-ink-muted">programs compliant</p>
+                </button>
+              );
+            }
+          })}
+        </div>
+      </div>
 
       {/* Filter and Search Bar */}
       <div className="mb-5 panel p-4 space-y-3">
@@ -218,25 +450,69 @@ export function ProgramAccreditationView() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-ink-muted border-t border-line pt-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-ink-muted border-t border-line pt-2">
           <span>
             Showing <strong className="text-ink">{filtered.length}</strong> of{' '}
             <strong className="text-ink">{programAccreditations.length}</strong> programs
           </span>
 
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-gold-500" /> Level 4
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-success-600" /> Level 3
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-brand-500" /> Level 2
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-ink-subtle" /> Level 1 / Cand.
-            </span>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedStatus(selectedStatus === 'Level 4' ? 'all' : 'Level 4')}
+              className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors ${
+                selectedStatus === 'Level 4' ? 'bg-gold-100 text-gold-900 font-bold' : 'hover:bg-canvas'
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full bg-gold-500" /> Level 4 ({level4Count})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStatus(selectedStatus === 'Level 3' ? 'all' : 'Level 3')}
+              className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors ${
+                selectedStatus === 'Level 3' ? 'bg-success-100 text-success-900 font-bold' : 'hover:bg-canvas'
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full bg-success-600" /> Level 3 ({level3Count})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStatus(selectedStatus === 'Level 2' ? 'all' : 'Level 2')}
+              className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors ${
+                selectedStatus === 'Level 2' ? 'bg-brand-100 text-brand-900 font-bold' : 'hover:bg-canvas'
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full bg-brand-500" /> Level 2 ({level2Count})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStatus(selectedStatus === 'Level 1' ? 'all' : 'Level 1')}
+              className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors ${
+                selectedStatus === 'Level 1' ? 'bg-slate-200 text-ink font-bold' : 'hover:bg-canvas'
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full bg-ink-subtle" /> Level 1 ({level1Count})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStatus(selectedStatus === 'Candidate' ? 'all' : 'Candidate')}
+              className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors ${
+                selectedStatus === 'Candidate' ? 'bg-amber-100 text-amber-900 font-bold' : 'hover:bg-canvas'
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full bg-amber-500" /> Cand. ({candidateCount})
+            </button>
+
+            <span className="hidden xl:inline text-line">|</span>
+
+            <div className="hidden xl:flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+                AACCUP Rate: {accreditationRate}%
+              </span>
+              <span className="text-[11px] font-semibold text-success-700 bg-success-50 px-2 py-0.5 rounded border border-success-200">
+                COPC Rate: {copcRate}%
+              </span>
+            </div>
           </div>
         </div>
       </div>
