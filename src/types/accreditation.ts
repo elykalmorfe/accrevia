@@ -84,6 +84,7 @@ export interface CampusPQAStatus {
   campusId: CampusId;
   recognitionLevel: PQARecognitionLevel;
   cycle: string;
+  evaluatingBody: string;
   overallScore: number;
   evaluationStatus: 'Awarded' | 'Under Assessment' | 'Preparing Application' | 'Eligible';
   lastAssessmentDate: string;
@@ -188,14 +189,16 @@ export interface ISOSurveillanceRecord {
   id: string;
   campusId: CampusId;
   campusName: string;
+  standardVersion?: string;
   auditDate: string;
   cycle: string;
-  auditType: 'Surveillance Audit 1' | 'Surveillance Audit 2' | 'Recertification Audit' | 'Internal Quality Audit';
+  auditType: 'Surveillance Audit 1' | 'Surveillance Audit 2' | 'Recertification Audit' | 'Internal Quality Audit' | 'For Surveillance' | '2nd Surveillance' | 'Recertification';
   leadAuditor: string;
   auditorRole: string;
   scope: string;
   complianceStatus: ISOComplianceStatus;
   summary: string;
+  isHistorical?: boolean;
   findingsCount: {
     conformances: number;
     ofi: number;

@@ -61,6 +61,8 @@ export type DocumentType =
 
 export type Confidentiality = 'Public' | 'Internal' | 'Confidential';
 
+export type ISODocumentStage = 'For Surveillance' | '2nd Surveillance' | 'Recertification';
+
 export type FileType = 'PDF' | 'DOCX' | 'XLSX' | 'PPTX' | 'JPG' | 'PNG' | 'TIFF';
 
 export interface EvidenceDocument {
@@ -74,6 +76,7 @@ export interface EvidenceDocument {
   indicatorId: string;
   requirementId?: string;
   docType: DocumentType;
+  isoStage?: ISODocumentStage;
   academicYear: string;
   cycle: string;
   program: string;
@@ -104,6 +107,7 @@ export interface PendingDocument {
   uploadedAt: string;
   ocr: boolean;
   excerpt: string;
+  isoStage?: ISODocumentStage;
   suggestion: {
     frameworkId: string;
     areaId: string;
@@ -121,6 +125,7 @@ export interface DocumentMetadata {
   criterionId: string;
   indicatorId: string;
   docType: DocumentType | '';
+  isoStage?: ISODocumentStage;
   campus: string;
   college: string;
   department: string;

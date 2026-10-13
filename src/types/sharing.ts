@@ -26,14 +26,17 @@ export interface ShareRecipientInput {
 }
 
 export type AccessAction =
-'Viewed' |
-'Downloaded' |
-'Shared' |
-'Permission changed' |
-'Access extended' |
-'Access revoked' |
-'Access expired' |
-'Access denied';
+  | 'Viewed'
+  | 'Downloaded'
+  | 'Shared'
+  | 'Permission changed'
+  | 'Access extended'
+  | 'Access revoked'
+  | 'Access expired'
+  | 'Access denied'
+  | 'Access requested'
+  | 'Access approved'
+  | 'Access rejected';
 
 export interface AccessLogEntry {
   id: string;
@@ -43,4 +46,25 @@ export interface AccessLogEntry {
   documentId: string;
   detail?: string;
   at: string;
+}
+
+export type AccessRequestStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export interface AccessRequest {
+  id: string;
+  documentId: string;
+  documentTitle: string;
+  requesterId: string;
+  requesterName: string;
+  requesterRole: 'Faculty' | 'Staff' | 'Accreditor' | string;
+  requesterOffice?: string;
+  requesterEmail?: string;
+  reason: string;
+  requestedPermission: 'View only' | 'View and Download';
+  status: AccessRequestStatus;
+  requestedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
+  grantedExpiresAt?: string | null;
 }
