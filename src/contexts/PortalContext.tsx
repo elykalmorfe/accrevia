@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 import { frameworks as initialFrameworks } from '../data/frameworks';
 import { areas as initialAreas } from '../data/areas';
 import { criteria as initialCriteria } from '../data/criteria';
@@ -6,8 +6,8 @@ import { indicators as initialIndicators } from '../data/indicators';
 import { documents as initialDocuments } from '../data/documents';
 import { pendingDocuments as initialPending } from '../data/pendingDocuments';
 import { users as initialUsers } from '../data/users';
-import { shares as initialShares, accessLog as initialAccessLog } from '../data/shares';
-import { recentSearchActivity } from '../data/analytics';
+import { shares as initialShares, accessLog as initialAccessLog, initialAccessRequests } from '../data/shares';
+import { recentSearchActivity, notifications as initialNotifications } from '../data/analytics';
 import {
   campuses as initialCampuses,
   initialCampusIA,
@@ -40,7 +40,7 @@ import {
   ProgramRequirementItem
 } from '../types/accreditation';
 import { PortalUser, PortalViewRole, UserStatus } from '../types/user';
-import { AccessAction, AccessLogEntry, DocumentShare, ShareRecipientInput } from '../types/sharing';
+import { AccessAction, AccessLogEntry, AccessRequest, DocumentShare, ShareRecipientInput } from '../types/sharing';
 import { metadataToPatch } from '../utils/metadata';
 import { isAdminRole, nowIso, permissionLabel, shareStatus } from '../utils/sharing';
 import { formatDate } from '../utils/format';
@@ -72,6 +72,11 @@ interface PortalContextValue {
   extendShare: (shareId: string, expiresAt: string | null) => void;
   revokeShare: (shareId: string) => void;
   removeShare: (shareId: string) => void;
+  accessRequests: AccessRequest[];
+  submitAccessRequest: (documentId: string, reason: string, requestedPermission?: 'View only' | 'View and Download') => void;
+  reviewAccessRequest: (requestId: string, decision: 'Approved' | 'Rejected', reviewNotes?: string, expiresAt?: string | null) => void;
+  notifications: Array<{ id: string; title: string; detail: string; to: string; time: string }>;
+  dismissNotification: (id: string) => void;
   accessLog: AccessLogEntry[];
   logAccess: (action: AccessAction, documentId: string, detail?: string) => void;
   recentSearches: string[];
@@ -142,6 +147,12 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const [pending, setPending] = useState(initialPending);
   const [users, setUsers] = useState(initialUsers);
   const [shares, setShares] = useState(initialShares);
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>(() =>
+    loadStorage('accessRequests', initialAccessRequests)
+  );
+  const [notifications, setNotifications] = useState<Array<{ id: string; title: string; detail: string; to: string; time: string }>>(() =>
+    loadStorage('notifications', initialNotifications)
+  );
   const [accessLog, setAccessLog] = useState(initialAccessLog);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => recentSearchActivity.map((s) => s.query));
   const [savedIds, setSavedIds] = useState<string[]>(['d-002', 'd-001']);
@@ -304,6 +315,102 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
   const removeShare = useCallback((shareId: string) => setShares((prev) => prev.filter((s) => s.id !== shareId)), []);
 
+  const submitAccessRequest = useCallback(
+    (documentId: string, reason: string, requestedPermission: 'View only' | 'View and Download' = 'View only') => {
+      const doc = documents.find((d) => d.id === documentId);
+      const docTitle = doc?.title || 'Accreditation Document';
+      const newReq: AccessRequest = {
+        id: `req-${Date.now()}`,
+        documentId,
+        documentTitle: docTitle,
+        requesterId: currentUser.id,
+        requesterName: currentUser.name,
+        requesterRole: currentUser.role,
+        requesterOffice: currentUser.office,
+        reason,
+        requestedPermission,
+        status: 'Pending',
+        requestedAt: nowIso()
+      };
+
+      setAccessRequests((prev) => {
+        const next = [newReq, ...prev];
+        saveStorage('accessRequests', next);
+        return next;
+      });
+
+      // Real-time / In-app notification for QA dashboard
+      const newNotif = {
+        id: `notif-${Date.now()}`,
+        title: `Access Request: ${docTitle}`,
+        detail: `${currentUser.name} (${currentUser.role}) requested ${requestedPermission}. Purpose: "${reason.slice(0, 50)}${reason.length > 50 ? '...' : ''}"`,
+        to: '/evidence/shared?tab=requests',
+        time: 'Just now'
+      };
+      setNotifications((prev) => {
+        const next = [newNotif, ...prev];
+        saveStorage('notifications', next);
+        return next;
+      });
+
+      logAccess('Access requested', documentId, `${currentUser.name} requested ${requestedPermission}: ${reason}`);
+    },
+    [currentUser, documents, logAccess]
+  );
+
+  const reviewAccessRequest = useCallback(
+    (requestId: string, decision: 'Approved' | 'Rejected', reviewNotes?: string, expiresAt?: string | null) => {
+      const req = accessRequests.find((r) => r.id === requestId);
+      if (!req) return;
+
+      const now = nowIso();
+      const updatedReq: AccessRequest = {
+        ...req,
+        status: decision,
+        reviewedBy: currentUser.name,
+        reviewedAt: now,
+        reviewNotes: reviewNotes || (decision === 'Approved' ? 'Access approved by Quality Assurance Personnel' : 'Access request declined'),
+        grantedExpiresAt: expiresAt ?? null
+      };
+
+      setAccessRequests((prev) => {
+        const next = prev.map((r) => (r.id === requestId ? updatedReq : r));
+        saveStorage('accessRequests', next);
+        return next;
+      });
+
+      if (decision === 'Approved') {
+        const canDownload = req.requestedPermission === 'View and Download';
+        shareDocument(
+          req.documentId,
+          [
+            {
+              recipientType: 'user',
+              recipientId: req.requesterId,
+              recipientName: req.requesterName,
+              recipientRole: (req.requesterRole as any) || 'Faculty',
+              canView: true,
+              canDownload
+            }
+          ],
+          expiresAt ?? null
+        );
+        logAccess('Access approved', req.documentId, `Approved request from ${req.requesterName} (${req.requestedPermission})`);
+      } else {
+        logAccess('Access rejected', req.documentId, `Rejected request from ${req.requesterName}: ${reviewNotes || 'Declined'}`);
+      }
+    },
+    [accessRequests, currentUser, shareDocument, logAccess]
+  );
+
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications((prev) => {
+      const next = prev.filter((n) => n.id !== id);
+      saveStorage('notifications', next);
+      return next;
+    });
+  }, []);
+
   const addRecentSearch = useCallback((query: string) => {
     setRecentSearches((prev) => [query, ...prev.filter((q) => q.toLowerCase() !== query.toLowerCase())].slice(0, 8));
   }, []);
@@ -396,7 +503,18 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
   const saveISOSurveillanceRecord = useCallback((rec: ISOSurveillanceRecord) => {
     setIsoRecords((prev) => {
-      const next = upsert(prev, rec);
+      // Historical Preservation: Never overwrite or delete previous records when adding a new standard/audit.
+      const exists = prev.some((r) => r.id === rec.id);
+      let next: ISOSurveillanceRecord[];
+      if (exists) {
+        next = prev.map((r) => (r.id === rec.id ? rec : r));
+      } else {
+        // Mark previous records for this campus as historical, keeping all historical records intact
+        next = [
+          { ...rec, isHistorical: false },
+          ...prev.map((r) => (r.campusId === rec.campusId ? { ...r, isHistorical: true } : r))
+        ];
+      }
       saveStorage('isoRecords', next);
       return next;
     });
@@ -453,6 +571,11 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       extendShare,
       revokeShare,
       removeShare,
+      accessRequests,
+      submitAccessRequest,
+      reviewAccessRequest,
+      notifications,
+      dismissNotification,
       accessLog,
       logAccess,
       recentSearches,
@@ -506,6 +629,11 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       extendShare,
       revokeShare,
       removeShare,
+      accessRequests,
+      submitAccessRequest,
+      reviewAccessRequest,
+      notifications,
+      dismissNotification,
       accessLog,
       logAccess,
       recentSearches,
