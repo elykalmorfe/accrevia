@@ -13,14 +13,14 @@ export function SavedEvidence() {
 
   return (
     <>
-      <PageHeader title="Saved Evidence" description="Documents you saved for quick reference. Saved items disappear if your access ends." />
+      <PageHeader title="Saved Documents" description="Documents you saved for quick reference. Saved items disappear if your access ends." />
       <section className="panel">
         {items.length ?
         <ul className="divide-y divide-line">
             {items.map((doc) => <SharedDocumentRow key={doc.id} doc={doc} shares={rightsFor(doc.id).shares} />)}
           </ul> :
 
-        <EmptyState icon={BookmarkIcon} title="No saved evidence" description="Use Save on a document or search result to keep it here." />
+        <EmptyState icon={BookmarkIcon} title="No saved documents" description="Use Save on a document or search result to keep it here." />
         }
       </section>
     </>);
