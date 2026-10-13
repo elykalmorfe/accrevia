@@ -45,7 +45,7 @@ export function EvidenceTable({ docs, onPreview, onEdit }: EvidenceTableProps) {
     onSelect: () => {
       const previous = doc.status;
       updateDocument(doc.id, { status: 'Archived' });
-      toast('Moved to Archived Evidence', {
+      toast('Moved to Archived Documents', {
         description: doc.title,
         action: { label: 'Undo', onClick: () => updateDocument(doc.id, { status: previous }) }
       });
@@ -78,7 +78,14 @@ export function EvidenceTable({ docs, onPreview, onEdit }: EvidenceTableProps) {
             <tr key={doc.id} className="hover:bg-canvas/60">
                 <td className="td min-w-[280px] max-w-[340px]">
                   <Link to={`/documents/${doc.id}`} className="font-medium text-ink hover:text-brand-700 hover:underline">{doc.title}</Link>
-                  <p className="mt-0.5 text-xs text-ink-subtle">{doc.fileType} · {doc.pages} pages · {doc.confidentiality}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-subtle">
+                    <span>{doc.fileType} · {doc.pages} pages · {doc.confidentiality}</span>
+                    {doc.isoStage && (
+                      <span className="rounded bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.5 text-[10px]">
+                        {doc.isoStage}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="td"><FrameworkTag frameworkId={doc.frameworkId} /></td>
                 <td className="td whitespace-nowrap text-ink-muted">{lookup.area(doc.areaId)?.shortName}</td>
@@ -116,6 +123,11 @@ export function EvidenceTable({ docs, onPreview, onEdit }: EvidenceTableProps) {
                 <Link to={`/documents/${doc.id}`} className="text-sm font-medium text-ink hover:text-brand-700">{doc.title}</Link>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <FrameworkTag frameworkId={doc.frameworkId} />
+                  {doc.isoStage && (
+                    <span className="rounded bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.5 text-[10px]">
+                      {doc.isoStage}
+                    </span>
+                  )}
                   <StatusBadge status={doc.status} />
                   <SharingStatusBadge documentId={doc.id} />
                 </div>
