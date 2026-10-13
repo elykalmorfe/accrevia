@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DownloadIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,7 +16,10 @@ const actionTone: Record<AccessAction, BadgeTone> = {
   'Access extended': 'brand',
   'Access revoked': 'danger',
   'Access expired': 'warning',
-  'Access denied': 'danger'
+  'Access denied': 'danger',
+  'Access requested': 'brand',
+  'Access approved': 'success',
+  'Access rejected': 'danger'
 };
 
 export function AccessLogTable() {

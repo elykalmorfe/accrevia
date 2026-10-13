@@ -32,7 +32,7 @@ export function SharesTable() {
   }, [shares, documents, text, role, permission, status]);
 
   return (
-    <section className="panel overflow-hidden" aria-label="Shared evidence">
+    <section className="panel overflow-hidden" aria-label="Shared documents">
       <div className="flex flex-col gap-2 border-b border-line p-4 md:flex-row">
         <div className="relative md:w-72">
           <label htmlFor="share-filter" className="sr-only">Filter shares</label>
