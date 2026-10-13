@@ -14,12 +14,12 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const [selectedCampus, setSelectedCampus] = useState('All Campuses');
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-slate-100 bg-white/95 backdrop-blur-md px-4 sm:px-6">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 sm:gap-3 border-b border-slate-100 bg-white/95 backdrop-blur-md px-3 sm:px-6">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <button
           type="button"
-          className="btn btn-ghost btn-icon h-9 w-9 lg:hidden text-ink-muted hover:text-ink"
-          aria-label="Open navigation"
+          className="btn btn-ghost btn-icon h-10 w-10 lg:hidden text-ink-muted hover:text-ink -ml-1"
+          aria-label="Open navigation drawer"
           onClick={onOpenMenu}
         >
           <MenuIcon className="h-5 w-5" />
@@ -27,14 +27,14 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         <Brand />
       </div>
 
-      {/* SEARCH BAR (from reference: Fund Name...) */}
-      <div className="flex min-w-0 flex-1 max-w-md px-2">
+      {/* SEARCH BAR (Adaptive width) */}
+      <div className="flex min-w-0 flex-1 max-w-xs sm:max-w-md px-1 sm:px-2">
         <GlobalSearch />
       </div>
 
-      {/* REFERENCE DESIGN SIGNATURE FEATURES: Academic Cycle Slider & Filter Button */}
+      {/* DESKTOP ACADEMIC CYCLE SLIDER & FILTER BUTTON */}
       <div className="hidden xl:flex items-center gap-6">
-        {/* Slider: UW Year : [ 2012 ] ─────── [ 2017 ] */}
+        {/* Slider: UW Year : [ 2021 ] ─────── [ 2026 ] */}
         <div className="flex items-center gap-3 bg-slate-50/80 px-3.5 py-1.5 rounded-2xl border border-slate-200/60 shadow-inner">
           <span className="text-xs font-bold text-ink-muted whitespace-nowrap">
             Cycle :
@@ -53,12 +53,12 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           </div>
         </div>
 
-        {/* Filter Button with Dropdown (from reference: [ Filter ]) */}
+        {/* Filter Button with Dropdown (Desktop) */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-ink hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-ink hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all min-h-[38px]"
           >
             <SlidersHorizontalIcon className="h-3.5 w-3.5 text-brand-600" />
             <span>Filter</span>
@@ -66,55 +66,74 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
               <span className="h-2 w-2 rounded-full bg-brand-600" />
             )}
           </button>
-
-          {showFilterDropdown && (
-            <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-slate-100 bg-white p-3 shadow-soft-lg z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                <span className="text-xs font-bold text-ink">Campus Filter</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedCampus('All Campuses');
-                    setShowFilterDropdown(false);
-                  }}
-                  className="text-[11px] text-brand-600 hover:underline font-semibold"
-                >
-                  Reset
-                </button>
-              </div>
-              <div className="space-y-1">
-                {[
-                  'All Campuses',
-                  'Main Campus (Tandag)',
-                  'Cantilan Campus',
-                  'Lianga Campus',
-                  'Tagbina Campus',
-                  'San Miguel Campus',
-                  'Bislig Campus',
-                  'Cagwait Campus'
-                ].map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCampus(c);
-                      setShowFilterDropdown(false);
-                    }}
-                    className={`w-full flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs transition-colors ${
-                      selectedCampus === c
-                        ? 'bg-brand-50 font-bold text-brand-700'
-                        : 'text-ink-muted hover:bg-slate-50 hover:text-ink'
-                    }`}
-                  >
-                    <span>{c}</span>
-                    {selectedCampus === c && <CheckIcon className="h-3.5 w-3.5 text-brand-600" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* MOBILE / TABLET FILTER BUTTON & DROPDOWN */}
+      <div className="relative xl:hidden">
+        <button
+          type="button"
+          onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+          className="btn btn-ghost btn-icon h-10 w-10 text-ink-muted hover:text-ink relative"
+          aria-label="Campus filters"
+          title="Campus Filter"
+        >
+          <SlidersHorizontalIcon className="h-4.5 w-4.5 text-brand-600" />
+          {selectedCampus !== 'All Campuses' && (
+            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-brand-600" />
+          )}
+        </button>
+      </div>
+
+      {showFilterDropdown && (
+        <div className="absolute right-4 top-16 w-72 rounded-2xl border border-slate-100 bg-white p-3 shadow-soft-lg z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+            <div>
+              <span className="text-xs font-bold text-ink">Campus & Cycle Filter</span>
+              <p className="text-[10px] text-ink-muted">Academic Cycle: {startYear}–{endYear}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCampus('All Campuses');
+                setShowFilterDropdown(false);
+              }}
+              className="text-[11px] text-brand-600 hover:underline font-semibold"
+            >
+              Reset
+            </button>
+          </div>
+          <div className="space-y-1 max-h-64 overflow-y-auto">
+            {[
+              'All Campuses',
+              'Main Campus (Tandag)',
+              'Cantilan Campus',
+              'Lianga Campus',
+              'Tagbina Campus',
+              'San Miguel Campus',
+              'Bislig Campus',
+              'Cagwait Campus'
+            ].map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => {
+                  setSelectedCampus(c);
+                  setShowFilterDropdown(false);
+                }}
+                className={`w-full flex items-center justify-between rounded-xl px-2.5 py-2 text-xs transition-colors min-h-[36px] ${
+                  selectedCampus === c
+                    ? 'bg-brand-50 font-bold text-brand-700'
+                    : 'text-ink-muted hover:bg-slate-50 hover:text-ink'
+                }`}
+              >
+                <span>{c}</span>
+                {selectedCampus === c && <CheckIcon className="h-3.5 w-3.5 text-brand-600" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* RIGHT ACTIONS: NOTIFICATIONS & PROFILE */}
       <div className="flex shrink-0 items-center gap-2">

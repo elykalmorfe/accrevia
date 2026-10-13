@@ -9,9 +9,9 @@ export function Brand({ showSubtitle = true }: {showSubtitle?: boolean;}) {
         </svg>
       </div>
       <div className="leading-tight">
-        <span className="block font-sans text-[17px] font-extrabold tracking-tight text-ink">Accrevia</span>
+        <span className="block font-sans text-base sm:text-[17px] font-extrabold tracking-tight text-ink">Accrevia</span>
         {showSubtitle && (
-          <span className="block text-[11px] font-medium text-ink-subtle">QA & Accreditation</span>
+          <span className="hidden sm:block text-[11px] font-medium text-ink-subtle whitespace-nowrap">QA & Accreditation</span>
         )}
       </div>
     </Link>
