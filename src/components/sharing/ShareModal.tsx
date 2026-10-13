@@ -72,7 +72,7 @@ export function ShareModal({ docId, onClose }: {docId: string | null;onClose: ()
     if (mode === 'users') {
       if (!drafts.length) return setError('Select at least one person to share with.');
       if (drafts.some((d) => !d.canView)) return setError('Every recipient needs View permission. Download cannot be granted without View.');
-      recipients = drafts.map(({ office: _office, ...r }) => r);
+      recipients = drafts.map(({ recipientType, recipientId, recipientName, recipientRole, canView, canDownload }) => ({ recipientType, recipientId, recipientName, recipientRole, canView, canDownload }));
     } else {
       recipients = [{ recipientType: 'role', recipientId: `role-${role}`, recipientName: roleGroupName(role), recipientRole: role, canView: true, canDownload: roleDownload }];
     }

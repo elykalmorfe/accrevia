@@ -161,6 +161,8 @@ export interface COPCRecord {
 
 export type ISOComplianceStatus = 'Compliant' | 'Minor Deficiencies' | 'Major Deficiencies Pending Action' | 'Certified';
 
+export type ISOAuditType = 'Surveillance Audit 1' | 'Surveillance Audit 2' | 'Recertification Audit' | 'Internal Quality Audit' | 'For Surveillance' | '2nd Surveillance' | 'Recertification';
+
 export interface ISOClauseEvaluation {
   clauseNumber: string;
   clauseTitle: string;

@@ -16,7 +16,7 @@ export function isAdminRole(role: UserRole): boolean {
   return role === 'Administrator' || role === 'QA Personnel';
 }
 
-export function isRecipientRole(role: UserRole): role is RecipientRole {
+export function isRecipientRole(role: string): role is RecipientRole {
   return role === 'Faculty' || role === 'Staff' || role === 'Accreditor';
 }
 

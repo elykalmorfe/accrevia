@@ -1,5 +1,19 @@
 export type FrameworkCategory = 'Accreditation' | 'Compliance' | 'Quality Excellence' | 'Quality Management';
 
+export type FolderColor = 'blue' | 'purple' | 'emerald' | 'amber' | 'indigo' | 'rose' | 'cyan' | 'slate';
+
+export interface EvidenceFolder {
+  id: string;
+  name: string;
+  code: string;
+  frameworkId: string;
+  category: FrameworkCategory | 'General / Custom';
+  description: string;
+  isSystem?: boolean;
+  color: FolderColor;
+  createdAt: string;
+}
+
 export interface Framework {
   id: string;
   name: string;
@@ -94,6 +108,7 @@ export interface EvidenceDocument {
   sizeMb: number;
   uploadedBy: string;
   passages: string[];
+  folderId?: string;
 }
 
 export interface PendingDocument {
@@ -107,6 +122,7 @@ export interface PendingDocument {
   uploadedAt: string;
   ocr: boolean;
   excerpt: string;
+  folderId?: string;
   isoStage?: ISODocumentStage;
   suggestion: {
     frameworkId: string;

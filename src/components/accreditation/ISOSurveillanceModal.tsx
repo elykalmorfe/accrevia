@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import {
   CampusId,
+  ISOAuditType,
   ISOComplianceStatus,
   ISOCorrectiveAction,
   ISOSurveillanceRecord
@@ -26,9 +27,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
   const [standardVersion, setStandardVersion] = useState('ISO 9001:2015');
   const [auditDate, setAuditDate] = useState(new Date().toISOString().slice(0, 10));
   const [cycle, setCycle] = useState('2025 Surveillance Audit 1');
-  const [auditType, setAuditType] = useState<
-    'For Surveillance' | '2nd Surveillance' | 'Recertification' | 'Surveillance Audit 1' | 'Surveillance Audit 2' | 'Recertification Audit' | 'Internal Quality Audit'
-  >('For Surveillance');
+  const [auditType, setAuditType] = useState<ISOAuditType>('For Surveillance');
   const [leadAuditor, setLeadAuditor] = useState(currentUser.name || 'Lead Quality Auditor');
   const [auditorRole, setAuditorRole] = useState('Certified ISO 9001:2015 Auditor');
   const [scope, setScope] = useState('Higher & Advanced Education, Research, Extension, and Support Operations');
@@ -158,7 +157,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
             <TextField
               label="Standard Version"
               value={standardVersion}
-              onChange={(e) => setStandardVersion(e.target.value)}
+              onChange={(val) => setStandardVersion(val)}
               placeholder="e.g. ISO 9001:2015, ISO 9001:2026"
               required
             />
@@ -167,14 +166,14 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
               label="Audit Date"
               type="date"
               value={auditDate}
-              onChange={(e) => setAuditDate(e.target.value)}
+              onChange={(val) => setAuditDate(val)}
               required
             />
 
             <TextField
               label="Audit Cycle"
               value={cycle}
-              onChange={(e) => setCycle(e.target.value)}
+              onChange={(val) => setCycle(val)}
               placeholder="e.g. 2026 Surveillance Audit 1"
               required
             />
@@ -182,7 +181,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
             <SelectField
               label="Audit Type / Stage"
               value={auditType}
-              onChange={(e) => setAuditType(e.target.value as any)}
+              onChange={(val) => setAuditType(val as ISOAuditType)}
               options={[
                 { value: 'For Surveillance', label: 'For Surveillance' },
                 { value: '2nd Surveillance', label: '2nd Surveillance' },
@@ -199,7 +198,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
             <TextField
               label="Lead Auditor"
               value={leadAuditor}
-              onChange={(e) => setLeadAuditor(e.target.value)}
+              onChange={(val) => setLeadAuditor(val)}
               placeholder="e.g. Engr. Nelson V. Carandang"
               required
             />
@@ -207,7 +206,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
             <TextField
               label="Auditor Role / Accreditation"
               value={auditorRole}
-              onChange={(e) => setAuditorRole(e.target.value)}
+              onChange={(val) => setAuditorRole(val)}
               placeholder="e.g. Lead ISO Quality Auditor"
               required
             />
@@ -215,7 +214,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
             <SelectField
               label="Compliance Determination"
               value={complianceStatus}
-              onChange={(e) => setComplianceStatus(e.target.value as ISOComplianceStatus)}
+              onChange={(val) => setComplianceStatus(val as ISOComplianceStatus)}
               options={[
                 { value: 'Compliant', label: 'Compliant (Zero Major Deficiencies)' },
                 { value: 'Certified', label: 'Certified (Full Conformance)' },
@@ -229,7 +228,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
             <TextField
               label="Audit Scope"
               value={scope}
-              onChange={(e) => setScope(e.target.value)}
+              onChange={(val) => setScope(val)}
               placeholder="Scope of certification..."
             />
           </div>
@@ -335,7 +334,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
                     <TextField
                       label="Deficiency / Non-conformance Description"
                       value={car.deficiencyDescription}
-                      onChange={(e) => updateCar(idx, { deficiencyDescription: e.target.value })}
+                      onChange={(val) => updateCar(idx, { deficiencyDescription: val })}
                       placeholder="Describe what standard parameter was not met..."
                       required
                     />
@@ -344,7 +343,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
                       label="Target Resolution Date"
                       type="date"
                       value={car.targetDate}
-                      onChange={(e) => updateCar(idx, { targetDate: e.target.value })}
+                      onChange={(val) => updateCar(idx, { targetDate: val })}
                       required
                     />
                   </div>
@@ -353,14 +352,14 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
                     <TextField
                       label="Correction (Immediate Action)"
                       value={car.correction}
-                      onChange={(e) => updateCar(idx, { correction: e.target.value })}
+                      onChange={(val) => updateCar(idx, { correction: val })}
                       placeholder="Immediate containment action..."
                     />
 
                     <TextField
                       label="Corrective Action (Systemic Fix)"
                       value={car.correctiveAction}
-                      onChange={(e) => updateCar(idx, { correctiveAction: e.target.value })}
+                      onChange={(val) => updateCar(idx, { correctiveAction: val })}
                       placeholder="Prevention of recurrence..."
                     />
                   </div>

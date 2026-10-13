@@ -11,6 +11,9 @@ export interface UploadItem {
   fileType: FileType;
   ocr: boolean;
   stage: number;
+  folderId?: string;
+  folderName?: string;
+  frameworkId?: string;
 }
 
 const LAST = processingStages.length - 1;
@@ -27,7 +30,10 @@ const sampleItem: UploadItem = {
   sizeMb: 3.2,
   fileType: 'PDF',
   ocr: false,
-  stage: LAST
+  stage: LAST,
+  folderId: 'folder-ia',
+  folderName: 'Institutional Accreditation',
+  frameworkId: 'ia'
 };
 
 function suggestArea(name: string): {frameworkId: string;areaId: string;} {
@@ -39,11 +45,11 @@ function suggestArea(name: string): {frameworkId: string;areaId: string;} {
   if (/extension|community/.test(n)) return { frameworkId: 'ia', areaId: 'extension' };
   if (/library/.test(n)) return { frameworkId: 'ia', areaId: 'library' };
   if (/student|osas|guidance/.test(n)) return { frameworkId: 'ia', areaId: 'students' };
-  return { frameworkId: 'ia', areaId: '' };
+  return { frameworkId: 'ia', areaId: 'faculty' };
 }
 
 export function useUploadQueue() {
-  const { addPending } = usePortal();
+  const { addPending, addDocument } = usePortal();
   const [items, setItems] = useState<UploadItem[]>([sampleItem]);
   const [selectedId, setSelectedId] = useState(sampleItem.id);
   const [forceOcr, setForceOcr] = useState(false);
@@ -61,6 +67,11 @@ export function useUploadQueue() {
     items.forEach((item) => {
       if (item.stage !== LAST || notified.current.has(item.id)) return;
       notified.current.add(item.id);
+
+      const targetFw = item.frameworkId || suggestArea(item.name).frameworkId;
+      const today = new Date().toISOString().slice(0, 10);
+
+      // Add to pending classification
       addPending({
         id: `p-${item.id}`,
         fileName: item.name,
@@ -68,20 +79,52 @@ export function useUploadQueue() {
         fileType: item.fileType,
         pages: Math.max(1, Math.round(item.sizeMb * 6)),
         sizeMb: item.sizeMb,
-        uploadedBy: 'Maria L. Santos',
+        uploadedBy: 'Dr. Maria L. Santos',
         uploadedAt: new Date().toISOString(),
         ocr: item.ocr,
+        folderId: item.folderId,
         excerpt: 'Extracted text is available for review. Confirm the classification below to make this document searchable.',
-        suggestion: { ...suggestArea(item.name), docType: 'Other', confidence: 0.52 }
+        suggestion: { ...suggestArea(item.name), frameworkId: targetFw, docType: 'Other', confidence: 0.88 }
       });
+
+      // Add to active indexed documents for folder visibility
+      addDocument({
+        id: `d-${item.id}`,
+        title: item.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '),
+        description: `Uploaded evidence assigned to ${item.folderName || 'accreditation repository'}.`,
+        keywords: [item.name.toLowerCase().replace(/\.[^.]+$/, '')],
+        frameworkId: targetFw,
+        areaId: suggestArea(item.name).areaId,
+        criterionId: '',
+        indicatorId: '',
+        folderId: item.folderId,
+        docType: 'Report',
+        academicYear: '2025–2026',
+        cycle: '2026 Accreditation Cycle',
+        program: 'University-wide',
+        college: 'Main Campus',
+        department: 'Quality Assurance Office',
+        office: 'Quality Assurance Office',
+        campus: 'Main Campus (Tandag City)',
+        documentDate: today,
+        confidentiality: 'Internal',
+        status: 'Indexed',
+        dateAdded: today,
+        fileType: item.fileType,
+        pages: Math.max(1, Math.round(item.sizeMb * 6)),
+        sizeMb: item.sizeMb,
+        uploadedBy: 'Dr. Maria L. Santos',
+        passages: [`File ${item.name} successfully extracted, chunked, and indexed.`]
+      });
+
       toast.success(`${item.name} is ready for retrieval`, {
-        description: 'Added to Pending Classification for metadata review.'
+        description: `Stored in folder ${item.folderName ? `"${item.folderName}"` : ''} and added to search index.`
       });
     });
-  }, [items, addPending]);
+  }, [items, addPending, addDocument]);
 
   const addFiles = useCallback(
-    (files: File[]) => {
+    (files: File[], folderMeta?: { folderId: string; folderName: string; frameworkId: string }) => {
       const accepted: UploadItem[] = [];
       const rejected: string[] = [];
       files.forEach((file) => {
@@ -98,7 +141,10 @@ export function useUploadQueue() {
           sizeMb: Math.max(0.1, Math.round(file.size / 1024 / 1024 * 10) / 10),
           fileType: type,
           ocr: forceOcr || isImage || /scan/i.test(file.name),
-          stage: 0
+          stage: 0,
+          folderId: folderMeta?.folderId,
+          folderName: folderMeta?.folderName,
+          frameworkId: folderMeta?.frameworkId
         });
       });
       if (rejected.length) toast.error(`Not uploaded: ${rejected.join(', ')}`, { description: 'Unsupported format or larger than 50 MB.' });

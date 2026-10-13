@@ -33,13 +33,10 @@ export const navigation: NavItem[] = [
   icon: LibraryBigIcon,
   matchPrefix: '/evidence',
   children: [
-  { label: 'All Documents', to: '/evidence' },
-  { label: 'Upload Documents', to: '/evidence/upload' },
-  { label: 'Pending Classification', to: '/evidence/pending', showPendingCount: true },
-  { label: 'Document Processing', to: '/evidence/processing' },
-  { label: 'Shared Documents', to: '/evidence/shared' },
-  { label: 'Archived Documents', to: '/evidence/archived' }]
-
+    { label: 'All Documents', to: '/evidence' },
+    { label: 'Upload Documents', to: '/evidence/upload' },
+    { label: 'Pending Classification', to: '/evidence/pending', showPendingCount: true }
+  ]
 },
 {
   label: 'Accreditation & Frameworks',

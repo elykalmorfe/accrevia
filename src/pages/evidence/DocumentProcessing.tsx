@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { RotateCcwIcon, TriangleAlertIcon } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowLeftIcon, RotateCcwIcon, TriangleAlertIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { processingJobs, processingStages } from '../../data/processing';
 import { repositoryStats } from '../../data/analytics';
@@ -47,6 +48,13 @@ export function DocumentProcessing() {
 
   return (
     <>
+      <div className="mb-3">
+        <Link to="/evidence" className="btn btn-secondary btn-sm inline-flex items-center gap-1.5">
+          <ArrowLeftIcon className="h-4 w-4" />
+          <span>Back to All Documents</span>
+        </Link>
+      </div>
+
       <PageHeader
         eyebrow="Document Management"
         title="Document Processing"

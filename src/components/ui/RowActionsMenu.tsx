@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { EllipsisIcon, BoxIcon } from "lucide-react";
+import { EllipsisIcon, LucideIcon } from "lucide-react";
 export interface RowAction {
   label: string;
-  icon: BoxIcon;
+  icon: LucideIcon;
   onSelect: () => void;
   tone?: 'danger';
 }

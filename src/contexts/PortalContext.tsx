@@ -1,5 +1,6 @@
-import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { frameworks as initialFrameworks } from '../data/frameworks';
+import { initialFolders } from '../data/folders';
 import { areas as initialAreas } from '../data/areas';
 import { criteria as initialCriteria } from '../data/criteria';
 import { indicators as initialIndicators } from '../data/indicators';
@@ -21,6 +22,7 @@ import {
   Criterion,
   DocumentMetadata,
   EvidenceDocument,
+  EvidenceFolder,
   EvidenceRequirement,
   Framework,
   Indicator,
@@ -42,7 +44,7 @@ import {
 import { PortalUser, PortalViewRole, UserStatus } from '../types/user';
 import { AccessAction, AccessLogEntry, AccessRequest, DocumentShare, ShareRecipientInput } from '../types/sharing';
 import { metadataToPatch } from '../utils/metadata';
-import { isAdminRole, nowIso, permissionLabel, shareStatus } from '../utils/sharing';
+import { isAdminRole, isRecipientRole, nowIso, permissionLabel, shareStatus } from '../utils/sharing';
 import { formatDate } from '../utils/format';
 
 interface PortalContextValue {
@@ -59,7 +61,11 @@ interface PortalContextValue {
   saveIndicator: (indicator: Indicator) => void;
   addRequirement: (indicatorId: string, requirement: EvidenceRequirement) => void;
   documents: EvidenceDocument[];
+  addDocument: (doc: EvidenceDocument) => void;
   updateDocument: (id: string, patch: Partial<EvidenceDocument>) => void;
+  folders: EvidenceFolder[];
+  saveFolder: (folder: EvidenceFolder) => void;
+  deleteFolder: (id: string) => void;
   pending: PendingDocument[];
   addPending: (doc: PendingDocument) => void;
   classifyPending: (id: string, meta: DocumentMetadata) => void;
@@ -143,7 +149,8 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const [areas, setAreas] = useState(initialAreas);
   const [criteria, setCriteria] = useState(initialCriteria);
   const [indicators, setIndicators] = useState(initialIndicators);
-  const [documents, setDocuments] = useState(initialDocuments);
+  const [documents, setDocuments] = useState<EvidenceDocument[]>(() => loadStorage('documents', initialDocuments));
+  const [folders, setFolders] = useState<EvidenceFolder[]>(() => loadStorage('folders', initialFolders));
   const [pending, setPending] = useState(initialPending);
   const [users, setUsers] = useState(initialUsers);
   const [shares, setShares] = useState(initialShares);
@@ -156,6 +163,14 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const [accessLog, setAccessLog] = useState(initialAccessLog);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => recentSearchActivity.map((s) => s.query));
   const [savedIds, setSavedIds] = useState<string[]>(['d-002', 'd-001']);
+
+  useEffect(() => {
+    saveStorage('folders', folders);
+  }, [folders]);
+
+  useEffect(() => {
+    saveStorage('documents', documents);
+  }, [documents]);
 
   // Accreditation & QA State
   const [campuses] = useState<Campus[]>(() => loadStorage('campuses', initialCampuses));
@@ -187,6 +202,21 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     (id: string, patch: Partial<EvidenceDocument>) => setDocuments((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d))),
     []
   );
+  const addDocument = useCallback((doc: EvidenceDocument) => setDocuments((prev) => [doc, ...prev]), []);
+  const saveFolder = useCallback((folder: EvidenceFolder) => {
+    setFolders((prev) => {
+      const idx = prev.findIndex((f) => f.id === folder.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = folder;
+        return next;
+      }
+      return [...prev, folder];
+    });
+  }, []);
+  const deleteFolder = useCallback((id: string) => {
+    setFolders((prev) => prev.filter((f) => f.id !== id));
+  }, []);
   const addPending = useCallback((doc: PendingDocument) => setPending((prev) => [doc, ...prev]), []);
 
   const classifyPending = useCallback(
@@ -388,7 +418,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
               recipientType: 'user',
               recipientId: req.requesterId,
               recipientName: req.requesterName,
-              recipientRole: (req.requesterRole as any) || 'Faculty',
+              recipientRole: isRecipientRole(req.requesterRole) ? req.requesterRole : 'Faculty',
               canView: true,
               canDownload
             }
@@ -558,7 +588,11 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       saveIndicator,
       addRequirement,
       documents,
+      addDocument,
       updateDocument,
+      folders,
+      saveFolder,
+      deleteFolder,
       pending,
       addPending,
       classifyPending,
@@ -616,7 +650,11 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       saveIndicator,
       addRequirement,
       documents,
+      addDocument,
       updateDocument,
+      folders,
+      saveFolder,
+      deleteFolder,
       pending,
       addPending,
       classifyPending,

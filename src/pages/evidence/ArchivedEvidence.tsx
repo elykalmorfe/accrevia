@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArchiveIcon, ArchiveRestoreIcon } from 'lucide-react';
+import { ArchiveIcon, ArchiveRestoreIcon, ArrowLeftIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import { useLookup } from '../../hooks/useLookup';
@@ -21,6 +21,13 @@ export function ArchivedEvidence() {
 
   return (
     <>
+      <div className="mb-3">
+        <Link to="/evidence" className="btn btn-secondary btn-sm inline-flex items-center gap-1.5">
+          <ArrowLeftIcon className="h-4 w-4" />
+          <span>Back to All Documents</span>
+        </Link>
+      </div>
+
       <PageHeader
         eyebrow="Document Management"
         title="Archived Documents"

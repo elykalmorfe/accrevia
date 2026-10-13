@@ -1,4 +1,5 @@
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeftIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { shareStatus } from '../../utils/sharing';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -18,6 +19,13 @@ export function SharedEvidence() {
 
   return (
     <>
+      <div className="mb-3">
+        <Link to="/evidence" className="btn btn-secondary btn-sm inline-flex items-center gap-1.5">
+          <ArrowLeftIcon className="h-4 w-4" />
+          <span>Back to All Documents</span>
+        </Link>
+      </div>
+
       <PageHeader
         eyebrow="Document Management"
         title="Shared Documents"

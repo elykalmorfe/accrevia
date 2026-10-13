@@ -147,7 +147,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
           <SelectField
             label="Campus"
             value={campusId}
-            onChange={(e) => setCampusId(e.target.value as CampusId)}
+            onChange={(val) => setCampusId(val as CampusId)}
             options={campuses.map((c) => ({ value: c.id, label: c.name }))}
             required
           />
@@ -155,7 +155,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
           <SelectField
             label="Degree Level"
             value={degreeLevel}
-            onChange={(e) => setDegreeLevel(e.target.value as 'Undergraduate' | 'Graduate')}
+            onChange={(val) => setDegreeLevel(val as 'Undergraduate' | 'Graduate')}
             options={[
               { value: 'Undergraduate', label: 'Undergraduate Program' },
               { value: 'Graduate', label: 'Graduate Program' }
@@ -167,7 +167,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
         <TextField
           label="Program Name"
           value={programName}
-          onChange={(e) => setProgramName(e.target.value)}
+          onChange={(val) => setProgramName(val)}
           placeholder="e.g. Bachelor of Science in Civil Engineering"
           required
         />
@@ -176,14 +176,14 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
           <TextField
             label="Year of Initial Operation"
             value={yearOfInitialOperation}
-            onChange={(e) => setYearOfInitialOperation(e.target.value)}
+            onChange={(val) => setYearOfInitialOperation(val)}
             placeholder="e.g. 1998, 2007-2008"
           />
 
           <SelectField
             label="Accreditation Status"
             value={status}
-            onChange={(e) => setStatus(e.target.value as AccreditationLevel)}
+            onChange={(val) => setStatus(val as AccreditationLevel)}
             options={[
               { value: 'Candidate', label: 'Candidate' },
               { value: 'Level 1', label: 'Level 1' },
@@ -200,7 +200,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
           <TextField
             label="Schedule for Accreditation"
             value={scheduleForAccreditation}
-            onChange={(e) => setScheduleForAccreditation(e.target.value)}
+            onChange={(val) => setScheduleForAccreditation(val)}
             placeholder="e.g. 2025-09-30 or Sep-30-2025"
           />
         </div>
@@ -209,14 +209,14 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
           <TextField
             label="Validity Start Date"
             value={validityStart}
-            onChange={(e) => setValidityStart(e.target.value)}
+            onChange={(val) => setValidityStart(val)}
             placeholder="e.g. 2023-09-01 or Sep-01-2023"
           />
 
           <TextField
             label="Validity End Date"
             value={validityEnd}
-            onChange={(e) => setValidityEnd(e.target.value)}
+            onChange={(val) => setValidityEnd(val)}
             placeholder="e.g. 2026-08-31 or Aug-31-2026"
           />
         </div>
@@ -230,7 +230,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
             <TextField
               label="Accreditation Certificate File"
               value={certificationFile}
-              onChange={(e) => setCertificationFile(e.target.value)}
+              onChange={(val) => setCertificationFile(val)}
               placeholder="e.g. AACCUP Certification 2022.pdf"
             />
 
@@ -238,21 +238,21 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
               <TextField
                 label="AACCUP Instrument (Link)"
                 value={instrumentLink}
-                onChange={(e) => setInstrumentLink(e.target.value)}
+                onChange={(val) => setInstrumentLink(val)}
                 placeholder="Google Drive link or URL"
               />
 
               <TextField
                 label="Summary of Findings & Recommendations"
                 value={findingsLink}
-                onChange={(e) => setFindingsLink(e.target.value)}
+                onChange={(val) => setFindingsLink(val)}
                 placeholder="Google Drive link or URL"
               />
 
               <TextField
                 label="AACCUP Technical Review"
                 value={technicalReviewLink}
-                onChange={(e) => setTechnicalReviewLink(e.target.value)}
+                onChange={(val) => setTechnicalReviewLink(val)}
                 placeholder="Google Drive link or URL"
               />
             </div>
@@ -268,7 +268,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
             <SelectField
               label="COPC Status"
               value={copcStatus}
-              onChange={(e) => setCopcStatus(e.target.value as 'Compliant' | 'Pending' | 'Not Applicable')}
+              onChange={(val) => setCopcStatus(val as 'Compliant' | 'Pending' | 'Not Applicable')}
               options={[
                 { value: 'Compliant', label: 'Compliant (With Certificate)' },
                 { value: 'Pending', label: 'Pending Review / Under Evaluation' },
@@ -279,14 +279,14 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
             <TextField
               label="COPC Certificate Number"
               value={copcCertificateNumber}
-              onChange={(e) => setCopcCertificateNumber(e.target.value)}
+              onChange={(val) => setCopcCertificateNumber(val)}
               placeholder="e.g. COPC-2023-TAN-01"
             />
 
             <TextField
               label="BOR Resolution Number"
               value={borRes}
-              onChange={(e) => setBorRes(e.target.value)}
+              onChange={(val) => setBorRes(val)}
               placeholder="e.g. Res. no. 027 s. 2013"
             />
           </div>
@@ -295,7 +295,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
             <TextField
               label="CHED Memorandum Order (CMO)"
               value={cmoNo}
-              onChange={(e) => setCmoNo(e.target.value)}
+              onChange={(val) => setCmoNo(val)}
               placeholder="e.g. CMO No. 25, Series of 2015"
             />
           </div>

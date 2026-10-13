@@ -135,14 +135,14 @@ export function AccreditationDocModal({
           <TextField
             label="Document / Certificate File Name"
             value={docName}
-            onChange={(e) => setDocName(e.target.value)}
+            onChange={(val) => setDocName(val)}
             placeholder="e.g. AACCUP_Certification_2023.pdf"
           />
 
           <TextField
             label="Document URL or Google Drive Link"
             value={docUrl}
-            onChange={(e) => setDocUrl(e.target.value)}
+            onChange={(val) => setDocUrl(val)}
             placeholder="https://drive.google.com/..."
           />
         </div>
@@ -151,7 +151,7 @@ export function AccreditationDocModal({
           <SelectField
             label="Evaluation / Verification Status"
             value={status}
-            onChange={(e) => setStatus(e.target.value as RequirementVerificationStatus)}
+            onChange={(val) => setStatus(val as RequirementVerificationStatus)}
             options={[
               { value: 'Approved', label: 'Approved & Verified' },
               { value: 'Under Review', label: 'Under Review' },

@@ -30,7 +30,7 @@ body {
     @apply text-ink-muted hover:bg-brand-50 hover:text-brand-700;
   }
   .btn-danger {
-    @apply bg-danger-600 text-white hover:bg-danger-700 shadow-sm shadow-danger-500/20;
+    @apply bg-danger-600 text-white hover:bg-danger-700 shadow-sm;
   }
   .btn-sm {
     @apply h-8 px-3 text-[13px] rounded-lg;
