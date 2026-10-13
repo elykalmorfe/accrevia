@@ -88,11 +88,11 @@ export function FolderFormModal({ open, folder, onClose, onSave }: FolderFormMod
       description="Organize accreditation evidence into dedicated categories for streamlined verification and search indexing."
       size="md"
       footer={
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="btn btn-secondary">
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
+          <button type="button" onClick={onClose} className="btn btn-secondary w-full sm:w-auto">
             Cancel
           </button>
-          <button type="button" onClick={handleSave} className="btn btn-primary">
+          <button type="button" onClick={handleSave} className="btn btn-primary w-full sm:w-auto">
             {folder ? 'Save Changes' : 'Create Folder'}
           </button>
         </div>

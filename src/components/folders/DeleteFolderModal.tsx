@@ -29,8 +29,8 @@ export function DeleteFolderModal({
       title={isProtected ? 'Protected System Folder' : `Delete Folder "${folder.name}"?`}
       size="md"
       footer={
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="btn btn-secondary">
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
+          <button type="button" onClick={onClose} className="btn btn-secondary w-full sm:w-auto">
             {isProtected ? 'Close' : 'Cancel'}
           </button>
           {!isProtected && (
@@ -40,7 +40,7 @@ export function DeleteFolderModal({
                 onConfirm(folder.id);
                 onClose();
               }}
-              className="btn btn-danger"
+              className="btn btn-danger w-full sm:w-auto"
             >
               Delete Folder
             </button>
