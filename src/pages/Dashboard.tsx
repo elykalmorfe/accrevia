@@ -444,7 +444,7 @@ export function Dashboard() {
         </div>
 
         {/* 5 Column Metric Summary (Matches Reference: "ABC 123 / 256.2K", "XYZ_OLD / 224.6K", etc.) */}
-        <div className="grid grid-cols-2 gap-4 py-5 sm:grid-cols-5 border-b border-slate-100">
+        <div className="grid grid-cols-2 gap-4 py-5 sm:grid-cols-3 lg:grid-cols-5 border-b border-slate-100">
           <div className="px-2">
             <p className="text-xs font-bold text-ink-subtle uppercase tracking-wider">AACCUP Level IV</p>
             <p className="mt-1 text-2xl font-black text-ink">94.2%</p>
@@ -463,7 +463,7 @@ export function Dashboard() {
             <span className="text-[11px] font-semibold text-emerald-600">Zero Major CARs</span>
           </div>
 
-          <div className="px-2 border-t pt-3 sm:pt-0 sm:border-t-0 border-l border-slate-100">
+          <div className="px-2 border-t pt-3 sm:pt-0 sm:border-t-0 lg:border-l border-slate-100">
             <p className="text-xs font-bold text-ink-subtle uppercase tracking-wider">PQA Scorecard</p>
             <p className="mt-1 text-2xl font-black text-ink">480 pts</p>
             <span className="text-[11px] font-semibold text-amber-600">Level II Recognized</span>
