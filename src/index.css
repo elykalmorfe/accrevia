@@ -8,17 +8,40 @@
 
 /* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
 
-html,
-body,
-#root {
+html {
   min-height: 100%;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
 }
 body {
+  min-height: 100%;
+  overflow-x: hidden;
   @apply bg-canvas font-sans text-ink antialiased;
 }
+#root {
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+/* Safe area & responsive utility helpers */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem);
+}
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 0.75rem);
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 @layer components {
   .btn {
-    @apply inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98];
+    @apply inline-flex min-h-[38px] items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98];
   }
   .btn-primary {
     @apply bg-brand-600 text-white hover:bg-brand-700 shadow-sm shadow-brand-500/25;
@@ -33,16 +56,16 @@ body {
     @apply bg-danger-600 text-white hover:bg-danger-700 shadow-sm;
   }
   .btn-sm {
-    @apply h-8 px-3 text-[13px] rounded-lg;
+    @apply min-h-[34px] px-3 text-[13px] rounded-lg;
   }
   .btn-icon {
-    @apply h-9 w-9 p-0 rounded-xl;
+    @apply min-h-[38px] min-w-[38px] p-0 rounded-xl;
   }
   .input {
-    @apply h-10 w-full rounded-xl border border-line bg-white px-3.5 text-sm text-ink placeholder:text-ink-subtle transition-all duration-150 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10 disabled:bg-canvas disabled:text-ink-subtle;
+    @apply min-h-[40px] w-full rounded-xl border border-line bg-white px-3.5 text-base sm:text-sm text-ink placeholder:text-ink-subtle transition-all duration-150 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10 disabled:bg-canvas disabled:text-ink-subtle;
   }
   .textarea {
-    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-subtle transition-all duration-150 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10;
+    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-base sm:text-sm text-ink placeholder:text-ink-subtle transition-all duration-150 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10;
   }
   .label {
     @apply mb-1.5 block text-[13px] font-semibold text-ink;
