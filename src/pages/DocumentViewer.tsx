@@ -62,13 +62,13 @@ export function DocumentViewer() {
   if (!doc && isAdmin) {
     return (
       <div className="panel">
-        <EmptyState icon={FileQuestionIcon} title="Document not found" description="This evidence document may have been removed or the link is incorrect." action={<Link to="/evidence" className="btn btn-primary">Go to All Evidence</Link>} />
+        <EmptyState icon={FileQuestionIcon} title="Document not found" description="This document may have been removed or the link is incorrect." action={<Link to="/evidence" className="btn btn-primary">Go to All Documents</Link>} />
       </div>);
 
   }
 
   // Never render content, metadata, or a download path without view permission.
-  if (!doc || !rights.canView) return <AccessRestricted />;
+  if (!doc || !rights.canView) return <AccessRestricted documentId={doc?.id || id} />;
 
   const framework = lookup.framework(doc.frameworkId);
   const area = lookup.area(doc.areaId);
@@ -100,6 +100,7 @@ export function DocumentViewer() {
   ['Office', doc.office],
   ['Academic year', doc.academicYear],
   ['Accreditation cycle', doc.cycle],
+  ...(doc.isoStage ? [['ISO Audit Stage / Label', <span key="iso" className="font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 text-xs">{doc.isoStage}</span>] as [string, React.ReactNode]] : []),
   ['Upload date', formatDate(doc.dateAdded)],
   ['Processing status', <StatusBadge key="s" status={doc.status} />],
   ['Confidentiality', doc.confidentiality]];
@@ -124,7 +125,7 @@ export function DocumentViewer() {
           onClick={() => query ? navigate(-1) : navigate(isAdmin ? '/evidence' : '/shared-with-me')}
           className="link inline-flex items-center gap-1.5 text-[13px]">
           
-          <ArrowLeftIcon className="h-3.5 w-3.5" /> {query ? 'Back to search results' : isAdmin ? 'All Evidence' : 'Shared with Me'}
+          <ArrowLeftIcon className="h-3.5 w-3.5" /> {query ? 'Back to search results' : isAdmin ? 'All Documents' : 'Shared with Me'}
         </button>
         <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -146,7 +147,7 @@ export function DocumentViewer() {
                 </button>
               </>
             }
-            <button type="button" className="btn btn-secondary" aria-pressed={saved} onClick={() => toast(toggleSaved(doc.id) ? 'Saved to your evidence list' : 'Removed from saved evidence')}>
+            <button type="button" className="btn btn-secondary" aria-pressed={saved} onClick={() => toast(toggleSaved(doc.id) ? 'Saved to your documents list' : 'Removed from saved documents')}>
               {saved ? <BookmarkCheckIcon className="h-4 w-4 text-brand-600" /> : <BookmarkIcon className="h-4 w-4" />}
               {saved ? 'Saved' : 'Save'}
             </button>
@@ -240,7 +241,7 @@ export function DocumentViewer() {
           }
 
           <section className="panel p-5" aria-labelledby="info-heading">
-            <h2 id="info-heading" className="panel-title">Evidence Information</h2>
+            <h2 id="info-heading" className="panel-title">Document Information</h2>
             <dl className="mt-3 grid grid-cols-[minmax(0,130px)_minmax(0,1fr)] gap-x-3 gap-y-2.5 text-[13px]">
               {info.map(([label, value]) =>
               <React.Fragment key={label}>
@@ -284,7 +285,7 @@ export function DocumentViewer() {
           </section>
 
           <section className="panel p-5" aria-labelledby="related-heading">
-            <h2 id="related-heading" className="panel-title">Related Evidence</h2>
+            <h2 id="related-heading" className="panel-title">Related Documents</h2>
             {related.length ?
             <ul className="mt-2 divide-y divide-line">
                 {related.map((r) =>
@@ -295,7 +296,7 @@ export function DocumentViewer() {
               )}
               </ul> :
 
-            <p className="mt-2 text-[13px] text-ink-muted">{isAdmin ? 'No other documents are linked to this criterion yet.' : 'No other related evidence has been shared with you.'}</p>
+            <p className="mt-2 text-[13px] text-ink-muted">{isAdmin ? 'No other documents are linked to this criterion yet.' : 'No other related documents have been shared with you.'}</p>
             }
           </section>
         </aside>

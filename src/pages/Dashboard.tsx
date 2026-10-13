@@ -8,26 +8,31 @@ import {
   Building2Icon,
   FileCheck2Icon,
   ArrowUpRightIcon,
-  SparklesIcon
+  SparklesIcon,
+  CheckCircle2Icon
 } from 'lucide-react';
 import { usePortal } from '../contexts/PortalContext';
 import { useLookup } from '../hooks/useLookup';
 import { PageHeader } from '../components/ui/PageHeader';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { FrameworkTag } from '../components/ui/FrameworkTag';
+import { Badge } from '../components/ui/Badge';
 import { PermissionIndicator } from '../components/sharing/PermissionIndicator';
 import { repositoryStats } from '../data/analytics';
 import { formatDate, formatNumber } from '../utils/format';
+import { PendingAccessRequestsModal } from '../components/sharing/PendingAccessRequestsModal';
 
 export function Dashboard() {
   const {
     documents,
     pending,
     shares,
+    accessRequests,
     programAccreditations,
   } = usePortal();
   const lookup = useLookup();
 
+  const [accessModalOpen, setAccessModalOpen] = useState(false);
   const [activeLegendBar, setActiveLegendBar] = useState<'all' | 'inst' | 'prog'>('all');
   const [graphFilter, setGraphFilter] = useState('All Campuses');
 
@@ -38,7 +43,10 @@ export function Dashboard() {
     indexed: repositoryStats.total - repositoryStats.processing - pending.length
   };
 
-
+  const pendingAccessRequests = useMemo(
+    () => accessRequests.filter((r) => r.status === 'Pending'),
+    [accessRequests]
+  );
 
   const compliantCopc = programAccreditations.filter((p) => p.copcStatus === 'Compliant').length;
   const copcRate = programAccreditations.length > 0
@@ -88,15 +96,28 @@ export function Dashboard() {
       {/* PAGE HEADER */}
       <PageHeader
         title="Dashboard"
-        eyebrow="NEMSU Accreditation Evidence System"
-        description="Comprehensive quality assurance, multi-campus accreditation monitoring, and verified institutional evidence metrics."
+        eyebrow="NEMSU Accreditation Management System"
+        description="Comprehensive quality assurance, multi-campus accreditation monitoring, and verified institutional compliance metrics."
         actions={
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {pendingAccessRequests.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setAccessModalOpen(true)}
+                className="btn btn-secondary relative gap-2 border-amber-300 bg-amber-50/80 text-amber-900 hover:bg-amber-100/90 shadow-xs"
+              >
+                <ShieldCheckIcon className="h-4 w-4 text-amber-700" />
+                <span>Access Requests</span>
+                <span className="rounded-full bg-amber-600 px-1.5 py-0.2 text-[10px] font-bold text-white">
+                  {pendingAccessRequests.length}
+                </span>
+              </button>
+            )}
             <Link to="/evidence/pending" className="btn btn-secondary">
               Review Pending ({s.pending})
             </Link>
             <Link to="/evidence/upload" className="btn btn-primary">
-              <UploadIcon className="h-4 w-4" /> Upload Evidence
+              <UploadIcon className="h-4 w-4" /> Upload Documents
             </Link>
           </div>
         }
@@ -512,11 +533,11 @@ export function Dashboard() {
         <div className="panel lg:col-span-2 overflow-hidden">
           <div className="flex items-center justify-between p-5 border-b border-slate-100">
             <div>
-              <h3 className="panel-title">Recent Evidence Records</h3>
+              <h3 className="panel-title">Recent Documents</h3>
               <p className="text-xs text-ink-muted">Recently indexed compliance artifacts</p>
             </div>
             <Link to="/evidence" className="link text-xs">
-              View all evidence →
+              View all documents →
             </Link>
           </div>
 
@@ -558,48 +579,120 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Sharing Activity */}
-        <div className="panel p-5 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="panel-title">Active Shares</h3>
-              <Link to="/evidence/shared" className="link text-xs">
-                Manage
-              </Link>
+        {/* Right Column: Access Governance Widget & Active Shares */}
+        <div className="space-y-5 flex flex-col">
+          {/* PENDING DOCUMENT ACCESS REQUESTS WIDGET */}
+          <div className="panel p-5 border-l-4 border-l-amber-500 bg-gradient-to-br from-white to-amber-50/20 shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-600" />
+                  </span>
+                  <h3 className="panel-title text-ink font-bold">Access Requests</h3>
+                </div>
+                <Badge tone={pendingAccessRequests.length > 0 ? 'warning' : 'success'}>
+                  {pendingAccessRequests.length} Pending
+                </Badge>
+              </div>
+
+              {pendingAccessRequests.length > 0 ? (
+                <>
+                  <p className="mt-2 text-xs text-ink-muted">
+                    Faculty and staff awaiting QA authorization to access compliance documents.
+                  </p>
+
+                  <ul className="mt-3 divide-y divide-slate-100">
+                    {pendingAccessRequests.slice(0, 2).map((req) => (
+                      <li key={req.id} className="py-2.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-ink truncate">{req.requesterName}</span>
+                          <Badge tone={req.requestedPermission === 'View and Download' ? 'success' : 'brand'}>
+                            {req.requestedPermission}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-brand-700 font-medium truncate mt-0.5">
+                          {req.documentTitle}
+                        </p>
+                        <p className="text-[11px] text-ink-muted italic line-clamp-1 mt-0.5">
+                          "{req.reason}"
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <div className="py-6 text-center text-xs text-ink-muted">
+                  <CheckCircle2Icon className="mx-auto h-6 w-6 text-emerald-600 mb-1" />
+                  All document access requests processed. Zero pending.
+                </div>
+              )}
             </div>
 
-            <ul className="mt-3 divide-y divide-slate-100">
-              {recentShares.map((x) => {
-                const doc = documents.find((d) => d.id === x.documentId);
-                return (
-                  <li key={x.id} className="py-3">
-                    <Link to={`/documents/${x.documentId}`} className="block truncate text-xs font-semibold text-ink hover:text-brand-600">
-                      {doc?.title}
-                    </Link>
-                    <p className="mt-0.5 truncate text-[11px] text-ink-muted">
-                      Shared with <span className="font-medium text-ink">{x.recipientName}</span>
-                    </p>
-                    <div className="mt-1 flex items-center justify-between text-[11px] text-ink-subtle">
-                      <PermissionIndicator canDownload={x.canDownload} />
-                      <span>{formatDate(x.sharedAt)}</span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="mt-4 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setAccessModalOpen(true)}
+                className="btn btn-primary btn-sm w-full gap-1.5 bg-brand-700 hover:bg-brand-800 text-xs font-semibold shadow-xs"
+              >
+                <ShieldCheckIcon className="h-3.5 w-3.5" />
+                {pendingAccessRequests.length > 0
+                  ? `Review ${pendingAccessRequests.length} Requests`
+                  : 'Open Requests Modal'}
+              </button>
+            </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <Link
-              to="/frameworks"
-              className="flex items-center justify-center gap-2 rounded-xl bg-brand-50 p-2.5 text-xs font-bold text-brand-700 hover:bg-brand-100 transition-colors"
-            >
-              <SparklesIcon className="h-4 w-4" />
-              <span>Launch QA Command Center</span>
-            </Link>
+          {/* Active Shares Activity */}
+          <div className="panel p-5 flex flex-col justify-between flex-1">
+            <div>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="panel-title">Active Shares</h3>
+                <Link to="/evidence/shared" className="link text-xs">
+                  Manage
+                </Link>
+              </div>
+
+              <ul className="mt-3 divide-y divide-slate-100">
+                {recentShares.map((x) => {
+                  const doc = documents.find((d) => d.id === x.documentId);
+                  return (
+                    <li key={x.id} className="py-3">
+                      <Link to={`/documents/${x.documentId}`} className="block truncate text-xs font-semibold text-ink hover:text-brand-600">
+                        {doc?.title}
+                      </Link>
+                      <p className="mt-0.5 truncate text-[11px] text-ink-muted">
+                        Shared with <span className="font-medium text-ink">{x.recipientName}</span>
+                      </p>
+                      <div className="mt-1 flex items-center justify-between text-[11px] text-ink-subtle">
+                        <PermissionIndicator canDownload={x.canDownload} />
+                        <span>{formatDate(x.sharedAt)}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <Link
+                to="/frameworks"
+                className="flex items-center justify-center gap-2 rounded-xl bg-brand-50 p-2.5 text-xs font-bold text-brand-700 hover:bg-brand-100 transition-colors"
+              >
+                <SparklesIcon className="h-4 w-4" />
+                <span>Launch QA Command Center</span>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
+
+      {/* ENHANCED PENDING DOCUMENT ACCESS REQUESTS MODAL */}
+      <PendingAccessRequestsModal
+        open={accessModalOpen}
+        onClose={() => setAccessModalOpen(false)}
+      />
     </div>
   );
 }
