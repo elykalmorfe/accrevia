@@ -203,7 +203,7 @@ export const documents: EvidenceDocument[] = [
   description: 'Results of the first ISO internal quality audit cycle, including findings and corrective actions.',
   keywords: ['ISO', 'internal audit', 'nonconformity', 'corrective action', 'audit findings'],
   frameworkId: 'iso', areaId: 'qa', criterionId: 'c-iso-9', indicatorId: 'i-iso9-1', requirementId: 'r-iso9-1-a',
-  docType: 'Report', academicYear: '2025–2026', office: 'Quality Assurance Office', cycle: '2025 ISO Surveillance Audit',
+  docType: 'Report', isoStage: 'For Surveillance', academicYear: '2025–2026', office: 'Quality Assurance Office', cycle: '2025 ISO Surveillance Audit',
   documentDate: '2025-07-18', dateAdded: '2026-09-24', pages: 32, sizeMb: 2.2,
   passages: [
   'The first internal quality audit cycle covered 24 processes and identified 3 minor nonconformities and 11 opportunities for improvement.',
@@ -217,7 +217,7 @@ export const documents: EvidenceDocument[] = [
   description: 'Internal audit programme listing audit cycles, processes covered, and assigned auditors.',
   keywords: ['ISO', 'internal audit plan', 'audit schedule', 'auditors'],
   frameworkId: 'iso', areaId: 'qa', criterionId: 'c-iso-9', indicatorId: 'i-iso9-1', requirementId: 'r-iso9-1-a',
-  docType: 'Plan', academicYear: '2024–2025', office: 'Quality Assurance Office', cycle: '2025 ISO Surveillance Audit',
+  docType: 'Plan', isoStage: '2nd Surveillance', academicYear: '2024–2025', office: 'Quality Assurance Office', cycle: '2025 ISO Surveillance Audit',
   documentDate: '2025-01-15', dateAdded: '2026-04-12', pages: 12, sizeMb: 0.6, fileType: 'XLSX',
   passages: [
   'The audit programme schedules two internal audit cycles per year, covering all core and support processes of the QMS.',
@@ -231,7 +231,7 @@ export const documents: EvidenceDocument[] = [
   description: 'Competence requirements per position mapped against trainings completed by personnel.',
   keywords: ['competence', 'training records', 'competence matrix', 'personnel'],
   frameworkId: 'iso', areaId: 'faculty', criterionId: 'c-iso-7', indicatorId: 'i-iso7-1', requirementId: 'r-iso7-1-a',
-  docType: 'Faculty Record', academicYear: '2025–2026', office: 'Human Resource Management Office', cycle: '2025 ISO Surveillance Audit',
+  docType: 'Faculty Record', isoStage: 'Recertification', academicYear: '2025–2026', office: 'Human Resource Management Office', cycle: '2025 ISO Surveillance Audit',
   documentDate: '2025-05-05', dateAdded: '2026-08-10', pages: 28, sizeMb: 1.8, fileType: 'XLSX',
   passages: [
   'The competence matrix maps required competencies for 128 positions against training completed by incumbents.',
@@ -418,4 +418,46 @@ export const documents: EvidenceDocument[] = [
   docType: 'Manual', academicYear: '2018–2019', office: 'Quality Assurance Office', cycle: '2019 Institutional Accreditation',
   status: 'Archived', documentDate: '2018-11-05', dateAdded: '2019-06-03', pages: 96, sizeMb: 4.8,
   passages: ['This edition is superseded by the 3rd Edition approved under BOR Resolution No. 18, s. 2025.']
+},
+{
+  ...base,
+  id: 'd-030',
+  title: 'ISO 9001:2015 Management Review Minutes & Audit Evidence',
+  description: 'Executive committee minutes reviewing university-wide QMS surveillance audit results, risk assessments, and non-conformance status.',
+  keywords: ['ISO', 'surveillance', 'management review', 'quality management', 'audit evidence'],
+  frameworkId: 'iso', areaId: 'qa', criterionId: 'c-iso-9', indicatorId: 'i-iso9-1', requirementId: 'r-iso9-1-a',
+  docType: 'Meeting Minutes', isoStage: 'For Surveillance', academicYear: '2025–2026', office: 'Quality Assurance Office', cycle: '2025 ISO Surveillance Audit',
+  documentDate: '2025-08-14', dateAdded: '2026-09-15', pages: 22, sizeMb: 1.4,
+  passages: [
+    'The University Executive Committee conducted the annual Management Review in conformance with ISO 9001:2015 Clause 9.3.',
+    'Status of actions from previous management reviews and opportunities for continual improvement were reviewed and confirmed.'
+  ]
+},
+{
+  ...base,
+  id: 'd-031',
+  title: 'ISO 9001:2015 Recertification Audit Attestation & QMS Register',
+  description: 'Official ISO 9001:2015 recertification audit scope attestation, clause verification records, and certifying body validation.',
+  keywords: ['ISO', 'recertification', 'QMS', 'certificate', 'audit attestation'],
+  frameworkId: 'iso', areaId: 'qa', criterionId: 'c-iso-9', indicatorId: 'i-iso9-1', requirementId: 'r-iso9-1-a',
+  docType: 'Certificate', isoStage: 'Recertification', academicYear: '2024–2025', office: 'Quality Assurance Office', cycle: '2025 ISO Surveillance Audit',
+  documentDate: '2025-03-20', dateAdded: '2026-06-10', pages: 18, sizeMb: 2.7,
+  passages: [
+    'NEMSU successfully satisfied all requirements for ISO 9001:2015 Recertification across all 7 operational campuses.',
+    'The scope covers the provision of Tertiary and Advanced Higher Education, Research, and Extension Services.'
+  ]
+},
+{
+  ...base,
+  id: 'd-032',
+  title: 'ISO 9001:2015 2nd Surveillance Audit Conformance Dossier',
+  description: 'Compiled audit evidence, risk registry monitoring, and operational compliance reports for 2nd Surveillance audit verification.',
+  keywords: ['ISO', '2nd surveillance', 'audit dossier', 'quality monitoring', 'conformance'],
+  frameworkId: 'iso', areaId: 'qa', criterionId: 'c-iso-9', indicatorId: 'i-iso9-1', requirementId: 'r-iso9-1-a',
+  docType: 'Report', isoStage: '2nd Surveillance', academicYear: '2024–2025', office: 'Quality Assurance Office', cycle: '2025 ISO Surveillance Audit',
+  documentDate: '2025-06-11', dateAdded: '2026-07-04', pages: 35, sizeMb: 3.1,
+  passages: [
+    'Second surveillance audit evidence confirms ongoing suitability, adequacy, and effectiveness of the university quality management system.',
+    'Clause 8 operational planning and service provision verified across all academic departments.'
+  ]
 }];

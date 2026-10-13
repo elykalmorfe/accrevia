@@ -1,4 +1,4 @@
-import { Confidentiality, DocumentType } from '../types/evidence';
+import { Confidentiality, DocumentType, ISODocumentStage } from '../types/evidence';
 import { UserRole } from '../types/user';
 
 export const documentTypes: DocumentType[] = [
@@ -15,6 +15,12 @@ export const documentTypes: DocumentType[] = [
 'Plan',
 'Photo / Documentation',
 'Other'];
+
+export const isoDocumentLabels: ISODocumentStage[] = [
+  'For Surveillance',
+  '2nd Surveillance',
+  'Recertification'
+];
 
 
 export const academicYears = ['2025–2026', '2024–2025', '2023–2024', '2022–2023', '2021–2022'];

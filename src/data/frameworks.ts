@@ -6,7 +6,7 @@ export const frameworks: Framework[] = [
   name: 'Institutional Accreditation',
   shortName: 'IA',
   category: 'Accreditation',
-  body: 'AACCUP Institutional Accreditation Survey Instrument',
+  body: 'AACCUP (Accrediting Agency of Chartered Colleges and Universities in the Philippines)',
   description:
   'Evaluates the university as a whole across governance, faculty, instruction, research, extension, and support services.',
   active: true,
@@ -40,7 +40,7 @@ export const frameworks: Framework[] = [
   name: 'Philippine Quality Award',
   shortName: 'PQA',
   category: 'Quality Excellence',
-  body: 'PQA Performance Excellence Framework',
+  body: 'DAP (Development Academy of the Philippines)',
   description: 'Recognizes organizational performance excellence in leadership, strategy, operations, and results.',
   active: true,
   documentCount: 104,

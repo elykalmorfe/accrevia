@@ -1,4 +1,4 @@
-import { AccessLogEntry, DocumentShare } from '../types/sharing';
+import { AccessLogEntry, AccessRequest, DocumentShare } from '../types/sharing';
 
 export const shares: DocumentShare[] = [
 { id: 's-01', documentId: 'd-001', recipientType: 'user', recipientId: 'u-07', recipientName: 'Dr. Teresita A. Gonzaga', recipientRole: 'Faculty', canView: true, canDownload: true, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-28T10:12:00', expiresAt: '2026-12-31', revokedAt: null },
@@ -18,7 +18,6 @@ export const shares: DocumentShare[] = [
 { id: 's-15', documentId: 'd-008', recipientType: 'user', recipientId: 'u-14', recipientName: 'Rhea Mae Tolentino', recipientRole: 'Staff', canView: true, canDownload: true, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-06T15:45:00', expiresAt: null, revokedAt: null },
 { id: 's-16', documentId: 'd-011', recipientType: 'user', recipientId: 'u-13', recipientName: 'Juan Dela Cruz', recipientRole: 'Staff', canView: true, canDownload: false, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-07-02T08:20:00', expiresAt: '2027-06-30', revokedAt: null }];
 
-
 export const accessLog: AccessLogEntry[] = [
 { id: 'l-01', actor: 'Dr. Teresita A. Gonzaga', actorRole: 'Faculty', action: 'Downloaded', documentId: 'd-001', at: '2026-10-01T09:01:00' },
 { id: 'l-02', actor: 'Dr. Teresita A. Gonzaga', actorRole: 'Faculty', action: 'Viewed', documentId: 'd-001', at: '2026-10-01T08:58:00' },
@@ -31,3 +30,49 @@ export const accessLog: AccessLogEntry[] = [
 { id: 'l-09', actor: 'Dr. Maria L. Santos', actorRole: 'Administrator', action: 'Shared', documentId: 'd-005', detail: 'All Accreditors · View only · expires Dec 31, 2026', at: '2026-09-27T11:06:00' },
 { id: 'l-10', actor: 'System', actorRole: 'System', action: 'Access expired', documentId: 'd-007', detail: 'Rhea Mae Tolentino', at: '2026-09-16T00:00:00' },
 { id: 'l-11', actor: 'Prof. Liza M. Cabrera', actorRole: 'QA Personnel', action: 'Shared', documentId: 'd-002', detail: 'Dr. Victor S. Manalo · View only · expires Nov 30, 2026', at: '2026-09-25T14:30:00' }];
+
+export const initialAccessRequests: AccessRequest[] = [
+  {
+    id: 'req-01',
+    documentId: 'd-002',
+    documentTitle: 'Faculty Profile and Credentials Compendium AY 2025–2026',
+    requesterId: 'u-08',
+    requesterName: 'Prof. Arnel B. Lupian',
+    requesterRole: 'Faculty',
+    requesterOffice: 'College of Information Technology Education',
+    reason: 'Evaluating faculty teaching loads against CMO standards for BSIT Level III re-accreditation.',
+    requestedPermission: 'View and Download',
+    status: 'Pending',
+    requestedAt: '2026-10-12T14:30:00'
+  },
+  {
+    id: 'req-02',
+    documentId: 'd-005',
+    documentTitle: 'Student Services Manual and Welfare Programs',
+    requesterId: 'u-14',
+    requesterName: 'Rhea Mae Tolentino',
+    requesterRole: 'Staff',
+    requesterOffice: 'Office of Student Affairs and Services',
+    reason: 'Updating OSAS student handbook protocols in preparation for upcoming institutional quality survey.',
+    requestedPermission: 'View only',
+    status: 'Pending',
+    requestedAt: '2026-10-13T06:15:00'
+  },
+  {
+    id: 'req-03',
+    documentId: 'd-001',
+    documentTitle: 'Faculty Development Program Report 2025',
+    requesterId: 'u-13',
+    requesterName: 'Juan Dela Cruz',
+    requesterRole: 'Staff',
+    requesterOffice: 'Office of the University Registrar',
+    reason: 'Cross-verifying faculty scholarship graduate clearances with registrar archives.',
+    requestedPermission: 'View and Download',
+    status: 'Approved',
+    requestedAt: '2026-09-27T08:20:00',
+    reviewedBy: 'Dr. Maria L. Santos',
+    reviewedAt: '2026-09-28T10:12:00',
+    reviewNotes: 'Approved for official registrar cross-verification purposes.',
+    grantedExpiresAt: '2026-12-31'
+  }
+];

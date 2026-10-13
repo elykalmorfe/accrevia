@@ -282,7 +282,7 @@ export const initialCampusIA: CampusIAStatus[] = [
   }
 ];
 
-export const initialCampusPQA: CampusPQAStatus[] = [
+const rawCampusPQA: Omit<CampusPQAStatus, 'evaluatingBody'>[] = [
   {
     campusId: 'tandag',
     recognitionLevel: 'Level 3: Mastery in Quality Management',
@@ -417,6 +417,11 @@ export const initialCampusPQA: CampusPQAStatus[] = [
     ]
   }
 ];
+
+export const initialCampusPQA: CampusPQAStatus[] = rawCampusPQA.map((p) => ({
+  ...p,
+  evaluatingBody: 'DAP (Development Academy of the Philippines)'
+}));
 
 export const standardProgramSurveyAreas = [
   'Area I: Vision, Mission, Goals and Objectives',
@@ -1908,14 +1913,16 @@ export const initialISORecords: ISOSurveillanceRecord[] = [
     id: 'iso-rec-tandag',
     campusId: 'tandag',
     campusName: 'Tandag Campus (Main)',
+    standardVersion: 'ISO 9001:2015',
     auditDate: '2024-09-24',
     cycle: '2024 Surveillance Audit 2',
-    auditType: 'Surveillance Audit 2',
+    auditType: '2nd Surveillance',
     leadAuditor: 'Engr. Nelson V. Carandang (TUV / External)',
     auditorRole: 'Lead ISO Quality Auditor',
     scope: 'Provision of Higher and Advanced Education, Research, Extension and Administrative Support Services',
     complianceStatus: 'Certified',
     summary: 'Tandag Campus demonstrated high compliance across all ISO 9001:2015 standard clauses. Zero major non-conformances identified.',
+    isHistorical: false,
     findingsCount: { conformances: 18, ofi: 3, minorNC: 1, majorNC: 0 },
     validationDate: '2024-09-26',
     validatedBy: 'Engr. Nelson V. Carandang',
@@ -1943,6 +1950,75 @@ export const initialISORecords: ISOSurveillanceRecord[] = [
         verifiedBy: 'Dr. Maria L. Santos'
       }
     ]
+  },
+  {
+    id: 'iso-rec-tandag-hist-2023',
+    campusId: 'tandag',
+    campusName: 'Tandag Campus (Main)',
+    standardVersion: 'ISO 9001:2015',
+    auditDate: '2023-10-18',
+    cycle: '2023 Surveillance Audit 1',
+    auditType: 'For Surveillance',
+    leadAuditor: 'Engr. Nelson V. Carandang (TUV / External)',
+    auditorRole: 'Lead ISO Quality Auditor',
+    scope: 'Higher and Advanced Education, Research, Extension and General Administrative Operations',
+    complianceStatus: 'Certified',
+    summary: 'Initial surveillance audit under ISO 9001:2015 3-year certification cycle. All clauses evaluated with verified conformance.',
+    isHistorical: true,
+    findingsCount: { conformances: 16, ofi: 4, minorNC: 2, majorNC: 0 },
+    validationDate: '2023-10-20',
+    validatedBy: 'Engr. Nelson V. Carandang',
+    clausesEvaluated: standardISOClauses.map((c) => ({
+      clauseNumber: c.clauseNumber,
+      clauseTitle: c.clauseTitle,
+      status: 'Conforming',
+      notes: 'Preserved historical audit evaluation record. Operational compliance validated.',
+      evidenceChecked: '2023 Internal Audit Files, QMS Procedure Manuals, Risk Register',
+      auditor: 'Engr. Nelson V. Carandang'
+    })),
+    correctiveActions: [
+      {
+        id: 'car-tan-hist-01',
+        carNumber: 'CAR-2023-TAN-01',
+        clauseRef: 'Clause 9.2',
+        deficiencyDescription: 'Internal audit schedule for 2nd semester delayed by 2 weeks.',
+        rootCause: 'Conflict with regional sports festival hosting.',
+        correction: 'Rescheduled and completed within 14 days.',
+        correctiveAction: 'Integrated university academic calendar directly into QA audit programme.',
+        responsiblePerson: 'Internal Quality Audit Chair',
+        targetDate: '2023-11-15',
+        status: 'Closed / Verified',
+        verificationDate: '2023-11-12',
+        verifiedBy: 'Dr. Maria L. Santos'
+      }
+    ]
+  },
+  {
+    id: 'iso-rec-tandag-hist-2008',
+    campusId: 'tandag',
+    campusName: 'Tandag Campus (Main)',
+    standardVersion: 'ISO 9001:2008',
+    auditDate: '2021-08-14',
+    cycle: '2021 Recertification Audit (Previous Standard)',
+    auditType: 'Recertification',
+    leadAuditor: 'TUV Rheinland External Certification Board',
+    auditorRole: 'Accredited Certification Auditor',
+    scope: 'Institutional Quality Management under ISO 9001:2008 Standard Guidelines',
+    complianceStatus: 'Certified',
+    summary: 'Preserved historical standard record: NEMSU previous ISO 9001:2008 recertification audit and baseline quality procedures retained for regulatory and accreditation historical reference.',
+    isHistorical: true,
+    findingsCount: { conformances: 14, ofi: 2, minorNC: 0, majorNC: 0 },
+    validationDate: '2021-08-16',
+    validatedBy: 'TUV Rheinland Audit Lead',
+    clausesEvaluated: standardISOClauses.map((c) => ({
+      clauseNumber: c.clauseNumber,
+      clauseTitle: c.clauseTitle,
+      status: 'Conforming',
+      notes: 'Preserved historical standard conformance archive (ISO 9001:2008).',
+      evidenceChecked: '2021 Quality Manual, Document Control Register, Executive Minutes',
+      auditor: 'TUV Rheinland External Lead'
+    })),
+    correctiveActions: []
   },
   {
     id: 'iso-rec-cantilan',

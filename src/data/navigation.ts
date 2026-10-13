@@ -28,17 +28,17 @@ export interface NavItem {
 export const navigation: NavItem[] = [
 { label: 'Dashboard', to: '/', icon: LayoutDashboardIcon },
 {
-  label: 'Evidence Management',
+  label: 'Document Management',
   to: '/evidence',
   icon: LibraryBigIcon,
   matchPrefix: '/evidence',
   children: [
-  { label: 'All Evidence', to: '/evidence' },
-  { label: 'Upload Evidence', to: '/evidence/upload' },
+  { label: 'All Documents', to: '/evidence' },
+  { label: 'Upload Documents', to: '/evidence/upload' },
   { label: 'Pending Classification', to: '/evidence/pending', showPendingCount: true },
   { label: 'Document Processing', to: '/evidence/processing' },
-  { label: 'Shared Evidence', to: '/evidence/shared' },
-  { label: 'Archived Evidence', to: '/evidence/archived' }]
+  { label: 'Shared Documents', to: '/evidence/shared' },
+  { label: 'Archived Documents', to: '/evidence/archived' }]
 
 },
 {
@@ -74,4 +74,4 @@ export const navigation: NavItem[] = [
 export const userNavigation: NavItem[] = [
 { label: 'Dashboard', to: '/', icon: LayoutDashboardIcon },
 { label: 'Shared with Me', to: '/shared-with-me', icon: FolderOpenIcon },
-{ label: 'Saved Evidence', to: '/saved', icon: BookmarkIcon }];
+{ label: 'Saved Documents', to: '/saved', icon: BookmarkIcon }];
