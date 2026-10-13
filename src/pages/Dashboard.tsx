@@ -144,7 +144,7 @@ export function Dashboard() {
             </Link>
           </div>
 
-          <div className="mt-5 flex items-center gap-6">
+          <div className="mt-5 flex flex-wrap sm:flex-nowrap items-center gap-4 sm:gap-6">
             {/* Metric 1: Circular Translucent Badge */}
             <div className="flex items-center gap-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/20 backdrop-blur-md shadow-sm">
@@ -457,19 +457,19 @@ export function Dashboard() {
             <span className="text-[11px] font-semibold text-brand-600">CHED Certified</span>
           </div>
 
-          <div className="px-2 border-l border-slate-100">
+          <div className="px-2 border-t pt-3 sm:pt-0 sm:border-t-0 sm:border-l border-slate-100">
             <p className="text-xs font-bold text-ink-subtle uppercase tracking-wider">ISO Surveillance</p>
             <p className="mt-1 text-2xl font-black text-ink">100%</p>
             <span className="text-[11px] font-semibold text-emerald-600">Zero Major CARs</span>
           </div>
 
-          <div className="px-2 border-l border-slate-100">
+          <div className="px-2 border-t pt-3 sm:pt-0 sm:border-t-0 border-l border-slate-100">
             <p className="text-xs font-bold text-ink-subtle uppercase tracking-wider">PQA Scorecard</p>
             <p className="mt-1 text-2xl font-black text-ink">480 pts</p>
             <span className="text-[11px] font-semibold text-amber-600">Level II Recognized</span>
           </div>
 
-          <div className="px-2 border-l border-slate-100">
+          <div className="col-span-2 sm:col-span-1 px-2 border-t pt-3 sm:pt-0 sm:border-t-0 sm:border-l border-slate-100">
             <p className="text-xs font-bold text-ink-subtle uppercase tracking-wider">Total Evidence</p>
             <p className="mt-1 text-2xl font-black text-ink">{formatNumber(s.total)}</p>
             <span className="text-[11px] font-semibold text-brand-600">{formatNumber(s.indexed)} indexed</span>
@@ -541,7 +541,8 @@ export function Dashboard() {
             </Link>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50/70 border-b border-slate-100 text-ink-muted">
                 <tr>
@@ -576,6 +577,27 @@ export function Dashboard() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card List View */}
+          <div className="divide-y divide-slate-100 sm:hidden">
+            {recent.map((d) => (
+              <div key={d.id} className="p-4 hover:bg-slate-50/60 transition-colors">
+                <Link to={`/documents/${d.id}`} className="font-semibold text-xs text-ink hover:text-brand-600 line-clamp-2 block leading-snug">
+                  {d.title}
+                </Link>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                  <FrameworkTag frameworkId={d.frameworkId} />
+                  <StatusBadge status={d.status} />
+                  <span className="text-[11px] text-ink-muted font-medium ml-auto">
+                    {formatDate(d.dateAdded)}
+                  </span>
+                </div>
+                <div className="mt-1 text-[11px] text-ink-subtle">
+                  <span>Area: {lookup.area(d.areaId)?.shortName || 'General'}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
