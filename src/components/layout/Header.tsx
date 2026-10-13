@@ -86,7 +86,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
       </div>
 
       {showFilterDropdown && (
-        <div className="absolute right-4 top-16 w-72 rounded-2xl border border-slate-100 bg-white p-3 shadow-soft-lg z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute right-2 sm:right-4 top-16 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-100 bg-white p-3 shadow-soft-lg z-50 animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
             <div>
               <span className="text-xs font-bold text-ink">Campus & Cycle Filter</span>

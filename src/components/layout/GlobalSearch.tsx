@@ -15,11 +15,12 @@ type SuggestionItem =
 {kind: 'doc';label: string;id: string;score: number;meta: string;};
 
 const placeholders = [
-'Search accreditation evidence...',
-'Search documents, criteria, indicators, or evidence...',
-'Search “faculty qualifications”',
-'Search “research accomplishment report”',
-'Search by criterion or document type'];
+  'Search evidence...',
+  'Search documents or criteria...',
+  'Search “faculty qualifications”',
+  'Search “research report”',
+  'Search by criterion or type'
+];
 
 
 export function GlobalSearch() {
@@ -214,7 +215,7 @@ export function GlobalSearch() {
           }}
           onBlur={() => setFocused(false)}
           onKeyDown={onKeyDown}
-          className="h-10 w-full rounded-2xl border border-slate-200/80 bg-slate-50/70 pl-10 pr-20 text-[14px] text-ink placeholder:text-ink-subtle transition-all duration-200 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 shadow-none hover:bg-slate-100/60" />
+          className="h-10 w-full rounded-2xl border border-slate-200/80 bg-slate-50/70 pl-9 sm:pl-10 pr-9 sm:pr-20 text-[13px] sm:text-[14px] text-ink placeholder:text-ink-subtle transition-all duration-200 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 shadow-none hover:bg-slate-100/60" />
         
         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
           {query ?
@@ -242,7 +243,7 @@ export function GlobalSearch() {
         {open &&
         <motion.div
           {...popoverMotion}
-          className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-lg border border-line bg-white shadow-lg">
+          className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-0 sm:right-0 top-full z-40 mt-2 w-[calc(100vw-1.5rem)] max-w-lg sm:w-full overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
           
             <ul id={listId} role="listbox" aria-label="Search suggestions" className="max-h-[60vh] overflow-y-auto py-1.5">
               {trimmed ?
