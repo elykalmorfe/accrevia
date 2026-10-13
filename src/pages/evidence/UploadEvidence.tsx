@@ -16,8 +16,9 @@ export function UploadEvidence() {
   return (
     <>
       <PageHeader
-        title="Upload Evidence"
-        description="Add accreditation evidence documents. Each file is processed automatically and becomes searchable once indexed. New uploads are private — only administrators and QA personnel can open them until you share them." />
+        eyebrow="Document Management"
+        title="Upload Documents"
+        description="Add accreditation documents. Each file is processed automatically and becomes searchable once indexed. New uploads are private — only administrators and QA personnel can open them until you share them." />
       
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -39,7 +40,7 @@ export function UploadEvidence() {
             }>
             
             <CloudUploadIcon className="h-9 w-9 text-brand-600" aria-hidden="true" />
-            <p className="mt-3 text-sm font-semibold text-ink">Drag and drop evidence files here</p>
+            <p className="mt-3 text-sm font-semibold text-ink">Drag and drop document files here</p>
             <p className="mt-1 text-[13px] text-ink-muted">
               or <span className="link">browse files</span> from your computer
             </p>

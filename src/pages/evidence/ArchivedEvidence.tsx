@@ -16,18 +16,19 @@ export function ArchivedEvidence() {
 
   const restore = (id: string, title: string) => {
     updateDocument(id, { status: 'Indexed' });
-    toast.success('Restored to All Evidence', { description: title });
+    toast.success('Restored to All Documents', { description: title });
   };
 
   return (
     <>
       <PageHeader
-        title="Archived Evidence"
-        description="Superseded or past-cycle documents. Archived evidence is kept for records but excluded from search results." />
+        eyebrow="Document Management"
+        title="Archived Documents"
+        description="Superseded or past-cycle documents. Archived documents are kept for records but excluded from search results." />
       
       <section className="panel" aria-label="Archived documents">
         {archived.length === 0 ?
-        <EmptyState icon={ArchiveIcon} title="No archived evidence" description="Documents you archive from All Evidence will appear here." /> :
+        <EmptyState icon={ArchiveIcon} title="No archived documents" description="Documents you archive from All Documents will appear here." /> :
 
         <ul className="divide-y divide-line">
             {archived.map((d) =>

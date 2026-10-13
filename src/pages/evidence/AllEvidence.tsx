@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FileSearchIcon, SearchIcon, SlidersHorizontalIcon, UploadIcon, XIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
@@ -112,16 +112,17 @@ export function AllEvidence() {
   return (
     <>
       <PageHeader
-        title="All Evidence"
-        description="Every accreditation evidence document in the repository, with the metadata that links it to frameworks, criteria, and indicators."
+        eyebrow="Document Management"
+        title="All Documents"
+        description="Every accreditation document in the repository, with the metadata that links it to frameworks, criteria, and indicators."
         actions={
         <Link to="/evidence/upload" className="btn btn-primary">
-            <UploadIcon className="h-4 w-4" /> Upload Evidence
+            <UploadIcon className="h-4 w-4" /> Upload Documents
           </Link>
         } />
       
 
-      <section className="panel" aria-label="Evidence documents">
+      <section className="panel" aria-label="Compliance documents">
         <div className="space-y-3 border-b border-line p-4">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
             <div className="relative xl:w-72 xl:shrink-0">

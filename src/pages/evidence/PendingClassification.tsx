@@ -58,6 +58,7 @@ export function PendingClassification() {
   return (
     <>
       <PageHeader
+        eyebrow="Document Management"
         title="Pending Classification"
         description="Uploaded documents that need administrator review. Assign metadata so each document is linked to the requirement it supports and appears in search." />
       
@@ -68,7 +69,7 @@ export function PendingClassification() {
           icon={InboxIcon}
           title="All documents are classified"
           description="New uploads that need metadata will appear here."
-          action={<Link to="/evidence/upload" className="btn btn-primary">Upload Evidence</Link>} />
+          action={<Link to="/evidence/upload" className="btn btn-primary">Upload Documents</Link>} />
         
         </div> :
 

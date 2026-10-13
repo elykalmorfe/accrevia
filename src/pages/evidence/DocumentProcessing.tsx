@@ -48,6 +48,7 @@ export function DocumentProcessing() {
   return (
     <>
       <PageHeader
+        eyebrow="Document Management"
         title="Document Processing"
         description="Track how uploaded documents move through text extraction, chunking, and indexing before they become searchable." />
       
