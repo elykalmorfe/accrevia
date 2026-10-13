@@ -98,12 +98,13 @@ export function ProgramAccreditationView() {
     reviewerNotes: string;
   }) => {
     if (!activeReqProgram) return;
+    const hasEvidence = Boolean(data.documentName || data.documentUrl);
     updateProgramRequirement(activeReqProgram.program.id, activeReqProgram.req.id, {
       documentName: data.documentName,
       documentUrl: data.documentUrl,
       verified: data.status === 'Approved',
       remarks: data.reviewerNotes,
-      isSubmitted: !!data.documentName
+      isSubmitted: hasEvidence
     });
 
     // Also update current modal view state
@@ -117,7 +118,7 @@ export function ProgramAccreditationView() {
               documentUrl: data.documentUrl,
               verified: data.status === 'Approved',
               remarks: data.reviewerNotes,
-              isSubmitted: !!data.documentName
+              isSubmitted: hasEvidence
             }
           : r
       );
@@ -398,11 +399,11 @@ export function ProgramAccreditationView() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
             <select
               value={selectedCampus}
               onChange={(e) => setSelectedCampus(e.target.value)}
-              className="input h-9 text-xs py-0 w-auto"
+              className="input h-9 text-xs py-0 w-full sm:w-auto"
             >
               <option value="all">All Campuses (7)</option>
               {campuses.map((c) => (
@@ -415,7 +416,7 @@ export function ProgramAccreditationView() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="input h-9 text-xs py-0 w-auto"
+              className="input h-9 text-xs py-0 w-full sm:w-auto"
             >
               <option value="all">All Levels</option>
               <option value="Candidate">Candidate</option>
@@ -431,7 +432,7 @@ export function ProgramAccreditationView() {
             <select
               value={selectedDegree}
               onChange={(e) => setSelectedDegree(e.target.value)}
-              className="input h-9 text-xs py-0 w-auto"
+              className="input h-9 text-xs py-0 w-full sm:w-auto"
             >
               <option value="all">All Degrees</option>
               <option value="Undergraduate">Undergraduate</option>
@@ -441,7 +442,7 @@ export function ProgramAccreditationView() {
             <select
               value={validityFilter}
               onChange={(e) => setValidityFilter(e.target.value as 'all' | 'expiring' | 'active')}
-              className="input h-9 text-xs py-0 w-auto"
+              className="input h-9 text-xs py-0 w-full sm:w-auto col-span-2 sm:col-span-1"
             >
               <option value="all">All Validity</option>
               <option value="expiring">Expiring Soon (Within 1 Year)</option>
@@ -519,7 +520,8 @@ export function ProgramAccreditationView() {
 
       {/* Primary Accreditation Status Table (matching PDF Structure) */}
       <div className="panel overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop View Table (lg+) */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full text-left text-[12.5px]">
             <thead className="bg-canvas border-b border-line text-ink-muted">
               <tr>
@@ -726,6 +728,136 @@ export function ProgramAccreditationView() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile & Tablet Card View (< lg viewports) */}
+        <div className="divide-y divide-line lg:hidden">
+          {filtered.length === 0 ? (
+            <div className="p-8 text-center text-xs text-ink-muted">
+              No programs matched the selected search criteria.
+            </div>
+          ) : (
+            filtered.map((prog, idx) => {
+              const hasSchedule = !!prog.scheduleForAccreditation;
+              return (
+                <div key={prog.id} className="p-4 hover:bg-canvas/50 transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 text-xs text-ink-subtle font-mono">
+                        <span>#{idx + 1}</span>
+                        <span>·</span>
+                        <span className="font-sans font-medium text-ink-muted">{prog.campusName.replace(' Campus', '')}</span>
+                      </div>
+                      <h4 className="mt-0.5 text-sm font-bold text-ink leading-snug">
+                        {prog.programName}
+                      </h4>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="rounded bg-canvas px-1.5 py-0.5 border border-line text-[11px] font-medium text-ink">
+                          {prog.degreeLevel}
+                        </span>
+                        {prog.borRes && <span className="text-[11px] text-ink-muted">BOR: {prog.borRes}</span>}
+                        {prog.cmoNo && <span className="text-[11px] text-ink-muted">CMO: {prog.cmoNo}</span>}
+                      </div>
+                    </div>
+
+                    <Badge
+                      tone={
+                        prog.status.includes('Level 4')
+                          ? 'gold'
+                          : prog.status.includes('Level 3')
+                          ? 'success'
+                          : prog.status.includes('Level 2')
+                          ? 'brand'
+                          : prog.status.includes('Level 1')
+                          ? 'neutral'
+                          : prog.status === 'Not Accreditable'
+                          ? 'danger'
+                          : 'warning'
+                      }
+                      dot
+                    >
+                      {prog.status}
+                    </Badge>
+                  </div>
+
+                  {/* Metadata Grid */}
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs rounded-lg bg-canvas/70 p-2.5">
+                    <div>
+                      <span className="text-[11px] text-ink-muted">Validity:</span>
+                      <p className="font-medium text-ink truncate mt-0.5">
+                        {prog.validityStart && prog.validityEnd ? `${prog.validityStart} – ${prog.validityEnd}` : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-ink-muted">COPC Status:</span>
+                      <p className={`font-semibold mt-0.5 flex items-center gap-1 ${
+                        prog.copcStatus === 'Compliant' ? 'text-success-700' : 'text-warning-700'
+                      }`}>
+                        {prog.copcStatus === 'Compliant' ? (
+                          <><CheckCircle2Icon className="h-3 w-3" /> Compliant</>
+                        ) : (
+                          <><AlertCircleIcon className="h-3 w-3" /> Pending</>
+                        )}
+                      </p>
+                    </div>
+                    {prog.certificationFile && (
+                      <div className="col-span-2">
+                        <span className="text-[11px] text-ink-muted">Certificate:</span>
+                        <p className="font-medium text-success-700 truncate mt-0.5">
+                          {prog.certificationFile}
+                        </p>
+                      </div>
+                    )}
+                    {hasSchedule && (
+                      <div className="col-span-2">
+                        <span className="text-[11px] text-ink-muted">Accreditation Visit:</span>
+                        <p className="font-semibold text-brand-700 mt-0.5 flex items-center gap-1">
+                          <CalendarIcon className="h-3 w-3" /> {prog.scheduleForAccreditation}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Bar */}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setDetailsModalProgram(prog)}
+                      className="btn btn-secondary btn-sm flex-1 justify-center min-h-[38px] text-xs font-semibold"
+                    >
+                      Audit Survey Areas ({prog.requirements?.length || 10})
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProgram(prog);
+                          setFormModalOpen(true);
+                        }}
+                        className="btn btn-ghost btn-icon h-9 w-9 text-ink-muted hover:text-ink"
+                        title="Edit Program"
+                        aria-label="Edit program"
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(prog.id, prog.programName)}
+                          className="btn btn-ghost btn-icon h-9 w-9 text-danger-600 hover:bg-danger-50"
+                          title="Delete Program"
+                          aria-label="Delete program"
+                        >
+                          <Trash2Icon className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Program Detail / 10 Survey Areas Modal */}
@@ -856,8 +988,20 @@ export function ProgramAccreditationView() {
                         )}
                       </div>
                       <p className="text-[11px] text-ink-muted mt-0.5">
-                        {req.documentName ? (
-                          <span className="font-medium text-brand-700">{req.documentName}</span>
+                        {req.documentName || req.documentUrl ? (
+                          <>
+                            <span className="font-medium text-brand-700">{req.documentName || 'Reference link'}</span>
+                            {req.documentUrl && (
+                              <a
+                                href={req.documentUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="ml-1 font-medium text-brand-700 hover:underline"
+                              >
+                                Open link
+                              </a>
+                            )}
+                          </>
                         ) : (
                           'No document uploaded yet'
                         )}

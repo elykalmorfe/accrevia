@@ -79,12 +79,13 @@ export function CampusIAView() {
     reviewerNotes: string;
   }) => {
     if (!activeReq) return;
+    const hasEvidence = Boolean(data.documentName || data.documentUrl);
     updateIARequirement(selectedCampusId, activeReq.id, {
       documentName: data.documentName,
       documentUrl: data.documentUrl,
       status: data.status,
       reviewerNotes: data.reviewerNotes,
-      isSubmitted: !!data.documentName
+      isSubmitted: hasEvidence
     });
   };
 
@@ -117,7 +118,7 @@ export function CampusIAView() {
       />
 
       {/* Campus Selector Pills */}
-      <div className="mb-6 flex flex-wrap gap-2 border-b border-line pb-4">
+      <div className="mb-6 flex overflow-x-auto no-scrollbar sm:flex-wrap gap-2 border-b border-line pb-4">
         {campuses.map((c) => {
           const rec = iaRecords.find((r) => r.campusId === c.id);
           const isSelected = c.id === selectedCampusId;
@@ -125,7 +126,7 @@ export function CampusIAView() {
             <button
               key={c.id}
               onClick={() => setSelectedCampusId(c.id)}
-              className={`flex items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${
+              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${
                 isSelected
                   ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-1 ring-brand-500'
                   : 'border-line bg-white hover:bg-canvas'
@@ -294,10 +295,10 @@ export function CampusIAView() {
                   <p className="text-xs text-ink-muted mt-0.5">{req.description}</p>
 
                   {/* Attached Document info */}
-                  {req.documentName && (
+                  {(req.documentName || req.documentUrl) && (
                     <div className="mt-2.5 flex items-center gap-2 text-xs">
                       <FileTextIcon className="h-3.5 w-3.5 text-brand-600" />
-                      <span className="font-medium text-ink">{req.documentName}</span>
+                      <span className="font-medium text-ink">{req.documentName || 'Reference link'}</span>
                       {req.submissionDate && (
                         <span className="text-ink-subtle">· Submitted {req.submissionDate}</span>
                       )}
@@ -325,7 +326,7 @@ export function CampusIAView() {
                   <button
                     type="button"
                     onClick={() => setActiveReq(req)}
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary btn-sm min-h-[38px] w-full sm:w-auto"
                   >
                     <UploadIcon className="h-3.5 w-3.5" />
                     Manage & Verify

@@ -54,12 +54,13 @@ export function COPCView() {
     reviewerNotes: string;
   }) => {
     if (!activeReqItem) return;
+    const hasEvidence = Boolean(data.documentName || data.documentUrl);
     updateCOPCRequirement(activeReqItem.copc.id, activeReqItem.req.id, {
       documentName: data.documentName,
       documentUrl: data.documentUrl,
       status: data.status,
       deficiencyNote: data.reviewerNotes,
-      isSubmitted: !!data.documentName
+      isSubmitted: hasEvidence
     });
 
     // Also update current active program state
@@ -73,7 +74,7 @@ export function COPCView() {
               documentUrl: data.documentUrl,
               status: data.status,
               deficiencyNote: data.reviewerNotes,
-              isSubmitted: !!data.documentName
+              isSubmitted: hasEvidence
             }
           : r
       );
@@ -176,11 +177,11 @@ export function COPCView() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
             <select
               value={selectedCampus}
               onChange={(e) => setSelectedCampus(e.target.value)}
-              className="input h-9 text-xs py-0 w-auto"
+              className="input h-9 text-xs py-0 w-full sm:w-auto"
             >
               <option value="all">All Campuses</option>
               {campuses.map((c) => (
@@ -193,7 +194,7 @@ export function COPCView() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="input h-9 text-xs py-0 w-auto"
+              className="input h-9 text-xs py-0 w-full sm:w-auto"
             >
               <option value="all">All Statuses</option>
               <option value="Compliant">Compliant</option>
@@ -214,7 +215,8 @@ export function COPCView() {
 
       {/* COPC Programs Table */}
       <div className="panel overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View (lg+) */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full text-left text-[12.5px]">
             <thead className="bg-canvas border-b border-line text-ink-muted">
               <tr>
@@ -294,6 +296,77 @@ export function COPCView() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile & Tablet Card View (< lg viewports) */}
+        <div className="divide-y divide-line lg:hidden">
+          {filtered.length === 0 ? (
+            <div className="p-8 text-center text-xs text-ink-muted">
+              No programs matched the selected search criteria.
+            </div>
+          ) : (
+            filtered.map((copc, idx) => {
+              const approvedReqs = copc.requirements.filter((r) => r.status === 'Approved').length;
+              return (
+                <div key={copc.id} className="p-4 hover:bg-canvas/50 transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 text-xs text-ink-subtle font-mono">
+                        <span>#{idx + 1}</span>
+                        <span>·</span>
+                        <span className="font-sans font-medium text-ink-muted">{copc.campusName.replace(' Campus', '')}</span>
+                      </div>
+                      <h4 className="mt-0.5 text-sm font-bold text-ink leading-snug">
+                        {copc.programName}
+                      </h4>
+                      <p className="text-[11px] text-ink-muted mt-0.5">{copc.degreeLevel}</p>
+                    </div>
+
+                    <Badge tone={copc.copcStatus === 'Compliant' ? 'success' : 'warning'} dot>
+                      {copc.copcStatus}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs rounded-lg bg-canvas/70 p-2.5">
+                    <div>
+                      <span className="text-[11px] text-ink-muted">Certificate No:</span>
+                      <p className="font-mono font-semibold text-brand-700 truncate mt-0.5">
+                        {copc.certificateNumber || 'Pending CHED'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-ink-muted">Date Issued:</span>
+                      <p className="font-medium text-ink mt-0.5">
+                        {copc.dateIssued || '—'}
+                      </p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[11px] text-ink-muted">CMO / BOR:</span>
+                      <p className="font-medium text-ink truncate mt-0.5">
+                        {copc.cmoNo || '—'} · {copc.borRes || '—'}
+                      </p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[11px] text-ink-muted">Audit Verification:</span>
+                      <p className="font-semibold text-ink mt-0.5">
+                        {approvedReqs} / 5 areas verified
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setActiveCopcProgram(copc)}
+                      className="btn btn-secondary btn-sm w-full sm:w-auto justify-center min-h-[38px] text-xs font-semibold"
+                    >
+                      Verify Requirements ({approvedReqs}/5)
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* COPC Requirements Checklist Modal */}
@@ -305,7 +378,7 @@ export function COPCView() {
           description={`${activeCopcProgram.campusName} · Certificate: ${activeCopcProgram.certificateNumber || 'Pending'} · ${activeCopcProgram.copcStatus}`}
           size="xl"
           footer={
-            <div className="flex w-full items-center justify-between">
+            <div className="flex w-full flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-ink-muted">Status:</span>
                 <select
@@ -316,7 +389,7 @@ export function COPCView() {
                     setActiveCopcProgram((prev) => (prev ? { ...prev, copcStatus: newStatus } : null));
                     toast.success('COPC Status updated');
                   }}
-                  className="input h-8 text-xs py-0 w-auto"
+                  className="input h-9 text-xs py-0 w-auto"
                 >
                   <option value="Compliant">Compliant</option>
                   <option value="Pending Review">Pending Review</option>
@@ -327,7 +400,7 @@ export function COPCView() {
               <button
                 type="button"
                 onClick={() => setActiveCopcProgram(null)}
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary w-full sm:w-auto min-h-[38px]"
               >
                 Close Checklist
               </button>
@@ -381,10 +454,10 @@ export function COPCView() {
                           </Badge>
                         </div>
 
-                        {req.documentName ? (
+                        {req.documentName || req.documentUrl ? (
                           <div className="mt-1.5 flex items-center gap-2 text-xs">
                             <FileTextIcon className="h-3.5 w-3.5 text-brand-600" />
-                            <span className="font-medium text-ink">{req.documentName}</span>
+                            <span className="font-medium text-ink">{req.documentName || 'Reference link'}</span>
                             {req.documentUrl && (
                               <a
                                 href={req.documentUrl}
