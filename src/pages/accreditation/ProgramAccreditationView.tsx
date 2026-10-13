@@ -203,12 +203,12 @@ export function ProgramAccreditationView() {
       />
 
       {/* Mode Switcher Tabs for Summary Cards */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 rounded-lg border border-line bg-canvas p-1">
+      <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+        <div className="grid grid-cols-1 sm:flex sm:items-center gap-1.5 rounded-xl border border-line bg-canvas p-1">
           <button
             type="button"
             onClick={() => setSummaryMode('aaccup')}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all text-center ${
               summaryMode === 'aaccup'
                 ? 'bg-white text-brand-700 shadow-xs border border-line'
                 : 'text-ink-muted hover:text-ink'
@@ -219,7 +219,7 @@ export function ProgramAccreditationView() {
           <button
             type="button"
             onClick={() => setSummaryMode('copc')}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all text-center ${
               summaryMode === 'copc'
                 ? 'bg-white text-success-700 shadow-xs border border-line'
                 : 'text-ink-muted hover:text-ink'
@@ -229,7 +229,7 @@ export function ProgramAccreditationView() {
           </button>
         </div>
 
-        <span className="text-xs text-ink-muted hidden sm:inline">
+        <span className="text-xs text-ink-muted hidden md:inline">
           {summaryMode === 'aaccup'
             ? 'AACCUP Survey Levels 1–4 vs Candidate Status'
             : 'CHED Certificate of Program Compliance Alignment'}
@@ -312,7 +312,7 @@ export function ProgramAccreditationView() {
           )}
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
           {campuses.map((c) => {
             const campusRecs = programAccreditations.filter((p) => p.campusId === c.id);
             const total = campusRecs.length;
