@@ -1,6 +1,6 @@
-import React, { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { usePortal } from '../../contexts/PortalContext';
-import { Confidentiality, DocumentMetadata, DocumentType } from '../../types/evidence';
+import { Confidentiality, DocumentMetadata, DocumentType, ISODocumentStage } from '../../types/evidence';
 import { SelectField } from '../ui/SelectField';
 import { TextField } from '../ui/TextField';
 import {
@@ -11,6 +11,7 @@ import {
   confidentialityLevels,
   departments,
   documentTypes,
+  isoDocumentLabels,
   offices,
   programs } from
 '../../data/options';
@@ -93,6 +94,16 @@ export function MetadataForm({ value, onChange }: MetadataFormProps) {
           placeholder="Select document type"
           options={documentTypes} />
         
+        {value.frameworkId === 'iso' && (
+          <SelectField
+            label="ISO Audit Stage / Label"
+            value={value.isoStage || ''}
+            onChange={(s) => onChange({ isoStage: (s || undefined) as ISODocumentStage | undefined })}
+            placeholder="Select ISO stage (For Surveillance, 2nd Surveillance, Recertification)"
+            options={isoDocumentLabels}
+          />
+        )}
+
         <SelectField
           label="Confidentiality level"
           value={value.confidentiality}
