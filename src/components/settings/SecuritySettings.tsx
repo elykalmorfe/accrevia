@@ -6,9 +6,9 @@ import { userRoles } from '../../data/options';
 import { UserRole } from '../../types/user';
 
 const permissions = [
-'Search and view evidence shared with them',
-'Download evidence (when the share allows it)',
-'Upload evidence',
+'Search and view documents shared with them',
+'Download documents (when the share allows it)',
+'Upload documents',
 'Classify and edit metadata',
 'Manage frameworks and criteria',
 'Manage users',
