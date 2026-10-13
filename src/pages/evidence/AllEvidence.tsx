@@ -185,52 +185,74 @@ export function AllEvidence() {
       {/* 1. PRIORITY ATTENTION CALLOUT BANNER (Action Required Alerts)             */}
       {/* ========================================================================= */}
       {(processingStats.failed > 0 || pendingRequestsCount > 0 || pending.length > 0) && (
-        <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 sm:p-4 text-xs text-amber-950 shadow-xs">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="mb-5 rounded-2xl border border-amber-200/90 bg-amber-50/70 p-4 sm:p-5 text-xs text-amber-950 shadow-xs">
+          <div className="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-3">
-              <AlertTriangleIcon className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
-              <div>
-                <p className="font-bold text-sm text-amber-900">Priority Attention Required</p>
-                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-ink-muted">
+              <div className="grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700 border border-amber-200/80 shadow-2xs mt-0.5">
+                <AlertTriangleIcon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-sm sm:text-[15px] text-amber-900 tracking-tight">Priority Attention Required</p>
+                  <span className="rounded-full bg-amber-200/70 px-2 py-0.5 text-[10px] font-extrabold text-amber-900 uppercase tracking-wide">
+                    Action Needed
+                  </span>
+                </div>
+                <ul className="mt-2 space-y-1.5 text-xs text-ink-muted">
                   {processingStats.failed > 0 && (
-                    <span className="flex items-center gap-1.5 font-medium text-danger-700">
-                      <span className="h-2 w-2 rounded-full bg-danger-600 animate-pulse" />
-                      {processingStats.failed} Processing Job Failed ({processingStats.failedJob?.fileName})
-                    </span>
+                    <li className="flex items-start gap-2 font-medium text-danger-700 leading-snug">
+                      <span className="h-2 w-2 rounded-full bg-danger-600 animate-pulse mt-1 shrink-0" />
+                      <span className="min-w-0">
+                        <span>{processingStats.failed} Processing Job Failed</span>
+                        {processingStats.failedJob?.fileName && (
+                          <span className="block sm:inline sm:ml-1 text-[11px] font-normal text-danger-600/90 truncate max-w-xs">
+                            ({processingStats.failedJob.fileName})
+                          </span>
+                        )}
+                      </span>
+                    </li>
                   )}
                   {pendingRequestsCount > 0 && (
-                    <span className="flex items-center gap-1.5 font-medium text-amber-800">
-                      <span className="h-2 w-2 rounded-full bg-amber-600" />
-                      {pendingRequestsCount} Access Request Pending Approval
-                    </span>
+                    <li className="flex items-start gap-2 font-medium text-amber-800 leading-snug">
+                      <span className="h-2 w-2 rounded-full bg-amber-600 mt-1 shrink-0" />
+                      <span>{pendingRequestsCount} Access Request{pendingRequestsCount > 1 ? 's' : ''} Pending Approval</span>
+                    </li>
                   )}
                   {pending.length > 0 && (
-                    <span className="flex items-center gap-1.5 font-medium text-slate-700">
-                      <span className="h-2 w-2 rounded-full bg-brand-600" />
-                      {pending.length} Documents Awaiting Criteria Classification
-                    </span>
+                    <li className="flex items-start gap-2 font-medium text-slate-700 leading-snug">
+                      <span className="h-2 w-2 rounded-full bg-brand-600 mt-1 shrink-0" />
+                      <span>{pending.length} Documents Awaiting Criteria Classification</span>
+                    </li>
                   )}
-                </div>
+                </ul>
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
-              {processingStats.failed > 0 && (
-                <Link
-                  to="/evidence/processing"
-                  className="btn btn-secondary btn-sm bg-white text-danger-700 border-danger-200 hover:bg-danger-50"
-                >
-                  <RotateCcwIcon className="h-3.5 w-3.5 text-danger-600" />
-                  <span>Retry Failed Job</span>
-                </Link>
-              )}
-              {pendingRequestsCount > 0 && (
-                <Link to="/evidence/shared?tab=requests" className="btn btn-secondary btn-sm bg-white text-amber-800 border-amber-200">
-                  <span>Review Access</span>
-                </Link>
-              )}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto lg:shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-amber-200/80">
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+                {processingStats.failed > 0 && (
+                  <Link
+                    to="/evidence/processing"
+                    className="btn btn-secondary btn-sm bg-white text-danger-700 border-danger-200 hover:bg-danger-50 justify-center text-center py-2 min-h-[38px] shadow-2xs text-xs font-semibold"
+                  >
+                    <RotateCcwIcon className="h-3.5 w-3.5 text-danger-600 shrink-0" />
+                    <span className="truncate">Retry Failed Job</span>
+                  </Link>
+                )}
+                {pendingRequestsCount > 0 && (
+                  <Link
+                    to="/evidence/shared?tab=requests"
+                    className="btn btn-secondary btn-sm bg-white text-amber-800 border-amber-200 hover:bg-amber-100 justify-center text-center py-2 min-h-[38px] shadow-2xs text-xs font-semibold"
+                  >
+                    <span className="truncate">Review Access</span>
+                  </Link>
+                )}
+              </div>
               {pending.length > 0 && (
-                <Link to="/evidence/pending" className="btn btn-primary btn-sm">
+                <Link
+                  to="/evidence/pending"
+                  className="btn btn-primary btn-sm justify-center text-center py-2 min-h-[38px] w-full sm:w-auto shadow-xs text-xs font-bold"
+                >
                   <span>Classify Files ({pending.length})</span>
                 </Link>
               )}
