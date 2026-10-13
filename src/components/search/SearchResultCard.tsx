@@ -83,7 +83,7 @@ export function SearchResultCard({ result, query, onPreview }: SearchResultCardP
             type="button"
             aria-pressed={saved}
             className={`btn btn-sm ${saved ? 'border border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100' : 'btn-secondary'}`}
-            onClick={() => toast(toggleSaved(doc.id) ? 'Saved to your evidence list' : 'Removed from saved evidence')}>
+            onClick={() => toast(toggleSaved(doc.id) ? 'Saved to your documents list' : 'Removed from saved documents')}>
             
             {saved ? <BookmarkCheckIcon className="h-3.5 w-3.5" /> : <BookmarkIcon className="h-3.5 w-3.5" />}
             {saved ? 'Saved' : 'Save'}
