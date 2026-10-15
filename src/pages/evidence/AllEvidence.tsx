@@ -82,7 +82,20 @@ const primaryKeys: FilterKey[] = ['frameworkId', 'areaId', 'docType', 'status'];
 const secondaryKeys: FilterKey[] = ['criterionId', 'indicatorId', 'program', 'office', 'academicYear', 'cycle'];
 
 export function AllEvidence() {
-  const { documents, frameworks, areas, criteria, indicators, shares, accessRequests, pending } = usePortal();
+  const {
+    documents,
+    frameworks,
+    areas,
+    criteria,
+    indicators,
+    shares,
+    accessRequests,
+    pending,
+    selectedCampus,
+    selectedCampusObj,
+    setSelectedCampus,
+    isCampusMatch
+  } = usePortal();
   const lookup = useLookup();
   const [text, setText] = useState('');
   const [filters, setFilters] = useState(emptyFilters);
@@ -90,11 +103,21 @@ export function AllEvidence() {
   const [preview, setPreview] = useState<EvidenceDocument | null>(null);
   const [editing, setEditing] = useState<EvidenceDocument | null>(null);
 
-  const activeDocs = useMemo(() => documents.filter((d) => d.status !== 'Archived'), [documents]);
-  const archivedDocs = useMemo(() => documents.filter((d) => d.status === 'Archived'), [documents]);
-  const activeSharesCount = useMemo(() => shares.filter((s) => shareStatus(s) === 'Active').length, [shares]);
+  const campusDocs = useMemo(() => {
+    if (selectedCampus === 'all') return documents;
+    return documents.filter((d) => isCampusMatch(d.campus, selectedCampus));
+  }, [documents, selectedCampus, isCampusMatch]);
+
+  const activeDocs = useMemo(() => campusDocs.filter((d) => d.status !== 'Archived'), [campusDocs]);
+  const archivedDocs = useMemo(() => campusDocs.filter((d) => d.status === 'Archived'), [campusDocs]);
+  const campusDocIds = useMemo(() => new Set(campusDocs.map((d) => d.id)), [campusDocs]);
+  const campusShares = useMemo(
+    () => (selectedCampus === 'all' ? shares : shares.filter((s) => campusDocIds.has(s.documentId))),
+    [shares, selectedCampus, campusDocIds]
+  );
+  const activeSharesCount = useMemo(() => campusShares.filter((s) => shareStatus(s) === 'Active').length, [campusShares]);
   const pendingRequestsCount = useMemo(() => accessRequests.filter((r) => r.status === 'Pending').length, [accessRequests]);
-  const totalStorageMb = useMemo(() => Math.round(documents.reduce((acc, d) => acc + (d.sizeMb || 0), 0) * 10) / 10, [documents]);
+  const totalStorageMb = useMemo(() => Math.round(campusDocs.reduce((acc, d) => acc + (d.sizeMb || 0), 0) * 10) / 10, [campusDocs]);
 
   // Priority Document Processing breakdown (Running, Queued, Failed, Completed today)
   const processingStats = useMemo(() => {
@@ -175,9 +198,14 @@ export function AllEvidence() {
         title="All Documents"
         description="Master evidence repository with real-time pipeline monitoring, cross-framework indexing, and priority health indicators."
         actions={
-          <Link to="/evidence/upload" className="btn btn-primary shadow-sm">
-            <UploadIcon className="h-4 w-4" /> Upload Documents
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/evidence/common" className="btn btn-secondary shadow-2xs">
+              <FileTextIcon className="h-4 w-4 text-brand-600" /> Common Documents (8)
+            </Link>
+            <Link to="/evidence/upload" className="btn btn-primary shadow-sm">
+              <UploadIcon className="h-4 w-4" /> Upload Documents
+            </Link>
+          </div>
         }
       />
 
@@ -284,7 +312,7 @@ export function AllEvidence() {
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-slate-500">{documents.filter((d) => d.status === 'Indexed').length} Indexed</span>
+              <span className="text-slate-500">{campusDocs.filter((d) => d.status === 'Indexed').length} Indexed</span>
               <Link to="/evidence/upload" className="font-semibold text-brand-600 hover:text-brand-700 inline-flex items-center gap-0.5">
                 Upload to Folders <ArrowRightIcon className="h-3 w-3" />
               </Link>
@@ -360,14 +388,14 @@ export function AllEvidence() {
                 {activeSharesCount} <span className="text-xs font-normal text-slate-500">Active Shares</span>
               </p>
               <div className="mt-1 space-y-0.5 text-xs text-ink-muted">
-                <p>{new Set(shares.map((s) => s.documentId)).size} shared documents</p>
+                <p>{new Set(campusShares.map((s) => s.documentId)).size} shared documents</p>
                 <p className={pendingRequestsCount > 0 ? 'font-semibold text-amber-700' : ''}>
                   {pendingRequestsCount} access requests pending review
                 </p>
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-slate-500">{shares.filter((s) => shareStatus(s) === 'Expired').length} Expired shares</span>
+              <span className="text-slate-500">{campusShares.filter((s) => shareStatus(s) === 'Expired').length} Expired shares</span>
               <Link to="/evidence/shared" className="font-semibold text-brand-600 hover:text-brand-700 inline-flex items-center gap-0.5">
                 Manage Access <ArrowRightIcon className="h-3 w-3" />
               </Link>
@@ -405,6 +433,23 @@ export function AllEvidence() {
 
         </div>
       </section>
+
+      {/* Campus Active Filter Banner */}
+      {selectedCampus !== 'all' && (
+        <div className="mb-4 rounded-xl border border-brand-200 bg-brand-50/70 p-3 text-xs text-brand-900 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold">Campus Filter Active:</span>
+            <span>Showing evidence repository for <strong>{selectedCampusObj?.name}</strong> ({activeDocs.length} active files)</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedCampus('all')}
+            className="btn btn-secondary btn-sm h-7 text-xs bg-white text-ink hover:bg-brand-100 shadow-2xs"
+          >
+            Show All Campuses
+          </button>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 3. NAVIGATION VIEW TABS                                                    */}
