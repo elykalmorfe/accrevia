@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { usePortal } from '../../contexts/PortalContext';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -22,34 +22,69 @@ import {
 type DashboardTab = 'all-campuses' | 'campus-level' | 'program-level' | 'schedules' | 'deficiencies';
 
 export function AccreditationDashboard() {
-  const { campuses, iaRecords, pqaRecords, programAccreditations, copcRecords, isoRecords } = usePortal();
+  const {
+    campuses,
+    iaRecords,
+    pqaRecords,
+    programAccreditations,
+    copcRecords,
+    isoRecords,
+    selectedCampus,
+    selectedCampusObj
+  } = usePortal();
   const [tab, setTab] = useState<DashboardTab>('all-campuses');
 
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [addProgramModalOpen, setAddProgramModalOpen] = useState(false);
 
-  // Overall Statistics
-  const totalPrograms = programAccreditations.length;
-  const compliantCopc = programAccreditations.filter((p) => p.copcStatus === 'Compliant').length;
-  const copcRate = totalPrograms > 0 ? ((compliantCopc / totalPrograms) * 100).toFixed(2) : '0';
+  // Filtered collections based on active campus
+  const filteredPrograms = useMemo(() => {
+    if (selectedCampus === 'all') return programAccreditations;
+    return programAccreditations.filter((p) => p.campusId === selectedCampus);
+  }, [programAccreditations, selectedCampus]);
 
-  const level4Count = programAccreditations.filter((p) => p.status === 'Level 4').length;
-  const level3Count = programAccreditations.filter((p) => p.status === 'Level 3').length;
-  const level2Count = programAccreditations.filter((p) => p.status === 'Level 2').length;
-  const level1Count = programAccreditations.filter((p) => p.status === 'Level 1').length;
-  const candidateCount = programAccreditations.filter((p) => p.status === 'Candidate').length;
+  const filteredCopc = useMemo(() => {
+    if (selectedCampus === 'all') return copcRecords;
+    return copcRecords.filter((r) => r.campusId === selectedCampus);
+  }, [copcRecords, selectedCampus]);
+
+  const filteredIa = useMemo(() => {
+    if (selectedCampus === 'all') return iaRecords;
+    return iaRecords.filter((r) => r.campusId === selectedCampus);
+  }, [iaRecords, selectedCampus]);
+
+  const filteredIso = useMemo(() => {
+    if (selectedCampus === 'all') return isoRecords;
+    return isoRecords.filter((r) => r.campusId === selectedCampus);
+  }, [isoRecords, selectedCampus]);
+
+  // Overall Statistics for active campus
+  const totalPrograms = filteredPrograms.length;
+  const compliantCopc = filteredPrograms.filter((p) => p.copcStatus === 'Compliant').length;
+  const copcRate = totalPrograms > 0 ? ((compliantCopc / totalPrograms) * 100).toFixed(1) : '0';
+
+  const level4Count = filteredPrograms.filter((p) => p.status === 'Level 4').length;
+  const level3Count = filteredPrograms.filter((p) => p.status === 'Level 3').length;
+  const level2Count = filteredPrograms.filter((p) => p.status === 'Level 2').length;
+  const level1Count = filteredPrograms.filter((p) => p.status === 'Level 1').length;
+  const candidateCount = filteredPrograms.filter((p) => p.status === 'Candidate').length;
 
   // Scheduled accreditation visits
-  const scheduledPrograms = programAccreditations.filter((p) => !!p.scheduleForAccreditation);
+  const scheduledPrograms = filteredPrograms.filter((p) => !!p.scheduleForAccreditation);
 
   // Cross-system Deficiencies
-  const deficientIAReqs = iaRecords.flatMap((r) =>
+  const deficientIAReqs = filteredIa.flatMap((r) =>
     r.requirements.filter((req) => req.status === 'Deficient').map((req) => ({ ...req, campusId: r.campusId }))
   );
-  const pendingCopc = copcRecords.filter((c) => c.copcStatus === 'Pending Review');
-  const openCars = isoRecords.flatMap((r) =>
+  const pendingCopc = filteredCopc.filter((c) => c.copcStatus === 'Pending Review');
+  const openCars = filteredIso.flatMap((r) =>
     (r.correctiveActions || []).filter((c) => c.status !== 'Closed / Verified').map((car) => ({ ...car, campusName: r.campusName }))
   );
+
+  const displayCampuses = useMemo(() => {
+    if (selectedCampus === 'all') return campuses;
+    return campuses.filter((c) => c.id === selectedCampus);
+  }, [campuses, selectedCampus]);
 
   return (
     <>
@@ -80,11 +115,17 @@ export function AccreditationDashboard() {
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="panel p-4">
           <div className="flex items-center justify-between text-ink-muted">
-            <span className="text-xs">University Campuses</span>
+            <span className="text-xs">
+              {selectedCampus === 'all' ? 'University Campuses' : 'Campus Scope'}
+            </span>
             <Building2Icon className="h-4 w-4 text-brand-600" />
           </div>
-          <p className="mt-1 text-2xl font-bold text-ink">{campuses.length}</p>
-          <p className="text-[11px] text-ink-subtle">7 operational campuses</p>
+          <p className="mt-1 text-2xl font-bold text-ink">
+            {selectedCampus === 'all' ? campuses.length : '1'}
+          </p>
+          <p className="text-[11px] text-ink-subtle">
+            {selectedCampus === 'all' ? '7 operational campuses' : selectedCampusObj?.shortName || 'Filtered Campus'}
+          </p>
         </div>
 
         <div className="panel p-4">
@@ -93,7 +134,9 @@ export function AccreditationDashboard() {
             <GraduationCapIcon className="h-4 w-4 text-brand-600" />
           </div>
           <p className="mt-1 text-2xl font-bold text-ink">{totalPrograms}</p>
-          <p className="text-[11px] text-ink-subtle">64 programs / 80 offerings</p>
+          <p className="text-[11px] text-ink-subtle">
+            {selectedCampus === 'all' ? '64 programs / 80 offerings' : `${totalPrograms} programs in this campus`}
+          </p>
         </div>
 
         <div className="panel p-4">
@@ -105,7 +148,9 @@ export function AccreditationDashboard() {
             {compliantCopc}{' '}
             <span className="text-xs font-normal text-ink-muted">({copcRate}%)</span>
           </p>
-          <p className="text-[11px] text-ink-subtle">62 of 64 compliant with CHED</p>
+          <p className="text-[11px] text-ink-subtle">
+            {compliantCopc} of {totalPrograms} compliant with CHED
+          </p>
         </div>
 
         <div className="panel p-4">
@@ -222,7 +267,7 @@ export function AccreditationDashboard() {
       {tab === 'all-campuses' && (
         <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {campuses.map((c) => {
+            {displayCampuses.map((c) => {
               const ia = iaRecords.find((i) => i.campusId === c.id);
               const pqa = pqaRecords.find((p) => p.campusId === c.id);
               const iso = isoRecords.find((i) => i.campusId === c.id);
@@ -314,7 +359,7 @@ export function AccreditationDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {campuses.map((c) => {
+                {displayCampuses.map((c) => {
                   const ia = iaRecords.find((i) => i.campusId === c.id);
                   const pqa = pqaRecords.find((p) => p.campusId === c.id);
                   const iso = isoRecords.find((i) => i.campusId === c.id);

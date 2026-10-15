@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
@@ -27,10 +27,19 @@ const DEFAULT_ISO_DESCRIPTION =
   'Campus-level quality management system monitoring, clause surveillance audits, Corrective Action Request (CAR) tracking, and auditor sign-off.';
 
 export function CampusISOView() {
-  const { campuses, isoRecords, documents, updateISOCorrectiveAction, currentUser } = usePortal();
-  const [selectedCampusId, setSelectedCampusId] = useState<CampusId>('tandag');
+  const { campuses, isoRecords, documents, updateISOCorrectiveAction, currentUser, selectedCampus, setSelectedCampus } = usePortal();
+  const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
+    return selectedCampus !== 'all' ? selectedCampus : 'tandag';
+  });
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [selectedStageFilter, setSelectedStageFilter] = useState<'All' | 'For Surveillance' | '2nd Surveillance' | 'Recertification'>('All');
+
+  useEffect(() => {
+    if (selectedCampus !== 'all' && selectedCampus !== selectedCampusId) {
+      setSelectedCampusId(selectedCampus);
+      setSelectedRecordId(null);
+    }
+  }, [selectedCampus]);
 
   const campus = campuses.find((c) => c.id === selectedCampusId) || campuses[0];
   const campusRecords = isoRecords.filter((r) => r.campusId === selectedCampusId);
@@ -40,6 +49,7 @@ export function CampusISOView() {
   const handleSelectCampus = (cid: CampusId) => {
     setSelectedCampusId(cid);
     setSelectedRecordId(null);
+    setSelectedCampus(cid);
   };
 
   const [auditModalOpen, setAuditModalOpen] = useState(false);

@@ -13,10 +13,9 @@ import {
 } from 'lucide-react';
 
 export function COPCView() {
-  const { campuses, copcRecords, updateCOPCRecord, updateCOPCRequirement } = usePortal();
+  const { campuses, copcRecords, updateCOPCRecord, updateCOPCRequirement, selectedCampus, setSelectedCampus } = usePortal();
 
   const [search, setSearch] = useState('');
-  const [selectedCampus, setSelectedCampus] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   // Modal states
@@ -42,10 +41,15 @@ export function COPCView() {
     });
   }, [copcRecords, selectedCampus, selectedStatus, search]);
 
-  const totalPrograms = copcRecords.length;
-  const compliantCount = copcRecords.filter((r) => r.copcStatus === 'Compliant').length;
-  const pendingCount = copcRecords.filter((r) => r.copcStatus === 'Pending Review').length;
-  const compliantRate = totalPrograms > 0 ? ((compliantCount / totalPrograms) * 100).toFixed(2) : '0';
+  const campusCopcRecords = useMemo(() => {
+    if (selectedCampus === 'all') return copcRecords;
+    return copcRecords.filter((rec) => rec.campusId === selectedCampus);
+  }, [copcRecords, selectedCampus]);
+
+  const totalPrograms = campusCopcRecords.length;
+  const compliantCount = campusCopcRecords.filter((r) => r.copcStatus === 'Compliant').length;
+  const pendingCount = campusCopcRecords.filter((r) => r.copcStatus === 'Pending Review').length;
+  const compliantRate = totalPrograms > 0 ? ((compliantCount / totalPrograms) * 100).toFixed(1) : '0';
 
   const handleSaveRequirement = (data: {
     documentName: string;
@@ -180,7 +184,7 @@ export function COPCView() {
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
             <select
               value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value)}
+              onChange={(e) => setSelectedCampus(e.target.value as any)}
               className="input h-9 text-xs py-0 w-full sm:w-auto"
             >
               <option value="all">All Campuses</option>
