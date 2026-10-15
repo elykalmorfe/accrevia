@@ -34,6 +34,7 @@ export const navigation: NavItem[] = [
   matchPrefix: '/evidence',
   children: [
     { label: 'All Documents', to: '/evidence' },
+    { label: 'Common Documents', to: '/evidence/common' },
     { label: 'Upload Documents', to: '/evidence/upload' },
     { label: 'Pending Classification', to: '/evidence/pending', showPendingCount: true }
   ]
@@ -69,6 +70,8 @@ export const navigation: NavItem[] = [
 
 
 export const userNavigation: NavItem[] = [
-{ label: 'Dashboard', to: '/', icon: LayoutDashboardIcon },
-{ label: 'Shared with Me', to: '/shared-with-me', icon: FolderOpenIcon },
-{ label: 'Saved Documents', to: '/saved', icon: BookmarkIcon }];
+  { label: 'Dashboard', to: '/', icon: LayoutDashboardIcon },
+  { label: 'Common Documents', to: '/evidence/common', icon: LibraryBigIcon },
+  { label: 'Shared with Me', to: '/shared-with-me', icon: FolderOpenIcon },
+  { label: 'Saved Documents', to: '/saved', icon: BookmarkIcon }
+];
