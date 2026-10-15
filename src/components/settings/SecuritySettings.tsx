@@ -16,7 +16,15 @@ const permissions = [
 'Change system settings'];
 
 
-const defaults: Record<UserRole, number> = { Administrator: 8, 'QA Personnel': 5, Faculty: 2, Staff: 1, Accreditor: 2 };
+const defaults: Record<UserRole, number> = {
+  Superadmin: 8,
+  Administrator: 8,
+  'QA Personnel': 5,
+  Faculty: 3,
+  Staff: 2,
+  Accreditor: 2,
+  User: 2
+};
 
 export function SecuritySettings() {
   const [s, setS] = useState({ timeout: '30', sessions: 2, minLength: 12, complexity: true, expiry: '90', mfa: true });
