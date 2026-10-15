@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 
-export type BadgeTone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'gold';
+export type BadgeTone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'gold' | 'purple';
 
 const toneClasses: Record<BadgeTone, string> = {
   neutral: 'bg-slate-100/80 text-slate-700 border-slate-200/60',
@@ -8,7 +8,8 @@ const toneClasses: Record<BadgeTone, string> = {
   success: 'bg-emerald-50 text-emerald-700 border-emerald-100',
   warning: 'bg-amber-50 text-amber-700 border-amber-100',
   danger: 'bg-rose-50 text-rose-700 border-rose-100',
-  gold: 'bg-amber-50 text-amber-800 border-amber-200/80'
+  gold: 'bg-amber-50 text-amber-800 border-amber-200/80',
+  purple: 'bg-purple-50 text-purple-700 border-purple-200'
 };
 
 const dotClasses: Record<BadgeTone, string> = {
@@ -17,7 +18,8 @@ const dotClasses: Record<BadgeTone, string> = {
   success: 'bg-emerald-500',
   warning: 'bg-amber-500',
   danger: 'bg-rose-500',
-  gold: 'bg-amber-500'
+  gold: 'bg-amber-500',
+  purple: 'bg-purple-600'
 };
 
 interface BadgeProps {
