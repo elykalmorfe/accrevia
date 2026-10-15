@@ -1,4 +1,4 @@
-export type RecipientRole = 'Faculty' | 'Staff' | 'Accreditor';
+export type RecipientRole = 'Faculty' | 'Staff' | 'Accreditor' | 'User';
 export type ShareStatus = 'Active' | 'Expired' | 'Revoked';
 
 export interface DocumentShare {

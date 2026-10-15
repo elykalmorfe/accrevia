@@ -79,6 +79,16 @@ export type ISODocumentStage = 'For Surveillance' | '2nd Surveillance' | 'Recert
 
 export type FileType = 'PDF' | 'DOCX' | 'XLSX' | 'PPTX' | 'JPG' | 'PNG' | 'TIFF';
 
+export type CommonDocType =
+  | 'Accreditation Instrument per Program'
+  | 'AACCUP Technical Review'
+  | 'Program Performance Profile (PPP)'
+  | 'Certificate of Program Compliance (COPC)'
+  | 'Memorandum (Memo)'
+  | 'Endorsement Letter'
+  | 'Summary of Findings and Recommendations'
+  | 'Board of Regents (BOR) Resolution';
+
 export interface EvidenceDocument {
   id: string;
   title: string;
@@ -90,6 +100,8 @@ export interface EvidenceDocument {
   indicatorId: string;
   requirementId?: string;
   docType: DocumentType;
+  commonDocType?: CommonDocType;
+  documentUrl?: string;
   isoStage?: ISODocumentStage;
   academicYear: string;
   cycle: string;
