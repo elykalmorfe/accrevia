@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MenuIcon, SlidersHorizontalIcon, CheckIcon } from 'lucide-react';
+import { MenuIcon, SlidersHorizontalIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { Brand } from './Brand';
 import { GlobalSearch } from './GlobalSearch';
@@ -7,18 +7,25 @@ import { NotificationsMenu } from './NotificationsMenu';
 import { ProfileMenu } from './ProfileMenu';
 
 export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
-  const { isAdmin } = usePortal();
+  const {
+    isAdmin,
+    selectedCampus,
+    setSelectedCampus,
+    campuses,
+    selectedCampusObj,
+    sidebarCollapsed,
+    toggleSidebar
+  } = usePortal();
   const [startYear] = useState(2021);
   const [endYear] = useState(2026);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [selectedCampus, setSelectedCampus] = useState('All Campuses');
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 sm:gap-3 border-b border-slate-100 bg-white/95 backdrop-blur-md px-3 sm:px-6">
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 sm:gap-3 border-b border-slate-100 bg-white/95 backdrop-blur-md px-3 sm:px-6">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 lg:hidden">
         <button
           type="button"
-          className="btn btn-ghost btn-icon h-10 w-10 lg:hidden text-ink-muted hover:text-ink -ml-1"
+          className="btn btn-ghost btn-icon h-10 w-10 text-ink-muted hover:text-ink -ml-1"
           aria-label="Open navigation drawer"
           onClick={onOpenMenu}
         >
@@ -58,12 +65,16 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           <button
             type="button"
             onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-ink hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all min-h-[38px]"
+            className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all min-h-[38px] shadow-sm ${
+              selectedCampus !== 'all'
+                ? 'border-brand-500 bg-brand-50/80 text-brand-900 ring-1 ring-brand-500/30'
+                : 'border-slate-200 bg-white text-ink hover:bg-slate-50 hover:border-slate-300'
+            }`}
           >
             <SlidersHorizontalIcon className="h-3.5 w-3.5 text-brand-600" />
-            <span>Filter</span>
-            {selectedCampus !== 'All Campuses' && (
-              <span className="h-2 w-2 rounded-full bg-brand-600" />
+            <span>{selectedCampus === 'all' ? 'Filter' : selectedCampusObj?.shortName || 'Filtered'}</span>
+            {selectedCampus !== 'all' && (
+              <span className="flex h-2 w-2 rounded-full bg-brand-600 animate-pulse" />
             )}
           </button>
         </div>
@@ -74,65 +85,88 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         <button
           type="button"
           onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-          className="btn btn-ghost btn-icon h-10 w-10 text-ink-muted hover:text-ink relative"
+          className={`btn btn-ghost btn-icon h-10 w-10 relative ${
+            selectedCampus !== 'all' ? 'text-brand-600 bg-brand-50' : 'text-ink-muted hover:text-ink'
+          }`}
           aria-label="Campus filters"
           title="Campus Filter"
         >
           <SlidersHorizontalIcon className="h-4.5 w-4.5 text-brand-600" />
-          {selectedCampus !== 'All Campuses' && (
-            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-brand-600" />
+          {selectedCampus !== 'all' && (
+            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-brand-600 animate-pulse" />
           )}
         </button>
       </div>
 
       {showFilterDropdown && (
-        <div className="absolute right-2 sm:right-4 top-16 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-100 bg-white p-3 shadow-soft-lg z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-            <div>
-              <span className="text-xs font-bold text-ink">Campus & Cycle Filter</span>
-              <p className="text-[10px] text-ink-muted">Academic Cycle: {startYear}–{endYear}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedCampus('All Campuses');
-                setShowFilterDropdown(false);
-              }}
-              className="text-[11px] text-brand-600 hover:underline font-semibold"
-            >
-              Reset
-            </button>
-          </div>
-          <div className="space-y-1 max-h-64 overflow-y-auto">
-            {[
-              'All Campuses',
-              'Main Campus (Tandag)',
-              'Cantilan Campus',
-              'Lianga Campus',
-              'Tagbina Campus',
-              'San Miguel Campus',
-              'Bislig Campus',
-              'Cagwait Campus'
-            ].map((c) => (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/5"
+            onClick={() => setShowFilterDropdown(false)}
+            aria-hidden="true"
+          />
+          <div className="absolute right-2 sm:right-4 top-16 w-80 max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-100 bg-white p-3 shadow-soft-lg z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+              <div>
+                <span className="text-xs font-bold text-ink">Campus & Cycle Filter</span>
+                <p className="text-[10px] text-ink-muted">Academic Cycle: {startYear}–{endYear}</p>
+              </div>
               <button
-                key={c}
                 type="button"
                 onClick={() => {
-                  setSelectedCampus(c);
+                  setSelectedCampus('all');
+                  setShowFilterDropdown(false);
+                }}
+                className="text-[11px] text-brand-600 hover:underline font-semibold"
+              >
+                Reset (All)
+              </button>
+            </div>
+            <div className="space-y-1 max-h-72 overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCampus('all');
                   setShowFilterDropdown(false);
                 }}
                 className={`w-full flex items-center justify-between rounded-xl px-2.5 py-2 text-xs transition-colors min-h-[36px] ${
-                  selectedCampus === c
+                  selectedCampus === 'all'
                     ? 'bg-brand-50 font-bold text-brand-700'
                     : 'text-ink-muted hover:bg-slate-50 hover:text-ink'
                 }`}
               >
-                <span>{c}</span>
-                {selectedCampus === c && <CheckIcon className="h-3.5 w-3.5 text-brand-600" />}
+                <span>All Campuses (Consolidated)</span>
+                {selectedCampus === 'all' && <CheckIcon className="h-3.5 w-3.5 text-brand-600" />}
               </button>
-            ))}
+
+              {campuses.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCampus(c.id);
+                    setShowFilterDropdown(false);
+                  }}
+                  className={`w-full flex items-center justify-between rounded-xl px-2.5 py-2 text-xs transition-colors min-h-[36px] ${
+                    selectedCampus === c.id
+                      ? 'bg-brand-50 font-bold text-brand-700'
+                      : 'text-ink-muted hover:bg-slate-50 hover:text-ink'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="truncate">{c.name}</span>
+                    {c.isMain && (
+                      <span className="rounded bg-brand-100 px-1 py-0.2 text-[9px] font-bold text-brand-700">
+                        Main
+                      </span>
+                    )}
+                  </div>
+                  {selectedCampus === c.id && <CheckIcon className="h-3.5 w-3.5 text-brand-600 shrink-0" />}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* RIGHT ACTIONS: NOTIFICATIONS & PROFILE */}
