@@ -46,10 +46,22 @@ import { AccessAction, AccessLogEntry, AccessRequest, DocumentShare, ShareRecipi
 import { metadataToPatch } from '../utils/metadata';
 import { isAdminRole, isRecipientRole, nowIso, permissionLabel, shareStatus } from '../utils/sharing';
 import { formatDate } from '../utils/format';
+import { isCampusMatch } from '../utils/campus';
 
 interface PortalContextValue {
   currentUser: PortalUser;
   isAdmin: boolean;
+  selectedCampus: CampusId | 'all';
+  setSelectedCampus: (campus: CampusId | 'all') => void;
+  selectedCampusObj: Campus | null;
+  filteredDocuments: EvidenceDocument[];
+  filteredPrograms: ProgramAccreditation[];
+  filteredCopcRecords: COPCRecord[];
+  filteredIsoRecords: ISOSurveillanceRecord[];
+  isCampusMatch: (docCampus?: string, targetCampus?: CampusId | 'all') => boolean;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean | ((prev: boolean) => boolean)) => void;
+  toggleSidebar: () => void;
   frameworks: Framework[];
   saveFramework: (framework: Framework) => void;
   setFrameworkActive: (id: string, active: boolean) => void;
@@ -117,10 +129,12 @@ interface PortalContextValue {
 const PortalContext = createContext<PortalContextValue | null>(null);
 
 const viewAsUserId: Record<PortalViewRole, string> = {
+  Superadmin: 'u-00',
   Administrator: 'u-01',
   Faculty: 'u-07',
   Staff: 'u-13',
-  Accreditor: 'u-11'
+  Accreditor: 'u-11',
+  User: 'u-16'
 };
 
 function upsert<T extends { id: string }>(list: T[], item: T): T[] {
@@ -149,7 +163,13 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const [areas, setAreas] = useState(initialAreas);
   const [criteria, setCriteria] = useState(initialCriteria);
   const [indicators, setIndicators] = useState(initialIndicators);
-  const [documents, setDocuments] = useState<EvidenceDocument[]>(() => loadStorage('documents', initialDocuments));
+  const [documents, setDocuments] = useState<EvidenceDocument[]>(() => {
+    const stored = loadStorage<EvidenceDocument[]>('documents', initialDocuments);
+    if (!stored || stored.length < initialDocuments.length) {
+      return initialDocuments;
+    }
+    return stored;
+  });
   const [folders, setFolders] = useState<EvidenceFolder[]>(() => loadStorage('folders', initialFolders));
   const [pending, setPending] = useState(initialPending);
   const [users, setUsers] = useState(initialUsers);
@@ -163,6 +183,33 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const [accessLog, setAccessLog] = useState(initialAccessLog);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => recentSearchActivity.map((s) => s.query));
   const [savedIds, setSavedIds] = useState<string[]>(['d-002', 'd-001']);
+
+  // Global Campus Filter State
+  const [selectedCampus, setSelectedCampusState] = useState<CampusId | 'all'>(() => {
+    return loadStorage<CampusId | 'all'>('selected_campus', 'all');
+  });
+
+  const setSelectedCampus = useCallback((campus: CampusId | 'all') => {
+    setSelectedCampusState(campus);
+    saveStorage('selected_campus', campus);
+  }, []);
+
+  // Sidebar Collapse State
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(() => {
+    return loadStorage<boolean>('sidebar_collapsed', false);
+  });
+
+  const setSidebarCollapsed = useCallback((collapsed: boolean | ((prev: boolean) => boolean)) => {
+    setSidebarCollapsedState((prev) => {
+      const next = typeof collapsed === 'function' ? collapsed(prev) : collapsed;
+      saveStorage('sidebar_collapsed', next);
+      return next;
+    });
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => !prev);
+  }, [setSidebarCollapsed]);
 
   useEffect(() => {
     saveStorage('folders', folders);
@@ -181,6 +228,32 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   );
   const [copcRecords, setCopcRecords] = useState<COPCRecord[]>(() => loadStorage('copcRecords', initialCOPCRecords));
   const [isoRecords, setIsoRecords] = useState<ISOSurveillanceRecord[]>(() => loadStorage('isoRecords', initialISORecords));
+
+  // Selected campus derived helpers
+  const selectedCampusObj = useMemo(() => {
+    if (selectedCampus === 'all') return null;
+    return campuses.find((c) => c.id === selectedCampus) || null;
+  }, [campuses, selectedCampus]);
+
+  const filteredDocuments = useMemo(() => {
+    if (selectedCampus === 'all') return documents;
+    return documents.filter((d) => isCampusMatch(d.campus, selectedCampus));
+  }, [documents, selectedCampus]);
+
+  const filteredPrograms = useMemo(() => {
+    if (selectedCampus === 'all') return programAccreditations;
+    return programAccreditations.filter((p) => p.campusId === selectedCampus);
+  }, [programAccreditations, selectedCampus]);
+
+  const filteredCopcRecords = useMemo(() => {
+    if (selectedCampus === 'all') return copcRecords;
+    return copcRecords.filter((r) => r.campusId === selectedCampus);
+  }, [copcRecords, selectedCampus]);
+
+  const filteredIsoRecords = useMemo(() => {
+    if (selectedCampus === 'all') return isoRecords;
+    return isoRecords.filter((r) => r.campusId === selectedCampus);
+  }, [isoRecords, selectedCampus]);
 
   const currentUser = users.find((u) => u.id === viewAsUserId[viewAs]) ?? users[0];
   const isAdmin = isAdminRole(currentUser.role);
@@ -617,6 +690,19 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       savedIds,
       toggleSaved,
 
+      // Campus Filter Core
+      selectedCampus,
+      setSelectedCampus,
+      selectedCampusObj,
+      filteredDocuments,
+      filteredPrograms,
+      filteredCopcRecords,
+      filteredIsoRecords,
+      isCampusMatch,
+      sidebarCollapsed,
+      setSidebarCollapsed,
+      toggleSidebar,
+
       // Accreditation & QA
       campuses,
       iaRecords,
@@ -639,6 +725,16 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     [
       currentUser,
       isAdmin,
+      selectedCampus,
+      setSelectedCampus,
+      selectedCampusObj,
+      filteredDocuments,
+      filteredPrograms,
+      filteredCopcRecords,
+      filteredIsoRecords,
+      sidebarCollapsed,
+      setSidebarCollapsed,
+      toggleSidebar,
       frameworks,
       saveFramework,
       setFrameworkActive,
