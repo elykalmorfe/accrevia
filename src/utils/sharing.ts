@@ -10,18 +10,18 @@ export function nowIso(): string {
   return `${TODAY}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 }
 
-export const recipientRoles: RecipientRole[] = ['Faculty', 'Staff', 'Accreditor'];
+export const recipientRoles: RecipientRole[] = ['Faculty', 'Staff', 'Accreditor', 'User'];
 
 export function isAdminRole(role: UserRole): boolean {
-  return role === 'Administrator' || role === 'QA Personnel';
+  return role === 'Superadmin' || role === 'Administrator' || role === 'QA Personnel';
 }
 
 export function isRecipientRole(role: string): role is RecipientRole {
-  return role === 'Faculty' || role === 'Staff' || role === 'Accreditor';
+  return role === 'Faculty' || role === 'Staff' || role === 'Accreditor' || role === 'User';
 }
 
 export function roleGroupName(role: RecipientRole): string {
-  return role === 'Faculty' ? 'All Faculty' : role === 'Staff' ? 'All Staff' : 'All Accreditors';
+  return role === 'Faculty' ? 'All Faculty' : role === 'Staff' ? 'All Staff' : role === 'User' ? 'All Users' : 'All Accreditors';
 }
 
 export function shareStatus(share: DocumentShare): ShareStatus {
