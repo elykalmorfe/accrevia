@@ -8,16 +8,15 @@
 
 /* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
 html {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
   -webkit-tap-highlight-color: transparent;
 }
 body {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
   margin: 0;
   padding: 0;
   background-color: #F8FAFC;
@@ -25,11 +24,6 @@ body {
   color: #0F172A;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-#root {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
 }
 
 /* Custom sleek scrollbar for main scrollable container */
