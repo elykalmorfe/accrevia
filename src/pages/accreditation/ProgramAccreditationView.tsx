@@ -19,7 +19,8 @@ import {
   PencilIcon,
   Trash2Icon,
   CheckCircle2Icon,
-  FileTextIcon
+  FileTextIcon,
+  AwardIcon
 } from 'lucide-react';
 
 export function ProgramAccreditationView() {
@@ -174,6 +175,44 @@ export function ProgramAccreditationView() {
     [programAccreditations]
   );
 
+  const currentCampusPrograms = useMemo(() => {
+    if (selectedCampus === 'all') return programAccreditations;
+    return programAccreditations.filter((p) => p.campusId === selectedCampus);
+  }, [selectedCampus, programAccreditations]);
+
+  const activeLevelCounts = useMemo(() => {
+    return {
+      l4: currentCampusPrograms.filter((p) => p.status === 'Level 4').length,
+      l3: currentCampusPrograms.filter((p) => p.status === 'Level 3').length,
+      l2: currentCampusPrograms.filter((p) => p.status === 'Level 2').length,
+      l1: currentCampusPrograms.filter((p) => p.status === 'Level 1').length,
+      cand: currentCampusPrograms.filter((p) => p.status === 'Candidate').length,
+    };
+  }, [currentCampusPrograms]);
+
+  const selectedCampusObj = useMemo(() => {
+    return campuses.find((c) => c.id === selectedCampus) || null;
+  }, [campuses, selectedCampus]);
+
+  const currentL1Count = useMemo(() => {
+    return currentCampusPrograms.filter((p) => p.status === 'Level 1').length;
+  }, [currentCampusPrograms]);
+
+  const campusLevel1Breakdown = useMemo(() => {
+    return campuses.map((c) => {
+      const progs = programAccreditations.filter((p) => p.campusId === c.id);
+      const l1Progs = progs.filter((p) => p.status === 'Level 1');
+      return {
+        id: c.id,
+        name: c.name,
+        shortName: c.shortName,
+        total: progs.length,
+        l1Count: l1Progs.length,
+        l1Programs: l1Progs.map((p) => p.programName)
+      };
+    });
+  }, [campuses, programAccreditations]);
+
   return (
     <>
       <PageHeader
@@ -236,29 +275,71 @@ export function ProgramAccreditationView() {
       </div>
 
       {/* Institutional Summary Cards (Reflects 2nd Image Reference) */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {summaryMode === 'aaccup' ? (
           <>
+            {/* Card 1: Total Programs Monitored */}
             <div className="panel p-4">
               <span className="text-xs text-ink-muted">Total Programs Monitored</span>
               <p className="mt-1 text-2xl font-bold text-ink">{totalPrograms}</p>
               <p className="text-[11px] text-ink-subtle">University-wide degree offerings</p>
             </div>
 
+            {/* Card 2: EMPHASIZED LEVEL 1 ACCREDITED PROGRAMS */}
+            <button
+              type="button"
+              onClick={() => setSelectedStatus(selectedStatus === 'Level 1' ? 'all' : 'Level 1')}
+              className={`panel p-4 text-left transition-all cursor-pointer relative overflow-hidden group/l1 ${
+                selectedStatus === 'Level 1'
+                  ? 'bg-amber-100/90 border-amber-400 ring-2 ring-amber-400/40 shadow-sm'
+                  : 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-white border-amber-300/90 hover:border-amber-400 shadow-2xs hover:shadow-soft'
+              }`}
+              title="Click to filter table by Level 1 programs"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-amber-950 uppercase tracking-wider">Level 1 Accredited</span>
+                <span className="rounded-full bg-amber-200/90 text-amber-900 border border-amber-300 px-1.5 py-0.2 text-[9px] font-black uppercase">
+                  Phase 1
+                </span>
+              </div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <p className="text-2xl font-black text-amber-950">
+                  {selectedCampus === 'all' ? level1Count : currentL1Count}
+                </p>
+                {selectedCampus !== 'all' && (
+                  <span className="text-[11px] font-semibold text-amber-800 truncate">
+                    of {level1Count} all-campus
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] font-bold text-amber-800 mt-0.5 truncate">
+                {selectedStatus === 'Level 1'
+                  ? '✓ Filter active (Click to clear)'
+                  : selectedCampus === 'all'
+                  ? 'Across 4 campuses · Click to filter'
+                  : currentL1Count > 0
+                  ? `${currentL1Count} in selected campus`
+                  : 'None in this campus'}
+              </p>
+            </button>
+
+            {/* Card 3: Accredited Programs (Levels 1–4) */}
             <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Accredited Programs (Levels 1–4)</span>
+              <span className="text-xs text-ink-muted">Accredited (Levels 1–4)</span>
               <p className="mt-1 text-2xl font-bold text-success-700">{accreditedCount}</p>
               <p className="text-[11px] text-ink-subtle">AACCUP surveyed & certified</p>
             </div>
 
+            {/* Card 4: Institutional Accreditation Rate */}
             <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Institutional Accreditation Rate</span>
+              <span className="text-xs text-ink-muted">Institutional Rate</span>
               <p className="mt-1 text-2xl font-bold text-brand-700">{accreditationRate}%</p>
               <p className="text-[11px] text-ink-subtle">Target: 100% accredited</p>
             </div>
 
+            {/* Card 5: Candidate / Under Evaluation */}
             <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Candidate / Under Evaluation</span>
+              <span className="text-xs text-ink-muted">Candidate / Evaluation</span>
               <p className="mt-1 text-2xl font-bold text-warning-700">{candidateOrPendingCount}</p>
               <p className="text-[11px] text-ink-subtle">{candidateCount} Candidate · {pendingSurveyCount} Pending Visit</p>
             </div>
@@ -288,26 +369,115 @@ export function ProgramAccreditationView() {
               <p className="mt-1 text-2xl font-bold text-warning-700">{copcPendingCount}</p>
               <p className="text-[11px] text-ink-subtle">Submitted renewal applications</p>
             </div>
+
+            <div className="panel p-4">
+              <span className="text-xs text-ink-muted">Coverage</span>
+              <p className="mt-1 text-2xl font-bold text-brand-700">7 Campuses</p>
+              <p className="text-[11px] text-ink-subtle">CHED Regional Scope</p>
+            </div>
           </>
         )}
       </div>
 
       {/* Campus Distribution Breakdown Grid (Master Reference) */}
       <div className="mb-6 panel p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-            {summaryMode === 'aaccup'
-              ? 'Campus AACCUP Accreditation Distribution (Master Reference)'
-              : 'Campus COPC Compliance Distribution (Master Reference)'}
-          </h3>
-          {selectedCampus !== 'all' && (
-            <button
-              type="button"
-              onClick={() => setSelectedCampus('all')}
-              className="text-[11px] text-brand-600 font-semibold hover:underline"
-            >
-              Clear Campus Filter (Show All 7)
-            </button>
+        <div className="flex flex-col gap-2.5 pb-3 border-b border-line mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                {summaryMode === 'aaccup'
+                  ? 'Campus AACCUP Accreditation Distribution (Master Reference)'
+                  : 'Campus COPC Compliance Distribution (Master Reference)'}
+              </h3>
+              {summaryMode === 'aaccup' && (
+                <p className="text-[11px] text-ink-muted mt-0.5">
+                  Click any campus to filter. <strong className="text-amber-900 font-bold">Level 1 program counts</strong> are highlighted for each campus below.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {summaryMode === 'aaccup' && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedStatus(selectedStatus === 'Level 1' ? 'all' : 'Level 1')}
+                  className={`btn btn-xs ${
+                    selectedStatus === 'Level 1'
+                      ? 'bg-amber-600 text-white hover:bg-amber-700 font-bold shadow-xs'
+                      : 'bg-amber-50 text-amber-950 border border-amber-300 hover:bg-amber-100 font-bold'
+                  }`}
+                  title="Toggle table filter to show only Level 1 programs across all campuses"
+                >
+                  <AwardIcon className="h-3 w-3" />
+                  <span>{selectedStatus === 'Level 1' ? 'Showing Level 1 (5)' : 'Filter All Level 1 (5)'}</span>
+                </button>
+              )}
+              {selectedCampus !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCampus('all')}
+                  className="text-[11px] text-brand-600 font-semibold hover:underline"
+                >
+                  Clear Campus Filter (Show All 7)
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Level 1 Campus Breakdown Chips (All Campus or Each Campus) */}
+          {summaryMode === 'aaccup' && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+              <span className="font-bold text-ink-subtle text-[10.5px] uppercase tracking-wider mr-1">
+                Level 1 by Campus:
+              </span>
+              {campusLevel1Breakdown.map((cb) => {
+                const isCurrentCampus = selectedCampus === cb.id;
+                const hasL1 = cb.l1Count > 0;
+                return (
+                  <button
+                    key={cb.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCampus(isCurrentCampus ? 'all' : cb.id);
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] transition-all cursor-pointer ${
+                      isCurrentCampus
+                        ? 'bg-brand-700 text-white border-brand-800 font-bold shadow-xs'
+                        : hasL1
+                        ? 'bg-amber-50/90 text-amber-950 border-amber-300/80 hover:bg-amber-100 font-semibold'
+                        : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                    }`}
+                    title={`${cb.name}: ${cb.l1Count} Level 1 program${cb.l1Count > 1 ? 's' : ''}${
+                      hasL1 ? ` (${cb.l1Programs.join(', ')})` : ''
+                    }`}
+                  >
+                    <span>{cb.shortName}</span>
+                    <span
+                      className={`grid h-4 min-w-4 px-1 place-items-center rounded-full text-[9.5px] font-black ${
+                        isCurrentCampus
+                          ? 'bg-white text-brand-800'
+                          : hasL1
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {cb.l1Count}
+                    </span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setSelectedCampus('all')}
+                className={`ml-1 text-[10.5px] px-2 py-0.5 rounded transition-colors ${
+                  selectedCampus === 'all'
+                    ? 'font-bold text-brand-700 underline'
+                    : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                All Campuses (5)
+              </button>
+            </div>
           )}
         </div>
 
@@ -320,6 +490,10 @@ export function ProgramAccreditationView() {
               const accredited = campusRecs.filter((p) =>
                 ['Level 1', 'Level 2', 'Level 3', 'Level 4'].includes(p.status)
               ).length;
+              const l4Count = campusRecs.filter((p) => p.status === 'Level 4').length;
+              const l3Count = campusRecs.filter((p) => p.status === 'Level 3').length;
+              const l2Count = campusRecs.filter((p) => p.status === 'Level 2').length;
+              const l1Count = campusRecs.filter((p) => p.status === 'Level 1').length;
               const rate = total > 0 ? ((accredited / total) * 100).toFixed(1) : '0';
               const isFull = accredited === total && total > 0;
 
@@ -328,15 +502,19 @@ export function ProgramAccreditationView() {
                   key={c.id}
                   type="button"
                   onClick={() => setSelectedCampus(c.id === selectedCampus ? 'all' : c.id)}
-                  className={`rounded-lg border p-3 text-left transition-all ${
+                  className={`rounded-xl border p-3 text-left transition-all relative group/card ${
                     selectedCampus === c.id
-                      ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500 shadow-xs'
+                      ? 'border-brand-500 bg-brand-50/80 ring-2 ring-brand-500/60 shadow-sm'
+                      : l1Count > 0
+                      ? 'border-amber-200/90 bg-gradient-to-b from-white via-white to-amber-50/30 hover:border-amber-300 hover:shadow-2xs'
                       : 'border-line hover:bg-canvas'
                   }`}
-                  title={`Filter by ${c.name} (${accredited}/${total} accredited)`}
+                  title={`Filter by ${c.name} (${accredited}/${total} accredited — L4: ${l4Count}, L3: ${l3Count}, L2: ${l2Count}, L1: ${l1Count})`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-ink">{c.shortName}</span>
+                    <span className="text-xs font-bold text-ink group-hover/card:text-brand-700 transition-colors">
+                      {c.shortName}
+                    </span>
                     {isFull ? (
                       <span className="text-[10px] font-semibold text-success-700">100%</span>
                     ) : (
@@ -347,6 +525,38 @@ export function ProgramAccreditationView() {
                     {accredited} / {total}
                   </p>
                   <p className="text-[10px] text-ink-muted">programs accredited</p>
+
+                  {/* Level breakdown badges (L4, L3, L2, L1) */}
+                  <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1">
+                    {l4Count > 0 && (
+                      <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-amber-50 text-amber-900 border border-amber-200" title={`Level 4: ${l4Count} program(s)`}>
+                        L4: {l4Count}
+                      </span>
+                    )}
+                    {l3Count > 0 && (
+                      <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title={`Level 3: ${l3Count} program(s)`}>
+                        L3: {l3Count}
+                      </span>
+                    )}
+                    {l2Count > 0 && (
+                      <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50 text-blue-800 border border-blue-200" title={`Level 2: ${l2Count} program(s)`}>
+                        L2: {l2Count}
+                      </span>
+                    )}
+                    {l1Count > 0 ? (
+                      <span
+                        className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9.5px] font-black bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs"
+                        title={`Level 1: ${l1Count} program(s)`}
+                      >
+                        <span className="h-1 w-1 rounded-full bg-amber-600" />
+                        L1: {l1Count}
+                      </span>
+                    ) : (
+                      <span className="px-1 py-0.5 rounded text-[9.5px] text-slate-400">
+                        L1: 0
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             } else {
@@ -417,17 +627,24 @@ export function ProgramAccreditationView() {
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="input h-9 text-xs py-0 w-auto"
             >
-              <option value="all">All Levels</option>
-              <option value="Candidate">Candidate</option>
-              <option value="Level 1">Level 1</option>
-              <option value="Level 2">Level 2</option>
-              <option value="Level 3">Level 3</option>
-              <option value="Level 4">Level 4</option>
+              <option value="all">All Levels ({currentCampusPrograms.length})</option>
+              <option value="Candidate">Candidate ({activeLevelCounts.cand})</option>
+              <option value="Level 1">
+                Level 1 ({activeLevelCounts.l1}{selectedCampus !== 'all' ? ` in ${selectedCampusObj?.shortName || ''}` : ` across 4 Campuses`})
+              </option>
+              <option value="Level 2">
+                Level 2 ({activeLevelCounts.l2}{selectedCampus !== 'all' ? ` in ${selectedCampusObj?.shortName || ''}` : ` across 7 Campuses`})
+              </option>
+              <option value="Level 3">
+                Level 3 ({activeLevelCounts.l3}{selectedCampus !== 'all' ? ` in ${selectedCampusObj?.shortName || ''}` : ''})
+              </option>
+              <option value="Level 4">
+                Level 4 ({activeLevelCounts.l4}{selectedCampus !== 'all' ? ` in ${selectedCampusObj?.shortName || ''}` : ''})
+              </option>
               <option value="Not Accreditable">Not Accreditable</option>
               <option value="for accreditation">For Accreditation</option>
               <option value="waiting">Waiting for Survey</option>
             </select>
-
             <select
               value={selectedDegree}
               onChange={(e) => setSelectedDegree(e.target.value)}
@@ -451,56 +668,88 @@ export function ProgramAccreditationView() {
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-ink-muted border-t border-line pt-2">
-          <span>
-            Showing <strong className="text-ink">{filtered.length}</strong> of{' '}
-            <strong className="text-ink">{programAccreditations.length}</strong> programs
-          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span>
+              Showing <strong className="text-ink">{filtered.length}</strong> of{' '}
+              <strong className="text-ink">{programAccreditations.length}</strong> programs
+            </span>
+            {selectedCampus !== 'all' && (
+              <span className="inline-flex items-center gap-1 rounded bg-brand-50 text-brand-800 border border-brand-200 px-1.5 py-0.2 text-[10.5px] font-bold">
+                Campus: {selectedCampusObj?.shortName}
+              </span>
+            )}
+            {selectedStatus !== 'all' && (
+              <span className="inline-flex items-center gap-1 rounded bg-slate-100 text-slate-800 border border-slate-300 px-1.5 py-0.2 text-[10.5px] font-bold">
+                Level: {selectedStatus}
+              </span>
+            )}
+            {(selectedCampus !== 'all' || selectedStatus !== 'all' || search.trim()) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCampus('all');
+                  setSelectedStatus('all');
+                  setSearch('');
+                }}
+                className="text-[10.5px] text-brand-600 font-bold hover:underline ml-1"
+              >
+                Reset Filters
+              </button>
+            )}
+          </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
             <button
               type="button"
               onClick={() => setSelectedStatus(selectedStatus === 'Level 4' ? 'all' : 'Level 4')}
-              className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors ${
-                selectedStatus === 'Level 4' ? 'bg-gold-100 text-gold-900 font-bold' : 'hover:bg-canvas'
+              className={`flex items-center gap-1 rounded px-2 py-0.5 transition-colors cursor-pointer text-xs ${
+                selectedStatus === 'Level 4' ? 'bg-amber-100 text-amber-900 font-bold ring-1 ring-amber-400' : 'hover:bg-canvas'
               }`}
             >
-              <span className="h-2 w-2 rounded-full bg-gold-500" /> Level 4 ({level4Count})
+              <span className="h-2 w-2 rounded-full bg-amber-500" /> Level 4 ({activeLevelCounts.l4})
             </button>
             <button
               type="button"
               onClick={() => setSelectedStatus(selectedStatus === 'Level 3' ? 'all' : 'Level 3')}
-              className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors ${
-                selectedStatus === 'Level 3' ? 'bg-success-100 text-success-900 font-bold' : 'hover:bg-canvas'
+              className={`flex items-center gap-1 rounded px-2 py-0.5 transition-colors cursor-pointer text-xs ${
+                selectedStatus === 'Level 3' ? 'bg-emerald-100 text-emerald-900 font-bold ring-1 ring-emerald-400' : 'hover:bg-canvas'
               }`}
             >
-              <span className="h-2 w-2 rounded-full bg-success-600" /> Level 3 ({level3Count})
+              <span className="h-2 w-2 rounded-full bg-emerald-600" /> Level 3 ({activeLevelCounts.l3})
             </button>
             <button
               type="button"
               onClick={() => setSelectedStatus(selectedStatus === 'Level 2' ? 'all' : 'Level 2')}
-              className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors ${
-                selectedStatus === 'Level 2' ? 'bg-brand-100 text-brand-900 font-bold' : 'hover:bg-canvas'
+              className={`flex items-center gap-1 rounded px-2 py-0.5 transition-colors cursor-pointer text-xs ${
+                selectedStatus === 'Level 2' ? 'bg-blue-100 text-blue-900 font-bold ring-1 ring-blue-400' : 'hover:bg-canvas'
               }`}
             >
-              <span className="h-2 w-2 rounded-full bg-brand-500" /> Level 2 ({level2Count})
+              <span className="h-2 w-2 rounded-full bg-blue-500" /> Level 2 ({activeLevelCounts.l2})
             </button>
             <button
               type="button"
               onClick={() => setSelectedStatus(selectedStatus === 'Level 1' ? 'all' : 'Level 1')}
-              className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors ${
-                selectedStatus === 'Level 1' ? 'bg-slate-200 text-ink font-bold' : 'hover:bg-canvas'
+              className={`flex items-center gap-1.5 rounded-md px-2 py-0.5 transition-all cursor-pointer text-xs ${
+                selectedStatus === 'Level 1'
+                  ? 'bg-amber-200 text-amber-950 font-black border border-amber-400 shadow-2xs ring-1 ring-amber-400'
+                  : 'bg-amber-50/90 text-amber-900 border border-amber-300 hover:bg-amber-100 font-bold'
               }`}
+              title="Click to filter table by Level 1 programs"
             >
-              <span className="h-2 w-2 rounded-full bg-ink-subtle" /> Level 1 ({level1Count})
+              <span className="h-2 w-2 rounded-full bg-amber-600" />
+              <span>Level 1 ({activeLevelCounts.l1})</span>
+              <span className="rounded bg-amber-200/90 px-1 py-0.1 text-[9px] font-black uppercase text-amber-900">
+                Phase 1
+              </span>
             </button>
             <button
               type="button"
               onClick={() => setSelectedStatus(selectedStatus === 'Candidate' ? 'all' : 'Candidate')}
-              className={`flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors ${
-                selectedStatus === 'Candidate' ? 'bg-amber-100 text-amber-900 font-bold' : 'hover:bg-canvas'
+              className={`flex items-center gap-1 rounded px-2 py-0.5 transition-colors cursor-pointer text-xs ${
+                selectedStatus === 'Candidate' ? 'bg-slate-200 text-slate-900 font-bold ring-1 ring-slate-400' : 'hover:bg-canvas'
               }`}
             >
-              <span className="h-2 w-2 rounded-full bg-amber-500" /> Cand. ({candidateCount})
+              <span className="h-2 w-2 rounded-full bg-slate-400" /> Cand. ({activeLevelCounts.cand})
             </button>
 
             <span className="hidden xl:inline text-line">|</span>
@@ -580,7 +829,7 @@ export function ProgramAccreditationView() {
                               : prog.status.includes('Level 2')
                               ? 'brand'
                               : prog.status.includes('Level 1')
-                              ? 'neutral'
+                              ? 'gold'
                               : prog.status === 'Not Accreditable'
                               ? 'danger'
                               : 'warning'

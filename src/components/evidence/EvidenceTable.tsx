@@ -76,15 +76,39 @@ export function EvidenceTable({ docs, onPreview, onEdit }: EvidenceTableProps) {
           <tbody className="divide-y divide-line">
             {docs.map((doc) =>
             <tr key={doc.id} className="hover:bg-canvas/60">
-                <td className="td min-w-[280px] max-w-[340px]">
-                  <Link to={`/documents/${doc.id}`} className="font-medium text-ink hover:text-brand-700 hover:underline">{doc.title}</Link>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-subtle">
-                    <span>{doc.fileType} · {doc.pages} pages · {doc.confidentiality}</span>
-                    {doc.isoStage && (
-                      <span className="rounded bg-purple-100 text-purple-800 font-semibold px-1.5 py-0.5 text-[10px]">
-                        {doc.isoStage}
-                      </span>
-                    )}
+                <td className="td min-w-[300px] max-w-[360px]">
+                  <div className="flex items-start gap-2.5">
+                    <span
+                      className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border text-[9.5px] font-black uppercase ${
+                        doc.fileType?.toLowerCase() === 'pdf'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200/90'
+                          : doc.fileType?.toLowerCase().includes('doc')
+                          ? 'bg-blue-50 text-blue-700 border-blue-200/90'
+                          : doc.fileType?.toLowerCase().includes('xls')
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200/90'
+                          : 'bg-slate-50 text-slate-700 border-slate-200/90'
+                      }`}
+                      title={`${doc.fileType?.toUpperCase()} document`}
+                    >
+                      {doc.fileType?.toUpperCase() || 'FILE'}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        to={`/documents/${doc.id}`}
+                        className="font-semibold text-slate-900 hover:text-brand-700 hover:underline line-clamp-1"
+                        title={doc.title}
+                      >
+                        {doc.title}
+                      </Link>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                        <span>{doc.pages} pages · {doc.confidentiality}</span>
+                        {doc.isoStage && (
+                          <span className="rounded bg-purple-100 text-purple-800 font-bold px-1.5 py-0.2 text-[9.5px]">
+                            {doc.isoStage}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </td>
                 <td className="td"><FrameworkTag frameworkId={doc.frameworkId} /></td>

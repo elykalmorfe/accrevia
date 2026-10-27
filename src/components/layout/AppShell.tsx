@@ -27,7 +27,7 @@ export function AppShell() {
       </a>
       <Header onOpenMenu={() => setMobileOpen(true)} />
       <div className="flex">
-        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 xl:w-72 shrink-0 overflow-y-auto border-r border-slate-100 bg-white lg:block">
+        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-[280px] xl:w-[300px] shrink-0 overflow-y-auto border-r border-slate-100 bg-white lg:block shadow-[1px_0_4px_0_rgba(15,23,42,0.02)]">
           <Sidebar />
         </aside>
 
@@ -44,7 +44,7 @@ export function AppShell() {
               aria-hidden="true" />
             
               <motion.aside
-              className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-y-auto bg-white shadow-xl lg:hidden"
+              className="fixed inset-y-0 left-0 z-50 flex w-[300px] flex-col overflow-y-auto bg-white shadow-xl lg:hidden"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
