@@ -21,7 +21,7 @@ export function DocumentPage({ doc, terms = [], activePassage = null }: Document
   return (
     <article
       aria-label={`Preview of ${doc.title}`}
-      className="mx-auto w-full max-w-[760px] bg-white px-7 py-10 font-serif text-ink shadow-sm ring-1 ring-line sm:px-14 sm:py-14">
+      className="mx-auto w-full max-w-[760px] bg-white px-4 py-6 font-serif text-ink shadow-sm ring-1 ring-line sm:px-10 sm:py-12 md:px-14 md:py-14">
       
       <header className="border-b-2 border-brand-700 pb-4 text-center font-sans">
         <p className="text-[11px] font-semibold tracking-wide text-brand-800">NORTH EASTERN MINDANAO STATE UNIVERSITY</p>

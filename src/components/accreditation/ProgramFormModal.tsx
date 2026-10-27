@@ -186,6 +186,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
             onChange={(val) => setStatus(val as AccreditationLevel)}
             options={[
               { value: 'Candidate', label: 'Candidate' },
+              { value: 'Candidate for Graduation', label: 'Candidate for Graduation' },
               { value: 'Level 1', label: 'Level 1' },
               { value: 'Level 2', label: 'Level 2' },
               { value: 'Level 3', label: 'Level 3' },

@@ -40,8 +40,8 @@ export function SelectField({
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className={`input pr-8 ${compact ? 'h-8 text-[13px]' : ''} ${value ? '' : 'text-ink-muted'}`}>
-        
+        className={`input pr-8 ${compact ? 'min-h-[38px] sm:min-h-[34px] sm:h-8 text-base sm:text-xs' : 'text-base sm:text-sm'} ${value ? '' : 'text-ink-muted'}`}
+      >
         {placeholder !== undefined && <option value="">{placeholder}</option>}
         {normalized.map((o) =>
         <option key={o.value} value={o.value}>

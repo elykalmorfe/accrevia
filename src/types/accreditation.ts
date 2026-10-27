@@ -14,6 +14,7 @@ export interface Campus {
 
 export type AccreditationLevel = 
   | 'Candidate'
+  | 'Candidate for Graduation'
   | 'Level 1'
   | 'Level 2'
   | 'Level 3'

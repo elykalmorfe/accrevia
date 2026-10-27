@@ -21,12 +21,26 @@ export function GeneralSettings() {
         <SettingRow label="Institution">
           <input aria-label="Institution" className="input" value={form.institution} onChange={(e) => setForm((f) => ({ ...f, institution: e.target.value }))} />
         </SettingRow>
-        <SettingRow label="Logo" description="Shown in the header and on exported reports. PNG or SVG, at least 128 px.">
+        <SettingRow label="Logo" description="Shown in the header, reports, and mobile navigation. Official university seal.">
           <div className="flex items-center gap-3">
-            <span className="relative grid h-10 w-10 place-items-center rounded-md bg-brand-700 font-serif text-lg font-bold text-white" aria-hidden="true">
-              A<span className="absolute bottom-1.5 left-3 right-3 h-0.5 bg-gold-500" />
-            </span>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => toast('Choose a logo file to upload')}>Replace logo</button>
+            <div className="relative h-12 w-12 overflow-hidden rounded-full ring-2 ring-brand-200 shadow-sm flex items-center justify-center">
+              <img
+                src="/nemsu-logo.png"
+                alt="NEMSU Seal"
+                className="h-full w-full object-cover rounded-full select-none"
+              />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-ink">North Eastern Mindanao State University Seal</p>
+              <div className="mt-1 flex items-center gap-2">
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => toast.success('NEMSU seal is set as primary institutional logo')}>
+                  Active Logo
+                </button>
+                <button type="button" className="btn btn-ghost btn-sm text-xs" onClick={() => toast('Choose a new logo image file')}>
+                  Upload New
+                </button>
+              </div>
+            </div>
           </div>
         </SettingRow>
         <SettingRow label="Default academic year" description="Pre-selected when classifying new evidence.">

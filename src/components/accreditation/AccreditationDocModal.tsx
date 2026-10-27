@@ -64,8 +64,10 @@ export function AccreditationDocModal({
     }
   };
 
+  const hasEvidence = Boolean(docName.trim() || docUrl.trim());
+
   const handleSave = () => {
-    if (!docName.trim() && status === 'Approved') {
+    if (status === 'Approved' && !hasEvidence) {
       toast.error('An approved requirement must have an attached document or reference link.');
       return;
     }
@@ -87,24 +89,24 @@ export function AccreditationDocModal({
       description={areaCode ? `${areaCode} · ${requirementTitle}` : requirementTitle}
       size="lg"
       footer={
-        <div className="flex w-full items-center justify-between">
+        <div className="flex w-full flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 text-xs text-ink-subtle">
             {status === 'Approved' && (
-              <span className="flex items-center gap-1 text-success-700">
-                <CheckCircle2Icon className="h-3.5 w-3.5" /> Verification Approved
+              <span className="flex items-center gap-1 text-success-700 font-semibold">
+                <CheckCircle2Icon className="h-4 w-4" /> Verification Approved
               </span>
             )}
             {status === 'Deficient' && (
-              <span className="flex items-center gap-1 text-danger-700">
-                <AlertTriangleIcon className="h-3.5 w-3.5" /> Flagged with Deficiencies
+              <span className="flex items-center gap-1 text-danger-700 font-semibold">
+                <AlertTriangleIcon className="h-4 w-4" /> Flagged with Deficiencies
               </span>
             )}
           </div>
-          <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="btn btn-secondary">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
+            <button type="button" onClick={onClose} className="btn btn-secondary w-full sm:w-auto min-h-[40px]">
               Cancel
             </button>
-            <button type="button" onClick={handleSave} className="btn btn-primary">
+            <button type="button" onClick={handleSave} className="btn btn-primary w-full sm:w-auto min-h-[40px]">
               Save Requirement
             </button>
           </div>
@@ -113,12 +115,12 @@ export function AccreditationDocModal({
     >
       <div className="space-y-4">
         {/* File upload drag/drop dropzone */}
-        <div className="rounded-lg border-2 border-dashed border-line-strong p-4 text-center hover:bg-canvas/50">
+        <div className="rounded-xl border-2 border-dashed border-line-strong p-4 sm:p-5 text-center hover:bg-canvas/50 transition-colors">
           <UploadCloudIcon className="mx-auto h-8 w-8 text-brand-600" />
-          <p className="mt-2 text-sm font-medium text-ink">Upload certificate or evidence document</p>
+          <p className="mt-2 text-sm font-semibold text-ink">Upload certificate or evidence document</p>
           <p className="text-xs text-ink-muted">PDF, DOCX, XLSX, or scanned certificate up to 50MB</p>
           <div className="mt-3">
-            <label className="btn btn-secondary btn-sm cursor-pointer">
+            <label className="btn btn-secondary btn-sm cursor-pointer min-h-[38px] px-4">
               <span>{simulatedUploading ? 'Attaching...' : 'Choose file'}</span>
               <input
                 type="file"
@@ -177,10 +179,10 @@ export function AccreditationDocModal({
           />
         </div>
 
-        {docName && (
+        {(docName || docUrl) && (
           <div className="flex items-center gap-2 rounded-md border border-line bg-canvas p-3 text-xs text-ink">
             <FileTextIcon className="h-4 w-4 shrink-0 text-brand-600" />
-            <span className="font-medium">{docName}</span>
+            <span className="font-medium">{docName || 'Reference link'}</span>
             {docUrl && (
               <a
                 href={docUrl}

@@ -107,8 +107,12 @@ export function AccreditationReportModal({ open, onClose }: AccreditationReportM
       <div className="space-y-6 print:p-0">
         {/* Formal Institutional Header */}
         <div className="border-b border-line pb-4 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-50 text-brand-700 mb-2 border border-brand-200">
-            <BuildingIcon className="h-7 w-7" />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full overflow-hidden mb-2 ring-2 ring-brand-200 shadow-xs">
+            <img
+              src="/nemsu-logo.png"
+              alt="NEMSU Official Seal"
+              className="h-full w-full object-cover rounded-full select-none"
+            />
           </div>
           <h2 className="text-lg font-bold uppercase tracking-wider text-ink">
             North Eastern Mindanao State University

@@ -131,15 +131,15 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
       description={`Record official ISO surveillance, add standard cycles, and preserve historical audits for ${campus.name}.`}
       size="xl"
       footer={
-        <div className="flex w-full items-center justify-between">
-          <span className="text-xs text-ink-subtle">
+        <div className="flex flex-col sm:flex-row w-full items-stretch sm:items-center justify-between gap-3">
+          <span className="text-xs text-ink-subtle hidden sm:inline">
             All previous ISO standards and records are preserved for historical reference and never overwritten.
           </span>
-          <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="btn btn-secondary">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
+            <button type="button" onClick={onClose} className="btn btn-secondary w-full sm:w-auto">
               Cancel
             </button>
-            <button type="button" onClick={handleSubmit} className="btn btn-primary">
+            <button type="button" onClick={handleSubmit} className="btn btn-primary w-full sm:w-auto">
               Certify & Save Surveillance Audit
             </button>
           </div>

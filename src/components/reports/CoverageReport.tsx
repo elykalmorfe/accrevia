@@ -11,7 +11,7 @@ const levels: CoverageLevel[] = ['Multiple', 'Available', 'Limited', 'None'];
 const barColor: Record<CoverageLevel, string> = { Multiple: 'bg-success-600', Available: 'bg-brand-500', Limited: 'bg-gold-500', None: 'bg-danger-600' };
 
 export function CoverageReport() {
-  const { frameworks, criteria, indicators, documents } = usePortal();
+  const { frameworks, criteria, indicators, filteredDocuments, selectedCampus, selectedCampusObj } = usePortal();
   const lookup = useLookup();
   const [frameworkId, setFrameworkId] = useState('');
 
@@ -19,8 +19,8 @@ export function CoverageReport() {
   filter((c) => !frameworkId || c.frameworkId === frameworkId).
   map((c) => {
     const list = indicators.filter((i) => i.criterionId === c.id);
-    const count = countForCriterion(documents, c.id);
-    return { criterion: c, indicators: list, count, level: coverageLevel(count), gaps: list.filter((i) => countForIndicator(documents, i.id) === 0) };
+    const count = countForCriterion(filteredDocuments, c.id);
+    return { criterion: c, indicators: list, count, level: coverageLevel(count), gaps: list.filter((i) => countForIndicator(filteredDocuments, i.id) === 0) };
   }).
   sort((a, b) => a.count - b.count);
 
@@ -31,7 +31,14 @@ export function CoverageReport() {
     <div className="space-y-4">
       <section className="panel p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="panel-title">Accreditation coverage by criterion</h2>
+          <div>
+            <h2 className="panel-title">Accreditation coverage by criterion</h2>
+            {selectedCampus !== 'all' && (
+              <p className="text-xs text-brand-600 font-medium mt-0.5">
+                Filtered scope: {selectedCampusObj?.name}
+              </p>
+            )}
+          </div>
           <SelectField compact hideLabel label="Framework" value={frameworkId} onChange={setFrameworkId} placeholder="All frameworks" options={frameworks.map((f) => ({ value: f.id, label: f.name }))} className="sm:w-60" />
         </div>
         <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-canvas" aria-hidden="true">

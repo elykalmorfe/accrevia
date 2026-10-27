@@ -173,8 +173,8 @@ export function DocumentViewer() {
               <button type="button" className="btn btn-ghost btn-icon" aria-label="Zoom in" disabled={zoom >= 130} onClick={() => setZoom((z) => z + 10)}><ZoomInIcon className="h-4 w-4" /></button>
             </div>
           </div>
-          <div className="max-h-[calc(100vh-14rem)] overflow-auto bg-canvas p-4 sm:p-8" onContextMenu={rights.canDownload ? undefined : (e) => e.preventDefault()}>
-            <div style={{ width: `${zoom}%` }} className={`mx-auto min-w-[320px] ${rights.canDownload ? '' : 'select-none'}`}>
+          <div className="max-h-[calc(100vh-14rem)] overflow-auto bg-canvas p-2 sm:p-6 lg:p-8" onContextMenu={rights.canDownload ? undefined : (e) => e.preventDefault()}>
+            <div style={{ width: `${zoom}%` }} className={`mx-auto min-w-0 max-w-full sm:min-w-[320px] ${rights.canDownload ? '' : 'select-none'}`}>
               <DocumentPage doc={doc} terms={terms} activePassage={activePassage} />
             </div>
           </div>

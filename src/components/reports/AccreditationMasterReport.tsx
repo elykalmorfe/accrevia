@@ -1,21 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { usePortal } from '../../contexts/PortalContext';
 import { Badge } from '../ui/Badge';
 import { PrinterIcon } from 'lucide-react';
 import { AccreditationReportModal } from '../accreditation/AccreditationReportModal';
 
 export function AccreditationMasterReport() {
-  const { campuses, programAccreditations } = usePortal();
-  const [selectedCampus, setSelectedCampus] = useState<string>('all');
+  const { campuses, programAccreditations, selectedCampus, setSelectedCampus, selectedCampusObj } = usePortal();
   const [reportModalOpen, setReportModalOpen] = useState(false);
 
-  const filteredPrograms = selectedCampus === 'all'
-    ? programAccreditations
-    : programAccreditations.filter((p) => p.campusId === selectedCampus);
+  const filteredPrograms = useMemo(() => {
+    if (selectedCampus === 'all') return programAccreditations;
+    return programAccreditations.filter((p) => p.campusId === selectedCampus);
+  }, [programAccreditations, selectedCampus]);
 
-  const totalPrograms = programAccreditations.length;
-  const compliantCount = programAccreditations.filter((p) => p.copcStatus === 'Compliant').length;
-  const copcPercent = totalPrograms > 0 ? ((compliantCount / totalPrograms) * 100).toFixed(2) : '0';
+  const totalPrograms = filteredPrograms.length;
+  const compliantCount = filteredPrograms.filter((p) => p.copcStatus === 'Compliant').length;
+  const copcPercent = totalPrograms > 0 ? ((compliantCount / totalPrograms) * 100).toFixed(1) : '0';
 
   return (
     <div className="space-y-6">
@@ -49,14 +49,22 @@ export function AccreditationMasterReport() {
         {/* Executive summary metrics */}
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-line bg-canvas/60 p-3">
-            <span className="text-xs text-ink-muted">Monitored Campuses</span>
-            <p className="text-xl font-bold text-ink mt-0.5">{campuses.length}</p>
-            <p className="text-[11px] text-ink-subtle">Tandag, Cantilan, Cagwait, etc.</p>
+            <span className="text-xs text-ink-muted">
+              {selectedCampus === 'all' ? 'Monitored Campuses' : 'Campus Scope'}
+            </span>
+            <p className="text-xl font-bold text-ink mt-0.5">
+              {selectedCampus === 'all' ? campuses.length : '1'}
+            </p>
+            <p className="text-[11px] text-ink-subtle">
+              {selectedCampus === 'all' ? 'Tandag, Cantilan, Cagwait, etc.' : selectedCampusObj?.name || 'Selected Campus'}
+            </p>
           </div>
           <div className="rounded-lg border border-line bg-canvas/60 p-3">
             <span className="text-xs text-ink-muted">Academic Programs</span>
             <p className="text-xl font-bold text-ink mt-0.5">{totalPrograms}</p>
-            <p className="text-[11px] text-ink-subtle">64 programs / 80 majors</p>
+            <p className="text-[11px] text-ink-subtle">
+              {selectedCampus === 'all' ? '64 programs / 80 majors' : `${totalPrograms} programs in this campus`}
+            </p>
           </div>
           <div className="rounded-lg border border-line bg-canvas/60 p-3">
             <span className="text-xs text-ink-muted">Programs with COPC</span>
@@ -68,7 +76,9 @@ export function AccreditationMasterReport() {
           <div className="rounded-lg border border-line bg-canvas/60 p-3">
             <span className="text-xs text-ink-muted">ISO 9001:2015 QMS</span>
             <p className="text-xl font-bold text-brand-700 mt-0.5">100%</p>
-            <p className="text-[11px] text-ink-subtle">All 7 campuses monitored</p>
+            <p className="text-[11px] text-ink-subtle">
+              {selectedCampus === 'all' ? 'All 7 campuses monitored' : 'Certified surveillance active'}
+            </p>
           </div>
         </div>
       </div>
@@ -80,7 +90,7 @@ export function AccreditationMasterReport() {
             <label className="text-xs font-medium text-ink">Filter by Campus:</label>
             <select
               value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value)}
+              onChange={(e) => setSelectedCampus(e.target.value as any)}
               className="input h-8 text-xs py-0 w-auto"
             >
               <option value="all">All Campuses (Consolidated)</option>

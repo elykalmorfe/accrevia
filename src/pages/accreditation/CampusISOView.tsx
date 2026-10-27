@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
@@ -27,10 +27,19 @@ const DEFAULT_ISO_DESCRIPTION =
   'Campus-level quality management system monitoring, clause surveillance audits, Corrective Action Request (CAR) tracking, and auditor sign-off.';
 
 export function CampusISOView() {
-  const { campuses, isoRecords, documents, updateISOCorrectiveAction, currentUser } = usePortal();
-  const [selectedCampusId, setSelectedCampusId] = useState<CampusId>('tandag');
+  const { campuses, isoRecords, documents, updateISOCorrectiveAction, currentUser, selectedCampus, setSelectedCampus } = usePortal();
+  const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
+    return selectedCampus !== 'all' ? selectedCampus : 'tandag';
+  });
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [selectedStageFilter, setSelectedStageFilter] = useState<'All' | 'For Surveillance' | '2nd Surveillance' | 'Recertification'>('All');
+
+  useEffect(() => {
+    if (selectedCampus !== 'all' && selectedCampus !== selectedCampusId) {
+      setSelectedCampusId(selectedCampus);
+      setSelectedRecordId(null);
+    }
+  }, [selectedCampus]);
 
   const campus = campuses.find((c) => c.id === selectedCampusId) || campuses[0];
   const campusRecords = isoRecords.filter((r) => r.campusId === selectedCampusId);
@@ -40,6 +49,7 @@ export function CampusISOView() {
   const handleSelectCampus = (cid: CampusId) => {
     setSelectedCampusId(cid);
     setSelectedRecordId(null);
+    setSelectedCampus(cid);
   };
 
   const [auditModalOpen, setAuditModalOpen] = useState(false);
@@ -166,7 +176,7 @@ export function CampusISOView() {
       />
 
       {/* Campus Selector Pills */}
-      <div className="mb-6 flex flex-wrap gap-2 border-b border-line pb-4">
+      <div className="mb-6 flex overflow-x-auto no-scrollbar sm:flex-wrap gap-2 border-b border-line pb-4">
         {campuses.map((c) => {
           const rec = isoRecords.find((r) => r.campusId === c.id && !r.isHistorical) || isoRecords.find((r) => r.campusId === c.id);
           const isSelected = c.id === selectedCampusId;
@@ -175,7 +185,7 @@ export function CampusISOView() {
             <button
               key={c.id}
               onClick={() => handleSelectCampus(c.id)}
-              className={`flex items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${
+              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${
                 isSelected
                   ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-1 ring-brand-500'
                   : 'border-line bg-white hover:bg-canvas'
@@ -215,7 +225,7 @@ export function CampusISOView() {
             </span>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex overflow-x-auto no-scrollbar sm:flex-wrap gap-2">
             {campusRecords.map((rec) => {
               const isCurrent = rec.id === isoRecord.id;
               const isHistorical = !!rec.isHistorical;
@@ -224,7 +234,7 @@ export function CampusISOView() {
                   key={rec.id}
                   type="button"
                   onClick={() => setSelectedRecordId(rec.id)}
-                  className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs transition-all ${
+                  className={`flex shrink-0 items-center gap-2 rounded-md border px-3 py-1.5 text-xs transition-all ${
                     isCurrent
                       ? 'border-brand-500 bg-brand-50 font-semibold text-brand-900 shadow-xs ring-1 ring-brand-500'
                       : 'border-line bg-white text-ink hover:bg-canvas'
@@ -628,18 +638,18 @@ export function CampusISOView() {
           description={selectedCar.deficiencyDescription}
           size="md"
           footer={
-            <div className="flex gap-2 justify-end w-full">
+            <div className="flex flex-col-reverse sm:flex-row gap-2 justify-end w-full">
               <button
                 type="button"
                 onClick={() => setSelectedCar(null)}
-                className="btn btn-secondary"
+                className="btn btn-secondary w-full sm:w-auto"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleVerifyCar}
-                className="btn btn-primary"
+                className="btn btn-primary w-full sm:w-auto"
               >
                 Sign Off & Close
               </button>
@@ -677,28 +687,28 @@ export function CampusISOView() {
           description="Update the title and contextual description for the ISO quality surveillance page."
           size="md"
           footer={
-            <div className="flex w-full items-center justify-between">
+            <div className="flex flex-col-reverse sm:flex-row w-full items-stretch sm:items-center justify-between gap-3">
               {sectionTitle !== DEFAULT_ISO_TITLE || sectionDescription !== DEFAULT_ISO_DESCRIPTION ? (
                 <button
                   type="button"
                   onClick={handleResetHeader}
-                  className="btn btn-ghost btn-sm text-ink-muted hover:text-ink gap-1.5"
+                  className="btn btn-ghost btn-sm text-ink-muted hover:text-ink gap-1.5 self-center sm:self-auto"
                 >
                   <RotateCcwIcon className="h-3.5 w-3.5" /> Reset to Default
                 </button>
               ) : <div />}
-              <div className="flex gap-2">
+              <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setHeaderModalOpen(false)}
-                  className="btn btn-secondary"
+                  className="btn btn-secondary w-full sm:w-auto"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveModalHeader}
-                  className="btn btn-primary"
+                  className="btn btn-primary w-full sm:w-auto"
                 >
                   Save Changes
                 </button>

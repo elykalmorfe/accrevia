@@ -93,9 +93,9 @@ export const campuses: Campus[] = [
 export const standardIARequirements: Omit<IARequirementItem, 'id'>[] = [
   {
     areaCode: 'AREA-I',
-    areaName: 'Governance & Management',
-    title: 'Approved Campus Development Plan & Organizational Structure',
-    description: 'Updated Board-approved campus organizational chart, administrative manuals, and 5-year strategic plan.',
+    areaName: 'Governance and Management',
+    title: 'Approved Campus Development Plan, Administrative Manual & Organizational Structure',
+    description: 'Updated Board-approved campus organizational chart, administrative manuals, Transparency Seal compliance, and 5-year strategic plan.',
     isSubmitted: true,
     status: 'Approved',
     documentName: 'Campus_Dev_Plan_2024_2028.pdf',
@@ -103,9 +103,9 @@ export const standardIARequirements: Omit<IARequirementItem, 'id'>[] = [
   },
   {
     areaCode: 'AREA-II',
-    areaName: 'Teaching, Learning & Evaluation',
-    title: 'Outcomes-Based Education (OBE) Implementation Matrix',
-    description: 'Syllabi compliance with CMO policies, assessment rubrics, and teaching portfolio samples.',
+    areaName: 'Teaching, Learning, and Evaluation',
+    title: 'Outcomes-Based Education (OBE) Implementation Matrix & Curricular Review',
+    description: 'Syllabi compliance with CHED CMO policies, assessment rubrics, teaching portfolios, and retention/graduation metrics.',
     isSubmitted: true,
     status: 'Approved',
     documentName: 'OBE_Compliance_Matrix_2024.pdf',
@@ -113,9 +113,9 @@ export const standardIARequirements: Omit<IARequirementItem, 'id'>[] = [
   },
   {
     areaCode: 'AREA-III',
-    areaName: 'Faculty & Staff Profile',
-    title: 'Faculty Qualifications & Plantilla Verification Portfolio',
-    description: 'Certificates of Masteral and Doctoral degrees in specialization, PRC licenses, and teaching workloads.',
+    areaName: 'Faculty and Staff',
+    title: 'Faculty Plantilla, Academic Qualifications & Staff Development Portfolio',
+    description: 'Verification of Masteral/Doctoral degrees in specialization, PRC licenses, NBC 461/QCE performance ratings, and staff development programs.',
     isSubmitted: true,
     status: 'Approved',
     documentName: 'Faculty_Qualifications_Roster.pdf',
@@ -123,9 +123,9 @@ export const standardIARequirements: Omit<IARequirementItem, 'id'>[] = [
   },
   {
     areaCode: 'AREA-IV',
-    areaName: 'Research & Publications',
-    title: 'Campus Research Output & Peer-Reviewed Journal Publications',
-    description: 'List of SCOPUS/WoS/CHED-recognized published research papers, IP registrations, and funded projects.',
+    areaName: 'Research',
+    title: 'Institutional Research Agenda, Peer-Reviewed Publications & IP Disclosures',
+    description: 'Approved 2023–2028 research agenda, SCOPUS/WoS/CHED-recognized journal publications, intellectual property registrations, and funded R&D projects.',
     isSubmitted: true,
     status: 'Under Review',
     documentName: 'Research_Accomplishments_AY2024.pdf',
@@ -133,9 +133,9 @@ export const standardIARequirements: Omit<IARequirementItem, 'id'>[] = [
   },
   {
     areaCode: 'AREA-V',
-    areaName: 'Extension & Community Involvement',
-    title: 'Institutional Extension Impact Assessment & MOUs',
-    description: 'Active extension programs with adopted communities, LGUs, and impact assessment survey results.',
+    areaName: 'Extension, Consultancy, and Linkages',
+    title: 'Institutional Extension Master Plan, MOUs & Community Impact Assessment',
+    description: 'Active extension programs with adopted communities, industry MOUs, technology transfer/commercialization initiatives, and documented impact studies.',
     isSubmitted: true,
     status: 'Approved',
     documentName: 'Extension_Program_Reports_2024.pdf',
@@ -143,9 +143,9 @@ export const standardIARequirements: Omit<IARequirementItem, 'id'>[] = [
   },
   {
     areaCode: 'AREA-VI',
-    areaName: 'Student Support Services',
-    title: 'Guidance, Health Services & Scholarship Operations Manual',
-    description: 'Evidence of comprehensive student welfare, admission/registrar services, health clinics, and student publications.',
+    areaName: 'Support to Students',
+    title: 'Student Affairs and Services (SAS) Operations Manual & Welfare Records',
+    description: 'Comprehensive student welfare, admission/registrar guidelines, medical/dental clinic services, scholarship assistance, and student council records.',
     isSubmitted: true,
     status: 'Approved',
     documentName: 'Student_Affairs_Portfolio.pdf',
@@ -153,13 +153,33 @@ export const standardIARequirements: Omit<IARequirementItem, 'id'>[] = [
   },
   {
     areaCode: 'AREA-VII',
-    areaName: 'Library, Laboratories & Facilities',
-    title: 'Physical Facilities, Laboratory Safety & Library Holdings Audit',
-    description: 'Building safety certifications, laboratory equipment calibration reports, and electronic book databases.',
+    areaName: 'Library',
+    title: 'Library Holdings Inventory, Electronic Databases & OPAC Portal System',
+    description: 'Print and electronic collection holdings, ScienceDirect/Scopus database subscriptions, remote access portal, and licensed librarian plantilla.',
     isSubmitted: true,
     status: 'Approved',
-    documentName: 'Facilities_Holdings_Audit_2024.pdf',
+    documentName: 'Library_Holdings_Audit_2024.pdf',
     submissionDate: '2024-03-25'
+  },
+  {
+    areaCode: 'AREA-VIII',
+    areaName: 'Infrastructure and Other Learning Resources',
+    title: 'Physical Plant Facilities, Laboratory Safety & IT Network Infrastructure',
+    description: 'Building safety certifications, laboratory equipment calibration reports, high-speed campus bandwidth, PWD accessibility, and disaster risk resilience.',
+    isSubmitted: true,
+    status: 'Approved',
+    documentName: 'Infrastructure_Safety_Audit_2024.pdf',
+    submissionDate: '2024-04-05'
+  },
+  {
+    areaCode: 'AREA-IX',
+    areaName: 'Quality Assurance Culture',
+    title: 'University Quality Assurance Manual, ISO 9001:2015 QMS & Internal Audit Reports',
+    description: 'Institutional QA manual, ISO 9001:2015 surveillance audit conformances, Internal Quality Audit (IQA) resolutions, and risk-opportunity registers.',
+    isSubmitted: true,
+    status: 'Approved',
+    documentName: 'QA_Culture_Manual_ISO_2024.pdf',
+    submissionDate: '2024-04-18'
   }
 ];
 
@@ -174,8 +194,12 @@ export const initialCampusIA: CampusIAStatus[] = [
     surveyBody: 'AACCUP Institutional Accreditation Survey Commission',
     lastEvaluationDate: '2023-01-15',
     nextScheduledEvaluation: '2027-10-15',
-    remarks: 'Compliant with all institutional parameters; designated as University Center of Excellence in Teacher Education.',
-    requirements: standardIARequirements.map((r, i) => ({ ...r, id: `ia-req-tandag-${i + 1}` }))
+    remarks: 'Compliant with all 9 institutional accreditation areas; designated as University Center of Excellence in Teacher Education.',
+    requirements: standardIARequirements.map((r, i) => ({
+      ...r,
+      id: `ia-req-tandag-${i + 1}`,
+      status: 'Approved'
+    }))
   },
   {
     campusId: 'cantilan',
@@ -208,7 +232,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     requirements: standardIARequirements.map((r, i) => ({
       ...r,
       id: `ia-req-lianga-${i + 1}`,
-      status: i === 6 ? 'Approved' : 'Approved'
+      status: i === 7 ? 'Under Review' : 'Approved'
     }))
   },
   {
@@ -225,7 +249,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     requirements: standardIARequirements.map((r, i) => ({
       ...r,
       id: `ia-req-bislig-${i + 1}`,
-      status: i === 3 ? 'Under Review' : 'Approved'
+      status: i === 3 || i === 8 ? 'Under Review' : 'Approved'
     }))
   },
   {
@@ -242,7 +266,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     requirements: standardIARequirements.map((r, i) => ({
       ...r,
       id: `ia-req-tagbina-${i + 1}`,
-      status: i === 3 ? 'Deficient' : 'Approved',
+      status: i === 3 ? 'Deficient' : i === 6 ? 'Under Review' : 'Approved',
       reviewerNotes: i === 3 ? 'Requires more external research grant outputs and patent disclosures.' : undefined
     }))
   },
@@ -260,7 +284,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     requirements: standardIARequirements.map((r, i) => ({
       ...r,
       id: `ia-req-san-miguel-${i + 1}`,
-      status: i === 3 ? 'Under Review' : 'Approved'
+      status: i === 3 || i === 7 ? 'Under Review' : 'Approved'
     }))
   },
   {
@@ -277,7 +301,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     requirements: standardIARequirements.map((r, i) => ({
       ...r,
       id: `ia-req-cagwait-${i + 1}`,
-      status: i >= 4 ? 'Under Review' : 'Approved'
+      status: i >= 5 ? 'Under Review' : 'Approved'
     }))
   }
 ];
@@ -468,6 +492,24 @@ export const initialProgramAccreditations: ProgramAccreditation[] = [
     copcStatus: 'Compliant',
     copcCertificateNumber: 'COPC-2023-TAN-01',
     requirements: makeProgramRequirements('pa-tan-01')
+  },
+  {
+    id: 'pa-tan-01b',
+    campusId: 'tandag',
+    campusName: 'Tandag Campus (Main)',
+    programName: 'Bachelor of Arts in Political Science',
+    degreeLevel: 'Undergraduate',
+    yearOfInitialOperation: '2018',
+    status: 'Candidate for Graduation',
+    validityStart: '2024-01-01',
+    validityEnd: '2025-12-31',
+    instrumentLink: 'https://drive.google.com/file/d/1dAr6YbSm9d-ucxx2I2Y9qT5MIVRK0WW4/view',
+    findingsLink: 'https://drive.google.com/drive/folders/1c95n6ZIge4zvZZ11wN4y0IKDr_r2mYko',
+    technicalReviewLink: 'https://drive.google.com/file/d/1Noyo-GMjkzveJ-Y4PTYPDL5Fokd9xfLI/view?usp=drive_link',
+    copcStatus: 'Compliant',
+    copcCertificateNumber: 'COPC-2024-TAN-15',
+    remarks: 'Pioneer batch qualified as Candidate for Graduation; initial accreditation survey scheduled upon graduation.',
+    requirements: makeProgramRequirements('pa-tan-01b')
   },
   {
     id: 'pa-tan-02',

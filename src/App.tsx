@@ -8,6 +8,7 @@ import { Dashboard } from './pages/Dashboard';
 import { SearchResults } from './pages/SearchResults';
 import { DocumentViewer } from './pages/DocumentViewer';
 import { AllEvidence } from './pages/evidence/AllEvidence';
+import { CommonDocumentsView } from './pages/evidence/CommonDocumentsView';
 import { UploadEvidence } from './pages/evidence/UploadEvidence';
 import { PendingClassification } from './pages/evidence/PendingClassification';
 import { DocumentProcessing } from './pages/evidence/DocumentProcessing';
@@ -54,6 +55,7 @@ export function App({ viewAs = 'Administrator' }: AppProps) {
                     <Route path="search" element={<SearchResults />} />
                     <Route path="documents/:id" element={<DocumentViewer />} />
                     <Route path="evidence" element={<AllEvidence />} />
+                    <Route path="evidence/common" element={<CommonDocumentsView />} />
                     <Route path="evidence/upload" element={<UploadEvidence />} />
                     <Route path="evidence/pending" element={<PendingClassification />} />
                     <Route path="evidence/processing" element={<DocumentProcessing />} />
@@ -85,6 +87,7 @@ export function App({ viewAs = 'Administrator' }: AppProps) {
                     <Route index element={<UserHome />} />
                     <Route path="shared-with-me" element={<SharedWithMe />} />
                     <Route path="saved" element={<SavedEvidence />} />
+                    <Route path="evidence/common" element={<CommonDocumentsView />} />
                     <Route path="search" element={<SearchResults />} />
                     <Route path="documents/:id" element={<DocumentViewer />} />
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
@@ -13,8 +13,16 @@ import {
 } from 'lucide-react';
 
 export function CampusPQAView() {
-  const { campuses, pqaRecords, updateCampusPQA } = usePortal();
-  const [selectedCampusId, setSelectedCampusId] = useState<CampusId>('tandag');
+  const { campuses, pqaRecords, updateCampusPQA, selectedCampus, setSelectedCampus } = usePortal();
+  const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
+    return selectedCampus !== 'all' ? selectedCampus : 'tandag';
+  });
+
+  useEffect(() => {
+    if (selectedCampus !== 'all' && selectedCampus !== selectedCampusId) {
+      setSelectedCampusId(selectedCampus);
+    }
+  }, [selectedCampus]);
 
   const campus = campuses.find((c) => c.id === selectedCampusId) || campuses[0];
   const pqaRecord = pqaRecords.find((r) => r.campusId === selectedCampusId);
@@ -98,15 +106,18 @@ export function CampusPQAView() {
       />
 
       {/* Campus Selector Pills */}
-      <div className="mb-6 flex flex-wrap gap-2 border-b border-line pb-4">
+      <div className="mb-6 flex overflow-x-auto no-scrollbar sm:flex-wrap gap-2 border-b border-line pb-4">
         {campuses.map((c) => {
           const rec = pqaRecords.find((r) => r.campusId === c.id);
           const isSelected = c.id === selectedCampusId;
           return (
             <button
               key={c.id}
-              onClick={() => setSelectedCampusId(c.id)}
-              className={`flex items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${
+              onClick={() => {
+                setSelectedCampusId(c.id);
+                setSelectedCampus(c.id);
+              }}
+              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${
                 isSelected
                   ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-1 ring-brand-500'
                   : 'border-line bg-white hover:bg-canvas'

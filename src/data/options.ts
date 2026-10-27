@@ -87,7 +87,7 @@ export const offices = [
 
 export const confidentialityLevels: Confidentiality[] = ['Public', 'Internal', 'Confidential'];
 
-export const userRoles: UserRole[] = ['Administrator', 'QA Personnel', 'Faculty', 'Staff', 'Accreditor'];
+export const userRoles: UserRole[] = ['Superadmin', 'Administrator', 'QA Personnel', 'User', 'Faculty', 'Staff', 'Accreditor'];
 
 export const searchSuggestions = [
 'faculty development activities',

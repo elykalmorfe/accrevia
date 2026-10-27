@@ -395,7 +395,7 @@ export function UploadEvidence() {
 
             {/* Category Filter Pills & View Switcher */}
             <div className="flex flex-wrap items-center gap-2 justify-between sm:justify-end">
-              <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 text-xs">
+              <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5 text-xs overflow-x-auto no-scrollbar max-w-full">
                 {['All', 'Accreditation', 'Compliance', 'Quality Excellence', 'Quality Management'].map((cat) => (
                   <button
                     key={cat}
@@ -517,7 +517,8 @@ export function UploadEvidence() {
           ) : (
             /* LIST VIEW */
             <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-xs">
-              <table className="table">
+              <div className="overflow-x-auto">
+                <table className="table">
                 <thead>
                   <tr>
                     <th>Folder Name</th>
@@ -601,6 +602,7 @@ export function UploadEvidence() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -871,7 +873,96 @@ export function UploadEvidence() {
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-xs">
-                  <div className="overflow-x-auto">
+                  {/* Mobile Card List (< md) */}
+                  <div className="md:hidden divide-y divide-slate-100">
+                    {docsInFolder.map((doc) => (
+                      <div key={doc.id} className="p-3.5 space-y-2.5">
+                        <div className="flex items-start justify-between gap-2.5">
+                          <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                            <span className="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-700 shrink-0 font-bold text-[10px] uppercase mt-0.5">
+                              {doc.fileType || 'DOC'}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <Link
+                                to={`/documents/${doc.id}`}
+                                className="font-semibold text-xs text-ink hover:text-brand-600 line-clamp-1"
+                                title={doc.title}
+                              >
+                                {doc.title}
+                              </Link>
+                              <p className="text-[11px] text-ink-muted line-clamp-2 mt-0.5">
+                                {doc.description || 'Institutional compliance record'}
+                              </p>
+                            </div>
+                          </div>
+                          <RowActionsMenu
+                            label={`Options for ${doc.title}`}
+                            actions={[
+                              {
+                                label: 'Preview Document',
+                                icon: EyeIcon,
+                                onSelect: () => setPreviewDoc(doc)
+                              },
+                              {
+                                label: 'View Full Details',
+                                icon: ExternalLinkIcon,
+                                onSelect: () => navigate(`/documents/${doc.id}`)
+                              },
+                              {
+                                label: 'Download File',
+                                icon: DownloadIcon,
+                                onSelect: () => toast.success(`Downloading ${doc.title}`)
+                              },
+                              {
+                                label: 'Copy Reference Link',
+                                icon: CopyIcon,
+                                onSelect: () => {
+                                  navigator.clipboard?.writeText(window.location.origin + `/documents/${doc.id}`);
+                                  toast.success('Document link copied to clipboard');
+                                }
+                              }
+                            ]}
+                          />
+                        </div>
+
+                        {/* Metadata Pills */}
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-muted pt-0.5">
+                          <Badge tone="neutral">{doc.docType}</Badge>
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700 font-medium">
+                            {doc.pages}p · {doc.sizeMb} MB
+                          </span>
+                          <span className="text-slate-300">·</span>
+                          <span>{formatDate(doc.dateAdded || doc.documentDate)}</span>
+                          <span className="inline-flex items-center gap-1 text-emerald-700 font-medium ml-auto">
+                            <CheckCircle2Icon className="h-3 w-3 text-emerald-600" />
+                            {doc.status || 'Indexed'}
+                          </span>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDoc(doc)}
+                            className="btn btn-secondary btn-sm flex-1 justify-center min-h-[38px] text-xs font-medium"
+                          >
+                            <EyeIcon className="h-3.5 w-3.5 text-slate-500" />
+                            <span>Preview</span>
+                          </button>
+                          <Link
+                            to={`/documents/${doc.id}`}
+                            className="btn btn-secondary btn-sm flex-1 justify-center min-h-[38px] text-xs font-medium"
+                          >
+                            <ExternalLinkIcon className="h-3.5 w-3.5 text-slate-500" />
+                            <span>Details</span>
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop Table (>= md) */}
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="table w-full">
                       <thead>
                         <tr>
@@ -992,7 +1083,7 @@ export function UploadEvidence() {
 
               {/* Floating Upload Mini-Dock when background uploads exist */}
               {folderQueueItems.length > 0 && !dismissFloatingDock && (
-                <div className="fixed bottom-6 right-6 z-40 max-w-sm rounded-xl border border-slate-200 bg-white/95 p-3.5 shadow-xl backdrop-blur-md transition-all">
+                <div className="fixed bottom-20 sm:bottom-6 right-3 sm:right-6 left-3 sm:left-auto z-40 max-w-sm rounded-xl border border-slate-200 bg-white/95 p-3.5 shadow-xl backdrop-blur-md transition-all">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-2.5">
                       <span className={`grid h-8 w-8 place-items-center rounded-lg shrink-0 ${

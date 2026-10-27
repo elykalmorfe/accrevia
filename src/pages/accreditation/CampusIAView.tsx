@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
@@ -6,6 +6,7 @@ import { CampusId, IALevel, IARequirementItem, RequirementVerificationStatus } f
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { AccreditationDocModal } from '../../components/accreditation/AccreditationDocModal';
+import { IAFolderManager } from '../../components/accreditation/IAFolderManager';
 import {
   Building2Icon,
   FileTextIcon,
@@ -16,8 +17,16 @@ import {
 } from 'lucide-react';
 
 export function CampusIAView() {
-  const { campuses, iaRecords, updateCampusIA, updateIARequirement } = usePortal();
-  const [selectedCampusId, setSelectedCampusId] = useState<CampusId>('tandag');
+  const { campuses, iaRecords, updateCampusIA, updateIARequirement, selectedCampus, setSelectedCampus } = usePortal();
+  const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
+    return selectedCampus !== 'all' ? selectedCampus : 'tandag';
+  });
+
+  useEffect(() => {
+    if (selectedCampus !== 'all' && selectedCampus !== selectedCampusId) {
+      setSelectedCampusId(selectedCampus);
+    }
+  }, [selectedCampus]);
 
   const campus = campuses.find((c) => c.id === selectedCampusId) || campuses[0];
   const iaRecord = iaRecords.find((r) => r.campusId === selectedCampusId);
@@ -40,21 +49,21 @@ export function CampusIAView() {
   const pendingCount = iaRecord.requirements.filter((r) => r.status === 'Pending').length;
   const compliancePercentage = Math.round((approvedCount / iaRecord.requirements.length) * 100);
 
-  // Status Determination Engine
+  // Status Determination Engine (Evaluated out of 9 Areas)
   const evaluateRecommendedLevel = (): { level: IALevel; explanation: string } => {
-    if (compliancePercentage === 100 && approvedCount >= 7) {
+    if (compliancePercentage === 100 && approvedCount >= 9) {
       return {
         level: 'Level III Re-accredited',
-        explanation: 'All 7 mandatory institutional areas approved with verified documentation and research outputs.'
+        explanation: 'All 9 mandatory institutional areas approved with verified documentation and research outputs.'
       };
     }
-    if (compliancePercentage >= 75) {
+    if (compliancePercentage >= 75 || approvedCount >= 7) {
       return {
         level: 'Level II Re-accredited',
-        explanation: 'Strong performance across core areas; at least 5 of 7 areas verified without critical deficiencies.'
+        explanation: 'Strong performance across core areas; at least 7 of 9 areas verified without critical deficiencies.'
       };
     }
-    if (compliancePercentage >= 50) {
+    if (compliancePercentage >= 50 || approvedCount >= 5) {
       return {
         level: 'Level I Accredited',
         explanation: 'Baseline institutional areas verified; minimum faculty and facilities standards satisfied.'
@@ -79,12 +88,13 @@ export function CampusIAView() {
     reviewerNotes: string;
   }) => {
     if (!activeReq) return;
+    const hasEvidence = Boolean(data.documentName || data.documentUrl);
     updateIARequirement(selectedCampusId, activeReq.id, {
       documentName: data.documentName,
       documentUrl: data.documentUrl,
       status: data.status,
       reviewerNotes: data.reviewerNotes,
-      isSubmitted: !!data.documentName
+      isSubmitted: hasEvidence
     });
   };
 
@@ -117,15 +127,18 @@ export function CampusIAView() {
       />
 
       {/* Campus Selector Pills */}
-      <div className="mb-6 flex flex-wrap gap-2 border-b border-line pb-4">
+      <div className="mb-6 flex overflow-x-auto no-scrollbar sm:flex-wrap gap-2 border-b border-line pb-4">
         {campuses.map((c) => {
           const rec = iaRecords.find((r) => r.campusId === c.id);
           const isSelected = c.id === selectedCampusId;
           return (
             <button
               key={c.id}
-              onClick={() => setSelectedCampusId(c.id)}
-              className={`flex items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${
+              onClick={() => {
+                setSelectedCampusId(c.id);
+                setSelectedCampus(c.id);
+              }}
+              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${
                 isSelected
                   ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-1 ring-brand-500'
                   : 'border-line bg-white hover:bg-canvas'
@@ -217,7 +230,7 @@ export function CampusIAView() {
             </h3>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-extrabold text-ink">{compliancePercentage}%</span>
-              <span className="text-xs text-ink-muted">compliant ({approvedCount} of 7 areas verified)</span>
+              <span className="text-xs text-ink-muted">compliant ({approvedCount} of 9 areas verified)</span>
             </div>
 
             <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-line">
@@ -255,13 +268,28 @@ export function CampusIAView() {
         </div>
       </div>
 
-      {/* 7 Core Institutional Areas Requirements Table */}
+      {/* IA DOCUMENT & FOLDER MANAGEMENT SECTION (Folder Creation, Upload, Areas 1-9, Instrument Docs) */}
+      <IAFolderManager
+        campusId={selectedCampusId}
+        campusName={campus.name}
+        iaRequirements={iaRecord.requirements}
+        onRequirementUpdated={(reqId, docName, docUrl) => {
+          updateIARequirement(selectedCampusId, reqId, {
+            documentName: docName,
+            documentUrl: docUrl,
+            status: 'Approved',
+            isSubmitted: true
+          });
+        }}
+      />
+
+      {/* 9 Core Institutional Areas Requirements Table */}
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h3 className="text-sm font-bold text-ink">AACCUP Institutional Survey Areas Portfolio</h3>
+            <h3 className="text-sm font-bold text-ink">AACCUP Institutional Survey Areas Portfolio (Areas 1–9)</h3>
             <p className="text-xs text-ink-muted">
-              Submit and verify campus-level documentation across all 7 comprehensive institutional accreditation areas.
+              Submit and verify campus-level documentation across all 9 official AACCUP institutional accreditation areas.
             </p>
           </div>
         </div>
@@ -294,10 +322,10 @@ export function CampusIAView() {
                   <p className="text-xs text-ink-muted mt-0.5">{req.description}</p>
 
                   {/* Attached Document info */}
-                  {req.documentName && (
+                  {(req.documentName || req.documentUrl) && (
                     <div className="mt-2.5 flex items-center gap-2 text-xs">
                       <FileTextIcon className="h-3.5 w-3.5 text-brand-600" />
-                      <span className="font-medium text-ink">{req.documentName}</span>
+                      <span className="font-medium text-ink">{req.documentName || 'Reference link'}</span>
                       {req.submissionDate && (
                         <span className="text-ink-subtle">· Submitted {req.submissionDate}</span>
                       )}
@@ -325,7 +353,7 @@ export function CampusIAView() {
                   <button
                     type="button"
                     onClick={() => setActiveReq(req)}
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary btn-sm min-h-[38px] w-full sm:w-auto"
                   >
                     <UploadIcon className="h-3.5 w-3.5" />
                     Manage & Verify
