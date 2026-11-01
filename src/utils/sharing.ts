@@ -1,4 +1,4 @@
-import { DocumentShare, RecipientRole, ShareStatus } from '../types/sharing';
+﻿import { DocumentShare, RecipientRole, ShareStatus } from '../types/sharing';
 import { PortalUser, UserRole } from '../types/user';
 import { formatDate } from './format';
 

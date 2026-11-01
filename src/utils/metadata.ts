@@ -1,4 +1,4 @@
-import { DocumentMetadata, DocumentType, EvidenceDocument } from '../types/evidence';
+﻿import { DocumentMetadata, DocumentType, EvidenceDocument } from '../types/evidence';
 
 export function emptyMetadata(): DocumentMetadata {
   return {

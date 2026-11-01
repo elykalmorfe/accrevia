@@ -1,4 +1,4 @@
-import { CampusId } from '../types/accreditation';
+﻿import { CampusId } from '../types/accreditation';
 
 export function isCampusMatch(docCampus?: string, targetCampus?: CampusId | 'all'): boolean {
   if (!targetCampus || targetCampus === 'all') return true;

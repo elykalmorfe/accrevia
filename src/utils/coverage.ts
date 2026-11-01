@@ -1,4 +1,4 @@
-import { EvidenceDocument } from '../types/evidence';
+﻿import { EvidenceDocument } from '../types/evidence';
 
 export type CoverageLevel = 'Multiple' | 'Available' | 'Limited' | 'None';
 
