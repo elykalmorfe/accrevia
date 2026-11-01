@@ -1,4 +1,4 @@
-export type UserRole = 'Superadmin' | 'Administrator' | 'QA Personnel' | 'User' | 'Faculty' | 'Staff' | 'Accreditor';
+﻿export type UserRole = 'Superadmin' | 'Administrator' | 'QA Personnel' | 'User' | 'Faculty' | 'Staff' | 'Accreditor';
 export type UserStatus = 'Active' | 'Pending Approval' | 'Invited' | 'Deactivated' | 'Rejected';
 export type PortalViewRole = 'Superadmin' | 'Administrator' | 'Faculty' | 'Staff' | 'Accreditor' | 'User';
 
