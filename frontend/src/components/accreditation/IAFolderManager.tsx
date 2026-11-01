@@ -16,7 +16,8 @@ import {
   FileSpreadsheetIcon,
   FileIcon,
   EyeIcon,
-  DownloadIcon
+  DownloadIcon,
+  ArrowLeftIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { EvidenceFolder, EvidenceDocument } from '../../types/evidence';
@@ -54,16 +55,19 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
   const [activeTab, setActiveTab] = useState<'folders' | 'areas'>('areas');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Repository Filtering and Sorting
+  // Folder Navigation State: null = root repository view; string = drilled-down folder ID
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+
+  // Inside-Folder Filtering and Sorting
   const [repoFilter, setRepoFilter] = useState<'all' | 'folders' | 'files'>('all');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
 
   // Document Preview Modal
   const [previewDoc, setPreviewDoc] = useState<EvidenceDocument | null>(null);
 
-  // Folder Modals
+  // Folder Form Modal
   const [folderFormOpen, setFolderFormOpen] = useState(false);
+  const [folderFormParentId, setFolderFormParentId] = useState<string | undefined>(undefined);
   const [editingFolder, setEditingFolder] = useState<EvidenceFolder | null>(null);
   const [deletingFolder, setDeletingFolder] = useState<EvidenceFolder | null>(null);
 
@@ -89,6 +93,11 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
     return documents.filter((d) => d.frameworkId === 'ia');
   }, [documents]);
 
+  // Root Folders (folders without a parentId)
+  const rootFolders = useMemo(() => {
+    return iaFolders.filter((f) => !f.parentId);
+  }, [iaFolders]);
+
   // Active folder object if drilled down
   const currentActiveFolder = useMemo(() => {
     if (!activeFolderId) return null;
@@ -98,6 +107,11 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
   // Document count per folder helper (defaulting unassigned IA docs to 'folder-ia')
   const getFolderDocCount = (folderId: string) => {
     return campusIADocs.filter((d) => (d.folderId || 'folder-ia') === folderId).length;
+  };
+
+  // Subfolder count inside a specific folder
+  const getFolderSubfolderCount = (folderId: string) => {
+    return iaFolders.filter((f) => f.parentId === folderId).length;
   };
 
   // Filtered and Sorted IA Areas
@@ -113,9 +127,25 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
     );
   }, [searchQuery]);
 
-  // Filtered and Sorted Folders (A to Z)
-  const filteredFolders = useMemo(() => {
-    let list = iaFolders;
+  // Filtered Root Folders (for Root View)
+  const filteredRootFolders = useMemo(() => {
+    let list = rootFolders;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (f) =>
+          f.name.toLowerCase().includes(q) ||
+          f.code.toLowerCase().includes(q) ||
+          (f.description && f.description.toLowerCase().includes(q))
+      );
+    }
+    return [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }, [rootFolders, searchQuery]);
+
+  // Inside-Folder Subfolders (sorted A to Z)
+  const insideSubfolders = useMemo(() => {
+    if (!activeFolderId) return [];
+    let list = iaFolders.filter((f) => f.parentId === activeFolderId);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -129,14 +159,12 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
       return sortDirection === 'asc' ? cmp : -cmp;
     });
-  }, [iaFolders, searchQuery, sortDirection]);
+  }, [iaFolders, activeFolderId, searchQuery, sortDirection]);
 
-  // Filtered and Sorted Files (A to Z)
-  const filteredFiles = useMemo(() => {
-    let list = campusIADocs;
-    if (activeFolderId) {
-      list = list.filter((d) => (d.folderId || 'folder-ia') === activeFolderId);
-    }
+  // Inside-Folder Files (sorted A to Z)
+  const insideFiles = useMemo(() => {
+    if (!activeFolderId) return [];
+    let list = campusIADocs.filter((d) => (d.folderId || 'folder-ia') === activeFolderId);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -254,9 +282,35 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
 
     setIsProcessingUpload(true);
     setTimeout(() => {
-      // Resolve target folder automatically without requiring user dropdown
       const effectiveFolderId = selectedTargetFolder || activeFolderId || iaFolders[0]?.id || 'folder-ia';
       const targetFolder = iaFolders.find((f) => f.id === effectiveFolderId) || iaFolders[0];
+
+      // If uploading an entire folder, check if we need to auto-create subfolder
+      let destinationFolderId = effectiveFolderId;
+      if (uploadMode === 'folder' && uploadedFileList[0]?.path) {
+        const rootFolderName = uploadedFileList[0].path.split('/')[0];
+        if (rootFolderName && rootFolderName !== uploadedFileList[0].name) {
+          const existingSub = iaFolders.find((f) => f.name === rootFolderName && f.parentId === effectiveFolderId);
+          if (existingSub) {
+            destinationFolderId = existingSub.id;
+          } else {
+            const newSubId = `folder-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            const createdSub: EvidenceFolder = {
+              id: newSubId,
+              name: rootFolderName,
+              code: rootFolderName.slice(0, 4).toUpperCase(),
+              frameworkId: 'ia',
+              category: 'Accreditation',
+              description: `Uploaded directory containing ${uploadedFileList.length} file(s).`,
+              color: 'amber',
+              createdAt: new Date().toISOString().slice(0, 10),
+              parentId: effectiveFolderId
+            };
+            saveFolder(createdSub);
+            destinationFolderId = newSubId;
+          }
+        }
+      }
 
       uploadedFileList.forEach((file, idx) => {
         const newDoc: EvidenceDocument = {
@@ -285,7 +339,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
           sizeMb: Math.round((file.size / (1024 * 1024)) * 10) / 10 || 1.2,
           uploadedBy: 'Current User',
           passages: [`Institutional evidence registered under ${targetFolder?.name || 'Institutional Accreditation'}`],
-          folderId: effectiveFolderId
+          folderId: destinationFolderId
         };
         addDocument(newDoc);
       });
@@ -295,7 +349,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       setUploadedFileList([]);
       toast.success(
         uploadMode === 'folder'
-          ? `Successfully uploaded entire folder (${uploadedFileList.length} files)!`
+          ? `Successfully uploaded folder (${uploadedFileList.length} files)!`
           : `Successfully uploaded ${uploadedFileList.length} document(s)!`
       );
     }, 600);
@@ -329,7 +383,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
         </p>
       </div>
 
-      {/* Segmented View Tabs & Action Row (Tabs + Search Bar + Upload Button) */}
+      {/* Segmented View Tabs & Action Row */}
       <div className="flex flex-col gap-3 border-b border-line bg-white px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
         {/* Tabs */}
         <div className="flex items-center gap-1">
@@ -359,7 +413,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
             }`}
           >
             <FolderIcon className="h-3.5 w-3.5 text-amber-600" />
-            <span>Custom Folders ({iaFolders.length})</span>
+            <span>Custom Folders ({rootFolders.length})</span>
           </button>
         </div>
 
@@ -371,7 +425,13 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={activeTab === 'areas' ? 'Search areas 1–9...' : 'Search folders and files (A–Z)...'}
+              placeholder={
+                activeTab === 'areas'
+                  ? 'Search areas 1–9...'
+                  : currentActiveFolder
+                  ? `Search inside ${currentActiveFolder.name}...`
+                  : 'Search folders...'
+              }
               className="input h-8 pl-8 text-xs w-full bg-slate-50 border-line focus:bg-white"
             />
             {searchQuery && (
@@ -479,162 +539,46 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       {/* TAB 2: IA EVIDENCE FOLDERS REPOSITORY */}
       {activeTab === 'folders' && (
         <div className="p-4 space-y-4">
-          {/* Breadcrumb Navigation when inside a folder */}
-          {currentActiveFolder ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50/50 p-3">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveFolderId(null)}
-                  className="text-xs font-semibold text-brand-700 hover:underline flex items-center gap-1"
-                >
+          {/* LEVEL 1: ROOT REPOSITORY VIEW (When user has not clicked a folder yet) */}
+          {!currentActiveFolder && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
                   IA Evidence Folders Repository
-                </button>
-                <ChevronRightIcon className="h-3.5 w-3.5 text-brand-400" />
-                <div className="flex items-center gap-1.5 font-bold text-xs text-ink">
-                  <FolderOpenIcon className="h-4 w-4 text-amber-600" />
-                  <span>{currentActiveFolder.name}</span>
-                </div>
-                <span className="text-[11px] text-ink-subtle ml-1">
-                  ({filteredFiles.length} files)
                 </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveFolderId(null)}
-                  className="btn btn-secondary btn-xs text-xs"
-                >
-                  ← Back to All Folders
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedTargetFolder(currentActiveFolder.id);
-                    setUploadModalOpen(true);
-                  }}
-                  className="btn btn-primary btn-xs text-xs gap-1"
-                >
-                  <UploadIcon className="h-3 w-3" /> Upload to this folder
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Root Repository Controls: Filter by All / Folders / Files, A-Z Sorting & Folder Creation */
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-line pb-3">
-              {/* Filter Pills with Counts */}
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setRepoFilter('all')}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
-                    repoFilter === 'all'
-                      ? 'bg-brand-600 text-white shadow-xs'
-                      : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
-                  }`}
-                >
-                  <span>All Items</span>
-                  <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                      repoFilter === 'all' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
-                    }`}
-                  >
-                    {iaFolders.length + campusIADocs.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setRepoFilter('folders')}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
-                    repoFilter === 'folders'
-                      ? 'bg-amber-600 text-white shadow-xs'
-                      : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
-                  }`}
-                >
-                  <FolderIcon className="h-3.5 w-3.5" />
-                  <span>Folders Only</span>
-                  <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                      repoFilter === 'folders' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
-                    }`}
-                  >
-                    {iaFolders.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setRepoFilter('files')}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
-                    repoFilter === 'files'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
-                  }`}
-                >
-                  <FileTextIcon className="h-3.5 w-3.5" />
-                  <span>Files Only</span>
-                  <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                      repoFilter === 'files' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
-                    }`}
-                  >
-                    {campusIADocs.length}
-                  </span>
-                </button>
-              </div>
-
-              {/* Sorting A-Z + New Folder Action */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-                  className="btn btn-secondary btn-xs h-7 text-xs gap-1.5"
-                  title="Toggle alphabetical order (A–Z / Z–A)"
-                >
-                  <ArrowUpDownIcon className="h-3 w-3 text-brand-600" />
-                  <span className="font-semibold text-brand-700">Sort: {sortDirection === 'asc' ? 'A → Z' : 'Z → A'}</span>
-                </button>
-
                 <button
                   type="button"
                   onClick={() => {
                     setEditingFolder(null);
+                    setFolderFormParentId(undefined);
                     setFolderFormOpen(true);
                   }}
-                  className="btn btn-secondary btn-xs h-7 text-xs gap-1"
+                  className="btn btn-secondary btn-xs gap-1"
                 >
                   <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
                   <span>New Folder</span>
                 </button>
               </div>
-            </div>
-          )}
 
-          {/* FOLDERS GRID (Rendered when viewing All or Folders Only, and not inside a drilled folder) */}
-          {!currentActiveFolder && (repoFilter === 'all' || repoFilter === 'folders') && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                  Folders ({filteredFolders.length})
-                </span>
-                <span className="text-[11px] text-ink-subtle">Click a folder to view its contents</span>
-              </div>
-
-              {filteredFolders.length === 0 ? (
-                <div className="rounded-lg border border-line bg-canvas p-6 text-center text-xs text-ink-muted">
+              {filteredRootFolders.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-line bg-canvas p-8 text-center text-xs text-ink-muted">
                   No folders matching "{searchQuery}".
                 </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                  {filteredFolders.map((folder) => {
+                  {filteredRootFolders.map((folder) => {
                     const docCount = getFolderDocCount(folder.id);
+                    const subCount = getFolderSubfolderCount(folder.id);
                     return (
                       <div
                         key={folder.id}
-                        onClick={() => setActiveFolderId(folder.id)}
-                        className="group relative cursor-pointer rounded-lg border border-line bg-white p-3.5 shadow-xs transition-all hover:border-brand-300 hover:shadow-sm"
+                        onClick={() => {
+                          setActiveFolderId(folder.id);
+                          setRepoFilter('all');
+                          setSearchQuery('');
+                        }}
+                        className="group relative cursor-pointer rounded-lg border border-line bg-white p-3.5 shadow-xs transition-all hover:border-brand-400 hover:shadow-sm"
+                        title="Click to open this folder"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-2">
@@ -679,7 +623,10 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                         </p>
 
                         <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-[11px] text-ink-subtle">
-                          <span className="font-medium text-ink-muted">{docCount} file(s) inside</span>
+                          <span className="font-medium text-ink-muted">
+                            {docCount} document{docCount === 1 ? '' : 's'} inside
+                            {subCount > 0 && ` · ${subCount} subfolder${subCount === 1 ? '' : 's'}`}
+                          </span>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -700,46 +647,221 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
             </div>
           )}
 
-          {/* FILES LIST (Rendered when viewing All or Files Only, or when inside a drilled folder) */}
-          {(currentActiveFolder || repoFilter === 'all' || repoFilter === 'files') && (
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                  {currentActiveFolder ? `Files in ${currentActiveFolder.name} (${filteredFiles.length})` : `Files (${filteredFiles.length})`}
-                </span>
-                <span className="text-[11px] text-ink-subtle">
-                  Sorted A to Z ({sortDirection === 'asc' ? 'Ascending' : 'Descending'})
-                </span>
+          {/* LEVEL 2: INSIDE A CLICKED FOLDER (All files and subfolders appear here!) */}
+          {currentActiveFolder && (
+            <div className="space-y-4">
+              {/* Folder Breadcrumb & Action Banner */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50/50 p-3.5">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveFolderId(null);
+                      setSearchQuery('');
+                    }}
+                    className="flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline"
+                  >
+                    <ArrowLeftIcon className="h-3.5 w-3.5" />
+                    <span>IA Evidence Folders Repository</span>
+                  </button>
+                  <ChevronRightIcon className="h-3.5 w-3.5 text-brand-400" />
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-ink">
+                    <FolderOpenIcon className="h-4 w-4 text-amber-600" />
+                    <span>{currentActiveFolder.name}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingFolder(null);
+                      setFolderFormParentId(currentActiveFolder.id);
+                      setFolderFormOpen(true);
+                    }}
+                    className="btn btn-secondary btn-xs text-xs gap-1"
+                  >
+                    <FolderPlusIcon className="h-3 w-3 text-brand-600" />
+                    <span>New Subfolder</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTargetFolder(currentActiveFolder.id);
+                      setUploadModalOpen(true);
+                    }}
+                    className="btn btn-primary btn-xs text-xs gap-1"
+                  >
+                    <UploadIcon className="h-3 w-3" />
+                    <span>Upload to this Folder</span>
+                  </button>
+                </div>
               </div>
 
-              {filteredFiles.length === 0 ? (
+              {/* Filtering, Counts & A-Z Sorting inside the clicked folder */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-line pb-3">
+                {/* Filter Pills with Live Counts */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setRepoFilter('all')}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                      repoFilter === 'all'
+                        ? 'bg-brand-600 text-white shadow-xs'
+                        : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
+                    }`}
+                  >
+                    <span>All Items</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                        repoFilter === 'all' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
+                      }`}
+                    >
+                      {insideSubfolders.length + insideFiles.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRepoFilter('folders')}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                      repoFilter === 'folders'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
+                    }`}
+                  >
+                    <FolderIcon className="h-3.5 w-3.5" />
+                    <span>Folders Only</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                        repoFilter === 'folders' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
+                      }`}
+                    >
+                      {insideSubfolders.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRepoFilter('files')}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                      repoFilter === 'files'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
+                    }`}
+                  >
+                    <FileTextIcon className="h-3.5 w-3.5" />
+                    <span>Files Only</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                        repoFilter === 'files' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
+                      }`}
+                    >
+                      {insideFiles.length}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Alphabetical A to Z Sorting */}
+                <button
+                  type="button"
+                  onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  className="btn btn-secondary btn-xs h-7 text-xs gap-1.5 self-start sm:self-auto"
+                  title="Toggle alphabetical order (A–Z / Z–A)"
+                >
+                  <ArrowUpDownIcon className="h-3 w-3 text-brand-600" />
+                  <span className="font-semibold text-brand-700">Sort: {sortDirection === 'asc' ? 'A → Z' : 'Z → A'}</span>
+                </button>
+              </div>
+
+              {/* EMPTY STATE INSIDE THE FOLDER */}
+              {insideSubfolders.length === 0 && insideFiles.length === 0 && (
                 <div className="rounded-lg border border-dashed border-line bg-canvas p-8 text-center">
-                  <FileTextIcon className="mx-auto h-8 w-8 text-ink-subtle mb-2" />
-                  <p className="text-xs font-semibold text-ink">No files found</p>
+                  <FolderOpenIcon className="mx-auto h-9 w-9 text-ink-subtle mb-2" />
+                  <p className="text-xs font-semibold text-ink">No files or folders found</p>
                   <p className="text-[11px] text-ink-muted mt-1">
                     {searchQuery
-                      ? `No files matched "${searchQuery}"`
-                      : currentActiveFolder
-                      ? `No files have been added to "${currentActiveFolder.name}" yet.`
-                      : 'No evidence files found in this repository.'}
+                      ? `No items matching "${searchQuery}" inside ${currentActiveFolder.name}.`
+                      : `"${currentActiveFolder.name}" is currently empty.`}
                   </p>
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedTargetFolder(currentActiveFolder?.id || iaFolders[0]?.id || 'folder-ia');
+                      setSelectedTargetFolder(currentActiveFolder.id);
                       setUploadModalOpen(true);
                     }}
-                    className="btn btn-secondary btn-xs mt-3 text-xs gap-1"
+                    className="btn btn-primary btn-xs mt-3 text-xs gap-1"
                   >
                     <UploadIcon className="h-3 w-3" /> Upload Files Now
                   </button>
                 </div>
-              ) : (
-                <div className="overflow-hidden rounded-lg border border-line bg-white shadow-xs">
-                  <div className="divide-y divide-line">
-                    {filteredFiles.map((doc) => {
-                      const parentFolder = iaFolders.find((f) => f.id === (doc.folderId || 'folder-ia'));
+              )}
+
+              {/* SUBFOLDERS SECTION */}
+              {(repoFilter === 'all' || repoFilter === 'folders') && insideSubfolders.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                    Folders ({insideSubfolders.length})
+                  </span>
+                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                    {insideSubfolders.map((sub) => {
+                      const count = getFolderDocCount(sub.id);
                       return (
+                        <div
+                          key={sub.id}
+                          onClick={() => {
+                            setActiveFolderId(sub.id);
+                            setSearchQuery('');
+                          }}
+                          className="group relative cursor-pointer rounded-lg border border-line bg-white p-3 shadow-xs transition-all hover:border-brand-400"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1 rounded bg-amber-50 text-amber-600 group-hover:bg-amber-100">
+                                <FolderIcon className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <h5 className="text-xs font-bold text-ink group-hover:text-brand-700">{sub.name}</h5>
+                                <span className="text-[10px] text-ink-subtle">{sub.createdAt}</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingFolder(sub);
+                              }}
+                              className="p-1 text-ink-subtle hover:text-danger-600"
+                            >
+                              <Trash2Icon className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-line text-[11px] text-ink-muted flex items-center justify-between">
+                            <span>{count} files inside</span>
+                            <span className="text-brand-600 font-semibold group-hover:underline">Open →</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* FILES SECTION */}
+              {(repoFilter === 'all' || repoFilter === 'files') && insideFiles.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                      Files ({insideFiles.length})
+                    </span>
+                    <span className="text-[11px] text-ink-subtle">
+                      Sorted A to Z ({sortDirection === 'asc' ? 'Ascending' : 'Descending'})
+                    </span>
+                  </div>
+
+                  <div className="overflow-hidden rounded-lg border border-line bg-white shadow-xs">
+                    <div className="divide-y divide-line">
+                      {insideFiles.map((doc) => (
                         <div
                           key={doc.id}
                           className="flex flex-col gap-2 p-3 text-xs transition-colors hover:bg-slate-50/70 sm:flex-row sm:items-center sm:justify-between"
@@ -756,11 +878,6 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                                 {doc.title}
                               </button>
                               <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-subtle">
-                                {parentFolder && (
-                                  <span className="font-medium text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                                    📁 {parentFolder.name}
-                                  </span>
-                                )}
                                 <span>{doc.fileType || 'PDF'}</span>
                                 <span>·</span>
                                 <span>{doc.sizeMb || 1.2} MB</span>
@@ -814,8 +931,8 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                             </button>
                           </div>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -980,9 +1097,11 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       <FolderFormModal
         open={folderFormOpen}
         folder={editingFolder}
+        parentId={folderFormParentId}
         onClose={() => {
           setFolderFormOpen(false);
           setEditingFolder(null);
+          setFolderFormParentId(undefined);
         }}
         onSave={(f) => {
           saveFolder({ ...f, frameworkId: 'ia', category: 'Accreditation' });
@@ -998,6 +1117,9 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
         onClose={() => setDeletingFolder(null)}
         onConfirm={(id) => {
           deleteFolder(id);
+          if (activeFolderId === id) {
+            setActiveFolderId(null);
+          }
           toast.success('Folder deleted');
         }}
       />

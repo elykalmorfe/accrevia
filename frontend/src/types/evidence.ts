@@ -12,6 +12,7 @@ export interface EvidenceFolder {
   isSystem?: boolean;
   color: FolderColor;
   createdAt: string;
+  parentId?: string;
 }
 
 export interface Framework {

@@ -22,7 +22,7 @@ const COLOR_OPTIONS: { value: FolderColor; label: string; bg: string; border: st
   { value: 'slate', label: 'Slate', bg: 'bg-slate-500', border: 'border-slate-500' }
 ];
 
-export function FolderFormModal({ open, folder, onClose, onSave }: FolderFormModalProps) {
+export function FolderFormModal({ open, folder, parentId, onClose, onSave }: FolderFormModalProps) {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [category, setCategory] = useState<FrameworkCategory | 'General / Custom'>('Accreditation');
