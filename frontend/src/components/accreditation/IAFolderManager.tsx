@@ -432,7 +432,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
 
   // Execute Upload Commit
   const handleExecuteUpload = () => {
-    // Check if uploading from Custom Folders into an Area or specific folder
+    // Mode 1: Custom Folder upload into an Area or active folder
     if (uploadMode === 'from-custom') {
       if (!selectedCustomFolderToUpload) {
         toast.error('Please select a custom folder to upload.');
@@ -455,18 +455,35 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
 
     setIsProcessingUpload(true);
     setTimeout(() => {
-      // Prioritize the folder where user is currently staying so files/folders upload strictly inside it
-      const effectiveFolderId = activeFolderId || selectedTargetFolder || iaFolders[0]?.id || 'folder-ia';
-      const targetFolder = iaFolders.find((f) => f.id === effectiveFolderId) || iaFolders[0];
+      // Determine destination area and target folder
+      const targetAreaId = selectedAreaCode ? selectedAreaCode.toLowerCase() : currentActiveFolder?.areaId;
 
-      // If uploading an entire folder from computer, auto-create a subfolder
+      let effectiveFolderId = activeFolderId;
+      if (!effectiveFolderId && selectedAreaCode) {
+        if (selectedTargetFolder && areaFolders.some((f) => f.id === selectedTargetFolder)) {
+          effectiveFolderId = selectedTargetFolder;
+        } else if (areaFolders.length > 0) {
+          effectiveFolderId = areaFolders[0].id;
+        }
+      }
+
       let destinationFolderId = effectiveFolderId;
+      let targetFolder = iaFolders.find((f) => f.id === effectiveFolderId);
+
+      // Mode 2: Entire Folder upload from computer
       if (uploadMode === 'folder' && uploadedFileList[0]?.path) {
         const rootFolderName = uploadedFileList[0].path.split('/')[0];
         if (rootFolderName && rootFolderName !== uploadedFileList[0].name) {
-          const existingSub = iaFolders.find((f) => f.name === rootFolderName && f.parentId === effectiveFolderId);
+          // If activeFolderId is set, parentId is activeFolderId. If at Area root, parentId is undefined.
+          const effectiveParentId = activeFolderId || undefined;
+          const effectiveAreaId = targetAreaId;
+
+          const existingSub = iaFolders.find(
+            (f) => f.name === rootFolderName && f.parentId === effectiveParentId && f.areaId === effectiveAreaId
+          );
           if (existingSub) {
             destinationFolderId = existingSub.id;
+            targetFolder = existingSub;
           } else {
             const newSubId = `folder-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
             const createdSub: EvidenceFolder = {
@@ -474,18 +491,44 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
               name: rootFolderName,
               code: rootFolderName.slice(0, 4).toUpperCase(),
               frameworkId: 'ia',
-              category: targetFolder?.areaId ? 'Accreditation' : 'General / Custom',
+              category: effectiveAreaId ? 'Accreditation' : 'General / Custom',
               description: `Uploaded directory containing ${uploadedFileList.length} file(s).`,
               color: 'amber',
               createdAt: new Date().toISOString().slice(0, 10),
               startDate: new Date().toISOString().slice(0, 10),
               hasNoDeadline: true,
-              parentId: effectiveFolderId,
-              areaId: targetFolder?.areaId
+              parentId: effectiveParentId,
+              areaId: effectiveAreaId
             };
             saveFolder(createdSub);
             destinationFolderId = newSubId;
+            targetFolder = createdSub;
           }
+        }
+      } else if (uploadMode === 'files') {
+        // Mode 3: Individual Files upload
+        // If at Area root and no folder exists yet in this Area, auto-create initial Area folder
+        if (!activeFolderId && selectedAreaCode && (!effectiveFolderId || areaFolders.length === 0)) {
+          const newAreaFolderId = `folder-ia-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          const initialAreaFolder: EvidenceFolder = {
+            id: newAreaFolderId,
+            name: currentArea ? `${currentArea.name} Portfolio` : `Area ${selectedAreaCode} Evidence Portfolio`,
+            code: selectedAreaCode,
+            frameworkId: 'ia',
+            category: 'Accreditation',
+            description: `Official evidence portfolio for ${currentArea?.name || selectedAreaCode}.`,
+            color: 'blue',
+            createdAt: new Date().toISOString().slice(0, 10),
+            startDate: new Date().toISOString().slice(0, 10),
+            hasNoDeadline: true,
+            areaId: selectedAreaCode.toLowerCase()
+          };
+          saveFolder(initialAreaFolder);
+          destinationFolderId = newAreaFolderId;
+          targetFolder = initialAreaFolder;
+        } else if (!targetFolder) {
+          targetFolder = iaFolders.find((f) => f.id === effectiveFolderId) || iaFolders[0];
+          destinationFolderId = targetFolder?.id || 'folder-ia';
         }
       }
 
@@ -524,10 +567,17 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       setIsProcessingUpload(false);
       setUploadModalOpen(false);
       setUploadedFileList([]);
+
+      const destinationTitle = targetFolder
+        ? `"${targetFolder.name}"`
+        : currentArea
+        ? `Area ${currentArea.number}: ${currentArea.name}`
+        : 'Repository';
+
       toast.success(
         uploadMode === 'folder'
-          ? `Successfully uploaded folder into "${targetFolder?.name}" (${uploadedFileList.length} files)!`
-          : `Successfully uploaded ${uploadedFileList.length} document(s) into "${targetFolder?.name}"!`
+          ? `Successfully uploaded entire folder into ${destinationTitle} (${uploadedFileList.length} files)!`
+          : `Successfully uploaded ${uploadedFileList.length} document(s) into ${destinationTitle}!`
       );
     }, 600);
   };
@@ -864,6 +914,18 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                   <button
                     type="button"
                     onClick={() => {
+                      setSelectedTargetFolder(areaFolders[0]?.id || '');
+                      setUploadModalOpen(true);
+                    }}
+                    className="btn btn-primary btn-xs text-xs gap-1.5 shadow-xs"
+                    title="Upload individual files, an entire folder, or a custom folder into this Area"
+                  >
+                    <UploadIcon className="h-3.5 w-3.5" />
+                    <span>Upload Files / Folder</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       setEditingFolder(null);
                       setFolderFormParentId(undefined);
                       setFolderFormAreaId(currentArea.code.toLowerCase());
@@ -871,9 +933,9 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                       setFolderFormInitialCode(currentArea.code);
                       setFolderFormOpen(true);
                     }}
-                    className="btn btn-primary btn-xs text-xs gap-1"
+                    className="btn btn-secondary btn-xs text-xs gap-1"
                   >
-                    <FolderPlusIcon className="h-3.5 w-3.5" />
+                    <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
                     <span>Create Folder</span>
                   </button>
                 </div>
@@ -894,21 +956,34 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                       Create an evidence folder with a start date and optional deadline (or set to no deadline) to organize portfolios for {currentArea.name}.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingFolder(null);
-                      setFolderFormParentId(undefined);
-                      setFolderFormAreaId(currentArea.code.toLowerCase());
-                      setFolderFormInitialName(`${currentArea.name} Evidence Portfolio`);
-                      setFolderFormInitialCode(currentArea.code);
-                      setFolderFormOpen(true);
-                    }}
-                    className="btn btn-primary btn-sm text-xs gap-1.5"
-                  >
-                    <FolderPlusIcon className="h-4 w-4" />
-                    <span>Create First Folder with Start & Expired Date</span>
-                  </button>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingFolder(null);
+                        setFolderFormParentId(undefined);
+                        setFolderFormAreaId(currentArea.code.toLowerCase());
+                        setFolderFormInitialName(`${currentArea.name} Evidence Portfolio`);
+                        setFolderFormInitialCode(currentArea.code);
+                        setFolderFormOpen(true);
+                      }}
+                      className="btn btn-primary btn-sm text-xs gap-1.5"
+                    >
+                      <FolderPlusIcon className="h-4 w-4" />
+                      <span>Create First Folder with Start & Expired Date</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTargetFolder('');
+                        setUploadModalOpen(true);
+                      }}
+                      className="btn btn-secondary btn-sm text-xs gap-1.5"
+                    >
+                      <UploadIcon className="h-4 w-4 text-brand-600" />
+                      <span>Upload Files / Folder</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 /* Grid of Folders for this Area */
@@ -1730,7 +1805,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
         </Modal>
       )}
 
-      {/* UPLOAD INDIVIDUAL FILES & ENTIRE FOLDERS MODAL */}
+      {/* UPLOAD INDIVIDUAL FILES, ENTIRE FOLDERS & CUSTOM FOLDERS MODAL */}
       {uploadModalOpen && (
         <Modal
           open={uploadModalOpen}
@@ -1740,13 +1815,13 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
             setSelectedCustomFolderToUpload('');
           }}
           title={
-            uploadMode === 'from-custom'
-              ? 'Upload Folder from Custom Repository'
-              : uploadMode === 'folder'
-              ? 'Upload Entire Folder'
-              : 'Upload Evidence Files'
+            currentActiveFolder
+              ? `Upload into "${currentActiveFolder.name}"`
+              : currentArea
+              ? `Upload into Area ${currentArea.number}: ${currentArea.name}`
+              : 'Upload Evidence Files or Folders'
           }
-          description="Select documents or directory structure for Institutional Accreditation."
+          description="Select individual documents, an entire folder from computer, or an existing custom folder."
           footer={
             <div className="flex items-center justify-end gap-2">
               <button
@@ -1773,26 +1848,36 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                 {isProcessingUpload
                   ? 'Processing & Indexing...'
                   : uploadMode === 'from-custom'
-                  ? 'Upload Selected Folder'
-                  : `Upload Documents (${uploadedFileList.length} files)`}
+                  ? 'Upload Custom Folder'
+                  : uploadMode === 'folder'
+                  ? `Upload Entire Folder (${uploadedFileList.length} files)`
+                  : `Upload Individual Files (${uploadedFileList.length} files)`}
               </button>
             </div>
           }
         >
           <div className="space-y-4">
             {/* Active Destination Notice */}
-            {currentActiveFolder && (
+            {currentActiveFolder ? (
               <div className="rounded-lg border border-brand-200 bg-brand-50/70 p-2.5 text-xs text-brand-900 flex items-center gap-2">
                 <FolderOpenIcon className="h-4 w-4 text-brand-600 shrink-0" />
                 <span>
-                  Uploading directly into: <strong className="font-bold">{currentActiveFolder.name}</strong>
+                  Destination: <strong className="font-bold">{currentActiveFolder.name}</strong>
+                  {currentArea && <span className="text-brand-700 font-normal"> (Area {currentArea.number})</span>}
                 </span>
               </div>
-            )}
+            ) : currentArea ? (
+              <div className="rounded-lg border border-brand-200 bg-brand-50/70 p-2.5 text-xs text-brand-900 flex items-center gap-2">
+                <FolderOpenIcon className="h-4 w-4 text-brand-600 shrink-0" />
+                <span>
+                  Destination: <strong className="font-bold">Area {currentArea.number}: {currentArea.name}</strong>
+                </span>
+              </div>
+            ) : null}
 
-            {/* Mode Selector */}
+            {/* Mode Selector - Always presents 3 options inside Area: Individual Files, Entire Folder, Custom Folder */}
             <div className={`grid gap-2 rounded-lg border border-line bg-canvas p-1 text-xs ${
-              selectedAreaCode && rootCustomFolders.length > 0 ? 'grid-cols-3' : 'grid-cols-2'
+              selectedAreaCode ? 'grid-cols-3' : 'grid-cols-2'
             }`}>
               <button
                 type="button"
@@ -1801,10 +1886,11 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                   setUploadedFileList([]);
                 }}
                 className={`flex items-center justify-center gap-1.5 py-1.5 font-semibold rounded-md transition-all ${
-                  uploadMode === 'files' ? 'bg-white text-brand-700 shadow-xs' : 'text-ink-muted'
+                  uploadMode === 'files' ? 'bg-white text-brand-700 shadow-xs' : 'text-ink-muted hover:text-ink'
                 }`}
               >
-                <FileTextIcon className="h-3.5 w-3.5" /> Individual Files
+                <FileTextIcon className="h-3.5 w-3.5" />
+                <span>Individual Files</span>
               </button>
               <button
                 type="button"
@@ -1813,14 +1899,15 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                   setUploadedFileList([]);
                 }}
                 className={`flex items-center justify-center gap-1.5 py-1.5 font-semibold rounded-md transition-all ${
-                  uploadMode === 'folder' ? 'bg-white text-brand-700 shadow-xs' : 'text-ink-muted'
+                  uploadMode === 'folder' ? 'bg-white text-brand-700 shadow-xs' : 'text-ink-muted hover:text-ink'
                 }`}
               >
-                <FolderArchiveIcon className="h-3.5 w-3.5" /> Entire Folder
+                <FolderArchiveIcon className="h-3.5 w-3.5" />
+                <span>Entire Folder</span>
               </button>
 
               {/* In Area mode: option to upload a folder from Custom Folders */}
-              {selectedAreaCode && rootCustomFolders.length > 0 && (
+              {selectedAreaCode && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1828,52 +1915,79 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                     setUploadedFileList([]);
                   }}
                   className={`flex items-center justify-center gap-1.5 py-1.5 font-semibold rounded-md transition-all ${
-                    uploadMode === 'from-custom' ? 'bg-white text-brand-700 shadow-xs' : 'text-ink-muted'
+                    uploadMode === 'from-custom' ? 'bg-white text-brand-700 shadow-xs' : 'text-ink-muted hover:text-ink'
                   }`}
                 >
-                  <Share2Icon className="h-3.5 w-3.5" /> From Custom
+                  <FolderIcon className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Custom Folder</span>
                 </button>
               )}
             </div>
 
             {uploadMode === 'from-custom' ? (
               /* Custom Folder Picker */
-              <div className="space-y-2">
-                <label className="label">Select a Custom Folder to Upload into {currentArea?.name}</label>
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {rootCustomFolders.map((f) => {
-                    const isSelected = selectedCustomFolderToUpload === f.id;
-                    const docCount = getFolderDocCount(f);
-                    return (
-                      <div
-                        key={f.id}
-                        onClick={() => setSelectedCustomFolderToUpload(f.id)}
-                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
-                          isSelected
-                            ? 'border-brand-500 bg-brand-50/70 shadow-xs'
-                            : 'border-line hover:border-brand-300 bg-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <input
-                            type="radio"
-                            name="selectedCustomFolderToUpload"
-                            checked={isSelected}
-                            onChange={() => setSelectedCustomFolderToUpload(f.id)}
-                            className="text-brand-600 focus:ring-brand-500"
-                          />
-                          <div>
-                            <span className="text-xs font-bold text-ink block">{f.name}</span>
-                            <span className="text-[10px] text-ink-subtle">{f.code} · Created {f.createdAt}</span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-ink">
+                    Select a Custom Folder to upload into {currentActiveFolder ? `"${currentActiveFolder.name}"` : currentArea ? `Area ${currentArea.number}` : 'this Area'}
+                  </label>
+                  <span className="text-[11px] text-ink-subtle">
+                    {rootCustomFolders.length} folder{rootCustomFolders.length === 1 ? '' : 's'} available
+                  </span>
+                </div>
+
+                {rootCustomFolders.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-line bg-slate-50 p-6 text-center text-xs text-ink-muted space-y-1.5">
+                    <FolderIcon className="mx-auto h-8 w-8 text-slate-400 mb-1" />
+                    <p className="font-semibold text-ink">No Custom Folders Available</p>
+                    <p className="text-[11px] text-ink-subtle max-w-sm mx-auto">
+                      All custom folders have been uploaded or none have been created yet. You can create new folders under the &quot;Custom Folders&quot; tab.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {rootCustomFolders.map((f) => {
+                      const isSelected = selectedCustomFolderToUpload === f.id;
+                      const docCount = getFolderDocCount(f);
+                      const subCount = getFolderSubfolderCount(f.id);
+                      return (
+                        <div
+                          key={f.id}
+                          onClick={() => setSelectedCustomFolderToUpload(f.id)}
+                          className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                            isSelected
+                              ? 'border-brand-500 bg-brand-50/70 shadow-xs ring-1 ring-brand-500'
+                              : 'border-line hover:border-brand-300 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="radio"
+                              name="selectedCustomFolderToUpload"
+                              checked={isSelected}
+                              onChange={() => setSelectedCustomFolderToUpload(f.id)}
+                              className="text-brand-600 focus:ring-brand-500"
+                            />
+                            <div>
+                              <span className="text-xs font-bold text-ink block">{f.name}</span>
+                              <span className="text-[10px] text-ink-subtle">{f.code} · Created {f.createdAt}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {subCount > 0 && (
+                              <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                                {subCount} subfolder{subCount === 1 ? '' : 's'}
+                              </span>
+                            )}
+                            <span className="text-xs font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">
+                              {docCount} file{docCount === 1 ? '' : 's'}
+                            </span>
                           </div>
                         </div>
-                        <span className="text-xs font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">
-                          {docCount} file(s)
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ) : (
               /* Normal Drag and Drop and File Inputs */
@@ -1895,6 +2009,27 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                   className="hidden"
                   onChange={handleFolderInputSelection}
                 />
+
+                {/* Optional folder selector when at Area root with multiple folders */}
+                {selectedAreaCode && !activeFolderId && areaFolders.length > 0 && uploadMode === 'files' && (
+                  <div className="space-y-1.5 rounded-lg border border-line bg-canvas/60 p-2.5">
+                    <label className="text-xs font-semibold text-ink flex items-center justify-between">
+                      <span>Target Evidence Folder in Area {currentArea?.number}:</span>
+                      <span className="text-[10px] text-ink-subtle font-normal">Choose destination</span>
+                    </label>
+                    <select
+                      value={selectedTargetFolder || areaFolders[0]?.id || ''}
+                      onChange={(e) => setSelectedTargetFolder(e.target.value)}
+                      className="input text-xs w-full bg-white"
+                    >
+                      {areaFolders.map((af) => (
+                        <option key={af.id} value={af.id}>
+                          {af.name} ({getFolderDocCount(af)} files)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div
                   onDragOver={(e) => {
