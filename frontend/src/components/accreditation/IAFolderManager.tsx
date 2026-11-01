@@ -150,22 +150,27 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
   };
 
   // Folders belonging to the currently selected Area
+  // Folders belonging strictly to the currently selected Area (never mixed with Custom Folders)
   const areaFolders = useMemo(() => {
     if (!selectedAreaCode) return [];
     const areaCodeLower = selectedAreaCode.toLowerCase();
-    return iaFolders.filter(
-      (f) =>
-        !f.parentId &&
-        (f.areaId === areaCodeLower ||
-          f.code.toUpperCase() === selectedAreaCode.toUpperCase() ||
-          (selectedAreaCode === 'AREA-I' && f.id === 'folder-ia'))
-    );
+    return iaFolders.filter((f) => !f.parentId && f.areaId === areaCodeLower);
   }, [selectedAreaCode, iaFolders]);
 
-  // Filtered Root Folders for Tab 2 (Custom Folders)
+  // Root Folders strictly for Tab 2 (Custom Folders - excluding any folder created inside an Area)
   const rootCustomFolders = useMemo(() => {
-    return iaFolders.filter((f) => !f.parentId);
-  }, [iaFolders]);
+    let list = iaFolders.filter((f) => !f.parentId && !f.areaId);
+    if (searchQuery.trim() && activeTab === 'folders' && !activeFolderId) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (f) =>
+          f.name.toLowerCase().includes(q) ||
+          f.code.toLowerCase().includes(q) ||
+          (f.description && f.description.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [iaFolders, searchQuery, activeTab, activeFolderId]);
 
   // Filtered and Sorted IA Areas
   const filteredAreas = useMemo(() => {
@@ -226,13 +231,9 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
     setActiveFolderId(null);
     setSearchQuery('');
 
-    // Check if a folder already exists for this Area
+    // Check if a folder already exists strictly for this Area
     const existing = iaFolders.filter(
-      (f) =>
-        !f.parentId &&
-        (f.areaId === areaCode.toLowerCase() ||
-          f.code.toUpperCase() === areaCode.toUpperCase() ||
-          (areaCode === 'AREA-I' && f.id === 'folder-ia'))
+      (f) => !f.parentId && f.areaId === areaCode.toLowerCase()
     );
 
     // If no folder exists yet, immediately prompt to create the first folder for this Area
@@ -594,13 +595,9 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                   const isUnderReview = req?.status === 'Under Review';
                   const isDeficient = req?.status === 'Deficient';
 
-                  // Count folders belonging to this area
+                  // Count folders created strictly inside this specific area
                   const existingAreaFolders = iaFolders.filter(
-                    (f) =>
-                      !f.parentId &&
-                      (f.areaId === area.code.toLowerCase() ||
-                        f.code.toUpperCase() === area.code.toUpperCase() ||
-                        (area.code === 'AREA-I' && f.id === 'folder-ia'))
+                    (f) => !f.parentId && f.areaId === area.code.toLowerCase()
                   );
 
                   return (
@@ -1800,7 +1797,14 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
           setFolderFormInitialCode(undefined);
         }}
         onSave={(f) => {
-          saveFolder({ ...f, frameworkId: 'ia', category: 'Accreditation' });
+          const assignedAreaId = f.areaId || folderFormAreaId || undefined;
+          const finalFolder: EvidenceFolder = {
+            ...f,
+            frameworkId: 'ia',
+            category: assignedAreaId ? 'Accreditation' : 'General / Custom',
+            areaId: assignedAreaId
+          };
+          saveFolder(finalFolder);
           toast.success(editingFolder ? 'Folder updated successfully' : 'New evidence folder created');
         }}
       />
