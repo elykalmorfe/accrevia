@@ -221,7 +221,15 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
   // Accreditation & QA State
   const [campuses] = useState<Campus[]>(() => loadStorage('campuses', initialCampuses));
-  const [iaRecords, setIaRecords] = useState<CampusIAStatus[]>(() => loadStorage('iaRecords', initialCampusIA));
+  const [iaRecords, setIaRecords] = useState<CampusIAStatus[]>(() => {
+    const loaded = loadStorage('iaRecords', initialCampusIA);
+    return loaded.map((rec) => {
+      if ((rec.status as string) === 'Candidate' || (rec.status as string) === 'Under Evaluation') {
+        return { ...rec, status: 'Level I Accredited' as IALevel };
+      }
+      return rec;
+    });
+  });
   const [pqaRecords, setPqaRecords] = useState<CampusPQAStatus[]>(() => loadStorage('pqaRecords', initialCampusPQA));
   const [programAccreditations, setProgramAccreditations] = useState<ProgramAccreditation[]>(() =>
     loadStorage('programAccreditations', initialProgramAccreditations)

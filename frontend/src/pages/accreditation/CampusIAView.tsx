@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
-import { CampusId, IALevel } from '../../types/accreditation';
+import { CampusId, IALevel, IA_LEVEL_OPTIONS } from '../../types/accreditation';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
+import { Modal } from '../../components/ui/Modal';
 import { IAFolderManager } from '../../components/accreditation/IAFolderManager';
 import {
   Building2Icon,
   ExternalLinkIcon,
   CalculatorIcon,
-  FileCheck2Icon
+  FileCheck2Icon,
+  PencilIcon
 } from 'lucide-react';
 
 export function CampusIAView() {
@@ -18,6 +20,8 @@ export function CampusIAView() {
   const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
     return selectedCampus !== 'all' ? selectedCampus : 'tandag';
   });
+
+  const [isEditAllOpen, setIsEditAllOpen] = useState(false);
 
   useEffect(() => {
     if (selectedCampus !== 'all' && selectedCampus !== selectedCampusId) {
@@ -43,29 +47,29 @@ export function CampusIAView() {
   const pendingCount = iaRecord.requirements.filter((r) => r.status === 'Pending').length;
   const compliancePercentage = Math.round((approvedCount / iaRecord.requirements.length) * 100);
 
-  // Status Determination Engine (Evaluated out of 9 Areas)
+  // Status Determination Engine (Restricted strictly to Level I through Level IV)
   const evaluateRecommendedLevel = (): { level: IALevel; explanation: string } => {
     if (compliancePercentage === 100 && approvedCount >= 9) {
       return {
-        level: 'Level III Re-accredited',
+        level: 'Level IV Institutional Accreditation',
         explanation: 'All 9 mandatory institutional areas approved with verified documentation and research outputs.'
       };
     }
     if (compliancePercentage >= 75 || approvedCount >= 7) {
       return {
-        level: 'Level II Re-accredited',
+        level: 'Level III Re-accredited',
         explanation: 'Strong performance across core areas; at least 7 of 9 areas verified without critical deficiencies.'
       };
     }
     if (compliancePercentage >= 50 || approvedCount >= 5) {
       return {
-        level: 'Level I Accredited',
+        level: 'Level II Re-accredited',
         explanation: 'Baseline institutional areas verified; minimum faculty and facilities standards satisfied.'
       };
     }
     return {
-      level: 'Candidate',
-      explanation: 'Institutional requirements in preparation; candidate survey documentation pending submission.'
+      level: 'Level I Accredited',
+      explanation: 'Institutional survey documentation satisfies baseline Level I criteria.'
     };
   };
 
@@ -92,22 +96,47 @@ export function CampusIAView() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setIsEditAllOpen(true)}
+              className="btn btn-primary btn-sm"
+              title="Edit accreditation level for all campuses"
+            >
+              <PencilIcon className="h-4 w-4" />
+              Edit Campus Statuses
+            </button>
+            <button
+              type="button"
               onClick={handleApplyRecommendedLevel}
               className="btn btn-secondary btn-sm"
               title="Evaluate and sync level based on requirement audit"
             >
               <CalculatorIcon className="h-4 w-4 text-brand-600" />
-              Evaluate & Update Level
+              Evaluate Level
             </button>
           </div>
         }
       />
+
+      {/* Campus Selector Bar */}
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          Campuses (Click to select & edit status)
+        </span>
+        <button
+          type="button"
+          onClick={() => setIsEditAllOpen(true)}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-800 transition-colors"
+        >
+          <PencilIcon className="h-3 w-3" />
+          Edit All Statuses
+        </button>
+      </div>
 
       {/* Campus Selector Pills */}
       <div className="mb-6 flex overflow-x-auto no-scrollbar sm:flex-wrap gap-2 border-b border-line pb-4">
         {campuses.map((c) => {
           const rec = iaRecords.find((r) => r.campusId === c.id);
           const isSelected = c.id === selectedCampusId;
+          const statusText = rec?.status || 'Level I Accredited';
           return (
             <button
               key={c.id}
@@ -126,7 +155,7 @@ export function CampusIAView() {
                 <p className={`text-xs font-semibold ${isSelected ? 'text-brand-900' : 'text-ink'}`}>
                   {c.shortName} {c.isMain && '★'}
                 </p>
-                <p className="text-[11px] text-ink-muted">{rec?.status || 'Candidate'}</p>
+                <p className="text-[11px] font-medium text-slate-600">{statusText}</p>
               </div>
             </button>
           );
@@ -138,10 +167,30 @@ export function CampusIAView() {
         <div className="panel col-span-2 p-5">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-lg font-bold text-ink">{campus.name}</h2>
-                <Badge tone="brand">{iaRecord.status}</Badge>
                 {campus.isMain && <Badge tone="gold">Main Campus</Badge>}
+
+                {/* Editable Status Select */}
+                <div className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50/80 px-2.5 py-1 shadow-2xs">
+                  <span className="text-[11px] font-semibold text-brand-700">Status:</span>
+                  <select
+                    value={iaRecord.status}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as IALevel;
+                      updateCampusIA(selectedCampusId, { status: newStatus });
+                      toast.success(`Updated ${campus.shortName} status to ${newStatus}`);
+                    }}
+                    className="rounded border border-brand-300 bg-white px-2 py-0.5 text-xs font-bold text-brand-900 shadow-2xs hover:border-brand-400 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer"
+                    title="Change Accreditation Level (Level I to IV)"
+                  >
+                    {IA_LEVEL_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <p className="mt-1 text-xs text-ink-muted">
                 {campus.location} · Campus Director: <span className="font-medium text-ink">{campus.director}</span>
@@ -238,14 +287,14 @@ export function CampusIAView() {
           </div>
 
           <div className="mt-4 border-t border-line pt-3">
-            <span className="text-[11px] font-semibold uppercase text-ink-muted">Recommended Accreditation Level:</span>
+            <span className="text-[11px] font-semibold uppercase text-ink-muted">Recommended Level (Level I - IV):</span>
             <p className="text-xs font-bold text-brand-700">{evaluateRecommendedLevel().level}</p>
             <p className="text-[11px] text-ink-subtle mt-0.5">{evaluateRecommendedLevel().explanation}</p>
           </div>
         </div>
       </div>
 
-      {/* IA DOCUMENT & FOLDER MANAGEMENT SECTION (Folder Creation, Upload, Areas 1-9, Instrument Docs) */}
+      {/* IA DOCUMENT & FOLDER MANAGEMENT SECTION */}
       <IAFolderManager
         campusId={selectedCampusId}
         campusName={campus.name}
@@ -260,6 +309,70 @@ export function CampusIAView() {
         }}
       />
 
-      </>
+      {/* Edit All Campus Statuses Modal */}
+      <Modal
+        open={isEditAllOpen}
+        onClose={() => setIsEditAllOpen(false)}
+        title="Edit Campus Accreditation Statuses"
+        description="Select and update the AACCUP institutional accreditation status (strictly Level I to Level IV) for each campus."
+        size="lg"
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEditAllOpen(false)}
+              className="btn btn-primary btn-sm"
+            >
+              Done
+            </button>
+          </div>
+        }
+      >
+        <div className="divide-y divide-line overflow-hidden rounded-lg border border-line">
+          {campuses.map((c) => {
+            const rec = iaRecords.find((r) => r.campusId === c.id);
+            const currentStatus = rec?.status || 'Level I Accredited';
+            return (
+              <div
+                key={c.id}
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 hover:bg-canvas/50 transition-colors"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-700 shrink-0">
+                    <Building2Icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-bold text-ink">{c.name}</p>
+                      {c.isMain && <Badge tone="gold">Main Campus</Badge>}
+                    </div>
+                    <p className="text-xs text-ink-muted">{c.location}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs font-semibold text-slate-500">Level:</span>
+                  <select
+                    value={currentStatus}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as IALevel;
+                      updateCampusIA(c.id, { status: newStatus });
+                      toast.success(`Updated ${c.shortName} status to ${newStatus}`);
+                    }}
+                    className="rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-ink shadow-2xs hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
+                  >
+                    {IA_LEVEL_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Modal>
+    </>
   );
 }

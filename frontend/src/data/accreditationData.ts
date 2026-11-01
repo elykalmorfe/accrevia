@@ -289,7 +289,7 @@ export const initialCampusIA: CampusIAStatus[] = [
   },
   {
     campusId: 'cagwait',
-    status: 'Candidate',
+    status: 'Level I Accredited',
     validityStart: '2022-08-16',
     validityEnd: '2026-08-15',
     certificationFile: 'AACCUP Certification 2022.pdf',

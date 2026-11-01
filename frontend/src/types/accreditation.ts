@@ -24,12 +24,21 @@ export type AccreditationLevel =
   | 'waiting';
 
 export type IALevel =
-  | 'Candidate'
   | 'Level I Accredited'
   | 'Level II Re-accredited'
   | 'Level III Re-accredited'
   | 'Level IV Institutional Accreditation'
-  | 'Under Evaluation';
+  | 'Level I'
+  | 'Level II'
+  | 'Level III'
+  | 'Level IV';
+
+export const IA_LEVEL_OPTIONS: { value: IALevel; label: string }[] = [
+  { value: 'Level I Accredited', label: 'Level I Accredited' },
+  { value: 'Level II Re-accredited', label: 'Level II Re-accredited' },
+  { value: 'Level III Re-accredited', label: 'Level III Re-accredited' },
+  { value: 'Level IV Institutional Accreditation', label: 'Level IV Institutional Accreditation' }
+];
 
 export type PQARecognitionLevel =
   | 'Candidate'
