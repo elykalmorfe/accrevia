@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SearchIcon, ShieldCheckIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';

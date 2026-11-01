@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { CheckIcon, XIcon } from 'lucide-react';
 
 export function PermissionIndicator({ canDownload }: {canDownload: boolean;}) {

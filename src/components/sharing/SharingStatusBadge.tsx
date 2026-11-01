@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { LockIcon, UsersIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { shareStatus } from '../../utils/sharing';
