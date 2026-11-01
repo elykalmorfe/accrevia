@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
   FolderIcon,
+  SearchIcon,
   FolderPlusIcon,
   UploadIcon,
   FileTextIcon,
@@ -44,6 +45,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
 
   // Active view tab: 'folders' | 'areas' | 'official-instrument'
   const [activeTab, setActiveTab] = useState<'folders' | 'areas'>('areas');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Folder Modals
   const [folderFormOpen, setFolderFormOpen] = useState(false);
@@ -220,72 +222,81 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
 
   return (
     <div className="panel mb-6 overflow-hidden">
-      {/* Header with Navigation Tabs */}
-      <div className="flex flex-col gap-3 border-b border-line bg-canvas/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-ink">IA Document & Folder Management</h3>
-            <Badge tone="brand">Official Areas 1–9</Badge>
-          </div>
-          <p className="text-xs text-ink-muted mt-0.5">
-            Organize institutional accreditation portfolios, manage custom folders, upload entire folders or files, and access official instrument documents.
-          </p>
+      {/* Header */}
+      <div className="border-b border-line bg-canvas/40 p-4">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-bold text-ink">IA Document & Folder Management</h3>
+          <Badge tone="brand">Official Areas 1–9</Badge>
         </div>
+        <p className="text-xs text-ink-muted mt-0.5">
+          Organize institutional accreditation portfolios, manage custom folders, and upload entire folders or files.
+        </p>
+      </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Segmented View Tabs & Action Row (Tabs + Search Bar + Upload Button) */}
+      <div className="flex flex-col gap-3 border-b border-line bg-white px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+        {/* Tabs */}
+        <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => {
-              setEditingFolder(null);
-              setFolderFormOpen(true);
-            }}
-            className="btn btn-secondary btn-sm"
-            title="Create a new folder for institutional evidence"
+            onClick={() => setActiveTab('areas')}
+            className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+              activeTab === 'areas'
+                ? 'border-brand-600 text-brand-700'
+                : 'border-transparent text-ink-muted hover:text-ink'
+            }`}
           >
-            <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
-            <span>New Folder</span>
+            <LayersIcon className="h-3.5 w-3.5" />
+            <span>IA Areas 1–9 ({OFFICIAL_IA_AREAS.length} Areas)</span>
           </button>
 
           <button
             type="button"
+            onClick={() => setActiveTab('folders')}
+            className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+              activeTab === 'folders'
+                ? 'border-brand-600 text-brand-700'
+                : 'border-transparent text-ink-muted hover:text-ink'
+            }`}
+          >
+            <FolderIcon className="h-3.5 w-3.5 text-amber-600" />
+            <span>Custom Folders ({iaFolders.length})</span>
+          </button>
+        </div>
+
+        {/* Search Bar replacing "New Folder" + Upload Files/Folder Button on the same row */}
+        <div className="flex items-center gap-2">
+          <div className="relative w-48 sm:w-64">
+            <SearchIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-subtle" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={activeTab === 'areas' ? 'Search areas 1–9...' : 'Search custom folders...'}
+              className="input h-8 pl-8 text-xs w-full bg-slate-50 border-line focus:bg-white"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-2 text-xs text-ink-subtle hover:text-ink"
+                title="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
             onClick={() => setUploadModalOpen(true)}
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary btn-sm h-8 shrink-0 text-xs gap-1.5"
             title="Upload individual files or entire folders"
           >
             <UploadIcon className="h-3.5 w-3.5" />
             <span>Upload Files / Folder</span>
           </button>
         </div>
-      </div>
-
-      {/* Segmented View Tabs */}
-      <div className="flex items-center gap-1 border-b border-line bg-white px-4 pt-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab('areas')}
-          className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
-            activeTab === 'areas'
-              ? 'border-brand-600 text-brand-700'
-              : 'border-transparent text-ink-muted hover:text-ink'
-          }`}
-        >
-          <LayersIcon className="h-3.5 w-3.5" />
-          <span>IA Areas 1–9 ({OFFICIAL_IA_AREAS.length} Areas)</span>
-        </button>
-
-        
-        <button
-          type="button"
-          onClick={() => setActiveTab('folders')}
-          className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
-            activeTab === 'folders'
-              ? 'border-brand-600 text-brand-700'
-              : 'border-transparent text-ink-muted hover:text-ink'
-          }`}
-        >
-          <FolderIcon className="h-3.5 w-3.5 text-amber-600" />
-          <span>Custom Folders ({iaFolders.length})</span>
-        </button>
       </div>
 
       {/* TAB 1: OFFICIAL IA AREAS 1–9 DISPLAY */}
@@ -301,7 +312,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {OFFICIAL_IA_AREAS.map((area) => {
+            {filteredAreas.map((area) => {
               const req = iaRequirements.find((r) => r.areaCode === area.code);
               const isApproved = req?.status === 'Approved';
               const isUnderReview = req?.status === 'Under Review';
@@ -383,7 +394,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-            {iaFolders.map((folder) => {
+            {filteredFolders.map((folder) => {
               const docCount = campusIADocs.filter((d) => d.folderId === folder.id).length;
               return (
                 <div
