@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { CoverageLevel, coverageLabels } from '../../utils/coverage';
 import { Badge, BadgeTone } from './Badge';
 

@@ -1,6 +1,6 @@
 import React, { useId } from 'react';
 
-type Option = string | {value: string;label: string;};
+type Option = string | { value: string; label: string; disabled?: boolean };
 
 interface SelectFieldProps {
   label: string;
@@ -44,7 +44,7 @@ export function SelectField({
       >
         {placeholder !== undefined && <option value="">{placeholder}</option>}
         {normalized.map((o) =>
-        <option key={o.value} value={o.value}>
+        <option key={o.value} value={o.value} disabled={o.disabled}>
             {o.label}
           </option>
         )}
