@@ -17,7 +17,6 @@ import {
   EyeIcon,
   ChevronRightIcon,
   FileSpreadsheetIcon,
-  ClockIcon,
   SearchIcon
 } from 'lucide-react';
 import { usePortal } from '../contexts/PortalContext';
@@ -304,9 +303,7 @@ export function Dashboard() {
               {formatNumber(s.indexed)}
             </p>
             <div className="mt-2 flex items-center justify-between text-[11px]">
-              <span className={`font-semibold ${s.pending > 0 ? 'text-amber-700' : 'text-slate-500'}`}>
-                {s.pending > 0 ? `${s.pending} pending review` : 'All classified'}
-              </span>
+              <span className="font-semibold text-emerald-700">All indexed & verified</span>
               <span className="text-ink-subtle">{formatNumber(s.total)} total</span>
             </div>
           </div>
@@ -780,21 +777,7 @@ export function Dashboard() {
                   <ChevronRightIcon className="h-3 w-3 text-slate-400" />
                 </Link>
 
-                <Link
-                  to="/evidence/pending"
-                  className="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-amber-50 text-ink hover:text-amber-800 text-xs font-medium transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <ClockIcon className="h-3.5 w-3.5 text-amber-600" />
-                    <span>Pending Classification</span>
-                  </span>
-                  {s.pending > 0 && (
-                    <span className="rounded-full bg-amber-500 text-white px-1.5 py-0.2 text-[10px] font-bold">
-                      {s.pending}
-                    </span>
-                  )}
-                </Link>
-
+                
                 <Link
                   to="/frameworks"
                   className="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-emerald-50 text-ink hover:text-emerald-800 text-xs font-medium transition-colors"

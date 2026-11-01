@@ -112,6 +112,6 @@ export const latencyBreakdown = [
 
 
 export const notifications = [
-{ id: 'n-1', title: 'New uploads await classification', detail: 'Assign framework, area, and criterion to make them searchable.', to: '/evidence/pending', time: '12 min ago' },
+{ id: 'n-1', title: 'New uploads await classification', detail: 'Assign framework, area, and criterion to make them searchable.', to: '/evidence', time: '12 min ago' },
 { id: 'n-2', title: 'OCR failed for Old_Faculty_Records_1998.pdf', detail: 'Low recognition confidence. Re-scan or retry with enhanced OCR.', to: '/evidence/processing', time: '54 min ago' },
 { id: 'n-3', title: 'Criterion 6.2 has no indexed evidence', detail: 'Student development and activities needs supporting documents.', to: '/reports?tab=coverage', time: 'Yesterday' }];

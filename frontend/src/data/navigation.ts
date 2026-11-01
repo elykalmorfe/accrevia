@@ -55,8 +55,7 @@ export const navigation: NavItem[] = [
     },
     children: [
       { label: 'All Documents', to: '/evidence' },
-      { label: 'Upload Evidence', to: '/evidence/upload' },
-      { label: 'Pending Review', to: '/evidence/pending', showPendingCount: true }
+      { label: 'Upload Evidence', to: '/evidence/upload' }
     ]
   },
   {

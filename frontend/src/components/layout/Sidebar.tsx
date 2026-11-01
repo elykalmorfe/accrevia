@@ -100,14 +100,7 @@ export function Sidebar() {
 
                   {/* Context Badges */}
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {item.label === 'Documents' && pending.length > 0 && (
-                      <span
-                        className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 text-[10px] font-bold"
-                        title={`${pending.length} pending review`}
-                      >
-                        {pending.length}
-                      </span>
-                    )}
+                    
 
                     {item.badge && (!pending.length || item.label !== 'Documents') && (
                       <span className="hidden xl:inline-flex rounded-md bg-slate-100 text-slate-600 border border-slate-200/80 px-1.5 py-0.2 text-[9.5px] font-semibold">
@@ -156,11 +149,7 @@ export function Sidebar() {
                           >
                             <span className="truncate">{child.label}</span>
 
-                            {child.showPendingCount && pending.length > 0 && (
-                              <span className="rounded-full bg-amber-500 text-white px-1.5 py-0.2 text-[10px] font-bold tabular-nums">
-                                {pending.length}
-                              </span>
-                            )}
+                            
                           </Link>
                         </li>
                       );

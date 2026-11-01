@@ -10,7 +10,6 @@ import { DocumentViewer } from './pages/DocumentViewer';
 import { AllEvidence } from './pages/evidence/AllEvidence';
 import { CommonDocumentsView } from './pages/evidence/CommonDocumentsView';
 import { UploadEvidence } from './pages/evidence/UploadEvidence';
-import { PendingClassification } from './pages/evidence/PendingClassification';
 import { DocumentProcessing } from './pages/evidence/DocumentProcessing';
 import { SharedEvidence } from './pages/evidence/SharedEvidence';
 import { ArchivedEvidence } from './pages/evidence/ArchivedEvidence';
@@ -57,7 +56,7 @@ export function App({ viewAs = 'Administrator' }: AppProps) {
                     <Route path="evidence" element={<AllEvidence />} />
                     <Route path="evidence/common" element={<CommonDocumentsView />} />
                     <Route path="evidence/upload" element={<UploadEvidence />} />
-                    <Route path="evidence/pending" element={<PendingClassification />} />
+                    <Route path="evidence/pending" element={<Navigate to="/evidence" replace />} />
                     <Route path="evidence/processing" element={<DocumentProcessing />} />
                     <Route path="evidence/shared" element={<SharedEvidence />} />
                     <Route path="evidence/archived" element={<ArchivedEvidence />} />

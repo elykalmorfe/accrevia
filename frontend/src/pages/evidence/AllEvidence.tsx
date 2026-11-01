@@ -258,28 +258,7 @@ export function AllEvidence() {
                 </div>
               )}
 
-              {/* Item 3: Awaiting Classification */}
-              {pending.length > 0 && (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-200/90 bg-white/95 p-3 shadow-2xs">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
-                      <p className="text-xs font-bold text-blue-950 truncate">
-                        {pending.length} Unclassified Files
-                      </p>
-                    </div>
-                    <p className="text-[11px] text-blue-800/80 truncate mt-0.5">
-                      Awaiting criteria tagging
-                    </p>
-                  </div>
-                  <Link
-                    to="/evidence/pending"
-                    className="inline-flex items-center gap-1 shrink-0 rounded-lg bg-brand-600 px-3 py-1 text-[11.5px] font-bold text-white shadow-xs hover:bg-brand-700 transition-colors"
-                  >
-                    Classify Files ({pending.length})
-                  </Link>
-                </div>
-              )}
+              
             </div>
           </div>
         </div>
@@ -451,9 +430,7 @@ export function AllEvidence() {
               <Link to="/evidence/archived" className="text-slate-500 hover:text-slate-800 text-[11px] font-medium">
                 View Archive ({archivedDocs.length})
               </Link>
-              <Link to="/evidence/pending" className="font-bold text-brand-600 hover:text-brand-700 inline-flex items-center gap-0.5">
-                Review Pending <ArrowRightIcon className="h-3 w-3" />
-              </Link>
+              
             </div>
           </div>
 

@@ -1313,12 +1313,7 @@ export function UploadEvidence() {
                               Stored in <strong>{selected.folderName || currentFolder.name}</strong> and vector indexed into the global university knowledge store.
                             </p>
                             <div className="mt-3 flex flex-col gap-2">
-                              <Link
-                                to="/evidence/pending"
-                                className="btn btn-primary btn-sm w-full justify-center shadow-xs"
-                              >
-                                Review in Pending Classification
-                              </Link>
+                              <Link to="/evidence" className="btn btn-primary btn-sm w-full justify-center shadow-xs">View All Documents</Link>
                               <button
                                 type="button"
                                 onClick={() => setFolderTab('documents')}
