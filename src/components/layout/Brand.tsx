@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 
 export function Brand({ showSubtitle = true }: { showSubtitle?: boolean }) {
   return (

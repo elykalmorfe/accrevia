@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronDownIcon, SparklesIcon } from 'lucide-react';
+import { ChevronDownIcon } from 'lucide-react';
 import { navigation, NavItem, userNavigation } from '../../data/navigation';
 import { usePortal } from '../../contexts/PortalContext';
 
