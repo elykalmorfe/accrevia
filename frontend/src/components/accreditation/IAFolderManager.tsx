@@ -5,13 +5,9 @@ import {
   FolderPlusIcon,
   UploadIcon,
   FileTextIcon,
-  SearchIcon,
   PencilIcon,
   Trash2Icon,
-  ExternalLinkIcon,
-  CheckCircle2Icon,
   LayersIcon,
-  FileCheckIcon,
   FolderArchiveIcon,
   FolderOpenIcon
 } from 'lucide-react';
@@ -43,230 +39,11 @@ const OFFICIAL_IA_AREAS = [
   { code: 'AREA-IX', number: 9, name: 'Quality Assurance Culture', shortDesc: 'QA manual, ISO 9001:2015 QMS, IQA resolutions' }
 ];
 
-// Searchable Official IA Instrument Common Documents Catalogue
-interface OfficialIADoc {
-  id: string;
-  areaCode: string;
-  areaNumber: number;
-  title: string;
-  category: string;
-  instrumentReference: string;
-  documentUrl: string;
-  fileType: string;
-  sizeMb: number;
-  validity: string;
-  status: 'Verified' | 'Pending Review' | 'Archived';
-  keywords: string[];
-}
-
-const OFFICIAL_IA_COMMON_DOCS: OfficialIADoc[] = [
-  {
-    id: 'ia-doc-01',
-    areaCode: 'AREA-I',
-    areaNumber: 1,
-    title: 'NEMSU 5-Year Institutional Development Plan (2024–2028)',
-    category: 'Institutional Strategic Plan',
-    instrumentReference: 'IA Parameter A.1: Vision, Mission, Goals and Objectives',
-    documentUrl: 'https://drive.google.com/file/d/1xsNkKL7GoKyB47CFHPqu0lkF-CmuwH9p/view',
-    fileType: 'PDF',
-    sizeMb: 8.4,
-    validity: '2024–2028',
-    status: 'Verified',
-    keywords: ['development plan', 'strategic plan', 'governance', 'board approved', 'vmgo']
-  },
-  {
-    id: 'ia-doc-02',
-    areaCode: 'AREA-I',
-    areaNumber: 1,
-    title: 'University Administrative Operations Manual & Organizational Structure',
-    category: 'Administrative Manual',
-    instrumentReference: 'IA Parameter A.2: Governance Structure & Organizational Chart',
-    documentUrl: 'https://drive.google.com/file/d/1dAr6YbSm9d-ucxx2I2Y9qT5MIVRK0WW4/view',
-    fileType: 'PDF',
-    sizeMb: 12.1,
-    validity: 'Current',
-    status: 'Verified',
-    keywords: ['administrative manual', 'organizational chart', 'transparency seal', 'governance']
-  },
-  {
-    id: 'ia-doc-03',
-    areaCode: 'AREA-II',
-    areaNumber: 2,
-    title: 'Outcomes-Based Education (OBE) Institutional Syllabi Matrix & Curriculum Guide',
-    category: 'Instruction & OBE',
-    instrumentReference: 'IA Parameter B.1: Curriculum Design & Instructional Delivery',
-    documentUrl: 'https://drive.google.com/file/d/1irJbb1Xwxj8uKo0BKHRXZm72njXKLtrO/view?usp=sharing',
-    fileType: 'PDF',
-    sizeMb: 15.6,
-    validity: 'AY 2024–2025',
-    status: 'Verified',
-    keywords: ['obe', 'syllabi', 'curriculum', 'instruction', 'teaching evaluation']
-  },
-  {
-    id: 'ia-doc-04',
-    areaCode: 'AREA-II',
-    areaNumber: 2,
-    title: 'Licensure Examination Performance Profile & Academic Council Resolutions',
-    category: 'Evaluation & Licensure',
-    instrumentReference: 'IA Parameter B.3: Retention, Graduation & Licensure Outcomes',
-    documentUrl: 'https://drive.google.com/file/d/17g5WUASVKkDIVqDloHrFH_h6CaU_7NKR/view',
-    fileType: 'PDF',
-    sizeMb: 4.8,
-    validity: 'AY 2023–2024',
-    status: 'Verified',
-    keywords: ['licensure', 'board exam', 'graduation rate', 'academic council']
-  },
-  {
-    id: 'ia-doc-05',
-    areaCode: 'AREA-III',
-    areaNumber: 3,
-    title: 'Institutional Faculty Plantilla, Masteral/Doctoral Qualifications & PRC Roster',
-    category: 'Faculty Qualifications',
-    instrumentReference: 'IA Parameter C.1: Faculty Qualifications & Academic Ranks',
-    documentUrl: 'https://drive.google.com/file/d/18jaQTgFEdjXgkaqeHWFH-5kEfAaH4RlS/view',
-    fileType: 'PDF',
-    sizeMb: 9.7,
-    validity: 'AY 2024–2025',
-    status: 'Verified',
-    keywords: ['faculty plantilla', 'credentials', 'masteral', 'doctoral', 'prc license']
-  },
-  {
-    id: 'ia-doc-06',
-    areaCode: 'AREA-III',
-    areaNumber: 3,
-    title: 'Faculty and Staff Development Plan (FSDP) & Qualitative Contribution Evaluation (QCE)',
-    category: 'Staff Development',
-    instrumentReference: 'IA Parameter C.2: Professional Growth & Faculty Evaluation',
-    documentUrl: 'https://drive.google.com/file/d/1Noyo-GMjkzveJ-Y4PTYPDL5Fokd9xfLI/view',
-    fileType: 'PDF',
-    sizeMb: 6.2,
-    validity: '2023–2026',
-    status: 'Verified',
-    keywords: ['faculty development', 'qce', 'nbc 461', 'trainings', 'scholarships']
-  },
-  {
-    id: 'ia-doc-07',
-    areaCode: 'AREA-IV',
-    areaNumber: 4,
-    title: 'Institutional Research Agenda (2023–2028) & Ethics Review Board Manual',
-    category: 'Research Agenda',
-    instrumentReference: 'IA Parameter D.1: Research Priorities & Resource Allocation',
-    documentUrl: 'https://drive.google.com/file/d/197RDkFdoH3-DkXp0Bqpn_SAtneNFEVT0/view',
-    fileType: 'PDF',
-    sizeMb: 5.3,
-    validity: '2023–2028',
-    status: 'Verified',
-    keywords: ['research agenda', 'research ethics', 'research priorities', 'funding']
-  },
-  {
-    id: 'ia-doc-08',
-    areaCode: 'AREA-IV',
-    areaNumber: 4,
-    title: 'Scopus / WoS Published Research Compendium & Intellectual Property Registrations',
-    category: 'Research Productivity',
-    instrumentReference: 'IA Parameter D.2: Publications, Citations & IP Disclosures',
-    documentUrl: 'https://drive.google.com/file/d/1kxSu_DuKmOYYDVLH8oB2hZ7qFC0VfzVQ/view',
-    fileType: 'PDF',
-    sizeMb: 14.2,
-    validity: 'AY 2024',
-    status: 'Verified',
-    keywords: ['scopus', 'wos', 'ip registration', 'patents', 'journal publications']
-  },
-  {
-    id: 'ia-doc-09',
-    areaCode: 'AREA-V',
-    areaNumber: 5,
-    title: 'Institutional Extension Master Plan & Adopted Community Impact Assessment',
-    category: 'Extension Services',
-    instrumentReference: 'IA Parameter E.1: Community Outreach & Sustainable Linkages',
-    documentUrl: 'https://drive.google.com/file/d/18qtWdmaPeC8o6NKGj8AVuc8KBDhCcqNN/view',
-    fileType: 'PDF',
-    sizeMb: 11.5,
-    validity: '2023–2026',
-    status: 'Verified',
-    keywords: ['extension', 'community impact', 'outreach', 'technology transfer']
-  },
-  {
-    id: 'ia-doc-10',
-    areaCode: 'AREA-V',
-    areaNumber: 5,
-    title: 'Memorandum of Agreement (MOA/MOU) Compendium with LGUs, SUCs & Industries',
-    category: 'Institutional Linkages',
-    instrumentReference: 'IA Parameter E.2: Partnerships & Collaborative Linkages',
-    documentUrl: 'https://drive.google.com/drive/folders/1c95n6ZIge4zvZZ11wN4y0IKDr_r2mYko',
-    fileType: 'PDF',
-    sizeMb: 18.0,
-    validity: '2022–2025',
-    status: 'Verified',
-    keywords: ['moa', 'mou', 'linkages', 'partnerships', 'lgu collaboration']
-  },
-  {
-    id: 'ia-doc-11',
-    areaCode: 'AREA-VI',
-    areaNumber: 6,
-    title: 'Student Affairs and Services (SAS) Comprehensive Operations & Welfare Manual',
-    category: 'Student Support',
-    instrumentReference: 'IA Parameter F.1: Student Services & Welfare Administration',
-    documentUrl: 'https://drive.google.com/file/d/1dAr6YbSm9d-ucxx2I2Y9qT5MIVRK0WW4/view',
-    fileType: 'PDF',
-    sizeMb: 8.9,
-    validity: 'Current',
-    status: 'Verified',
-    keywords: ['student affairs', 'sas', 'guidance', 'scholarships', 'student council']
-  },
-  {
-    id: 'ia-doc-12',
-    areaCode: 'AREA-VII',
-    areaNumber: 7,
-    title: 'University Library Holdings Inventory, ScienceDirect Subscriptions & OPAC System',
-    category: 'Library Resources',
-    instrumentReference: 'IA Parameter G.1: Library Holdings & Digital Information Systems',
-    documentUrl: 'https://drive.google.com/file/d/1xsNkKL7GoKyB47CFHPqu0lkF-CmuwH9p/view',
-    fileType: 'PDF',
-    sizeMb: 10.4,
-    validity: 'AY 2024–2025',
-    status: 'Verified',
-    keywords: ['library', 'sciencedirect', 'e-books', 'opac', 'library holdings']
-  },
-  {
-    id: 'ia-doc-13',
-    areaCode: 'AREA-VIII',
-    areaNumber: 8,
-    title: 'Physical Facilities Development, Laboratory Safety Calibrations & Fire Clearances',
-    category: 'Infrastructure & Safety',
-    instrumentReference: 'IA Parameter H.1: Physical Plant, Laboratories & OSH Safety',
-    documentUrl: 'https://drive.google.com/file/d/1irJbb1Xwxj8uKo0BKHRXZm72njXKLtrO/view',
-    fileType: 'PDF',
-    sizeMb: 13.8,
-    validity: '2024–2025',
-    status: 'Verified',
-    keywords: ['infrastructure', 'laboratories', 'calibration', 'fire safety', 'pwd accessibility']
-  },
-  {
-    id: 'ia-doc-14',
-    areaCode: 'AREA-IX',
-    areaNumber: 9,
-    title: 'NEMSU Quality Manual, ISO 9001:2015 QMS Audits & Internal Quality Audit (IQA) Log',
-    category: 'QA Management System',
-    instrumentReference: 'IA Parameter I.1: Institutional Quality Culture & Continual Improvement',
-    documentUrl: 'https://drive.google.com/file/d/18jaQTgFEdjXgkaqeHWFH-5kEfAaH4RlS/view',
-    fileType: 'PDF',
-    sizeMb: 16.3,
-    validity: '2023–2026',
-    status: 'Verified',
-    keywords: ['quality manual', 'iso 9001:2015', 'internal quality audit', 'iqa', 'continual improvement']
-  }
-];
-
 export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdated }: IAFolderManagerProps) {
   const { folders, saveFolder, deleteFolder, documents, addDocument } = usePortal();
 
   // Active view tab: 'folders' | 'areas' | 'official-instrument'
-  const [activeTab, setActiveTab] = useState<'folders' | 'areas' | 'official-instrument'>('areas');
-
-  // Common Docs Search
-  const [docSearch, setDocSearch] = useState('');
-  const [docAreaFilter, setDocAreaFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState<'folders' | 'areas'>('areas');
 
   // Folder Modals
   const [folderFormOpen, setFolderFormOpen] = useState(false);
@@ -295,22 +72,6 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
   const campusIADocs = useMemo(() => {
     return documents.filter((d) => d.frameworkId === 'ia');
   }, [documents]);
-
-  // Filtered official common docs based on search
-  const filteredCommonDocs = useMemo(() => {
-    return OFFICIAL_IA_COMMON_DOCS.filter((doc) => {
-      if (docAreaFilter !== 'all' && doc.areaCode !== docAreaFilter) return false;
-      if (docSearch.trim()) {
-        const q = docSearch.toLowerCase();
-        const mTitle = doc.title.toLowerCase().includes(q);
-        const mCat = doc.category.toLowerCase().includes(q);
-        const mRef = doc.instrumentReference.toLowerCase().includes(q);
-        const mKw = doc.keywords.some((k) => k.toLowerCase().includes(q));
-        if (!mTitle && !mCat && !mRef && !mKw) return false;
-      }
-      return true;
-    });
-  }, [docSearch, docAreaFilter]);
 
   // Handle Folder Upload from input
   const handleFolderInputSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -457,17 +218,6 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
     }, 600);
   };
 
-  // Quick 1-click Attach from Official Common Docs to IA Requirement
-  const handleAttachOfficialDocToRequirement = (doc: OfficialIADoc) => {
-    const matchingReq = iaRequirements.find((r) => r.areaCode === doc.areaCode);
-    if (matchingReq && onRequirementUpdated) {
-      onRequirementUpdated(matchingReq.id, doc.title, doc.documentUrl);
-      toast.success(`Attached "${doc.title}" to ${doc.areaCode} Requirement!`);
-    } else {
-      toast.info(`Official Document "${doc.title}" verified for ${doc.areaCode}.`);
-    }
-  };
-
   return (
     <div className="panel mb-6 overflow-hidden">
       {/* Header with Navigation Tabs */}
@@ -523,19 +273,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
           <span>IA Areas 1–9 ({OFFICIAL_IA_AREAS.length} Areas)</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('official-instrument')}
-          className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
-            activeTab === 'official-instrument'
-              ? 'border-brand-600 text-brand-700'
-              : 'border-transparent text-ink-muted hover:text-ink'
-          }`}
-        >
-          <FileCheckIcon className="h-3.5 w-3.5 text-emerald-600" />
-          <span>Official IA Instrument Common Documents ({OFFICIAL_IA_COMMON_DOCS.length})</span>
-        </button>
-
+        
         <button
           type="button"
           onClick={() => setActiveTab('folders')}
@@ -621,100 +359,6 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                 </div>
               );
             })}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: SEARCHABLE COMMON ACCREDITATION DOCUMENTS (OFFICIAL IA INSTRUMENT) */}
-      {activeTab === 'official-instrument' && (
-        <div className="p-4 space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative flex-1">
-              <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-ink-subtle" />
-              <input
-                type="text"
-                value={docSearch}
-                onChange={(e) => setDocSearch(e.target.value)}
-                placeholder="Search official IA instrument common documents by title, parameter, or keyword..."
-                className="input pl-9 text-xs"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={docAreaFilter}
-                onChange={(e) => setDocAreaFilter(e.target.value)}
-                className="input h-9 text-xs py-0"
-              >
-                <option value="all">All IA Areas (1–9)</option>
-                {OFFICIAL_IA_AREAS.map((a) => (
-                  <option key={a.code} value={a.code}>
-                    {a.code}: {a.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto rounded-lg border border-line">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-canvas border-b border-line text-ink-muted">
-                <tr>
-                  <th className="px-3 py-2.5 font-semibold">Area</th>
-                  <th className="px-3 py-2.5 font-semibold">Document Title & Instrument Parameter</th>
-                  <th className="px-3 py-2.5 font-semibold">Category</th>
-                  <th className="px-3 py-2.5 font-semibold">Validity</th>
-                  <th className="px-3 py-2.5 font-semibold">Status</th>
-                  <th className="px-3 py-2.5 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line bg-white">
-                {filteredCommonDocs.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-canvas/50 transition-colors">
-                    <td className="px-3 py-2.5 whitespace-nowrap">
-                      <span className="font-mono font-bold text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded text-[11px]">
-                        {doc.areaCode}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <div className="font-semibold text-ink flex items-center gap-1.5">
-                        <FileTextIcon className="h-3.5 w-3.5 text-brand-600 shrink-0" />
-                        <span>{doc.title}</span>
-                      </div>
-                      <p className="text-[11px] text-ink-muted mt-0.5">{doc.instrumentReference}</p>
-                    </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-ink-muted">{doc.category}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-ink-muted">{doc.validity}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">
-                      <Badge tone={doc.status === 'Verified' ? 'success' : 'brand'} dot>
-                        {doc.status}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <a
-                          href={doc.documentUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-secondary btn-xs"
-                          title="Open official document link"
-                        >
-                          <ExternalLinkIcon className="h-3 w-3" /> Link
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => handleAttachOfficialDocToRequirement(doc)}
-                          className="btn btn-primary btn-xs"
-                          title="Attach to corresponding IA Area requirement"
-                        >
-                          <CheckCircle2Icon className="h-3 w-3" /> Attach to IA
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
       )}
