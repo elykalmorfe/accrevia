@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+﻿import { useEffect, useRef } from 'react';
 
 export function useDismiss<T extends HTMLElement>(open: boolean, onClose: () => void) {
   const ref = useRef<T>(null);

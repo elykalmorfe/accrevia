@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+﻿import { useMemo } from 'react';
 import { usePortal } from '../contexts/PortalContext';
 import { accessFor, AccessRights } from '../utils/sharing';
 import { EvidenceDocument } from '../types/evidence';

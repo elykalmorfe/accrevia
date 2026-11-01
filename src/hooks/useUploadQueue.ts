@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { usePortal } from '../contexts/PortalContext';
 import { processingStages } from '../data/processing';
