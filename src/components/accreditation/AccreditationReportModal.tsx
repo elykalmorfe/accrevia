@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { usePortal } from '../../contexts/PortalContext';
 import { Modal } from '../ui/Modal';
-import { PrinterIcon, DownloadIcon, BuildingIcon } from 'lucide-react';
+import { PrinterIcon, DownloadIcon } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 
 interface AccreditationReportModalProps {

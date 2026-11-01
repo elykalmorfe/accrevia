@@ -13,10 +13,7 @@ import {
   LayersIcon,
   FileCheckIcon,
   FolderArchiveIcon,
-  FolderOpenIcon,
-  PlusIcon,
-  XIcon,
-  AlertCircleIcon
+  FolderOpenIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { EvidenceFolder, EvidenceDocument } from '../../types/evidence';
@@ -34,7 +31,7 @@ interface IAFolderManagerProps {
 }
 
 // 9 Official AACCUP Institutional Accreditation Instrument Areas
-export const OFFICIAL_IA_AREAS = [
+const OFFICIAL_IA_AREAS = [
   { code: 'AREA-I', number: 1, name: 'Governance and Management', shortDesc: 'Strategic plans, organizational manuals, BOR resolutions' },
   { code: 'AREA-II', number: 2, name: 'Teaching, Learning, and Evaluation', shortDesc: 'OBE syllabi, curricular approvals, graduation metrics' },
   { code: 'AREA-III', number: 3, name: 'Faculty and Staff', shortDesc: 'Plantilla credentials, FDP plans, QCE/NBC 461 ratings' },
@@ -62,7 +59,7 @@ interface OfficialIADoc {
   keywords: string[];
 }
 
-export const OFFICIAL_IA_COMMON_DOCS: OfficialIADoc[] = [
+const OFFICIAL_IA_COMMON_DOCS: OfficialIADoc[] = [
   {
     id: 'ia-doc-01',
     areaCode: 'AREA-I',
@@ -261,17 +258,11 @@ export const OFFICIAL_IA_COMMON_DOCS: OfficialIADoc[] = [
   }
 ];
 
-export function IAFolderManager({ campusId, campusName, iaRequirements, onRequirementUpdated }: IAFolderManagerProps) {
+export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdated }: IAFolderManagerProps) {
   const { folders, saveFolder, deleteFolder, documents, addDocument } = usePortal();
 
   // Active view tab: 'folders' | 'areas' | 'official-instrument'
   const [activeTab, setActiveTab] = useState<'folders' | 'areas' | 'official-instrument'>('areas');
-
-  // Selected folder for filtering
-  const [selectedFolderId, setSelectedFolderId] = useState<string>('all');
-
-  // Selected IA Area filter
-  const [selectedAreaCode, setSelectedAreaCode] = useState<string>('all');
 
   // Common Docs Search
   const [docSearch, setDocSearch] = useState('');
@@ -365,10 +356,19 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
     const collected: Array<{ name: string; size: number; path?: string }> = [];
 
-    const traverseFileTree = async (item: any, path = '') => {
-      if (item.isFile) {
+    interface FileSystemEntryLike {
+      name: string;
+      isFile: boolean;
+      isDirectory: boolean;
+      file?: (callback: (file: File) => void) => void;
+      createReader?: () => { readEntries: (callback: (entries: FileSystemEntryLike[]) => void) => void };
+    }
+
+    const traverseFileTree = async (item: FileSystemEntryLike, path = '') => {
+      if (item.isFile && item.file) {
+        const getFile = item.file;
         await new Promise<void>((resolve) => {
-          item.file((file: File) => {
+          getFile((file: File) => {
             collected.push({
               name: file.name,
               size: file.size,
@@ -377,10 +377,10 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
             resolve();
           });
         });
-      } else if (item.isDirectory) {
+      } else if (item.isDirectory && item.createReader) {
         const dirReader = item.createReader();
         await new Promise<void>((resolve) => {
-          dirReader.readEntries(async (entries: any[]) => {
+          dirReader.readEntries(async (entries: FileSystemEntryLike[]) => {
             for (const entry of entries) {
               await traverseFileTree(entry, path + item.name + '/');
             }
