@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { EvidenceFolder, FolderColor, FrameworkCategory } from '../../types/evidence';
 import { Modal } from '../ui/Modal';
 import { TextField } from '../ui/TextField';
@@ -7,6 +7,10 @@ import { SelectField } from '../ui/SelectField';
 interface FolderFormModalProps {
   open: boolean;
   folder?: EvidenceFolder | null;
+  parentId?: string;
+  initialAreaId?: string;
+  initialName?: string;
+  initialCode?: string;
   onClose: () => void;
   onSave: (folder: EvidenceFolder) => void;
 }
@@ -22,13 +26,25 @@ const COLOR_OPTIONS: { value: FolderColor; label: string; bg: string; border: st
   { value: 'slate', label: 'Slate', bg: 'bg-slate-500', border: 'border-slate-500' }
 ];
 
-export function FolderFormModal({ open, folder, parentId, onClose, onSave }: FolderFormModalProps) {
+export function FolderFormModal({
+  open,
+  folder,
+  parentId,
+  initialAreaId,
+  initialName,
+  initialCode,
+  onClose,
+  onSave
+}: FolderFormModalProps) {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [category, setCategory] = useState<FrameworkCategory | 'General / Custom'>('Accreditation');
   const [frameworkId, setFrameworkId] = useState('ia');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState<FolderColor>('blue');
+  const [startDate, setStartDate] = useState('');
+  const [expiredDate, setExpiredDate] = useState('');
+  const [hasNoDeadline, setHasNoDeadline] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -39,16 +55,22 @@ export function FolderFormModal({ open, folder, parentId, onClose, onSave }: Fol
       setFrameworkId(folder.frameworkId);
       setDescription(folder.description);
       setColor(folder.color);
+      setStartDate(folder.startDate || folder.createdAt || new Date().toISOString().slice(0, 10));
+      setExpiredDate(folder.expiredDate || '');
+      setHasNoDeadline(folder.hasNoDeadline ?? (folder.expiredDate === null));
     } else {
-      setName('');
-      setCode('');
+      setName(initialName || '');
+      setCode(initialCode || '');
       setCategory('Accreditation');
       setFrameworkId('ia');
       setDescription('');
       setColor('blue');
+      setStartDate(new Date().toISOString().slice(0, 10));
+      setExpiredDate('');
+      setHasNoDeadline(false);
     }
     setError('');
-  }, [folder, open]);
+  }, [folder, open, initialName, initialCode]);
 
   const handleCategoryChange = (val: string) => {
     setCategory(val as FrameworkCategory | 'General / Custom');
@@ -74,7 +96,12 @@ export function FolderFormModal({ open, folder, parentId, onClose, onSave }: Fol
       description: description.trim(),
       isSystem: folder?.isSystem ?? false,
       color,
-      createdAt: folder?.createdAt || new Date().toISOString().slice(0, 10)
+      createdAt: folder?.createdAt || new Date().toISOString().slice(0, 10),
+      parentId: folder?.parentId ?? parentId,
+      areaId: folder?.areaId ?? initialAreaId,
+      startDate: startDate || new Date().toISOString().slice(0, 10),
+      expiredDate: hasNoDeadline ? null : expiredDate || null,
+      hasNoDeadline
     };
     onSave(folderToSave);
     onClose();
@@ -84,8 +111,8 @@ export function FolderFormModal({ open, folder, parentId, onClose, onSave }: Fol
     <Modal
       open={open}
       onClose={onClose}
-      title={folder ? `Edit Folder: ${folder.name}` : 'Create New Accreditation Folder'}
-      description="Organize accreditation evidence into dedicated categories for streamlined verification and search indexing."
+      title={folder ? `Edit Folder: ${folder.name}` : 'Create Evidence Folder'}
+      description="Organize institutional accreditation portfolios with specific start dates and audit deadlines."
       size="md"
       footer={
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
@@ -112,17 +139,17 @@ export function FolderFormModal({ open, folder, parentId, onClose, onSave }: Fol
             setName(val);
             if (error) setError('');
           }}
-          placeholder="e.g. Institutional Accreditation, ISO Surveillance Audit, or COE Portfolios"
+          placeholder="e.g. Governance & Administrative Operations Manual, OBE Syllabi Matrix"
           required
         />
 
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField
-            label="Folder Code / Short Tag"
+            label="Folder Code / Tag"
             value={code}
             onChange={(val) => setCode(val)}
-            placeholder="e.g. IA, PA, COPC, PQA, ISO"
-            hint="2-5 letters used in badges"
+            placeholder="e.g. AREA-I, GOV, OBE"
+            hint="Used in badges"
           />
 
           <SelectField
@@ -140,14 +167,63 @@ export function FolderFormModal({ open, folder, parentId, onClose, onSave }: Fol
           />
         </div>
 
+        {/* Start Date & Expired Date / No Deadline Section */}
+        <div className="rounded-lg border border-line bg-canvas/40 p-3.5 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-ink">Timeline & Expiration</span>
+            <label className="flex items-center gap-1.5 text-xs text-ink cursor-pointer select-none font-medium">
+              <input
+                type="checkbox"
+                checked={hasNoDeadline}
+                onChange={(e) => setHasNoDeadline(e.target.checked)}
+                className="rounded border-line text-brand-600 focus:ring-brand-500 h-4 w-4"
+              />
+              <span>No Due Date / No Deadline</span>
+            </label>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="label">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="input text-xs"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="label">
+                Expired Date / Deadline
+                {hasNoDeadline && <span className="text-ink-subtle ml-1 font-normal">(None)</span>}
+              </label>
+              <input
+                type="date"
+                value={hasNoDeadline ? '' : expiredDate}
+                disabled={hasNoDeadline}
+                onChange={(e) => setExpiredDate(e.target.value)}
+                className={`input text-xs ${hasNoDeadline ? 'bg-slate-100 text-ink-subtle cursor-not-allowed border-dashed' : ''}`}
+                placeholder={hasNoDeadline ? 'No deadline' : ''}
+              />
+              {hasNoDeadline && (
+                <p className="text-[10px] text-emerald-700 font-medium mt-1">
+                  ✓ Folder remains active indefinitely with no deadline.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div>
-          <label className="label">Folder Description & Upload Guidelines</label>
+          <label className="label">Folder Description & Guidelines</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            rows={3}
+            rows={2}
             className="textarea"
-            placeholder="Explain what documents belong to this specific folder (e.g. AACCUP area survey instruments, certificates, meeting minutes)..."
+            placeholder="Explain what documents belong to this specific folder (e.g. BOR resolutions, approved policies, annual accomplishment reports)..."
           />
         </div>
 
