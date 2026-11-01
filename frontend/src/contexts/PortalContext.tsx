@@ -32,6 +32,7 @@ import {
   Campus,
   CampusId,
   CampusIAStatus,
+  IALevel,
   CampusPQAStatus,
   COPCRecord,
   COPCRequirementItem,

@@ -75,6 +75,31 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
     return documents.filter((d) => d.frameworkId === 'ia');
   }, [documents]);
 
+  // Filtered IA Areas based on search
+  const filteredAreas = useMemo(() => {
+    if (!searchQuery.trim()) return OFFICIAL_IA_AREAS;
+    const q = searchQuery.toLowerCase();
+    return OFFICIAL_IA_AREAS.filter(
+      (a) =>
+        a.name.toLowerCase().includes(q) ||
+        a.code.toLowerCase().includes(q) ||
+        a.shortDesc.toLowerCase().includes(q) ||
+        `area ${a.number}`.includes(q)
+    );
+  }, [searchQuery]);
+
+  // Filtered custom folders based on search
+  const filteredFolders = useMemo(() => {
+    if (!searchQuery.trim()) return iaFolders;
+    const q = searchQuery.toLowerCase();
+    return iaFolders.filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) ||
+        f.code.toLowerCase().includes(q) ||
+        (f.description && f.description.toLowerCase().includes(q))
+    );
+  }, [iaFolders, searchQuery]);
+
   // Handle Folder Upload from input
   const handleFolderInputSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
