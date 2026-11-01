@@ -566,13 +566,12 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
               </div>
 
               <div>
-                <label className="label">Target Folder (Optional)</label>
+                <label className="label">Target Folder</label>
                 <select
-                  value={selectedTargetFolder}
+                  value={selectedTargetFolder || (iaFolders[0]?.id ?? '')}
                   onChange={(e) => setSelectedTargetFolder(e.target.value)}
                   className="input text-xs"
                 >
-                  <option value="">Default IA Root</option>
                   {iaFolders.map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.name}
