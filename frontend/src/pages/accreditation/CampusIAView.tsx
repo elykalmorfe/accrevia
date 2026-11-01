@@ -10,7 +10,6 @@ import { IAFolderManager } from '../../components/accreditation/IAFolderManager'
 import {
   Building2Icon,
   ExternalLinkIcon,
-  CalculatorIcon,
   FileCheck2Icon,
   PencilIcon
 } from 'lucide-react';
@@ -73,12 +72,6 @@ export function CampusIAView() {
     };
   };
 
-  const handleApplyRecommendedLevel = () => {
-    const recommended = evaluateRecommendedLevel();
-    updateCampusIA(selectedCampusId, { status: recommended.level });
-    toast.success(`Accreditation status updated to "${recommended.level}"`);
-  };
-
   return (
     <>
       <PageHeader
@@ -102,15 +95,6 @@ export function CampusIAView() {
             >
               <PencilIcon className="h-4 w-4" />
               Edit Campus Statuses
-            </button>
-            <button
-              type="button"
-              onClick={handleApplyRecommendedLevel}
-              className="btn btn-secondary btn-sm"
-              title="Evaluate and sync level based on requirement audit"
-            >
-              <CalculatorIcon className="h-4 w-4 text-brand-600" />
-              Evaluate Level
             </button>
           </div>
         }
