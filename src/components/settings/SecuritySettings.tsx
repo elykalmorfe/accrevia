@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { SaveBar, SettingRow, SettingsGroup } from './SettingsLayout';
 import { Switch } from '../ui/Switch';
 import { SharingDefaults } from './SharingDefaults';

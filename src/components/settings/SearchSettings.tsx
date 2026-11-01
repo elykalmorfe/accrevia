@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { RangeField, SaveBar, SettingRow, SettingsGroup } from './SettingsLayout';
 import { Switch } from '../ui/Switch';
 

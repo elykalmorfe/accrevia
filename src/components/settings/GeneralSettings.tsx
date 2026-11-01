@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { SaveBar, SettingRow, SettingsGroup } from './SettingsLayout';
 import { academicYears } from '../../data/options';
