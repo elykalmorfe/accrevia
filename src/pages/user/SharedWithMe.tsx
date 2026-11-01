@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { FolderOpenIcon, SearchIcon } from 'lucide-react';
 import { useAccess } from '../../hooks/useAccess';
 import { summarizeShares } from '../../utils/sharing';

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { BookmarkIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { useAccess } from '../../hooks/useAccess';
