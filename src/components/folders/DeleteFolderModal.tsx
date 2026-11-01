@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { AlertTriangleIcon, FolderIcon, ShieldAlertIcon } from 'lucide-react';
 import { EvidenceFolder } from '../../types/evidence';
 import { Modal } from '../ui/Modal';
