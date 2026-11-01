@@ -39,7 +39,7 @@ export function CampusISOView() {
       setSelectedCampusId(selectedCampus);
       setSelectedRecordId(null);
     }
-  }, [selectedCampus]);
+  }, [selectedCampus, selectedCampusId]);
 
   const campus = campuses.find((c) => c.id === selectedCampusId) || campuses[0];
   const campusRecords = isoRecords.filter((r) => r.campusId === selectedCampusId);

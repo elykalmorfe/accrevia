@@ -22,7 +22,7 @@ export function CampusPQAView() {
     if (selectedCampus !== 'all' && selectedCampus !== selectedCampusId) {
       setSelectedCampusId(selectedCampus);
     }
-  }, [selectedCampus]);
+  }, [selectedCampus, selectedCampusId]);
 
   const campus = campuses.find((c) => c.id === selectedCampusId) || campuses[0];
   const pqaRecord = pqaRecords.find((r) => r.campusId === selectedCampusId);

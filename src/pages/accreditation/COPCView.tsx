@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
-import { COPCRecord, COPCRequirementItem, RequirementVerificationStatus } from '../../types/accreditation';
+import { CampusId, COPCRecord, COPCRequirementItem, RequirementVerificationStatus } from '../../types/accreditation';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { AccreditationDocModal } from '../../components/accreditation/AccreditationDocModal';
@@ -184,7 +184,7 @@ export function COPCView() {
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
             <select
               value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value as any)}
+              onChange={(e) => setSelectedCampus(e.target.value as CampusId | 'all')}
               className="input h-9 text-xs py-0 w-full sm:w-auto"
             >
               <option value="all">All Campuses</option>

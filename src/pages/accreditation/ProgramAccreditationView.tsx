@@ -157,19 +157,6 @@ export function ProgramAccreditationView() {
   );
   const copcRate = totalPrograms > 0 ? ((copcCompliantCount / totalPrograms) * 100).toFixed(2) : '0';
 
-  // Level counts
-  const level4Count = useMemo(
-    () => programAccreditations.filter((p) => p.status === 'Level 4').length,
-    [programAccreditations]
-  );
-  const level3Count = useMemo(
-    () => programAccreditations.filter((p) => p.status === 'Level 3').length,
-    [programAccreditations]
-  );
-  const level2Count = useMemo(
-    () => programAccreditations.filter((p) => p.status === 'Level 2').length,
-    [programAccreditations]
-  );
   const level1Count = useMemo(
     () => programAccreditations.filter((p) => p.status === 'Level 1').length,
     [programAccreditations]
