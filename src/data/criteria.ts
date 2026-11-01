@@ -1,4 +1,4 @@
-import { Criterion } from '../types/evidence';
+﻿import { Criterion } from '../types/evidence';
 
 export const criteria: Criterion[] = [
 { id: 'c-ia-1', code: 'Criterion 1', name: 'Governance and Administration', frameworkId: 'ia', areaId: 'governance', description: 'Governing structures, policies, and administrative leadership that direct the institution.' },

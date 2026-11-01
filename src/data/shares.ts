@@ -1,4 +1,4 @@
-import { AccessLogEntry, AccessRequest, DocumentShare } from '../types/sharing';
+﻿import { AccessLogEntry, AccessRequest, DocumentShare } from '../types/sharing';
 
 export const shares: DocumentShare[] = [
 { id: 's-01', documentId: 'd-001', recipientType: 'user', recipientId: 'u-07', recipientName: 'Dr. Teresita A. Gonzaga', recipientRole: 'Faculty', canView: true, canDownload: true, sharedBy: 'Dr. Maria L. Santos', sharedAt: '2026-09-28T10:12:00', expiresAt: '2026-12-31', revokedAt: null },

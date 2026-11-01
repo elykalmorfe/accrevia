@@ -1,4 +1,4 @@
-import { AccreditationArea } from '../types/evidence';
+﻿import { AccreditationArea } from '../types/evidence';
 
 export const areas: AccreditationArea[] = [
 { id: 'governance', name: 'Governance and Administration', shortName: 'Governance', description: 'Governing board, policies, organizational structure, and administrative leadership.' },

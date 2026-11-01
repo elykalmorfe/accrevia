@@ -1,4 +1,4 @@
-import { PortalUser } from '../types/user';
+﻿import { PortalUser } from '../types/user';
 
 export const users: PortalUser[] = [
   {

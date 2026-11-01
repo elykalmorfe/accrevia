@@ -1,4 +1,4 @@
-import { Confidentiality, DocumentType, ISODocumentStage } from '../types/evidence';
+﻿import { Confidentiality, DocumentType, ISODocumentStage } from '../types/evidence';
 import { UserRole } from '../types/user';
 
 export const documentTypes: DocumentType[] = [

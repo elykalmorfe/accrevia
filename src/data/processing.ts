@@ -1,4 +1,4 @@
-import { ProcessingJob, ProcessingStage } from '../types/processing';
+﻿import { ProcessingJob, ProcessingStage } from '../types/processing';
 
 export const processingStages: ProcessingStage[] = [
 { key: 'upload', label: 'Upload', description: 'File received and stored securely' },

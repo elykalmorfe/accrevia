@@ -1,4 +1,4 @@
-import { EvidenceFolder } from '../types/evidence';
+﻿import { EvidenceFolder } from '../types/evidence';
 
 export const initialFolders: EvidenceFolder[] = [
   {

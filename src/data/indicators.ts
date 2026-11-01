@@ -1,4 +1,4 @@
-import { Indicator } from '../types/evidence';
+﻿import { Indicator } from '../types/evidence';
 
 export const indicators: Indicator[] = [
 { id: 'i-1-1', code: '1.1', name: 'Governance structure and policies', criterionId: 'c-ia-1', requirements: [{ id: 'r-1-1-a', name: 'Board resolutions and governance policies', description: 'Approved BOR resolutions, University Code, and policy issuances.' }] },
