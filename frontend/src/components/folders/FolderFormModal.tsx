@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { EvidenceFolder, FolderColor, FrameworkCategory } from '../../types/evidence';
+import { EvidenceFolder } from '../../types/evidence';
 import { Modal } from '../ui/Modal';
 import { TextField } from '../ui/TextField';
-import { SelectField } from '../ui/SelectField';
 
 interface FolderFormModalProps {
   open: boolean;
@@ -15,17 +14,6 @@ interface FolderFormModalProps {
   onSave: (folder: EvidenceFolder) => void;
 }
 
-const COLOR_OPTIONS: { value: FolderColor; label: string; bg: string; border: string }[] = [
-  { value: 'blue', label: 'Blue (IA)', bg: 'bg-blue-500', border: 'border-blue-500' },
-  { value: 'purple', label: 'Purple (PA)', bg: 'bg-purple-500', border: 'border-purple-500' },
-  { value: 'emerald', label: 'Emerald (COPC)', bg: 'bg-emerald-500', border: 'border-emerald-500' },
-  { value: 'amber', label: 'Amber (PQA)', bg: 'bg-amber-500', border: 'border-amber-500' },
-  { value: 'indigo', label: 'Indigo (ISO)', bg: 'bg-indigo-500', border: 'border-indigo-500' },
-  { value: 'rose', label: 'Rose', bg: 'bg-rose-500', border: 'border-rose-500' },
-  { value: 'cyan', label: 'Cyan', bg: 'bg-cyan-500', border: 'border-cyan-500' },
-  { value: 'slate', label: 'Slate', bg: 'bg-slate-500', border: 'border-slate-500' }
-];
-
 export function FolderFormModal({
   open,
   folder,
@@ -37,11 +25,7 @@ export function FolderFormModal({
   onSave
 }: FolderFormModalProps) {
   const [name, setName] = useState('');
-  const [code, setCode] = useState('');
-  const [category, setCategory] = useState<FrameworkCategory | 'General / Custom'>('Accreditation');
-  const [frameworkId, setFrameworkId] = useState('ia');
   const [description, setDescription] = useState('');
-  const [color, setColor] = useState<FolderColor>('blue');
   const [startDate, setStartDate] = useState('');
   const [expiredDate, setExpiredDate] = useState('');
   const [hasNoDeadline, setHasNoDeadline] = useState(false);
@@ -50,52 +34,35 @@ export function FolderFormModal({
   useEffect(() => {
     if (folder) {
       setName(folder.name);
-      setCode(folder.code);
-      setCategory(folder.category);
-      setFrameworkId(folder.frameworkId);
       setDescription(folder.description);
-      setColor(folder.color);
       setStartDate(folder.startDate || folder.createdAt || new Date().toISOString().slice(0, 10));
       setExpiredDate(folder.expiredDate || '');
       setHasNoDeadline(folder.hasNoDeadline ?? (folder.expiredDate === null));
     } else {
       setName(initialName || '');
-      setCode(initialCode || '');
-      setCategory('Accreditation');
-      setFrameworkId('ia');
       setDescription('');
-      setColor('blue');
       setStartDate(new Date().toISOString().slice(0, 10));
       setExpiredDate('');
       setHasNoDeadline(false);
     }
     setError('');
-  }, [folder, open, initialName, initialCode]);
-
-  const handleCategoryChange = (val: string) => {
-    setCategory(val as FrameworkCategory | 'General / Custom');
-    if (val === 'Accreditation') setFrameworkId('ia');
-    else if (val === 'Compliance') setFrameworkId('copc');
-    else if (val === 'Quality Excellence') setFrameworkId('pqa');
-    else if (val === 'Quality Management') setFrameworkId('iso');
-    else setFrameworkId('custom');
-  };
+  }, [folder, open, initialName]);
 
   const handleSave = () => {
     if (!name.trim()) {
       setError('Please enter a folder name.');
       return;
     }
-    const safeCode = code.trim() || name.slice(0, 4).toUpperCase();
+    const safeCode = folder?.code || initialCode || name.slice(0, 4).toUpperCase();
     const folderToSave: EvidenceFolder = {
       id: folder ? folder.id : `folder-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: name.trim(),
       code: safeCode,
-      frameworkId: frameworkId || 'ia',
-      category,
+      frameworkId: folder?.frameworkId || 'ia',
+      category: folder?.category || 'Accreditation',
       description: description.trim(),
       isSystem: folder?.isSystem ?? false,
-      color,
+      color: folder?.color || 'blue',
       createdAt: folder?.createdAt || new Date().toISOString().slice(0, 10),
       parentId: folder?.parentId ?? parentId,
       areaId: folder?.areaId ?? initialAreaId,
@@ -111,15 +78,13 @@ export function FolderFormModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={folder ? `Edit Folder: ${folder.name}` : 'Create Evidence Folder'}
-      description="Organize institutional accreditation portfolios with specific start dates and audit deadlines."
       size="md"
       footer={
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
-          <button type="button" onClick={onClose} className="btn btn-secondary w-full sm:w-auto">
+          <button type="button" onClick={onClose} className="btn btn-secondary w-full sm:w-auto text-xs">
             Cancel
           </button>
-          <button type="button" onClick={handleSave} className="btn btn-primary w-full sm:w-auto">
+          <button type="button" onClick={handleSave} className="btn btn-primary w-full sm:w-auto text-xs">
             {folder ? 'Save Changes' : 'Create Folder'}
           </button>
         </div>
@@ -132,6 +97,7 @@ export function FolderFormModal({
           </div>
         )}
 
+        {/* 1. Folder Name */}
         <TextField
           label="Folder Name"
           value={name}
@@ -143,31 +109,7 @@ export function FolderFormModal({
           required
         />
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField
-            label="Folder Code / Tag"
-            value={code}
-            onChange={(val) => setCode(val)}
-            placeholder="e.g. AREA-I, GOV, OBE"
-            hint="Used in badges"
-          />
-
-          <SelectField
-            label="Accreditation Category"
-            value={category}
-            onChange={handleCategoryChange}
-            options={[
-              { value: 'Accreditation', label: 'Accreditation (AACCUP IA / PA)' },
-              { value: 'Compliance', label: 'Compliance (CHED / COPC)' },
-              { value: 'Quality Excellence', label: 'Quality Excellence (PQA)' },
-              { value: 'Quality Management', label: 'Quality Management (ISO 9001)' },
-              { value: 'General / Custom', label: 'General / Custom Category' }
-            ]}
-            required
-          />
-        </div>
-
-        {/* Start Date & Expired Date / No Deadline Section */}
+        {/* 2. Timeline & Expiration */}
         <div className="rounded-lg border border-line bg-canvas/40 p-3.5 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-ink">Timeline & Expiration</span>
@@ -216,39 +158,16 @@ export function FolderFormModal({
           </div>
         </div>
 
+        {/* 3. Folder Description & Guidelines */}
         <div>
           <label className="label">Folder Description & Guidelines</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            rows={2}
-            className="textarea"
+            rows={3}
+            className="textarea text-xs"
             placeholder="Explain what documents belong to this specific folder (e.g. BOR resolutions, approved policies, annual accomplishment reports)..."
           />
-        </div>
-
-        <div>
-          <label className="label">Color Accent</label>
-          <div className="mt-2 flex flex-wrap gap-2.5">
-            {COLOR_OPTIONS.map((c) => {
-              const selected = color === c.value;
-              return (
-                <button
-                  key={c.value}
-                  type="button"
-                  onClick={() => setColor(c.value)}
-                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                    selected
-                      ? `${c.border} ring-2 ring-brand-500 bg-white font-semibold shadow-sm`
-                      : 'border-line hover:border-line-strong bg-canvas'
-                  }`}
-                >
-                  <span className={`h-3 w-3 rounded-full ${c.bg}`} />
-                  <span>{c.label}</span>
-                </button>
-              );
-            })}
-          </div>
         </div>
       </div>
     </Modal>
