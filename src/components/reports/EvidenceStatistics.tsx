@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+﻿import React, { useMemo } from 'react';
 import { useLookup } from '../../hooks/useLookup';
 import { usePortal } from '../../contexts/PortalContext';
 import { BarList } from '../ui/BarList';

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { LockIcon } from 'lucide-react';
 import { BarList } from '../ui/BarList';
 import { latencyBreakdown, retrievalComparison, retrievalMetrics } from '../../data/analytics';

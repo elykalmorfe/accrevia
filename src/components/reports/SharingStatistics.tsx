@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+﻿import React, { useMemo } from 'react';
 import { usePortal } from '../../contexts/PortalContext';
 import { recipientRoles, shareStatus } from '../../utils/sharing';
 import { BarList } from '../ui/BarList';

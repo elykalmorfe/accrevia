@@ -3,6 +3,7 @@ import { usePortal } from '../../contexts/PortalContext';
 import { Badge } from '../ui/Badge';
 import { PrinterIcon } from 'lucide-react';
 import { AccreditationReportModal } from '../accreditation/AccreditationReportModal';
+import { CampusId } from '../../types/accreditation';
 
 export function AccreditationMasterReport() {
   const { campuses, programAccreditations, selectedCampus, setSelectedCampus, selectedCampusObj } = usePortal();
@@ -90,7 +91,7 @@ export function AccreditationMasterReport() {
             <label className="text-xs font-medium text-ink">Filter by Campus:</label>
             <select
               value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value as any)}
+              onChange={(e) => setSelectedCampus(e.target.value as CampusId | 'all')}
               className="input h-8 text-xs py-0 w-auto"
             >
               <option value="all">All Campuses (Consolidated)</option>
