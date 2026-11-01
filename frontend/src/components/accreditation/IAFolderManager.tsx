@@ -277,16 +277,21 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
     );
   };
 
-  // Handle uploading / transferring a Custom Folder to a Specific Area
-  const handleExecuteUploadCustomFolderToArea = (folderToUpload: EvidenceFolder, targetAreaCode: string) => {
+  // Handle uploading / transferring a Custom Folder to a Specific Area or into a Specific Folder
+  const handleExecuteUploadCustomFolderToArea = (
+    folderToUpload: EvidenceFolder,
+    targetAreaCode: string,
+    targetParentFolderId?: string
+  ) => {
     const targetAreaObj = OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaCode) || OFFICIAL_IA_AREAS[0];
     const targetAreaId = targetAreaCode.toLowerCase();
 
-    // 1. Move the folder to the specific Area
+    // 1. Move the folder to the specific Area and nest inside targetParentFolderId if inside a folder
     const updatedFolder: EvidenceFolder = {
       ...folderToUpload,
       areaId: targetAreaId,
-      category: 'Accreditation'
+      category: 'Accreditation',
+      parentId: targetParentFolderId ?? folderToUpload.parentId ?? undefined
     };
     saveFolder(updatedFolder);
 
@@ -304,10 +309,14 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       }
     });
 
-    toast.success(`Folder "${folderToUpload.name}" successfully uploaded to Area ${targetAreaObj.number}: ${targetAreaObj.name}!`);
+    const destinationName = targetParentFolderId && currentActiveFolder
+      ? `"${currentActiveFolder.name}" in Area ${targetAreaObj.number}`
+      : `Area ${targetAreaObj.number}: ${targetAreaObj.name}`;
+
+    toast.success(`Folder "${folderToUpload.name}" successfully uploaded into ${destinationName}!`);
     setUploadingCustomFolder(null);
 
-    // If user was viewing that folder in Custom, exit to root since it moved to Area
+    // If user was viewing that folder in Custom, exit to root since it moved
     if (activeFolderId === folderToUpload.id) {
       setActiveFolderId(null);
     }
@@ -406,7 +415,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
 
   // Execute Upload Commit
   const handleExecuteUpload = () => {
-    // Check if uploading from Custom Folders into an Area
+    // Check if uploading from Custom Folders into an Area or specific folder
     if (uploadMode === 'from-custom') {
       if (!selectedCustomFolderToUpload) {
         toast.error('Please select a custom folder to upload.');
@@ -415,7 +424,8 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       const customFolder = rootCustomFolders.find((f) => f.id === selectedCustomFolderToUpload);
       if (!customFolder) return;
       const targetAreaCode = selectedAreaCode || 'AREA-I';
-      handleExecuteUploadCustomFolderToArea(customFolder, targetAreaCode);
+      // If user is inside a specific folder, upload it directly inside that folder!
+      handleExecuteUploadCustomFolderToArea(customFolder, targetAreaCode, activeFolderId || undefined);
       setUploadModalOpen(false);
       setSelectedCustomFolderToUpload('');
       return;
@@ -428,7 +438,8 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
 
     setIsProcessingUpload(true);
     setTimeout(() => {
-      const effectiveFolderId = selectedTargetFolder || activeFolderId || iaFolders[0]?.id || 'folder-ia';
+      // Prioritize the folder where user is currently staying so files/folders upload strictly inside it
+      const effectiveFolderId = activeFolderId || selectedTargetFolder || iaFolders[0]?.id || 'folder-ia';
       const targetFolder = iaFolders.find((f) => f.id === effectiveFolderId) || iaFolders[0];
 
       // If uploading an entire folder from computer, auto-create a subfolder
@@ -498,8 +509,8 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       setUploadedFileList([]);
       toast.success(
         uploadMode === 'folder'
-          ? `Successfully uploaded folder (${uploadedFileList.length} files)!`
-          : `Successfully uploaded ${uploadedFileList.length} document(s)!`
+          ? `Successfully uploaded folder into "${targetFolder?.name}" (${uploadedFileList.length} files)!`
+          : `Successfully uploaded ${uploadedFileList.length} document(s) into "${targetFolder?.name}"!`
       );
     }, 600);
   };
@@ -1752,6 +1763,16 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
           }
         >
           <div className="space-y-4">
+            {/* Active Destination Notice */}
+            {currentActiveFolder && (
+              <div className="rounded-lg border border-brand-200 bg-brand-50/70 p-2.5 text-xs text-brand-900 flex items-center gap-2">
+                <FolderOpenIcon className="h-4 w-4 text-brand-600 shrink-0" />
+                <span>
+                  Uploading directly into: <strong className="font-bold">{currentActiveFolder.name}</strong>
+                </span>
+              </div>
+            )}
+
             {/* Mode Selector */}
             <div className={`grid gap-2 rounded-lg border border-line bg-canvas p-1 text-xs ${
               selectedAreaCode && rootCustomFolders.length > 0 ? 'grid-cols-3' : 'grid-cols-2'
