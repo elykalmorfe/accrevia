@@ -140,7 +140,6 @@ export function CampusIAView() {
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-lg font-bold text-ink">{campus.name}</h2>
-                {campus.isMain && <Badge tone="gold">Main Campus</Badge>}
 
                 <Badge tone="brand">{iaRecord.status}</Badge>
               </div>
@@ -296,7 +295,6 @@ export function CampusIAView() {
                   <div>
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-bold text-ink">{c.name}</p>
-                      {c.isMain && <Badge tone="gold">Main Campus</Badge>}
                     </div>
                     <p className="text-xs text-ink-muted">{c.location}</p>
                   </div>
