@@ -2,16 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
-import { CampusId, IALevel, IARequirementItem, RequirementVerificationStatus } from '../../types/accreditation';
+import { CampusId, IALevel } from '../../types/accreditation';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
-import { AccreditationDocModal } from '../../components/accreditation/AccreditationDocModal';
 import { IAFolderManager } from '../../components/accreditation/IAFolderManager';
 import {
   Building2Icon,
-  FileTextIcon,
   ExternalLinkIcon,
-  UploadIcon,
   CalculatorIcon,
   FileCheck2Icon
 } from 'lucide-react';
@@ -30,9 +27,6 @@ export function CampusIAView() {
 
   const campus = campuses.find((c) => c.id === selectedCampusId) || campuses[0];
   const iaRecord = iaRecords.find((r) => r.campusId === selectedCampusId);
-
-  // Requirement Modal State
-  const [activeReq, setActiveReq] = useState<IARequirementItem | null>(null);
 
   if (!iaRecord) {
     return (
@@ -79,23 +73,6 @@ export function CampusIAView() {
     const recommended = evaluateRecommendedLevel();
     updateCampusIA(selectedCampusId, { status: recommended.level });
     toast.success(`Accreditation status updated to "${recommended.level}"`);
-  };
-
-  const handleSaveRequirement = (data: {
-    documentName: string;
-    documentUrl: string;
-    status: RequirementVerificationStatus;
-    reviewerNotes: string;
-  }) => {
-    if (!activeReq) return;
-    const hasEvidence = Boolean(data.documentName || data.documentUrl);
-    updateIARequirement(selectedCampusId, activeReq.id, {
-      documentName: data.documentName,
-      documentUrl: data.documentUrl,
-      status: data.status,
-      reviewerNotes: data.reviewerNotes,
-      isSubmitted: hasEvidence
-    });
   };
 
   return (
@@ -283,103 +260,6 @@ export function CampusIAView() {
         }}
       />
 
-      {/* 9 Core Institutional Areas Requirements Table */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-bold text-ink">AACCUP Institutional Survey Areas Portfolio (Areas 1–9)</h3>
-            <p className="text-xs text-ink-muted">
-              Submit and verify campus-level documentation across all 9 official AACCUP institutional accreditation areas.
-            </p>
-          </div>
-        </div>
-
-        <div className="panel divide-y divide-line overflow-hidden">
-          {iaRecord.requirements.map((req) => (
-            <div key={req.id} className="p-4 transition-colors hover:bg-canvas/40">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-brand-700">{req.areaCode}</span>
-                    <span className="text-xs font-semibold text-ink">· {req.areaName}</span>
-                    <Badge
-                      tone={
-                        req.status === 'Approved'
-                          ? 'success'
-                          : req.status === 'Under Review'
-                          ? 'brand'
-                          : req.status === 'Deficient'
-                          ? 'danger'
-                          : 'warning'
-                      }
-                      dot
-                    >
-                      {req.status}
-                    </Badge>
-                  </div>
-
-                  <h4 className="mt-1 text-sm font-semibold text-ink">{req.title}</h4>
-                  <p className="text-xs text-ink-muted mt-0.5">{req.description}</p>
-
-                  {/* Attached Document info */}
-                  {(req.documentName || req.documentUrl) && (
-                    <div className="mt-2.5 flex items-center gap-2 text-xs">
-                      <FileTextIcon className="h-3.5 w-3.5 text-brand-600" />
-                      <span className="font-medium text-ink">{req.documentName || 'Reference link'}</span>
-                      {req.submissionDate && (
-                        <span className="text-ink-subtle">· Submitted {req.submissionDate}</span>
-                      )}
-                      {req.documentUrl && (
-                        <a
-                          href={req.documentUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-medium text-brand-600 hover:underline"
-                        >
-                          View File
-                        </a>
-                      )}
-                    </div>
-                  )}
-
-                  {req.reviewerNotes && (
-                    <div className="mt-2 rounded bg-warning-50/70 border border-warning-100 p-2 text-xs text-warning-800">
-                      <strong>Reviewer Remarks:</strong> {req.reviewerNotes}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex shrink-0 items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveReq(req)}
-                    className="btn btn-secondary btn-sm min-h-[38px] w-full sm:w-auto"
-                  >
-                    <UploadIcon className="h-3.5 w-3.5" />
-                    Manage & Verify
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Requirement Modal */}
-      {activeReq && (
-        <AccreditationDocModal
-          open={!!activeReq}
-          title="Campus Institutional Evidence Submission"
-          areaCode={activeReq.areaCode}
-          requirementTitle={activeReq.title}
-          currentDocumentName={activeReq.documentName}
-          currentDocumentUrl={activeReq.documentUrl}
-          currentStatus={activeReq.status}
-          currentNotes={activeReq.reviewerNotes}
-          onClose={() => setActiveReq(null)}
-          onSave={handleSaveRequirement}
-        />
-      )}
-    </>
+      </>
   );
 }
