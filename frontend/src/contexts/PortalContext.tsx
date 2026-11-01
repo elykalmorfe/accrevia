@@ -76,6 +76,7 @@ interface PortalContextValue {
   documents: EvidenceDocument[];
   addDocument: (doc: EvidenceDocument) => void;
   updateDocument: (id: string, patch: Partial<EvidenceDocument>) => void;
+  deleteDocument: (id: string) => void;
   folders: EvidenceFolder[];
   saveFolder: (folder: EvidenceFolder) => void;
   deleteFolder: (id: string) => void;
@@ -285,6 +286,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     []
   );
   const addDocument = useCallback((doc: EvidenceDocument) => setDocuments((prev) => [doc, ...prev]), []);
+  const deleteDocument = useCallback((id: string) => setDocuments((prev) => prev.filter((d) => d.id !== id)), []);
   const saveFolder = useCallback((folder: EvidenceFolder) => {
     setFolders((prev) => {
       const idx = prev.findIndex((f) => f.id === folder.id);
@@ -672,6 +674,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       documents,
       addDocument,
       updateDocument,
+      deleteDocument,
       folders,
       saveFolder,
       deleteFolder,
@@ -757,6 +760,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       documents,
       addDocument,
       updateDocument,
+      deleteDocument,
       folders,
       saveFolder,
       deleteFolder,

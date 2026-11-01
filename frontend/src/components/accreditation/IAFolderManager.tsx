@@ -10,7 +10,13 @@ import {
   Trash2Icon,
   LayersIcon,
   FolderArchiveIcon,
-  FolderOpenIcon
+  FolderOpenIcon,
+  ArrowUpDownIcon,
+  ChevronRightIcon,
+  FileSpreadsheetIcon,
+  FileIcon,
+  EyeIcon,
+  DownloadIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { EvidenceFolder, EvidenceDocument } from '../../types/evidence';
@@ -19,6 +25,7 @@ import { Badge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
 import { FolderFormModal } from '../folders/FolderFormModal';
 import { DeleteFolderModal } from '../folders/DeleteFolderModal';
+import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
 
 interface IAFolderManagerProps {
   campusId: CampusId;
@@ -41,11 +48,19 @@ const OFFICIAL_IA_AREAS = [
 ];
 
 export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdated }: IAFolderManagerProps) {
-  const { folders, saveFolder, deleteFolder, documents, addDocument } = usePortal();
+  const { folders, saveFolder, deleteFolder, documents, addDocument, deleteDocument } = usePortal();
 
-  // Active view tab: 'folders' | 'areas' | 'official-instrument'
+  // Active view tab: 'areas' | 'folders'
   const [activeTab, setActiveTab] = useState<'folders' | 'areas'>('areas');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Repository Filtering and Sorting
+  const [repoFilter, setRepoFilter] = useState<'all' | 'folders' | 'files'>('all');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+
+  // Document Preview Modal
+  const [previewDoc, setPreviewDoc] = useState<EvidenceDocument | null>(null);
 
   // Folder Modals
   const [folderFormOpen, setFolderFormOpen] = useState(false);
@@ -55,7 +70,6 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
   // Upload States
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadMode, setUploadMode] = useState<'files' | 'folder'>('files');
-  const [selectedTargetArea, setSelectedTargetArea] = useState<string>('AREA-I');
   const [selectedTargetFolder, setSelectedTargetFolder] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFileList, setUploadedFileList] = useState<Array<{ name: string; size: number; path?: string }>>([]);
@@ -70,12 +84,23 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
     return folders.filter((f) => f.frameworkId === 'ia' || f.category === 'Accreditation' || f.id.startsWith('folder-ia'));
   }, [folders]);
 
-  // Documents mapped to this campus
+  // Documents mapped to this campus or IA framework
   const campusIADocs = useMemo(() => {
     return documents.filter((d) => d.frameworkId === 'ia');
   }, [documents]);
 
-  // Filtered IA Areas based on search
+  // Active folder object if drilled down
+  const currentActiveFolder = useMemo(() => {
+    if (!activeFolderId) return null;
+    return iaFolders.find((f) => f.id === activeFolderId) || null;
+  }, [activeFolderId, iaFolders]);
+
+  // Document count per folder helper (defaulting unassigned IA docs to 'folder-ia')
+  const getFolderDocCount = (folderId: string) => {
+    return campusIADocs.filter((d) => (d.folderId || 'folder-ia') === folderId).length;
+  };
+
+  // Filtered and Sorted IA Areas
   const filteredAreas = useMemo(() => {
     if (!searchQuery.trim()) return OFFICIAL_IA_AREAS;
     const q = searchQuery.toLowerCase();
@@ -88,17 +113,46 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
     );
   }, [searchQuery]);
 
-  // Filtered custom folders based on search
+  // Filtered and Sorted Folders (A to Z)
   const filteredFolders = useMemo(() => {
-    if (!searchQuery.trim()) return iaFolders;
-    const q = searchQuery.toLowerCase();
-    return iaFolders.filter(
-      (f) =>
-        f.name.toLowerCase().includes(q) ||
-        f.code.toLowerCase().includes(q) ||
-        (f.description && f.description.toLowerCase().includes(q))
-    );
-  }, [iaFolders, searchQuery]);
+    let list = iaFolders;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (f) =>
+          f.name.toLowerCase().includes(q) ||
+          f.code.toLowerCase().includes(q) ||
+          (f.description && f.description.toLowerCase().includes(q))
+      );
+    }
+    return [...list].sort((a, b) => {
+      const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+  }, [iaFolders, searchQuery, sortDirection]);
+
+  // Filtered and Sorted Files (A to Z)
+  const filteredFiles = useMemo(() => {
+    let list = campusIADocs;
+    if (activeFolderId) {
+      list = list.filter((d) => (d.folderId || 'folder-ia') === activeFolderId);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (d) =>
+          d.title.toLowerCase().includes(q) ||
+          d.docType.toLowerCase().includes(q) ||
+          d.fileType.toLowerCase().includes(q) ||
+          (d.academicYear && d.academicYear.toLowerCase().includes(q)) ||
+          (d.keywords && d.keywords.some((k) => k.toLowerCase().includes(q)))
+      );
+    }
+    return [...list].sort((a, b) => {
+      const cmp = a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+  }, [campusIADocs, activeFolderId, searchQuery, sortDirection]);
 
   // Handle Folder Upload from input
   const handleFolderInputSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,7 +169,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       });
     }
     setUploadedFileList(list);
-    toast.success(`Selected entire folder with ${list.length} file(s)`);
+    toast.success(`Selected folder with ${list.length} file(s)`);
   };
 
   // Handle Files Upload from input
@@ -187,7 +241,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
 
     if (collected.length > 0) {
       setUploadedFileList(collected);
-      toast.success(`Scanned and prepared ${collected.length} file(s) from folder drop`);
+      toast.success(`Prepared ${collected.length} file(s) from folder drop`);
     }
   };
 
@@ -200,19 +254,21 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
 
     setIsProcessingUpload(true);
     setTimeout(() => {
-      const targetAreaObj = OFFICIAL_IA_AREAS.find((a) => a.code === selectedTargetArea) || OFFICIAL_IA_AREAS[0];
+      // Resolve target folder automatically without requiring user dropdown
+      const effectiveFolderId = selectedTargetFolder || activeFolderId || iaFolders[0]?.id || 'folder-ia';
+      const targetFolder = iaFolders.find((f) => f.id === effectiveFolderId) || iaFolders[0];
 
       uploadedFileList.forEach((file, idx) => {
         const newDoc: EvidenceDocument = {
           id: `doc-ia-${Date.now()}-${idx}`,
           title: file.path ? `${file.path.split('/')[0]}: ${file.name}` : file.name,
-          description: `Uploaded evidence for Institutional Accreditation (${targetAreaObj.name}).`,
-          keywords: ['IA Evidence', targetAreaObj.name, campusName],
+          description: `Uploaded evidence document for Institutional Accreditation (${targetFolder?.name || 'IA Repository'}).`,
+          keywords: ['IA Evidence', targetFolder?.name || 'Repository', campusName],
           frameworkId: 'ia',
-          areaId: selectedTargetArea.toLowerCase(),
+          areaId: 'area-i',
           criterionId: 'c-ia-1',
           indicatorId: 'i-1-1',
-          docType: 'Report',
+          docType: file.name.endsWith('.xlsx') ? 'Statistical Report' : 'Report',
           academicYear: '2024–2025',
           cycle: '2025 Institutional Accreditation',
           program: 'Institution-wide',
@@ -228,8 +284,8 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
           pages: Math.max(1, Math.round(file.size / 50000)),
           sizeMb: Math.round((file.size / (1024 * 1024)) * 10) / 10 || 1.2,
           uploadedBy: 'Current User',
-          passages: [`Institutional evidence registered under ${targetAreaObj.name}`],
-          folderId: selectedTargetFolder || 'folder-ia'
+          passages: [`Institutional evidence registered under ${targetFolder?.name || 'Institutional Accreditation'}`],
+          folderId: effectiveFolderId
         };
         addDocument(newDoc);
       });
@@ -239,10 +295,25 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       setUploadedFileList([]);
       toast.success(
         uploadMode === 'folder'
-          ? `Successfully uploaded and indexed entire folder (${uploadedFileList.length} files) to ${targetAreaObj.code}!`
-          : `Successfully uploaded ${uploadedFileList.length} document(s) to ${targetAreaObj.code}!`
+          ? `Successfully uploaded entire folder (${uploadedFileList.length} files)!`
+          : `Successfully uploaded ${uploadedFileList.length} document(s)!`
       );
     }, 600);
+  };
+
+  // Helper for rendering file type icons
+  const renderFileIcon = (fileType?: string) => {
+    const ft = (fileType || '').toUpperCase();
+    if (ft === 'PDF') {
+      return <FileTextIcon className="h-5 w-5 text-red-500 shrink-0" />;
+    }
+    if (ft === 'XLSX' || ft === 'CSV') {
+      return <FileSpreadsheetIcon className="h-5 w-5 text-emerald-600 shrink-0" />;
+    }
+    if (ft === 'DOCX' || ft === 'DOC') {
+      return <FileTextIcon className="h-5 w-5 text-blue-600 shrink-0" />;
+    }
+    return <FileIcon className="h-5 w-5 text-slate-500 shrink-0" />;
   };
 
   return (
@@ -264,7 +335,10 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setActiveTab('areas')}
+            onClick={() => {
+              setActiveTab('areas');
+              setActiveFolderId(null);
+            }}
             className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
               activeTab === 'areas'
                 ? 'border-brand-600 text-brand-700'
@@ -289,7 +363,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
           </button>
         </div>
 
-        {/* Search Bar replacing "New Folder" + Upload Files/Folder Button on the same row */}
+        {/* Search Bar + Upload Files/Folder Button on the same row */}
         <div className="flex items-center gap-2">
           <div className="relative w-48 sm:w-64">
             <SearchIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-subtle" />
@@ -297,7 +371,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={activeTab === 'areas' ? 'Search areas 1–9...' : 'Search custom folders...'}
+              placeholder={activeTab === 'areas' ? 'Search areas 1–9...' : 'Search folders and files (A–Z)...'}
               className="input h-8 pl-8 text-xs w-full bg-slate-50 border-line focus:bg-white"
             />
             {searchQuery && (
@@ -314,7 +388,10 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
 
           <button
             type="button"
-            onClick={() => setUploadModalOpen(true)}
+            onClick={() => {
+              setSelectedTargetFolder(activeFolderId || iaFolders[0]?.id || 'folder-ia');
+              setUploadModalOpen(true);
+            }}
             className="btn btn-primary btn-sm h-8 shrink-0 text-xs gap-1.5"
             title="Upload individual files or entire folders"
           >
@@ -384,7 +461,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedTargetArea(area.code);
+                        setSelectedTargetFolder(iaFolders[0]?.id || 'folder-ia');
                         setUploadModalOpen(true);
                       }}
                       className="text-[11px] font-semibold text-brand-600 hover:text-brand-800 flex items-center gap-1"
@@ -399,92 +476,355 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
         </div>
       )}
 
-      {/* TAB 3: CUSTOM FOLDERS MANAGEMENT */}
+      {/* TAB 2: IA EVIDENCE FOLDERS REPOSITORY */}
       {activeTab === 'folders' && (
         <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-              IA Evidence Folders Repository
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingFolder(null);
-                setFolderFormOpen(true);
-              }}
-              className="btn btn-secondary btn-xs"
-            >
-              <FolderPlusIcon className="h-3 w-3" /> New Folder
-            </button>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-            {filteredFolders.map((folder) => {
-              const docCount = campusIADocs.filter((d) => d.folderId === folder.id).length;
-              return (
-                <div
-                  key={folder.id}
-                  className="rounded-lg border border-line bg-white p-3.5 shadow-xs transition-all hover:border-brand-300"
+          {/* Breadcrumb Navigation when inside a folder */}
+          {currentActiveFolder ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50/50 p-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveFolderId(null)}
+                  className="text-xs font-semibold text-brand-700 hover:underline flex items-center gap-1"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-md bg-amber-50 text-amber-600">
-                        <FolderIcon className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-ink">{folder.name}</h4>
-                        <span className="text-[10px] text-ink-subtle">{folder.code} · {folder.createdAt}</span>
-                      </div>
-                    </div>
+                  IA Evidence Folders Repository
+                </button>
+                <ChevronRightIcon className="h-3.5 w-3.5 text-brand-400" />
+                <div className="flex items-center gap-1.5 font-bold text-xs text-ink">
+                  <FolderOpenIcon className="h-4 w-4 text-amber-600" />
+                  <span>{currentActiveFolder.name}</span>
+                </div>
+                <span className="text-[11px] text-ink-subtle ml-1">
+                  ({filteredFiles.length} files)
+                </span>
+              </div>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingFolder(folder);
-                          setFolderFormOpen(true);
-                        }}
-                        className="p-1 text-ink-subtle hover:text-brand-600 rounded"
-                        title="Rename folder"
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveFolderId(null)}
+                  className="btn btn-secondary btn-xs text-xs"
+                >
+                  ← Back to All Folders
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTargetFolder(currentActiveFolder.id);
+                    setUploadModalOpen(true);
+                  }}
+                  className="btn btn-primary btn-xs text-xs gap-1"
+                >
+                  <UploadIcon className="h-3 w-3" /> Upload to this folder
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Root Repository Controls: Filter by All / Folders / Files, A-Z Sorting & Folder Creation */
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-line pb-3">
+              {/* Filter Pills with Counts */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setRepoFilter('all')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                    repoFilter === 'all'
+                      ? 'bg-brand-600 text-white shadow-xs'
+                      : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
+                  }`}
+                >
+                  <span>All Items</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                      repoFilter === 'all' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
+                    }`}
+                  >
+                    {iaFolders.length + campusIADocs.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRepoFilter('folders')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                    repoFilter === 'folders'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
+                  }`}
+                >
+                  <FolderIcon className="h-3.5 w-3.5" />
+                  <span>Folders Only</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                      repoFilter === 'folders' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
+                    }`}
+                  >
+                    {iaFolders.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRepoFilter('files')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                    repoFilter === 'files'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
+                  }`}
+                >
+                  <FileTextIcon className="h-3.5 w-3.5" />
+                  <span>Files Only</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                      repoFilter === 'files' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
+                    }`}
+                  >
+                    {campusIADocs.length}
+                  </span>
+                </button>
+              </div>
+
+              {/* Sorting A-Z + New Folder Action */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  className="btn btn-secondary btn-xs h-7 text-xs gap-1.5"
+                  title="Toggle alphabetical order (A–Z / Z–A)"
+                >
+                  <ArrowUpDownIcon className="h-3 w-3 text-brand-600" />
+                  <span className="font-semibold text-brand-700">Sort: {sortDirection === 'asc' ? 'A → Z' : 'Z → A'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingFolder(null);
+                    setFolderFormOpen(true);
+                  }}
+                  className="btn btn-secondary btn-xs h-7 text-xs gap-1"
+                >
+                  <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
+                  <span>New Folder</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* FOLDERS GRID (Rendered when viewing All or Folders Only, and not inside a drilled folder) */}
+          {!currentActiveFolder && (repoFilter === 'all' || repoFilter === 'folders') && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                  Folders ({filteredFolders.length})
+                </span>
+                <span className="text-[11px] text-ink-subtle">Click a folder to view its contents</span>
+              </div>
+
+              {filteredFolders.length === 0 ? (
+                <div className="rounded-lg border border-line bg-canvas p-6 text-center text-xs text-ink-muted">
+                  No folders matching "{searchQuery}".
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  {filteredFolders.map((folder) => {
+                    const docCount = getFolderDocCount(folder.id);
+                    return (
+                      <div
+                        key={folder.id}
+                        onClick={() => setActiveFolderId(folder.id)}
+                        className="group relative cursor-pointer rounded-lg border border-line bg-white p-3.5 shadow-xs transition-all hover:border-brand-300 hover:shadow-sm"
                       >
-                        <PencilIcon className="h-3.5 w-3.5" />
-                      </button>
-                      {!folder.isSystem && (
-                        <button
-                          type="button"
-                          onClick={() => setDeletingFolder(folder)}
-                          className="p-1 text-ink-subtle hover:text-danger-600 rounded"
-                          title="Delete folder"
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-md bg-amber-50 text-amber-600 group-hover:bg-amber-100 transition-colors">
+                              <FolderIcon className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-ink group-hover:text-brand-700 transition-colors">
+                                {folder.name}
+                              </h4>
+                              <span className="text-[10px] text-ink-subtle">{folder.code} · {folder.createdAt}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingFolder(folder);
+                                setFolderFormOpen(true);
+                              }}
+                              className="p-1 text-ink-subtle hover:text-brand-600 rounded"
+                              title="Rename folder"
+                            >
+                              <PencilIcon className="h-3.5 w-3.5" />
+                            </button>
+                            {!folder.isSystem && (
+                              <button
+                                type="button"
+                                onClick={() => setDeletingFolder(folder)}
+                                className="p-1 text-ink-subtle hover:text-danger-600 rounded"
+                                title="Delete folder"
+                              >
+                                <Trash2Icon className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="mt-2 text-[11px] text-ink-muted line-clamp-2">
+                          {folder.description || 'No description provided.'}
+                        </p>
+
+                        <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-[11px] text-ink-subtle">
+                          <span className="font-medium text-ink-muted">{docCount} file(s) inside</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTargetFolder(folder.id);
+                              setUploadModalOpen(true);
+                            }}
+                            className="font-semibold text-brand-600 hover:underline"
+                          >
+                            + Upload to folder
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* FILES LIST (Rendered when viewing All or Files Only, or when inside a drilled folder) */}
+          {(currentActiveFolder || repoFilter === 'all' || repoFilter === 'files') && (
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                  {currentActiveFolder ? `Files in ${currentActiveFolder.name} (${filteredFiles.length})` : `Files (${filteredFiles.length})`}
+                </span>
+                <span className="text-[11px] text-ink-subtle">
+                  Sorted A to Z ({sortDirection === 'asc' ? 'Ascending' : 'Descending'})
+                </span>
+              </div>
+
+              {filteredFiles.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-line bg-canvas p-8 text-center">
+                  <FileTextIcon className="mx-auto h-8 w-8 text-ink-subtle mb-2" />
+                  <p className="text-xs font-semibold text-ink">No files found</p>
+                  <p className="text-[11px] text-ink-muted mt-1">
+                    {searchQuery
+                      ? `No files matched "${searchQuery}"`
+                      : currentActiveFolder
+                      ? `No files have been added to "${currentActiveFolder.name}" yet.`
+                      : 'No evidence files found in this repository.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTargetFolder(currentActiveFolder?.id || iaFolders[0]?.id || 'folder-ia');
+                      setUploadModalOpen(true);
+                    }}
+                    className="btn btn-secondary btn-xs mt-3 text-xs gap-1"
+                  >
+                    <UploadIcon className="h-3 w-3" /> Upload Files Now
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-lg border border-line bg-white shadow-xs">
+                  <div className="divide-y divide-line">
+                    {filteredFiles.map((doc) => {
+                      const parentFolder = iaFolders.find((f) => f.id === (doc.folderId || 'folder-ia'));
+                      return (
+                        <div
+                          key={doc.id}
+                          className="flex flex-col gap-2 p-3 text-xs transition-colors hover:bg-slate-50/70 sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <Trash2Icon className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <div className="mt-0.5">{renderFileIcon(doc.fileType)}</div>
+                            <div className="min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewDoc(doc)}
+                                className="text-left font-bold text-ink hover:text-brand-600 hover:underline truncate block max-w-[340px] sm:max-w-[480px]"
+                                title={doc.title}
+                              >
+                                {doc.title}
+                              </button>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-subtle">
+                                {parentFolder && (
+                                  <span className="font-medium text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                                    📁 {parentFolder.name}
+                                  </span>
+                                )}
+                                <span>{doc.fileType || 'PDF'}</span>
+                                <span>·</span>
+                                <span>{doc.sizeMb || 1.2} MB</span>
+                                <span>·</span>
+                                <span>{doc.documentDate || '2025-01-15'}</span>
+                                {doc.academicYear && (
+                                  <>
+                                    <span>·</span>
+                                    <span>{doc.academicYear}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
 
-                  <p className="mt-2 text-[11px] text-ink-muted line-clamp-2">{folder.description || 'No description provided.'}</p>
+                          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                            <Badge tone={doc.status === 'Verified' ? 'success' : 'brand'} dot>
+                              {doc.status || 'Indexed'}
+                            </Badge>
 
-                  <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-[11px] text-ink-subtle">
-                    <span>{docCount} documents inside</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedTargetFolder(folder.id);
-                        setUploadModalOpen(true);
-                      }}
-                      className="font-semibold text-brand-600 hover:underline"
-                    >
-                      + Upload to folder
-                    </button>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewDoc(doc)}
+                              className="btn btn-secondary btn-xs h-7 px-2 text-[11px] gap-1"
+                              title="Preview document"
+                            >
+                              <EyeIcon className="h-3 w-3" /> Preview
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => toast.success(`Downloading "${doc.title}"`)}
+                              className="btn btn-ghost btn-xs h-7 px-2 text-[11px] text-ink-muted hover:text-ink"
+                              title="Download document"
+                            >
+                              <DownloadIcon className="h-3 w-3" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to remove "${doc.title}"?`)) {
+                                  deleteDocument(doc.id);
+                                  toast.success(`Removed "${doc.title}"`);
+                                }
+                              }}
+                              className="btn btn-ghost btn-xs h-7 px-2 text-[11px] text-ink-subtle hover:text-danger-600"
+                              title="Delete file"
+                            >
+                              <Trash2Icon className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* UPLOAD INDIVIDUAL FILES & ENTIRE FOLDERS MODAL */}
+      {/* UPLOAD INDIVIDUAL FILES & ENTIRE FOLDERS MODAL (No Target Area or Target Folder dropdowns) */}
       {uploadModalOpen && (
         <Modal
           open={uploadModalOpen}
@@ -492,8 +832,8 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
             setUploadModalOpen(false);
             setUploadedFileList([]);
           }}
-          title={uploadMode === 'folder' ? 'Upload Entire Folder to IA Repository' : 'Upload Evidence Files to IA Repository'}
-          description="Select individual documents or upload an entire directory structure for AACCUP Institutional Accreditation."
+          title={uploadMode === 'folder' ? 'Upload Entire Folder' : 'Upload Evidence Files'}
+          description="Select individual documents or upload an entire directory structure for Institutional Accreditation."
           footer={
             <div className="flex items-center justify-end gap-2">
               <button
@@ -514,7 +854,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
               >
                 {isProcessingUpload
                   ? 'Processing & Indexing...'
-                  : `Commit Upload (${uploadedFileList.length} files)`}
+                  : `Upload Documents (${uploadedFileList.length} files)`}
               </button>
             </div>
           }
@@ -544,41 +884,8 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                   uploadMode === 'folder' ? 'bg-white text-brand-700 shadow-xs' : 'text-ink-muted'
                 }`}
               >
-                <FolderArchiveIcon className="h-3.5 w-3.5" /> Upload Entire Folder
+                <FolderArchiveIcon className="h-3.5 w-3.5" /> Entire Folder
               </button>
-            </div>
-
-            {/* Target IA Area Selection */}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="label">Target IA Area (Areas 1–9)</label>
-                <select
-                  value={selectedTargetArea}
-                  onChange={(e) => setSelectedTargetArea(e.target.value)}
-                  className="input text-xs"
-                >
-                  {OFFICIAL_IA_AREAS.map((a) => (
-                    <option key={a.code} value={a.code}>
-                      {a.code}: {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="label">Target Folder</label>
-                <select
-                  value={selectedTargetFolder || (iaFolders[0]?.id ?? '')}
-                  onChange={(e) => setSelectedTargetFolder(e.target.value)}
-                  className="input text-xs"
-                >
-                  {iaFolders.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             {/* Hidden HTML5 File / Directory Inputs */}
@@ -661,6 +968,14 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
         </Modal>
       )}
 
+      {/* DOCUMENT PREVIEW MODAL */}
+      {previewDoc && (
+        <DocumentPreviewModal
+          doc={previewDoc}
+          onClose={() => setPreviewDoc(null)}
+        />
+      )}
+
       {/* CREATE / RENAME FOLDER MODAL */}
       <FolderFormModal
         open={folderFormOpen}
@@ -679,7 +994,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       <DeleteFolderModal
         open={!!deletingFolder}
         folder={deletingFolder}
-        documentCount={campusIADocs.filter((d) => d.folderId === deletingFolder?.id).length}
+        documentCount={getFolderDocCount(deletingFolder?.id || '')}
         onClose={() => setDeletingFolder(null)}
         onConfirm={(id) => {
           deleteFolder(id);
