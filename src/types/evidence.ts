@@ -1,4 +1,4 @@
-export type FrameworkCategory = 'Accreditation' | 'Compliance' | 'Quality Excellence' | 'Quality Management';
+﻿export type FrameworkCategory = 'Accreditation' | 'Compliance' | 'Quality Excellence' | 'Quality Management';
 
 export type FolderColor = 'blue' | 'purple' | 'emerald' | 'amber' | 'indigo' | 'rose' | 'cyan' | 'slate';
 

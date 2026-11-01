@@ -1,4 +1,4 @@
-export type CampusId = 'tandag' | 'cantilan' | 'cagwait' | 'san-miguel' | 'lianga' | 'tagbina' | 'bislig';
+﻿export type CampusId = 'tandag' | 'cantilan' | 'cagwait' | 'san-miguel' | 'lianga' | 'tagbina' | 'bislig';
 
 export interface Campus {
   id: CampusId;

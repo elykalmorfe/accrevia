@@ -1,4 +1,4 @@
-export type JobStatus = 'Running' | 'Queued' | 'Failed' | 'Completed';
+﻿export type JobStatus = 'Running' | 'Queued' | 'Failed' | 'Completed';
 
 export interface ProcessingStage {
   key: string;

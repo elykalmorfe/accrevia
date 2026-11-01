@@ -1,4 +1,4 @@
-import { EvidenceDocument, Lookup } from '../types/evidence';
+﻿import { EvidenceDocument, Lookup } from '../types/evidence';
 
 export interface SearchResult {
   doc: EvidenceDocument;
