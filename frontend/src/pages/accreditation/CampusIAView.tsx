@@ -85,19 +85,6 @@ export function CampusIAView() {
         }
         title="Institutional Accreditation (IA)"
         description="Campus-level AACCUP institutional accreditation tracking, criteria validation, evidence portfolio, and automated accreditation status determination."
-        actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsEditAllOpen(true)}
-              className="btn btn-primary btn-sm"
-              title="Edit accreditation level for all campuses"
-            >
-              <PencilIcon className="h-4 w-4" />
-              Edit Campus Statuses
-            </button>
-          </div>
-        }
       />
 
       {/* Campus Selector Bar */}
@@ -155,26 +142,7 @@ export function CampusIAView() {
                 <h2 className="text-lg font-bold text-ink">{campus.name}</h2>
                 {campus.isMain && <Badge tone="gold">Main Campus</Badge>}
 
-                {/* Editable Status Select */}
-                <div className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50/80 px-2.5 py-1 shadow-2xs">
-                  <span className="text-[11px] font-semibold text-brand-700">Status:</span>
-                  <select
-                    value={iaRecord.status}
-                    onChange={(e) => {
-                      const newStatus = e.target.value as IALevel;
-                      updateCampusIA(selectedCampusId, { status: newStatus });
-                      toast.success(`Updated ${campus.shortName} status to ${newStatus}`);
-                    }}
-                    className="rounded border border-brand-300 bg-white px-2 py-0.5 text-xs font-bold text-brand-900 shadow-2xs hover:border-brand-400 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer"
-                    title="Change Accreditation Level (Level I to IV)"
-                  >
-                    {IA_LEVEL_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <Badge tone="brand">{iaRecord.status}</Badge>
               </div>
               <p className="mt-1 text-xs text-ink-muted">
                 {campus.location} · Campus Director: <span className="font-medium text-ink">{campus.director}</span>
