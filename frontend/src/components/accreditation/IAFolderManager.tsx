@@ -286,26 +286,43 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
     const targetAreaObj = OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaCode) || OFFICIAL_IA_AREAS[0];
     const targetAreaId = targetAreaCode.toLowerCase();
 
-    // 1. Move the folder to the specific Area and nest inside targetParentFolderId if inside a folder
-    const updatedFolder: EvidenceFolder = {
-      ...folderToUpload,
-      areaId: targetAreaId,
-      category: 'Accreditation',
-      parentId: targetParentFolderId ?? folderToUpload.parentId ?? undefined
-    };
-    saveFolder(updatedFolder);
+    // Collect all descendant folder IDs (custom folder + all nested subfolders)
+    const folderIdsToUpdate = new Set<string>([folderToUpload.id]);
+    let addedMore = true;
+    while (addedMore) {
+      addedMore = false;
+      iaFolders.forEach((f) => {
+        if (f.parentId && folderIdsToUpdate.has(f.parentId) && !folderIdsToUpdate.has(f.id)) {
+          folderIdsToUpdate.add(f.id);
+          addedMore = true;
+        }
+      });
+    }
 
-    // 2. Move any documents in this folder to the target Area
-    campusIADocs.forEach((d) => {
-      if (d.folderId === folderToUpload.id) {
-        updateDocument(d.id, { areaId: targetAreaId });
+    // 1. Move the folder (and all nested subfolders) to the specific Area
+    iaFolders.forEach((f) => {
+      if (folderIdsToUpdate.has(f.id)) {
+        if (f.id === folderToUpload.id) {
+          saveFolder({
+            ...f,
+            areaId: targetAreaId,
+            category: 'Accreditation',
+            parentId: targetParentFolderId ?? f.parentId ?? undefined
+          });
+        } else {
+          saveFolder({
+            ...f,
+            areaId: targetAreaId,
+            category: 'Accreditation'
+          });
+        }
       }
     });
 
-    // 3. Move any subfolders to the target Area
-    iaFolders.forEach((sub) => {
-      if (sub.parentId === folderToUpload.id) {
-        saveFolder({ ...sub, areaId: targetAreaId });
+    // 2. Move any documents in this folder and descendant folders to the target Area
+    campusIADocs.forEach((d) => {
+      if (d.folderId && folderIdsToUpdate.has(d.folderId)) {
+        updateDocument(d.id, { areaId: targetAreaId });
       }
     });
 
