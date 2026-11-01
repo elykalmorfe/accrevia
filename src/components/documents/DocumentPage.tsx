@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { EvidenceDocument } from '../../types/evidence';
 import { useLookup } from '../../hooks/useLookup';
 import { Highlight } from '../ui/Highlight';

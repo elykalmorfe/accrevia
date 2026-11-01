@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { usePortal } from '../../contexts/PortalContext';
 import { Confidentiality, DocumentMetadata, DocumentType, ISODocumentStage } from '../../types/evidence';
 import { SelectField } from '../ui/SelectField';
@@ -37,6 +37,19 @@ function Section({ title, description, children }: {title: string;description?: 
 export function MetadataForm({ value, onChange }: MetadataFormProps) {
   const { frameworks, areas, criteria, indicators } = usePortal();
 
+  const availableAreaIds = useMemo(() => {
+    if (!value.frameworkId) return new Set(areas.map((a) => a.id));
+    return new Set(criteria.filter((c) => c.frameworkId === value.frameworkId).map((c) => c.areaId));
+  }, [value.frameworkId, areas, criteria]);
+
+  const areaOptions = useMemo(() => {
+    return areas.map((a) => ({
+      value: a.id,
+      label: a.name,
+      disabled: value.frameworkId ? !availableAreaIds.has(a.id) : false
+    }));
+  }, [areas, value.frameworkId, availableAreaIds]);
+
   const criterionOptions = criteria.
   filter((c) => (!value.frameworkId || c.frameworkId === value.frameworkId) && (!value.areaId || c.areaId === value.areaId)).
   map((c) => ({ value: c.id, label: `${c.code} – ${c.name}` }));
@@ -46,10 +59,18 @@ export function MetadataForm({ value, onChange }: MetadataFormProps) {
 
   const current = criteria.find((c) => c.id === value.criterionId);
 
-  const setFramework = (frameworkId: string) =>
-  onChange({ frameworkId, ...(current && current.frameworkId !== frameworkId ? { criterionId: '', indicatorId: '' } : {}) });
+  const setFramework = (frameworkId: string) => {
+    const isAreaValid = frameworkId ? criteria.some((c) => c.frameworkId === frameworkId && c.areaId === value.areaId) : true;
+    onChange({
+      frameworkId,
+      ...(isAreaValid ? {} : { areaId: '' }),
+      ...(current && current.frameworkId !== frameworkId ? { criterionId: '', indicatorId: '' } : {})
+    });
+  };
+
   const setArea = (areaId: string) =>
-  onChange({ areaId, ...(current && current.areaId !== areaId ? { criterionId: '', indicatorId: '' } : {}) });
+    onChange({ areaId, ...(current && current.areaId !== areaId ? { criterionId: '', indicatorId: '' } : {}) });
+
   const setCriterion = (criterionId: string) => {
     const c = criteria.find((x) => x.id === criterionId);
     onChange({ criterionId, indicatorId: '', ...(c ? { frameworkId: c.frameworkId, areaId: c.areaId } : {}) });
@@ -70,7 +91,7 @@ export function MetadataForm({ value, onChange }: MetadataFormProps) {
           value={value.areaId}
           onChange={setArea}
           placeholder="Select area"
-          options={areas.map((a) => ({ value: a.id, label: a.name }))} />
+          options={areaOptions} />
         
         <SelectField
           label="Criterion"
