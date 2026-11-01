@@ -13,8 +13,7 @@ import {
   ShieldAlertIcon,
   UsersIcon,
   LockIcon,
-  CheckIcon,
-  FileCheck2Icon
+  CheckIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePortal } from '../contexts/PortalContext';

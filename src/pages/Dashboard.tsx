@@ -18,9 +18,7 @@ import {
   ChevronRightIcon,
   FileSpreadsheetIcon,
   ClockIcon,
-  SearchIcon,
-  CheckIcon,
-  ArrowRightIcon
+  SearchIcon
 } from 'lucide-react';
 import { usePortal } from '../contexts/PortalContext';
 import { useLookup } from '../hooks/useLookup';
@@ -59,7 +57,6 @@ export function Dashboard() {
   const {
     documents,
     pending,
-    shares,
     accessRequests,
     programAccreditations
   } = usePortal();
@@ -167,14 +164,6 @@ export function Dashboard() {
         <FileTextIcon className="h-3.5 w-3.5" />
       </div>
     );
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .slice(0, 2)
-      .join('');
   };
 
   return (

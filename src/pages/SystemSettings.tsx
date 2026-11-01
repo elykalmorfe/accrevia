@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../components/ui/PageHeader';
 import { GeneralSettings } from '../components/settings/GeneralSettings';
