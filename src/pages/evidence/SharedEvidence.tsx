@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router-dom';
+﻿import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { shareStatus } from '../../utils/sharing';

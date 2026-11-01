@@ -4,10 +4,7 @@ import {
   AlertTriangleIcon,
   ArchiveIcon,
   ArrowRightIcon,
-  CheckCircle2Icon,
-  ClockIcon,
   FileTextIcon,
-  FilterIcon,
   RotateCcwIcon,
   RotateCwIcon,
   SearchIcon,
@@ -81,7 +78,6 @@ const placeholders: Record<FilterKey, string> = {
   cycle: 'All accreditation cycles'
 };
 
-const primaryKeys: FilterKey[] = ['frameworkId', 'areaId', 'docType', 'status'];
 const secondaryKeys: FilterKey[] = ['criterionId', 'indicatorId', 'program', 'office', 'academicYear', 'cycle'];
 
 export function AllEvidence() {

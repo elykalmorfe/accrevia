@@ -8,23 +8,16 @@ import {
   ShieldAlertIcon,
   ShieldCheckIcon,
   CheckCircle2Icon,
-  Building2Icon,
-  BookOpenIcon,
-  FileCheckIcon,
-  GraduationCapIcon,
-  AlertTriangleIcon,
-  EyeIcon,
-  FilterIcon
+  EyeIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { CommonDocType, EvidenceDocument } from '../../types/evidence';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
-export const officialCommonDocumentTypes: Array<{
+const officialCommonDocumentTypes: Array<{
   type: CommonDocType;
   classification: 'Accessible' | 'Confidential';
   description: string;
@@ -254,7 +247,7 @@ export function CommonDocumentsView() {
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value as any)}
+              onChange={(e) => setSelectedType(e.target.value as CommonDocType | 'all')}
               className="input h-9 text-xs py-0 w-full sm:w-auto"
             >
               <option value="all">All 8 Document Types</option>
@@ -267,7 +260,7 @@ export function CommonDocumentsView() {
 
             <select
               value={accessFilter}
-              onChange={(e) => setAccessFilter(e.target.value as any)}
+              onChange={(e) => setAccessFilter(e.target.value as 'all' | 'Accessible' | 'Confidential')}
               className="input h-9 text-xs py-0 w-full sm:w-auto"
             >
               <option value="all">All Security Levels</option>

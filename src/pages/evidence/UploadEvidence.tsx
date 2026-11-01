@@ -799,7 +799,7 @@ export function UploadEvidence() {
                     <ArrowUpDownIcon className="h-3.5 w-3.5 text-slate-400 hidden sm:inline" />
                     <select
                       value={docSort}
-                      onChange={(e) => setDocSort(e.target.value as any)}
+                      onChange={(e) => setDocSort(e.target.value as 'newest' | 'oldest' | 'title-asc' | 'title-desc' | 'size-desc')}
                       className="input h-8.5 text-xs pr-7 py-1 bg-slate-50 border-slate-200 rounded-lg"
                     >
                       <option value="newest">Sort: Newest First</option>
