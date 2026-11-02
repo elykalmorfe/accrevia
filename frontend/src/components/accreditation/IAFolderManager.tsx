@@ -212,6 +212,12 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
     return iaFolders.find((f) => f.id === currentActiveFolder.parentId) || null;
   }, [currentActiveFolder, iaFolders]);
 
+  // Check whether the active folder is a custom folder (outside official Areas 1-9)
+  const isCustomFolder = useMemo(() => {
+    if (!currentActiveFolder) return false;
+    return !currentActiveFolder.areaId || currentActiveFolder.category === 'General / Custom';
+  }, [currentActiveFolder]);
+
   // STRICT FILE ISOLATION: A document belongs to a folder IF AND ONLY IF doc.folderId === folder.id
   // (or if unassigned initial doc in the default system folder-ia)
   const isDocInFolder = (doc: EvidenceDocument, folder: EvidenceFolder) => {

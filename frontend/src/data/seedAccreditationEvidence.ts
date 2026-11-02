@@ -1204,3 +1204,4 @@ export const sampleAreaDocuments: EvidenceDocument[] = [
     folderId: 'folder-bislig-a8-infra'
   }
 ];
+
