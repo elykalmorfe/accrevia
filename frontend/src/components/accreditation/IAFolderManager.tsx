@@ -558,8 +558,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   const renderFolderDatesBadge = (folder: EvidenceFolder) => {
     if (folder.hasNoDeadline) {
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 border border-emerald-200 shadow-2xs">
-          <CalendarIcon className="h-3.5 w-3.5 text-emerald-600" />
+        <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 border border-slate-200 shadow-2xs">
+          <CalendarIcon className="h-3.5 w-3.5 text-slate-500" />
           <span>Start: {folder.startDate || folder.createdAt} · No Deadline</span>
         </span>
       );
@@ -955,15 +955,31 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   const renderFileIcon = (fileType?: string) => {
     const ft = (fileType || '').toUpperCase();
     if (ft === 'PDF') {
-      return <FileTextIcon className="h-5 w-5 text-red-500 shrink-0" />;
+      return (
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600 border border-red-200/80 shadow-2xs">
+          <FileTextIcon className="h-4 w-4" />
+        </div>
+      );
     }
     if (ft === 'XLSX' || ft === 'CSV') {
-      return <FileSpreadsheetIcon className="h-5 w-5 text-emerald-600 shrink-0" />;
+      return (
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200/80 shadow-2xs">
+          <FileSpreadsheetIcon className="h-4 w-4" />
+        </div>
+      );
     }
     if (ft === 'DOCX' || ft === 'DOC') {
-      return <FileTextIcon className="h-5 w-5 text-blue-600 shrink-0" />;
+      return (
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 border border-blue-200/80 shadow-2xs">
+          <FileTextIcon className="h-4 w-4" />
+        </div>
+      );
     }
-    return <FileIcon className="h-5 w-5 text-slate-500 shrink-0" />;
+    return (
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 border border-slate-200 shadow-2xs">
+        <FileIcon className="h-4 w-4" />
+      </div>
+    );
   };
 
   // PROFESSIONAL FOLDER HEADER COMPONENT (Redesigned from the user's provided image)
@@ -1034,24 +1050,24 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   const fStatus = getFolderApprovalStatus(currentActiveFolder);
                   if (fStatus.status === 'approved') {
                     return (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full shadow-2xs">
-                        <CheckCircle2Icon className="h-3 w-3 text-emerald-600" />
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300/80 px-2.5 py-1 rounded-lg shadow-2xs">
+                        <CheckCircle2Icon className="h-3.5 w-3.5 text-emerald-600" />
                         <span>Folder Approved</span>
                       </span>
                     );
                   }
                   if (fStatus.status === 'needs_revision') {
                     return (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full shadow-2xs">
-                        <AlertTriangleIcon className="h-3 w-3 text-amber-600" />
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-300/80 px-2.5 py-1 rounded-lg shadow-2xs">
+                        <AlertTriangleIcon className="h-3.5 w-3.5 text-amber-600" />
                         <span>Needs Revision</span>
                       </span>
                     );
                   }
                   if (fStatus.status === 'review_required') {
                     return (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
-                        <ClockIcon className="h-3 w-3 text-brand-600" />
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-brand-700 bg-blue-50 border border-blue-200/80 px-2.5 py-1 rounded-lg shadow-2xs">
+                        <ClockIcon className="h-3.5 w-3.5 text-brand-600" />
                         <span>Review Required</span>
                       </span>
                     );
@@ -1625,89 +1641,85 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
               {/* Filtering, Counts & A-Z Sorting inside the clicked folder */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-line pb-3">
-                {/* Filter Pills with Live Counts */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setRepoFilter('all')}
-                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
-                      repoFilter === 'all'
-                        ? 'bg-brand-600 text-white shadow-xs'
-                        : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
-                    }`}
-                  >
-                    <span>All Items</span>
-                    <span
-                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                        repoFilter === 'all' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
+                {/* Repository Filter: Show subfolder tabs ONLY if subfolders exist */}
+                {insideSubfolders.length > 0 ? (
+                  <div className="flex items-center gap-1 rounded-xl bg-slate-100/90 p-1 border border-slate-200/80 shadow-2xs self-start">
+                    <button
+                      type="button"
+                      onClick={() => setRepoFilter('all')}
+                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                        repoFilter === 'all'
+                          ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                       }`}
                     >
-                      {insideSubfolders.length + insideFiles.length}
-                    </span>
-                  </button>
+                      <span>All Items</span>
+                      <span className="rounded-full bg-slate-200/80 px-1.5 py-0.2 text-[10px] font-bold text-slate-700">
+                        {insideSubfolders.length + allFolderDocs.length}
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setRepoFilter('folders')}
-                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
-                      repoFilter === 'folders'
-                        ? 'bg-amber-600 text-white shadow-xs'
-                        : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
-                    }`}
-                  >
-                    <FolderIcon className="h-3.5 w-3.5" />
-                    <span>Folders Only</span>
-                    <span
-                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                        repoFilter === 'folders' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
+                    <button
+                      type="button"
+                      onClick={() => setRepoFilter('folders')}
+                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                        repoFilter === 'folders'
+                          ? 'bg-amber-600 text-white shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                       }`}
                     >
-                      {insideSubfolders.length}
-                    </span>
-                  </button>
+                      <FolderIcon className="h-3.5 w-3.5" />
+                      <span>Folders</span>
+                      <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                        repoFilter === 'folders' ? 'bg-white/30 text-white' : 'bg-slate-200/80 text-slate-700'
+                      }`}>
+                        {insideSubfolders.length}
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setRepoFilter('files')}
-                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
-                      repoFilter === 'files'
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
-                    }`}
-                  >
-                    <FileTextIcon className="h-3.5 w-3.5" />
-                    <span>Files Only</span>
-                    <span
-                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                        repoFilter === 'files' ? 'bg-white/25 text-white' : 'bg-slate-200 text-ink-muted'
+                    <button
+                      type="button"
+                      onClick={() => setRepoFilter('files')}
+                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                        repoFilter === 'files'
+                          ? 'bg-brand-600 text-white shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                       }`}
                     >
-                      {insideFiles.length}
+                      <FileTextIcon className="h-3.5 w-3.5" />
+                      <span>Files</span>
+                      <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                        repoFilter === 'files' ? 'bg-white/30 text-white' : 'bg-slate-200/80 text-slate-700'
+                      }`}>
+                        {allFolderDocs.length}
+                      </span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 self-start py-1">
+                    <span className="flex h-2 w-2 rounded-full bg-brand-600" />
+                    <span className="text-xs font-bold text-slate-800 tracking-wide uppercase">
+                      Evidence Documents
                     </span>
-                  </button>
-                </div>
+                    <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/70">
+                      {allFolderDocs.length} {allFolderDocs.length === 1 ? 'file' : 'files'}
+                    </span>
+                  </div>
+                )}
 
                 {/* Evidence Approval Status Filter (Replaces Sort A–Z) */}
                 {!isCustomFolder && currentActiveFolder?.areaId ? (
                   <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200 shadow-2xs self-start sm:self-auto flex-wrap">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1.5 hidden md:inline">
-                      Filter:
-                    </span>
                     <button
                       type="button"
                       onClick={() => setApprovalStatusFilter('all')}
                       className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
                         approvalStatusFilter === 'all'
-                          ? 'bg-white text-ink shadow-2xs border border-slate-200'
-                          : 'text-ink-muted hover:text-ink hover:bg-white/60'
+                          ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                       }`}
                     >
-                      <span>All Files</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        approvalStatusFilter === 'all' ? 'bg-slate-200 text-ink' : 'bg-slate-200/60 text-ink-subtle'
-                      }`}>
-                        {folderApprovalCounts.total}
-                      </span>
+                      <span>All ({folderApprovalCounts.total})</span>
                     </button>
 
                     <button
@@ -1716,17 +1728,14 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
                         approvalStatusFilter === 'approved'
                           ? 'bg-emerald-600 text-white shadow-2xs'
-                          : 'text-emerald-700 hover:bg-emerald-50'
+                          : folderApprovalCounts.approved > 0
+                          ? 'text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800'
+                          : 'text-slate-400 opacity-60 hover:opacity-100'
                       }`}
                       title="Filter by approved evidence"
                     >
                       <CheckCircle2Icon className="h-3.5 w-3.5" />
-                      <span>Approved</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        approvalStatusFilter === 'approved' ? 'bg-white/30 text-white' : 'bg-emerald-100 text-emerald-800'
-                      }`}>
-                        {folderApprovalCounts.approved}
-                      </span>
+                      <span>Approved ({folderApprovalCounts.approved})</span>
                     </button>
 
                     <button
@@ -1735,17 +1744,14 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
                         approvalStatusFilter === 'pending'
                           ? 'bg-blue-600 text-white shadow-2xs'
-                          : 'text-brand-700 hover:bg-blue-50'
+                          : folderApprovalCounts.pending > 0
+                          ? 'text-brand-700 hover:bg-blue-50 hover:text-brand-800'
+                          : 'text-slate-400 opacity-60 hover:opacity-100'
                       }`}
                       title="Filter by evidence pending review"
                     >
                       <ClockIcon className="h-3.5 w-3.5" />
-                      <span>Pending Review</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        approvalStatusFilter === 'pending' ? 'bg-white/30 text-white' : 'bg-blue-100 text-brand-800'
-                      }`}>
-                        {folderApprovalCounts.pending}
-                      </span>
+                      <span>Pending ({folderApprovalCounts.pending})</span>
                     </button>
 
                     <button
@@ -1754,24 +1760,21 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
                         approvalStatusFilter === 'needs_revision'
                           ? 'bg-amber-600 text-white shadow-2xs'
-                          : 'text-amber-800 hover:bg-amber-50'
+                          : folderApprovalCounts.revision > 0
+                          ? 'text-amber-800 hover:bg-amber-50 hover:text-amber-900 font-bold'
+                          : 'text-slate-400 opacity-60 hover:opacity-100'
                       }`}
                       title="Filter by evidence requiring revision"
                     >
                       <AlertTriangleIcon className="h-3.5 w-3.5" />
-                      <span>Needs Revision</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        approvalStatusFilter === 'needs_revision' ? 'bg-white/30 text-white' : 'bg-amber-100 text-amber-900'
-                      }`}>
-                        {folderApprovalCounts.revision}
-                      </span>
+                      <span>Needs Revision ({folderApprovalCounts.revision})</span>
                     </button>
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-                    className="btn btn-secondary btn-xs h-7 text-xs gap-1.5 self-start sm:self-auto"
+                    className="btn btn-secondary btn-xs h-7.5 px-2.5 text-xs gap-1.5 self-start sm:self-auto shadow-2xs"
                     title="Toggle alphabetical order (A–Z / Z–A)"
                   >
                     <ArrowUpDownIcon className="h-3 w-3 text-brand-600" />
@@ -1886,24 +1889,27 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
               {/* FILES SECTION */}
               {(repoFilter === 'all' || repoFilter === 'files') && (allFolderDocs.length > 0 || insideFiles.length > 0) && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                      Files ({insideFiles.length} of {allFolderDocs.length})
-                    </span>
-                    <div className="flex items-center gap-2 text-[11px] text-ink-subtle">
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2 pb-1 border-b border-line/60">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                        Evidence Documents
+                      </span>
+                      <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/60">
+                        {insideFiles.length} of {allFolderDocs.length}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
                       {!isCustomFolder && currentActiveFolder?.areaId ? (
                         approvalStatusFilter !== 'all' ? (
                           <div className="flex items-center gap-1.5">
-                            <span>
-                              Filtered by:{' '}
-                              <strong className="text-ink">
-                                {approvalStatusFilter === 'approved'
-                                  ? 'Approved'
-                                  : approvalStatusFilter === 'pending'
-                                  ? 'Pending Review'
-                                  : 'Needs Revision'}
-                              </strong>
+                            <span>Filtered by:</span>
+                            <span className="font-bold text-slate-800">
+                              {approvalStatusFilter === 'approved'
+                                ? 'Approved'
+                                : approvalStatusFilter === 'pending'
+                                ? 'Pending Review'
+                                : 'Needs Revision'}
                             </span>
                             <button
                               type="button"
@@ -1914,10 +1920,10 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                             </button>
                           </div>
                         ) : (
-                          <span>Showing all evidence files</span>
+                          <span className="text-slate-400">All evidence in folder</span>
                         )
                       ) : (
-                        <span>Sorted A to Z ({sortDirection === 'asc' ? 'Ascending' : 'Descending'})</span>
+                        <span className="text-slate-400">Sorted A to Z ({sortDirection === 'asc' ? 'Ascending' : 'Descending'})</span>
                       )}
                     </div>
                   </div>
@@ -1985,77 +1991,107 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                                   )}
                                 </div>
 
-                                {/* Revision Remarks Alert Banner */}
+                                {/* Revision Remarks Callout Box */}
                                 {isOfficialArea && isNeedsRevision && doc.revisionNotes && (
-                                  <div className="mt-2 flex items-start gap-2 rounded-lg bg-amber-50/90 border border-amber-200 p-2 text-xs text-amber-900 shadow-2xs">
+                                  <div className="mt-2 flex items-start gap-2.5 rounded-r-lg border-l-4 border-amber-500 bg-amber-50/70 p-2.5 text-xs text-amber-900 shadow-2xs">
                                     <AlertCircleIcon className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                                    <div>
-                                      <span className="font-bold text-amber-950">Revision Required: </span>
-                                      <span>{doc.revisionNotes}</span>
+                                    <div className="min-w-0">
+                                      <span className="font-bold text-amber-950">Revision Feedback: </span>
+                                      <span className="text-amber-900">{doc.revisionNotes}</span>
                                     </div>
                                   </div>
                                 )}
                               </div>
                             </div>
 
-                            {/* Action Buttons: View, Approve, Revise, Download, Delete */}
+                            {/* Action Buttons: View, Review Decisions, Download, Delete */}
                             <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0 flex-wrap">
-                              {/* 1. View Button */}
+                              {/* 1. View Button (Clean Primary Discovery Action) */}
                               <button
                                 type="button"
                                 onClick={() => setPreviewDoc(doc)}
-                                className="btn btn-secondary btn-xs h-7 px-2.5 text-[11px] font-semibold gap-1 shadow-2xs"
-                                title="View document"
+                                className="btn btn-secondary btn-xs h-7.5 px-3 text-xs font-semibold gap-1.5 shadow-2xs hover:bg-slate-100 text-slate-700 border-slate-300"
+                                title="Preview document"
                               >
-                                <EyeIcon className="h-3.5 w-3.5 text-slate-600" />
+                                <EyeIcon className="h-3.5 w-3.5 text-slate-500" />
                                 <span>View</span>
                               </button>
 
-                              {/* 2. Approve Button (Official Area Folders Only) */}
+                              {/* 2. Review Decision CTAs */}
                               {isOfficialArea && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleApproveDocument(doc)}
-                                  className={'btn btn-xs h-7 px-2.5 text-[11px] font-semibold gap-1 transition-all shadow-2xs ' + (
-                                    isApproved
-                                      ? 'bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-600'
-                                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-300'
+                                <>
+                                  {isApproved ? (
+                                    /* Already Approved: status is shown on badge; provide clean revision trigger */
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenRevisionModal(doc)}
+                                      className="btn btn-ghost btn-xs h-7.5 px-2.5 text-xs font-medium text-slate-500 hover:text-amber-800 hover:bg-amber-50 border border-transparent hover:border-amber-200 rounded-lg gap-1.5 transition-all"
+                                      title="Request changes or update revision remarks"
+                                    >
+                                      <FileEditIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-amber-600" />
+                                      <span>Request Revision</span>
+                                    </button>
+                                  ) : isNeedsRevision ? (
+                                    /* Needs Revision: Provide Mark Approved or Edit Feedback */
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleApproveDocument(doc)}
+                                        className="btn btn-xs h-7.5 px-3 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs transition-all"
+                                        title="Mark this revised document as Approved"
+                                      >
+                                        <CheckIcon className="h-3.5 w-3.5" />
+                                        <span>Mark Approved</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenRevisionModal(doc)}
+                                        className="btn btn-xs h-7.5 px-2.5 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg gap-1.5 transition-all"
+                                        title="Edit revision instructions"
+                                      >
+                                        <FileEditIcon className="h-3.5 w-3.5 text-amber-600" />
+                                        <span>Edit Notes</span>
+                                      </button>
+                                    </>
+                                  ) : (
+                                    /* Pending Review: Primary Decision Buttons */
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleApproveDocument(doc)}
+                                        className="btn btn-xs h-7.5 px-3 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs transition-all"
+                                        title="Approve this evidence document"
+                                      >
+                                        <CheckIcon className="h-3.5 w-3.5" />
+                                        <span>Approve</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenRevisionModal(doc)}
+                                        className="btn btn-xs h-7.5 px-3 text-xs font-semibold gap-1.5 bg-amber-50 text-amber-800 hover:bg-amber-600 hover:text-white border border-amber-300 rounded-lg shadow-2xs transition-all"
+                                        title="Request revision with feedback remarks"
+                                      >
+                                        <FileEditIcon className="h-3.5 w-3.5" />
+                                        <span>Revise</span>
+                                      </button>
+                                    </>
                                   )}
-                                  title={isApproved ? 'Document is approved' : 'Approve this evidence document'}
-                                >
-                                  <CheckIcon className="h-3 w-3" />
-                                  <span>{isApproved ? 'Approved' : 'Approve'}</span>
-                                </button>
+                                </>
                               )}
 
-                              {/* 3. Revise Button (Official Area Folders Only) */}
-                              {isOfficialArea && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenRevisionModal(doc)}
-                                  className={'btn btn-xs h-7 px-2.5 text-[11px] font-semibold gap-1 transition-all shadow-2xs ' + (
-                                    isNeedsRevision
-                                      ? 'bg-amber-600 text-white hover:bg-amber-700 border-amber-600'
-                                      : 'bg-amber-50 text-amber-800 hover:bg-amber-600 hover:text-white border border-amber-300'
-                                  )}
-                                  title="Request revision with feedback remarks"
-                                >
-                                  <FileEditIcon className="h-3 w-3" />
-                                  <span>Revise</span>
-                                </button>
-                              )}
+                              {/* Subtle Vertical Divider */}
+                              <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
 
-                              {/* Download */}
+                              {/* 3. Utility Icons: Download & Delete */}
                               <button
                                 type="button"
                                 onClick={() => toast.success('Downloading "' + doc.title + '"')}
-                                className="btn btn-ghost btn-xs h-7 px-2 text-[11px] text-ink-muted hover:text-ink"
+                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                                 title="Download document"
                               >
-                                <DownloadIcon className="h-3 w-3" />
+                                <DownloadIcon className="h-3.5 w-3.5" />
                               </button>
 
-                              {/* Delete */}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -2064,10 +2100,10 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                                     toast.success('Removed "' + doc.title + '"');
                                   }
                                 }}
-                                className="btn btn-ghost btn-xs h-7 px-2 text-[11px] text-ink-subtle hover:text-danger-600"
+                                className="p-1.5 text-slate-400 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
                                 title="Delete file"
                               >
-                                <Trash2Icon className="h-3 w-3" />
+                                <Trash2Icon className="h-3.5 w-3.5" />
                               </button>
                             </div>
                           </div>
