@@ -20,7 +20,14 @@ import {
   DownloadIcon,
   ArrowLeftIcon,
   CalendarIcon,
-  Share2Icon
+  Share2Icon,
+  CheckCircle2Icon,
+  AlertTriangleIcon,
+  ClockIcon,
+  CheckIcon,
+  FileEditIcon,
+  AlertCircleIcon,
+  InfoIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { EvidenceFolder, EvidenceDocument } from '../../types/evidence';
@@ -70,6 +77,11 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
   // Document Preview Modal
   const [previewDoc, setPreviewDoc] = useState<EvidenceDocument | null>(null);
+
+  // States for Document Revision Modal
+  const [revisionModalDoc, setRevisionModalDoc] = useState<EvidenceDocument | null>(null);
+  const [revisionRemarks, setRevisionRemarks] = useState('');
+  const [isSubmittingRevision, setIsSubmittingRevision] = useState(false);
 
   // Modal to upload / transfer a Custom Folder to a Specific Area
   const [uploadingCustomFolder, setUploadingCustomFolder] = useState<EvidenceFolder | null>(null);
@@ -206,6 +218,190 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
     if (doc.folderId === folder.id) return true;
     if (!doc.folderId && folder.id === 'folder-ia') return true;
     return false;
+  };
+
+  // --- DOCUMENT APPROVAL & REVISION WORKFLOW ---
+  const handleApproveDocument = (doc: EvidenceDocument) => {
+    updateDocument(doc.id, {
+      approvalStatus: 'Approved',
+      revisionNotes: undefined,
+      reviewedBy: 'Accreditation Reviewer',
+      reviewedAt: new Date().toISOString()
+    });
+    toast.success('Approved "' + doc.title + '"');
+  };
+
+  const handleOpenRevisionModal = (doc: EvidenceDocument) => {
+    setRevisionModalDoc(doc);
+    setRevisionRemarks(doc.revisionNotes || '');
+  };
+
+  const handleSubmitRevision = () => {
+    if (!revisionModalDoc || !revisionRemarks.trim()) return;
+    setIsSubmittingRevision(true);
+    updateDocument(revisionModalDoc.id, {
+      approvalStatus: 'Needs Revision',
+      revisionNotes: revisionRemarks.trim(),
+      reviewedBy: 'Accreditation Reviewer',
+      reviewedAt: new Date().toISOString()
+    });
+    toast.warning('Revision requested for "' + revisionModalDoc.title + '"');
+    setIsSubmittingRevision(false);
+    setRevisionModalDoc(null);
+    setRevisionRemarks('');
+  };
+
+  // Folder Approval Status Rollup
+  const getFolderApprovalStatus = (folder: EvidenceFolder) => {
+    const folderDocs = campusIADocs.filter((d) => isDocInFolder(d, folder));
+
+    if (folderDocs.length === 0) {
+      return {
+        status: 'empty' as const,
+        label: 'Empty Folder',
+        tone: 'neutral' as const,
+        badgeText: '0 files',
+        hasNeedsRevision: false,
+        allApproved: false
+      };
+    }
+
+    const hasNeedsRevision = folderDocs.some((d) => d.approvalStatus === 'Needs Revision');
+    const allApproved = folderDocs.every((d) => d.approvalStatus === 'Approved');
+    const approvedCount = folderDocs.filter((d) => d.approvalStatus === 'Approved').length;
+    const revisionCount = folderDocs.filter((d) => d.approvalStatus === 'Needs Revision').length;
+    const pendingCount = folderDocs.filter((d) => !d.approvalStatus || d.approvalStatus === 'Pending Review').length;
+
+    if (hasNeedsRevision) {
+      return {
+        status: 'needs_revision' as const,
+        label: 'Needs Revision',
+        tone: 'danger' as const,
+        badgeText: revisionCount + ' file' + (revisionCount === 1 ? '' : 's') + ' need revision',
+        hasNeedsRevision: true,
+        allApproved: false,
+        total: folderDocs.length,
+        approvedCount,
+        revisionCount,
+        pendingCount
+      };
+    }
+
+    if (allApproved) {
+      return {
+        status: 'approved' as const,
+        label: 'Approved',
+        tone: 'success' as const,
+        badgeText: 'All ' + folderDocs.length + ' files approved',
+        hasNeedsRevision: false,
+        allApproved: true,
+        total: folderDocs.length,
+        approvedCount,
+        revisionCount: 0,
+        pendingCount: 0
+      };
+    }
+
+    return {
+      status: 'review_required' as const,
+      label: 'Review Required',
+      tone: 'warning' as const,
+      badgeText: pendingCount + ' awaiting review',
+      hasNeedsRevision: false,
+      allApproved: false,
+      total: folderDocs.length,
+      approvedCount,
+      revisionCount: 0,
+      pendingCount
+    };
+  };
+
+  // Area Approval Status Rollup (Areas 1–9)
+  const getAreaApprovalStatus = (areaCode: string) => {
+    const areaCodeNorm = areaCode.toLowerCase();
+    
+    // Find all folders belonging to this area for this campus
+    const areaFoldersList = iaFolders.filter(
+      (f) =>
+        !f.parentId &&
+        (f.areaId || '').toLowerCase() === areaCodeNorm &&
+        (f.campusId ? f.campusId === campusId : campusId === 'tandag')
+    );
+    const areaFolderIds = new Set(iaFolders.filter(f => (f.areaId || '').toLowerCase() === areaCodeNorm).map(f => f.id));
+
+    // Find all documents belonging to this area (either directly or via area folders)
+    const areaDocs = campusIADocs.filter(
+      (d) =>
+        (((d.areaId || '').toLowerCase() === areaCodeNorm) ||
+          (d.folderId ? areaFolderIds.has(d.folderId) : false))
+    );
+
+    if (areaFoldersList.length === 0 && areaDocs.length === 0) {
+      return {
+        status: 'needs_evidence' as const,
+        label: 'Needs Evidence',
+        tone: 'neutral' as const,
+        folderCount: 0,
+        fileCount: 0,
+        approvedCount: 0,
+        revisionCount: 0,
+        pendingCount: 0
+      };
+    }
+
+    if (areaDocs.length === 0) {
+      return {
+        status: 'needs_files' as const,
+        label: 'Needs Evidence Files',
+        tone: 'warning' as const,
+        folderCount: areaFoldersList.length,
+        fileCount: 0,
+        approvedCount: 0,
+        revisionCount: 0,
+        pendingCount: 0
+      };
+    }
+
+    const revisionCount = areaDocs.filter((d) => d.approvalStatus === 'Needs Revision').length;
+    const approvedCount = areaDocs.filter((d) => d.approvalStatus === 'Approved').length;
+    const pendingCount = areaDocs.filter((d) => !d.approvalStatus || d.approvalStatus === 'Pending Review').length;
+
+    if (revisionCount > 0) {
+      return {
+        status: 'needs_revision' as const,
+        label: 'Needs Revision',
+        tone: 'danger' as const,
+        folderCount: areaFoldersList.length,
+        fileCount: areaDocs.length,
+        approvedCount,
+        revisionCount,
+        pendingCount
+      };
+    }
+
+    if (approvedCount === areaDocs.length && areaDocs.length > 0) {
+      return {
+        status: 'approved' as const,
+        label: 'Approved',
+        tone: 'success' as const,
+        folderCount: areaFoldersList.length,
+        fileCount: areaDocs.length,
+        approvedCount,
+        revisionCount: 0,
+        pendingCount: 0
+      };
+    }
+
+    return {
+      status: 'review_required' as const,
+      label: 'Review Required',
+      tone: 'warning' as const,
+      folderCount: areaFoldersList.length,
+      fileCount: areaDocs.length,
+      approvedCount,
+      revisionCount: 0,
+      pendingCount
+    };
   };
 
   // Document count per folder
@@ -792,6 +988,35 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   {currentActiveFolder.name}
                 </h3>
                 {renderFolderDatesBadge(currentActiveFolder)}
+                {(() => {
+                  if (isCustomFolder || !currentActiveFolder.areaId) return null;
+                  const fStatus = getFolderApprovalStatus(currentActiveFolder);
+                  if (fStatus.status === 'approved') {
+                    return (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full shadow-2xs">
+                        <CheckCircle2Icon className="h-3 w-3 text-emerald-600" />
+                        <span>Folder Approved</span>
+                      </span>
+                    );
+                  }
+                  if (fStatus.status === 'needs_revision') {
+                    return (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full shadow-2xs">
+                        <AlertTriangleIcon className="h-3 w-3 text-amber-600" />
+                        <span>Needs Revision</span>
+                      </span>
+                    );
+                  }
+                  if (fStatus.status === 'review_required') {
+                    return (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        <ClockIcon className="h-3 w-3 text-brand-600" />
+                        <span>Review Required</span>
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
               {currentActiveFolder.description && (
                 <p className="text-xs text-ink-muted truncate max-w-xl mt-0.5">
@@ -979,14 +1204,11 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredAreas.map((area) => {
-                  const req = iaRequirements.find((r) => r.areaCode === area.code);
-                  const isApproved = req?.status === 'Approved';
-                  const isUnderReview = req?.status === 'Under Review';
-                  const isDeficient = req?.status === 'Deficient';
+                  const areaStatus = getAreaApprovalStatus(area.code);
 
                   // Count folders created strictly inside this specific area
                   const existingAreaFolders = iaFolders.filter(
-                    (f) => !f.parentId && f.areaId === area.code.toLowerCase()
+                    (f) => !f.parentId && (f.areaId || '').toLowerCase() === area.code.toLowerCase()
                   );
 
                   return (
@@ -1002,17 +1224,17 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                         </span>
                         <Badge
                           tone={
-                            isApproved
+                            areaStatus.status === 'approved'
                               ? 'success'
-                              : isUnderReview
-                              ? 'brand'
-                              : isDeficient
+                              : areaStatus.status === 'needs_revision'
                               ? 'danger'
-                              : 'warning'
+                              : areaStatus.status === 'review_required'
+                              ? 'warning'
+                              : 'neutral'
                           }
                           dot
                         >
-                          {req?.status || 'Pending'}
+                          {areaStatus.label}
                         </Badge>
                       </div>
 
@@ -1024,11 +1246,13 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       <div className="mt-3 pt-2.5 border-t border-line flex items-center justify-between text-xs">
                         <span className="text-[11px] text-ink-subtle">
                           {existingAreaFolders.length > 0 ? (
-                            <span className="font-semibold text-brand-700">
-                              📁 {existingAreaFolders.length} folder{existingAreaFolders.length === 1 ? '' : 's'}
+                            <span className="font-semibold text-brand-700 flex items-center gap-1.5">
+                              <span>📁 {existingAreaFolders.length} folder{existingAreaFolders.length === 1 ? '' : 's'}</span>
+                              <span>·</span>
+                              <span>{areaStatus.fileCount} file{areaStatus.fileCount === 1 ? '' : 's'}</span>
                             </span>
                           ) : (
-                            <span className="text-amber-700 font-medium">+ Click to create folder</span>
+                            <span className="text-slate-500 font-medium">+ Click to create folder</span>
                           )}
                         </span>
                         <span className="text-[11px] font-semibold text-brand-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
@@ -1099,6 +1323,61 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   </button>
                 </div>
               </div>
+
+              {/* AREA APPROVAL NOTIFICATION BANNER */}
+              {(() => {
+                const areaStatus = getAreaApprovalStatus(currentArea.code);
+                if (areaStatus.status === 'approved') {
+                  return (
+                    <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/90 p-3.5 text-xs text-emerald-900 shadow-2xs">
+                      <CheckCircle2Icon className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-bold text-emerald-950">All Area Evidence Approved: </span>
+                        <span>
+                          All {areaStatus.fileCount} evidence file(s) across {areaStatus.folderCount} folder(s) in Area {currentArea.number} ({currentArea.name}) are officially approved for {campusName}.
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+                if (areaStatus.status === 'needs_revision') {
+                  return (
+                    <div className="flex items-center gap-2.5 rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 text-xs text-amber-900 shadow-2xs">
+                      <AlertTriangleIcon className="h-4 w-4 text-amber-600 shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-bold text-amber-950">Action Required — Revisions Pending: </span>
+                        <span>
+                          {areaStatus.revisionCount} file(s) in this Area have been returned for revision. Please review feedback remarks and update evidence portfolios.
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+                if (areaStatus.status === 'review_required') {
+                  return (
+                    <div className="flex items-center gap-2.5 rounded-xl border border-blue-200 bg-blue-50/90 p-3.5 text-xs text-blue-900 shadow-2xs">
+                      <ClockIcon className="h-4 w-4 text-brand-600 shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-bold text-brand-950">Accreditation Review in Progress: </span>
+                        <span>
+                          {areaStatus.pendingCount} file(s) in Area {currentArea.number} are awaiting review and sign-off ({areaStatus.approvedCount} of {areaStatus.fileCount} approved).
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/90 p-3.5 text-xs text-slate-700 shadow-2xs">
+                    <InfoIcon className="h-4 w-4 text-slate-500 shrink-0" />
+                    <div className="flex-1">
+                      <span className="font-bold text-slate-900">Area Repository Ready: </span>
+                      <span>
+                        Upload official accreditation evidence files or create structured subfolders for Area {currentArea.number} ({currentArea.name}) at {campusName}.
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Area Folders Display */}
               {areaFolders.length === 0 ? (
@@ -1220,7 +1499,37 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                             </div>
                           </div>
 
-                          <div className="mt-2.5">{renderFolderDatesBadge(folder)}</div>
+                          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                            {renderFolderDatesBadge(folder)}
+                            {(() => {
+                              const folderStatus = getFolderApprovalStatus(folder);
+                              if (folderStatus.status === 'approved') {
+                                return (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full shadow-2xs">
+                                    <CheckCircle2Icon className="h-3 w-3 text-emerald-600" />
+                                    <span>Approved</span>
+                                  </span>
+                                );
+                              }
+                              if (folderStatus.status === 'needs_revision') {
+                                return (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full shadow-2xs">
+                                    <AlertTriangleIcon className="h-3 w-3 text-amber-600" />
+                                    <span>Needs Revision</span>
+                                  </span>
+                                );
+                              }
+                              if (folderStatus.status === 'review_required') {
+                                return (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
+                                    <ClockIcon className="h-3 w-3 text-brand-600" />
+                                    <span>Review Required</span>
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
 
                           <p className="mt-2 text-[11px] text-ink-muted line-clamp-2">
                             {folder.description || 'No description provided.'}
@@ -1467,77 +1776,154 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
                   <div className="overflow-hidden rounded-lg border border-line bg-white shadow-xs">
                     <div className="divide-y divide-line">
-                      {insideFiles.map((doc) => (
-                        <div
-                          key={doc.id}
-                          className="flex flex-col gap-2 p-3 text-xs transition-colors hover:bg-slate-50/70 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="flex items-start gap-2.5 min-w-0">
-                            <div className="mt-0.5">{renderFileIcon(doc.fileType)}</div>
-                            <div className="min-w-0">
-                              <button
-                                type="button"
-                                onClick={() => setPreviewDoc(doc)}
-                                className="text-left font-bold text-ink hover:text-brand-600 hover:underline truncate block max-w-[340px] sm:max-w-[480px]"
-                                title={doc.title}
-                              >
-                                {doc.title}
-                              </button>
-                              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-subtle">
-                                <span>{doc.fileType || 'PDF'}</span>
-                                <span>·</span>
-                                <span>{doc.sizeMb || 1.2} MB</span>
-                                <span>·</span>
-                                <span>{doc.documentDate || '2025-01-15'}</span>
-                                {doc.academicYear && (
-                                  <>
-                                    <span>·</span>
-                                    <span>{doc.academicYear}</span>
-                                  </>
+                      {insideFiles.map((doc) => {
+                        const isOfficialArea = !isCustomFolder && !!currentActiveFolder?.areaId;
+                        const isApproved = doc.approvalStatus === 'Approved';
+                        const isNeedsRevision = doc.approvalStatus === 'Needs Revision';
+
+                        return (
+                          <div
+                            key={doc.id}
+                            className="flex flex-col gap-2.5 p-3.5 text-xs transition-colors hover:bg-slate-50/70 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div className="flex items-start gap-3 min-w-0 flex-1">
+                              <div className="mt-0.5 shrink-0">{renderFileIcon(doc.fileType)}</div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewDoc(doc)}
+                                    className="text-left font-bold text-ink hover:text-brand-600 hover:underline truncate block max-w-[340px] sm:max-w-[480px]"
+                                    title={doc.title}
+                                  >
+                                    {doc.title}
+                                  </button>
+
+                                  {/* Approval Status Badge for official Area folders */}
+                                  {isOfficialArea && (
+                                    <>
+                                      {isApproved ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full shadow-2xs">
+                                          <CheckCircle2Icon className="h-3 w-3 text-emerald-600" />
+                                          <span>Approved</span>
+                                        </span>
+                                      ) : isNeedsRevision ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full shadow-2xs">
+                                          <AlertTriangleIcon className="h-3 w-3 text-amber-600" />
+                                          <span>Needs Revision</span>
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
+                                          <ClockIcon className="h-3 w-3 text-brand-600" />
+                                          <span>Pending Review</span>
+                                        </span>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-subtle">
+                                  <span>{doc.fileType || 'PDF'}</span>
+                                  <span>·</span>
+                                  <span>{doc.sizeMb || 1.2} MB</span>
+                                  <span>·</span>
+                                  <span>{doc.documentDate || '2025-01-15'}</span>
+                                  {doc.academicYear && (
+                                    <>
+                                      <span>·</span>
+                                      <span>{doc.academicYear}</span>
+                                    </>
+                                  )}
+                                </div>
+
+                                {/* Revision Remarks Alert Banner */}
+                                {isOfficialArea && isNeedsRevision && doc.revisionNotes && (
+                                  <div className="mt-2 flex items-start gap-2 rounded-lg bg-amber-50/90 border border-amber-200 p-2 text-xs text-amber-900 shadow-2xs">
+                                    <AlertCircleIcon className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                    <div>
+                                      <span className="font-bold text-amber-950">Revision Required: </span>
+                                      <span>{doc.revisionNotes}</span>
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             </div>
+
+                            {/* Action Buttons: View, Approve, Revise, Download, Delete */}
+                            <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0 flex-wrap">
+                              {/* 1. View Button */}
+                              <button
+                                type="button"
+                                onClick={() => setPreviewDoc(doc)}
+                                className="btn btn-secondary btn-xs h-7 px-2.5 text-[11px] font-semibold gap-1 shadow-2xs"
+                                title="View document"
+                              >
+                                <EyeIcon className="h-3.5 w-3.5 text-slate-600" />
+                                <span>View</span>
+                              </button>
+
+                              {/* 2. Approve Button (Official Area Folders Only) */}
+                              {isOfficialArea && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveDocument(doc)}
+                                  className={'btn btn-xs h-7 px-2.5 text-[11px] font-semibold gap-1 transition-all shadow-2xs ' + (
+                                    isApproved
+                                      ? 'bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-600'
+                                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-300'
+                                  )}
+                                  title={isApproved ? 'Document is approved' : 'Approve this evidence document'}
+                                >
+                                  <CheckIcon className="h-3 w-3" />
+                                  <span>{isApproved ? 'Approved' : 'Approve'}</span>
+                                </button>
+                              )}
+
+                              {/* 3. Revise Button (Official Area Folders Only) */}
+                              {isOfficialArea && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRevisionModal(doc)}
+                                  className={'btn btn-xs h-7 px-2.5 text-[11px] font-semibold gap-1 transition-all shadow-2xs ' + (
+                                    isNeedsRevision
+                                      ? 'bg-amber-600 text-white hover:bg-amber-700 border-amber-600'
+                                      : 'bg-amber-50 text-amber-800 hover:bg-amber-600 hover:text-white border border-amber-300'
+                                  )}
+                                  title="Request revision with feedback remarks"
+                                >
+                                  <FileEditIcon className="h-3 w-3" />
+                                  <span>Revise</span>
+                                </button>
+                              )}
+
+                              {/* Download */}
+                              <button
+                                type="button"
+                                onClick={() => toast.success('Downloading "' + doc.title + '"')}
+                                className="btn btn-ghost btn-xs h-7 px-2 text-[11px] text-ink-muted hover:text-ink"
+                                title="Download document"
+                              >
+                                <DownloadIcon className="h-3 w-3" />
+                              </button>
+
+                              {/* Delete */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm('Are you sure you want to remove "' + doc.title + '"?')) {
+                                    deleteDocument(doc.id);
+                                    toast.success('Removed "' + doc.title + '"');
+                                  }
+                                }}
+                                className="btn btn-ghost btn-xs h-7 px-2 text-[11px] text-ink-subtle hover:text-danger-600"
+                                title="Delete file"
+                              >
+                                <Trash2Icon className="h-3 w-3" />
+                              </button>
+                            </div>
                           </div>
-
-                          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                            <Badge tone={doc.status === 'Verified' ? 'success' : 'brand'} dot>
-                              {doc.status || 'Indexed'}
-                            </Badge>
-
-                            <button
-                              type="button"
-                              onClick={() => setPreviewDoc(doc)}
-                              className="btn btn-secondary btn-xs h-7 px-2 text-[11px] gap-1"
-                              title="Preview document"
-                            >
-                              <EyeIcon className="h-3 w-3" /> Preview
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => toast.success(`Downloading "${doc.title}"`)}
-                              className="btn btn-ghost btn-xs h-7 px-2 text-[11px] text-ink-muted hover:text-ink"
-                              title="Download document"
-                            >
-                              <DownloadIcon className="h-3 w-3" />
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm(`Are you sure you want to remove "${doc.title}"?`)) {
-                                  deleteDocument(doc.id);
-                                  toast.success(`Removed "${doc.title}"`);
-                                }
-                              }}
-                              className="btn btn-ghost btn-xs h-7 px-2 text-[11px] text-ink-subtle hover:text-danger-600"
-                              title="Delete file"
-                            >
-                              <Trash2Icon className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -2611,6 +2997,72 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           toast.success(editingFolder ? 'Folder updated successfully' : 'New evidence folder created');
         }}
       />
+
+      {/* REVISION REQUEST FEEDBACK MODAL */}
+      {revisionModalDoc && (
+        <Modal
+          open={!!revisionModalDoc}
+          onClose={() => setRevisionModalDoc(null)}
+          size="md"
+          title="Request Document Revision"
+          description={'Provide specific revision instructions for "' + revisionModalDoc.title + '".'}
+          footer={
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
+              <button
+                type="button"
+                className="btn btn-secondary w-full sm:w-auto text-xs font-semibold h-9 px-4"
+                onClick={() => setRevisionModalDoc(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingRevision || !revisionRemarks.trim()}
+                className="btn btn-primary w-full sm:w-auto text-xs font-semibold h-9 px-4 gap-1.5 shadow-xs bg-amber-600 hover:bg-amber-700 border-amber-600 text-white disabled:opacity-50"
+                onClick={handleSubmitRevision}
+              >
+                <AlertCircleIcon className="h-3.5 w-3.5" />
+                <span>Submit Revision Request</span>
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            {/* Document Info Card */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-2 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <FileTextIcon className="h-4 w-4 text-brand-600 shrink-0" />
+                <h4 className="font-bold text-xs text-slate-800 truncate">{revisionModalDoc.title}</h4>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 pt-1 border-t border-slate-200/70">
+                <span>Type: {revisionModalDoc.fileType}</span>
+                <span>·</span>
+                <span>Size: {revisionModalDoc.sizeMb} MB</span>
+                <span>·</span>
+                <span>Campus: {revisionModalDoc.campus || campusName}</span>
+              </div>
+            </div>
+
+            {/* Remarks Textarea */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block">
+                Revision Remarks & Feedback <span className="text-danger-600">*</span>
+              </label>
+              <textarea
+                value={revisionRemarks}
+                onChange={(e) => setRevisionRemarks(e.target.value)}
+                rows={4}
+                className="textarea text-xs w-full bg-white border-slate-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                placeholder="Explain clearly what needs to be revised or attached (e.g. Please attach the signed BOR certification on page 3 and update statistical figures for AY 2024–2025)..."
+                required
+              />
+              <p className="text-[10px] text-slate-400">
+                These remarks will be flagged on the document and visible to faculty and accreditation chairs.
+              </p>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* DELETE FOLDER MODAL */}
       <DeleteFolderModal

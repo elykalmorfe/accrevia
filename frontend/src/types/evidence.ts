@@ -65,6 +65,8 @@ export interface Indicator {
 
 export type DocumentStatus = 'Indexed' | 'Processing' | 'Pending Classification' | 'Failed' | 'Archived';
 
+export type ApprovalStatus = 'Approved' | 'Needs Revision' | 'Pending Review';
+
 export type DocumentType =
 'Report' |
 'Certificate' |
@@ -129,6 +131,10 @@ export interface EvidenceDocument {
   uploadedBy: string;
   passages: string[];
   folderId?: string;
+  approvalStatus?: ApprovalStatus;
+  revisionNotes?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
 }
 
 export interface PendingDocument {

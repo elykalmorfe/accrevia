@@ -1,6 +1,7 @@
 ﻿import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { frameworks as initialFrameworks } from '../data/frameworks';
 import { initialFolders } from '../data/folders';
+import { sampleAreaFolders, sampleAreaDocuments } from '../data/seedAccreditationEvidence';
 import { areas as initialAreas } from '../data/areas';
 import { criteria as initialCriteria } from '../data/criteria';
 import { indicators as initialIndicators } from '../data/indicators';
@@ -167,12 +168,27 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const [indicators, setIndicators] = useState(initialIndicators);
   const [documents, setDocuments] = useState<EvidenceDocument[]>(() => {
     const stored = loadStorage<EvidenceDocument[]>('documents', initialDocuments);
-    if (!stored || stored.length < initialDocuments.length) {
-      return initialDocuments;
+    const baseList = (!stored || stored.length < initialDocuments.length) ? initialDocuments : stored;
+    const existingIds = new Set(baseList.map((d) => d.id));
+    const missing = sampleAreaDocuments.filter((d) => !existingIds.has(d.id));
+    if (missing.length > 0) {
+      const merged = [...baseList, ...missing];
+      saveStorage('documents', merged);
+      return merged;
+    }
+    return baseList;
+  });
+  const [folders, setFolders] = useState<EvidenceFolder[]>(() => {
+    const stored = loadStorage<EvidenceFolder[]>('folders', initialFolders);
+    const existingIds = new Set(stored.map((f) => f.id));
+    const missing = sampleAreaFolders.filter((f) => !existingIds.has(f.id));
+    if (missing.length > 0) {
+      const merged = [...stored, ...missing];
+      saveStorage('folders', merged);
+      return merged;
     }
     return stored;
   });
-  const [folders, setFolders] = useState<EvidenceFolder[]>(() => loadStorage('folders', initialFolders));
   const [pending, setPending] = useState(initialPending);
   const [users, setUsers] = useState(initialUsers);
   const [shares, setShares] = useState(initialShares);
