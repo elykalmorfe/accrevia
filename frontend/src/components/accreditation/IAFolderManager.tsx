@@ -1958,46 +1958,74 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
         </div>
       )}
 
-      {/* MODAL: UPLOAD A CUSTOM FOLDER TO AN OFFICIAL IA AREA */}
+      {/* MODAL: TRANSFER A CUSTOM FOLDER TO AN OFFICIAL IA AREA */}
       {uploadingCustomFolder && (
         <Modal
           open={!!uploadingCustomFolder}
           onClose={() => setUploadingCustomFolder(null)}
-          title={`Upload "${uploadingCustomFolder.name}" to Area`}
-          description="Transfer this folder and all its files into an official IA Area. Once uploaded, it will be moved to that Area and removed from Custom Folders."
-          size="md"
+          title="Transfer Custom Folder to Area"
+          description={"Transfer folder and attached documents to an official Institutional Accreditation Area in " + campusName + "."}
+          size="lg"
           footer={
-            <div className="flex items-center justify-end gap-2 w-full">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
               <button
                 type="button"
-                className="btn btn-secondary btn-sm text-xs"
+                className="btn btn-secondary w-full sm:w-auto text-xs font-semibold h-9 px-4"
                 onClick={() => setUploadingCustomFolder(null)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="btn btn-primary btn-sm text-xs gap-1.5"
+                className="btn btn-primary w-full sm:w-auto text-xs font-semibold h-9 px-4 gap-1.5 shadow-xs"
                 onClick={() => handleExecuteUploadCustomFolderToArea(uploadingCustomFolder, targetAreaForCustomFolder)}
               >
-                <UploadIcon className="h-3.5 w-3.5" />
-                <span>Confirm Upload to Area</span>
+                <Share2Icon className="h-3.5 w-3.5" />
+                <span>
+                  Confirm Transfer to Area {OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaForCustomFolder)?.number || 1}
+                </span>
               </button>
             </div>
           }
         >
           <div className="space-y-4">
-            <div className="rounded-lg border border-line bg-slate-50 p-3 text-xs">
-              <div className="flex items-center gap-2">
-                <FolderIcon className="h-4 w-4 text-amber-600" />
-                <span className="font-bold text-ink">{uploadingCustomFolder.name}</span>
-                <span className="text-ink-subtle">·</span>
-                <span className="text-ink-muted">{getFolderDocCount(uploadingCustomFolder)} document(s)</span>
+            {/* Folder Summary Card */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600 border border-amber-200 shrink-0">
+                    <FolderIcon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900">{uploadingCustomFolder.name}</h4>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {uploadingCustomFolder.code || 'CUSTOM'} · Created {uploadingCustomFolder.createdAt}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full shadow-2xs">
+                    <Building2Icon className="h-3 w-3 text-brand-600" />
+                    <span>{campusName}</span>
+                  </span>
+                  <span className="text-xs font-semibold text-brand-700 bg-brand-50 border border-brand-200/60 px-2 py-0.5 rounded-md">
+                    {getFolderDocCount(uploadingCustomFolder)} files
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="label">Select Target IA Area (Areas 1–9)</label>
+            {/* Target Area Selector Grid */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Select Target Accreditation Area (Areas 1–9)
+                </label>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  Folder will move into this Area
+                </span>
+              </div>
+
               <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                 {OFFICIAL_IA_AREAS.map((a) => {
                   const isSelected = targetAreaForCustomFolder === a.code;
@@ -2005,31 +2033,45 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     <div
                       key={a.code}
                       onClick={() => setTargetAreaForCustomFolder(a.code)}
-                      className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                      className={"flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all " + (
                         isSelected
-                          ? 'border-brand-500 bg-brand-50/70 shadow-xs'
-                          : 'border-line hover:border-brand-300 bg-white'
-                      }`}
+                          ? "border-brand-500 bg-brand-50/50 shadow-xs ring-1 ring-brand-500"
+                          : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/60"
+                      )}
                     >
                       <input
                         type="radio"
                         name="targetAreaForCustomFolder"
                         checked={isSelected}
                         onChange={() => setTargetAreaForCustomFolder(a.code)}
-                        className="mt-0.5 text-brand-600 focus:ring-brand-500"
+                        className="mt-0.5 text-brand-600 focus:ring-brand-500 h-4 w-4"
                       />
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-[11px] font-bold text-brand-700 bg-brand-100 px-1.5 py-0.2 rounded">
+                          <span className="font-mono text-[10px] font-bold text-brand-700 bg-brand-100 px-1.5 py-0.2 rounded">
                             Area {a.number}
                           </span>
-                          <span className="text-xs font-bold text-ink">{a.name}</span>
+                          <span className="text-xs font-bold text-slate-900">{a.name}</span>
                         </div>
-                        <p className="text-[11px] text-ink-muted line-clamp-1 mt-0.5">{a.shortDesc}</p>
+                        <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">{a.shortDesc}</p>
                       </div>
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Destination Breadcrumb Preview */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200 text-[11px]">
+              <span className="font-semibold text-slate-500">Resulting Destination:</span>
+              <div className="inline-flex flex-wrap items-center gap-1 bg-white border border-slate-200 rounded-md px-2 py-0.5 shadow-2xs font-medium text-slate-700">
+                <span className="text-slate-600">{campusName}</span>
+                <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
+                <span className="font-semibold text-brand-700">
+                  Area {OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaForCustomFolder)?.number}: {OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaForCustomFolder)?.name}
+                </span>
+                <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
+                <span className="font-semibold text-amber-700">{uploadingCustomFolder.name}</span>
               </div>
             </div>
           </div>
