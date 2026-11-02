@@ -2018,6 +2018,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
       {uploadModalOpen && (
         <Modal
           open={uploadModalOpen}
+          size="lg"
           onClose={() => {
             setUploadModalOpen(false);
             setIsTopUploadSource(false);
@@ -2027,23 +2028,23 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           }}
           title={
             isTopUploadSource
-              ? 'Upload into Accreditation Areas & Folders'
+              ? 'Upload Evidence Files & Folders'
               : modalTargetFolder
               ? 'Upload into "' + modalTargetFolder.name + '"'
               : currentArea
               ? 'Upload into Area ' + currentArea.number + ': ' + currentArea.name
-              : 'Upload Evidence Files or Folders'
+              : 'Upload Evidence Files & Folders'
           }
           description={
             isTopUploadSource
-              ? 'Select a target Area (Areas 1–9) and existing folder for ' + campusName + ', then upload individual files, an entire folder, or a custom folder.'
-              : 'Select individual documents, an entire folder from computer, or an existing custom folder.'
+              ? 'Organize and index accreditation evidence for ' + campusName + '.'
+              : 'Upload evidence documents or transfer custom folders for ' + campusName + '.'
           }
           footer={
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-2.5">
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-sm h-9 px-4 text-xs font-semibold"
                 onClick={() => {
                   setUploadModalOpen(false);
                   setIsTopUploadSource(false);
@@ -2063,40 +2064,66 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     : uploadedFileList.length === 0 || isProcessingUpload
                 }
                 onClick={handleExecuteUpload}
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary btn-sm h-9 px-4 text-xs font-semibold gap-1.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isProcessingUpload
-                  ? 'Processing & Indexing...'
-                  : uploadMode === 'from-custom'
-                  ? isTopUploadSource
-                    ? 'Upload to Area ' + topUploadTargetAreaObj.number + (topUploadTargetFolderObj ? ' / ' + topUploadTargetFolderObj.name : '')
-                    : 'Upload Custom Folder'
-                  : uploadMode === 'folder'
-                  ? 'Upload Entire Folder (' + uploadedFileList.length + ' files)'
-                  : 'Upload Individual Files (' + uploadedFileList.length + ' files)'}
+                {isProcessingUpload ? (
+                  <>
+                    <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Processing & Indexing...</span>
+                  </>
+                ) : uploadMode === 'from-custom' ? (
+                  <>
+                    <FolderIcon className="h-3.5 w-3.5" />
+                    <span>
+                      {isTopUploadSource
+                        ? 'Upload to Area ' + topUploadTargetAreaObj.number + (topUploadTargetFolderObj ? ' / ' + topUploadTargetFolderObj.name : '')
+                        : 'Upload Custom Folder'}
+                    </span>
+                  </>
+                ) : uploadMode === 'folder' ? (
+                  <>
+                    <FolderArchiveIcon className="h-3.5 w-3.5" />
+                    <span>Upload Entire Folder ({uploadedFileList.length} files)</span>
+                  </>
+                ) : (
+                  <>
+                    <UploadIcon className="h-3.5 w-3.5" />
+                    <span>Upload Individual Files ({uploadedFileList.length} files)</span>
+                  </>
+                )}
               </button>
             </div>
           }
         >
           <div className="space-y-4">
-            {/* When opened from Top Upload Button: Interactive Target Selector (Area + Existing Folder in Campus) */}
+            {/* DESTINATION SELECTOR CARD (WHEN OPENED FROM TOP UPLOAD BUTTON) */}
             {isTopUploadSource ? (
-              <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-3.5 space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4 space-y-3 shadow-2xs">
+                {/* Header: Location icon + Title + Campus Pill */}
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <FolderOpenIcon className="h-4 w-4 text-brand-600 shrink-0" />
-                    <span className="text-xs font-bold text-brand-900">Upload Target Destination</span>
+                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-100 text-brand-700">
+                      <FolderOpenIcon className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-800">Target Location</span>
+                      <span className="hidden sm:inline text-[11px] text-slate-400 font-normal ml-1.5">
+                        Choose destination area and folder
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-[11px] font-semibold text-brand-700 bg-white border border-brand-200 px-2 py-0.5 rounded-full">
-                    🏛️ Campus: {campusName}
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 bg-white border border-slate-200 shadow-2xs px-2.5 py-0.5 rounded-full">
+                    <Building2Icon className="h-3 w-3 text-brand-600" />
+                    <span>{campusName}</span>
                   </span>
                 </div>
 
+                {/* Grid for Area and Folder Dropdowns */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* 1. Target Area (Areas 1–9) */}
+                  {/* Target Area */}
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-ink flex items-center justify-between">
-                      <span>1. Target Area (Areas 1–9) <span className="text-brand-600">*</span></span>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                      Accreditation Area
                     </label>
                     <select
                       value={topUploadTargetAreaCode}
@@ -2108,41 +2135,43 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                         );
                         setTopUploadTargetFolderId(foldersInNext.length > 0 ? foldersInNext[0].id : '');
                       }}
-                      className="input text-xs w-full bg-white font-medium border-brand-200 focus:border-brand-500"
+                      className="input text-xs w-full bg-white font-medium border-slate-300 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 h-9"
                     >
                       {OFFICIAL_IA_AREAS.map((a) => {
                         const count = iaFolders.filter((f) => (f.areaId || '').toLowerCase() === a.code.toLowerCase()).length;
                         return (
                           <option key={a.code} value={a.code}>
-                            Area {a.number}: {a.name} ({count} folder{count === 1 ? '' : 's'})
+                            Area {a.number}: {a.name} ({count} {count === 1 ? 'folder' : 'folders'})
                           </option>
                         );
                       })}
                     </select>
                   </div>
 
-                  {/* 2. Target Folder inside that Area */}
+                  {/* Target Folder */}
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-ink flex items-center justify-between">
-                      <span>2. Target Folder in Area {topUploadTargetAreaObj.number}</span>
-                      <span className="text-[10px] text-ink-subtle font-normal">Optional hierarchy</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Folder in Area {topUploadTargetAreaObj.number}
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-normal">Optional hierarchy</span>
+                    </div>
                     <select
                       value={topUploadTargetFolderId}
                       onChange={(e) => setTopUploadTargetFolderId(e.target.value)}
-                      className="input text-xs w-full bg-white font-medium border-brand-200 focus:border-brand-500"
+                      className="input text-xs w-full bg-white font-medium border-slate-300 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 h-9"
                     >
                       <option value="">
                         {foldersInTopUploadArea.length === 0
-                          ? '📁 (Area Root / Auto-create Folder)'
-                          : '📁 (Area Root - No subfolder)'}
+                          ? '📁 Area Root (Default Portfolio)'
+                          : '📁 Area Root (Directly in Area)'}
                       </option>
                       {foldersInTopUploadArea.map((f) => {
                         const parent = f.parentId ? iaFolders.find((p) => p.id === f.parentId) : null;
                         const docCount = getFolderDocCount(f);
                         return (
                           <option key={f.id} value={f.id}>
-                            {parent ? '  ↳ 📁 ' + f.name + ' (inside ' + parent.name + ')' : '📁 ' + f.name} ({docCount} files)
+                            {parent ? '  ↳ 📁 ' + f.name + ' (in ' + parent.name + ')' : '📁 ' + f.name} ({docCount} {docCount === 1 ? 'file' : 'files'})
                           </option>
                         );
                       })}
@@ -2150,37 +2179,71 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   </div>
                 </div>
 
-                {/* Path preview */}
-                <div className="text-[11px] text-brand-800 flex flex-wrap items-center gap-1.5 pt-1 border-t border-brand-200/60">
-                  <span className="font-semibold text-brand-900">Destination:</span>
-                  <span className="bg-white px-2 py-0.5 rounded border border-brand-200 font-mono text-[11px] text-brand-900">
-                    {campusName} &gt; Area {topUploadTargetAreaObj.number} ({topUploadTargetAreaObj.name})
-                    {topUploadTargetFolderObj ? ' &gt; ' + topUploadTargetFolderObj.name : ''}
-                    {uploadMode === 'files' ? ' &gt; [Files]' : uploadMode === 'folder' ? ' &gt; [New Folder]' : ' &gt; [Custom Folder]'}
-                  </span>
+                {/* Professional SVG Breadcrumbs Path Preview */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200/70 text-[11px]">
+                  <span className="font-semibold text-slate-500">Destination:</span>
+                  <div className="inline-flex flex-wrap items-center gap-1 bg-white border border-slate-200 rounded-md px-2 py-0.5 shadow-2xs font-medium text-slate-700">
+                    <span className="text-slate-600">{campusName}</span>
+                    <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
+                    <span className="font-semibold text-brand-700">
+                      Area {topUploadTargetAreaObj.number}: {topUploadTargetAreaObj.name}
+                    </span>
+                    {topUploadTargetFolderObj && (
+                      <>
+                        <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
+                        <span className="font-semibold text-slate-800">
+                          {topUploadTargetFolderObj.name}
+                        </span>
+                      </>
+                    )}
+                    <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
+                    <span className="text-brand-600 font-semibold bg-brand-50 px-1 py-0.2 rounded text-[10px]">
+                      {uploadMode === 'files'
+                        ? '[Files]'
+                        : uploadMode === 'folder'
+                        ? '[New Folder]'
+                        : '[Custom Folder]'}
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : modalTargetFolder ? (
-              <div className="rounded-lg border border-brand-200 bg-brand-50/70 p-2.5 text-xs text-brand-900 flex items-center gap-2">
-                <FolderOpenIcon className="h-4 w-4 text-brand-600 shrink-0" />
-                <span>
-                  Destination: <strong className="font-bold">{modalTargetFolder.name}</strong>
-                  {currentArea && <span className="text-brand-700 font-normal"> (Area {currentArea.number})</span>}
-                  <span className="text-brand-600 font-medium"> · {campusName}</span>
+              /* CONTEXTUAL DESTINATION PILL (WHEN OPENED FROM INSIDE A FOLDER) */
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-800 flex items-center justify-between gap-2 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-100 text-brand-700 shrink-0">
+                    <FolderOpenIcon className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Destination Folder: </span>
+                    <strong className="font-bold text-slate-900">{modalTargetFolder.name}</strong>
+                    {currentArea && <span className="text-brand-700 font-normal"> (Area {currentArea.number})</span>}
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-full shadow-2xs">
+                  {campusName}
                 </span>
               </div>
             ) : currentArea ? (
-              <div className="rounded-lg border border-brand-200 bg-brand-50/70 p-2.5 text-xs text-brand-900 flex items-center gap-2">
-                <FolderOpenIcon className="h-4 w-4 text-brand-600 shrink-0" />
-                <span>
-                  Destination: <strong className="font-bold">Area {currentArea.number}: {currentArea.name}</strong>
-                  <span className="text-brand-600 font-medium"> · {campusName}</span>
+              /* CONTEXTUAL DESTINATION PILL (WHEN OPENED FROM INSIDE AN AREA) */
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-800 flex items-center justify-between gap-2 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-100 text-brand-700 shrink-0">
+                    <FolderOpenIcon className="h-3.5 w-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-medium">Destination Area: </span>
+                    <strong className="font-bold text-slate-900">Area {currentArea.number}: {currentArea.name}</strong>
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-full shadow-2xs">
+                  {campusName}
                 </span>
               </div>
             ) : null}
 
-            {/* Mode Selector - 3 options when opened from top upload button or inside an Area */}
-            <div className={'grid gap-2 rounded-lg border border-line bg-canvas p-1 text-xs ' + (
+            {/* MODERN SEGMENTED CONTROL: 3 MODES */}
+            <div className={'rounded-xl border border-slate-200 bg-slate-100/90 p-1 grid gap-1 text-xs ' + (
               isTopUploadSource || selectedAreaCode ? 'grid-cols-3' : 'grid-cols-2'
             )}>
               <button
@@ -2189,11 +2252,13 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   setUploadMode('files');
                   setUploadedFileList([]);
                 }}
-                className={'flex items-center justify-center gap-1.5 py-1.5 font-semibold rounded-md transition-all ' + (
-                  uploadMode === 'files' ? 'bg-white text-brand-700 shadow-xs' : 'text-ink-muted hover:text-ink'
+                className={'flex items-center justify-center gap-2 py-2 px-3 font-semibold rounded-lg transition-all ' + (
+                  uploadMode === 'files'
+                    ? 'bg-white text-brand-700 shadow-xs border border-slate-200/80'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                 )}
               >
-                <FileTextIcon className="h-3.5 w-3.5" />
+                <FileTextIcon className="h-4 w-4 shrink-0 text-brand-600" />
                 <span>Individual Files</span>
               </button>
               <button
@@ -2202,11 +2267,13 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   setUploadMode('folder');
                   setUploadedFileList([]);
                 }}
-                className={'flex items-center justify-center gap-1.5 py-1.5 font-semibold rounded-md transition-all ' + (
-                  uploadMode === 'folder' ? 'bg-white text-brand-700 shadow-xs' : 'text-ink-muted hover:text-ink'
+                className={'flex items-center justify-center gap-2 py-2 px-3 font-semibold rounded-lg transition-all ' + (
+                  uploadMode === 'folder'
+                    ? 'bg-white text-brand-700 shadow-xs border border-slate-200/80'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                 )}
               >
-                <FolderArchiveIcon className="h-3.5 w-3.5" />
+                <FolderArchiveIcon className="h-4 w-4 shrink-0 text-amber-600" />
                 <span>Entire Folder</span>
               </button>
 
@@ -2218,92 +2285,20 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     setUploadMode('from-custom');
                     setUploadedFileList([]);
                   }}
-                  className={'flex items-center justify-center gap-1.5 py-1.5 font-semibold rounded-md transition-all ' + (
-                    uploadMode === 'from-custom' ? 'bg-white text-brand-700 shadow-xs' : 'text-ink-muted hover:text-ink'
+                  className={'flex items-center justify-center gap-2 py-2 px-3 font-semibold rounded-lg transition-all ' + (
+                    uploadMode === 'from-custom'
+                      ? 'bg-white text-brand-700 shadow-xs border border-slate-200/80'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                   )}
                 >
-                  <FolderIcon className="h-3.5 w-3.5 text-amber-600" />
+                  <FolderIcon className="h-4 w-4 shrink-0 text-indigo-600" />
                   <span>Custom Folder</span>
                 </button>
               )}
             </div>
 
-            {uploadMode === 'from-custom' ? (
-              /* Custom Folder Picker */
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-ink">
-                    Select a Custom Folder to upload into{' '}
-                    {isTopUploadSource
-                      ? topUploadTargetFolderObj
-                        ? '"' + topUploadTargetFolderObj.name + '" in Area ' + topUploadTargetAreaObj.number
-                        : 'Area ' + topUploadTargetAreaObj.number + ': ' + topUploadTargetAreaObj.name
-                      : currentActiveFolder
-                      ? '"' + currentActiveFolder.name + '"'
-                      : currentArea
-                      ? 'Area ' + currentArea.number
-                      : 'this Area'}
-                  </label>
-                  <span className="text-[11px] text-ink-subtle">
-                    {rootCustomFolders.length} folder{rootCustomFolders.length === 1 ? '' : 's'} available ({campusName})
-                  </span>
-                </div>
-
-                {rootCustomFolders.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-line bg-slate-50 p-6 text-center text-xs text-ink-muted space-y-1.5">
-                    <FolderIcon className="mx-auto h-8 w-8 text-slate-400 mb-1" />
-                    <p className="font-semibold text-ink">No Custom Folders Available</p>
-                    <p className="text-[11px] text-ink-subtle max-w-sm mx-auto">
-                      All custom folders have been uploaded or none have been created yet. You can create new folders under the &quot;Custom Folders&quot; tab.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                    {rootCustomFolders.map((f) => {
-                      const isSelected = selectedCustomFolderToUpload === f.id;
-                      const docCount = getFolderDocCount(f);
-                      const subCount = getFolderSubfolderCount(f.id);
-                      return (
-                        <div
-                          key={f.id}
-                          onClick={() => setSelectedCustomFolderToUpload(f.id)}
-                          className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
-                            isSelected
-                              ? 'border-brand-500 bg-brand-50/70 shadow-xs ring-1 ring-brand-500'
-                              : 'border-line hover:border-brand-300 bg-white'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <input
-                              type="radio"
-                              name="selectedCustomFolderToUpload"
-                              checked={isSelected}
-                              onChange={() => setSelectedCustomFolderToUpload(f.id)}
-                              className="text-brand-600 focus:ring-brand-500"
-                            />
-                            <div>
-                              <span className="text-xs font-bold text-ink block">{f.name}</span>
-                              <span className="text-[10px] text-ink-subtle">{f.code} · Created {f.createdAt}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {subCount > 0 && (
-                              <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                                {subCount} subfolder{subCount === 1 ? '' : 's'}
-                              </span>
-                            )}
-                            <span className="text-xs font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded">
-                              {docCount} file{docCount === 1 ? '' : 's'}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Normal Drag and Drop and File Inputs */
+            {/* TAB 1 & 2: INDIVIDUAL FILES & ENTIRE FOLDER VIEW */}
+            {uploadMode !== 'from-custom' ? (
               <>
                 <input
                   ref={fileInputRef}
@@ -2325,15 +2320,15 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
                 {/* Optional folder selector when at Area root with multiple folders (contextual modal) */}
                 {!isTopUploadSource && selectedAreaCode && !modalTargetFolder && areaFolders.length > 0 && uploadMode === 'files' && (
-                  <div className="space-y-1.5 rounded-lg border border-line bg-canvas/60 p-2.5">
-                    <label className="text-xs font-semibold text-ink flex items-center justify-between">
+                  <div className="space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                    <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
                       <span>Target Evidence Folder in Area {currentArea?.number}:</span>
-                      <span className="text-[10px] text-ink-subtle font-normal">Choose destination</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Choose destination</span>
                     </label>
                     <select
                       value={selectedTargetFolder || areaFolders[0]?.id || ''}
                       onChange={(e) => setSelectedTargetFolder(e.target.value)}
-                      className="input text-xs w-full bg-white"
+                      className="input text-xs w-full bg-white border-slate-300"
                     >
                       {areaFolders.map((af) => (
                         <option key={af.id} value={af.id}>
@@ -2344,6 +2339,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   </div>
                 )}
 
+                {/* INTERACTIVE DROPZONE */}
                 <div
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -2358,48 +2354,156 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       fileInputRef.current?.click();
                     }
                   }}
-                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                  className={'group border-2 border-dashed rounded-xl p-6 sm:p-7 text-center cursor-pointer transition-all duration-200 ' + (
                     isDragging
-                      ? 'border-brand-500 bg-brand-50/70'
-                      : 'border-line hover:border-brand-400 hover:bg-canvas'
-                  }`}
-                >
-                  {uploadMode === 'folder' ? (
-                    <FolderOpenIcon className="mx-auto h-10 w-10 text-brand-600 mb-2" />
-                  ) : (
-                    <UploadIcon className="mx-auto h-10 w-10 text-brand-600 mb-2" />
+                      ? 'border-brand-500 bg-brand-50/70 ring-2 ring-brand-400/30'
+                      : 'border-slate-300 hover:border-brand-400 bg-slate-50/40 hover:bg-brand-50/20'
                   )}
-                  <p className="text-xs font-semibold text-ink">
-                    {uploadMode === 'folder'
-                      ? 'Click to select an entire folder or drag and drop a folder here'
-                      : 'Click to select individual files or drag and drop here'}
+                >
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white border border-slate-200 shadow-2xs group-hover:scale-105 group-hover:border-brand-200 transition-all duration-200 mb-2.5">
+                    {uploadMode === 'folder' ? (
+                      <FolderArchiveIcon className="h-6 w-6 text-amber-600" />
+                    ) : (
+                      <UploadIcon className="h-6 w-6 text-brand-600" />
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {uploadMode === 'folder' ? (
+                      <>
+                        <span className="text-brand-600 group-hover:underline">Choose a folder</span> or drag directory here
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-brand-600 group-hover:underline">Choose files</span> or drag and drop here
+                      </>
+                    )}
                   </p>
-                  <p className="text-[11px] text-ink-subtle mt-1">
-                    Supports PDF, DOCX, XLSX, PPTX, and image evidence portfolios.
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    {uploadMode === 'folder'
+                      ? 'Imports directory hierarchy and indexes all nested evidence documents.'
+                      : 'Supports PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), and images.'}
                   </p>
                 </div>
 
+                {/* SELECTED ITEMS PREVIEW LIST */}
                 {uploadedFileList.length > 0 && (
-                  <div className="rounded-md border border-line bg-canvas p-3 max-h-40 overflow-y-auto space-y-1 text-xs">
-                    <div className="flex items-center justify-between font-semibold text-ink pb-1 border-b border-line">
-                      <span>Selected Items ({uploadedFileList.length})</span>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 max-h-44 overflow-y-auto space-y-1.5 text-xs shadow-2xs">
+                    <div className="flex items-center justify-between font-semibold text-slate-800 pb-1.5 border-b border-slate-200">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        <span>Ready for upload ({uploadedFileList.length} items)</span>
+                      </div>
                       <button
                         type="button"
                         onClick={() => setUploadedFileList([])}
-                        className="text-danger-600 hover:underline text-[11px]"
+                        className="text-danger-600 hover:underline text-[11px] font-semibold"
                       >
                         Clear All
                       </button>
                     </div>
-                    {uploadedFileList.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-[11px] text-ink-muted">
-                        <span className="truncate max-w-[320px]">📄 {item.path || item.name}</span>
-                        <span>{(item.size / 1024).toFixed(1)} KB</span>
-                      </div>
-                    ))}
+                    <div className="space-y-1 pr-1">
+                      {uploadedFileList.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-[11px] bg-white border border-slate-200/80 rounded-lg px-2.5 py-1.5 shadow-2xs">
+                          <div className="flex items-center gap-2 truncate max-w-[420px]">
+                            {item.name.endsWith('.xlsx') || item.name.endsWith('.csv') ? (
+                              <FileSpreadsheetIcon className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                            ) : item.name.endsWith('.docx') ? (
+                              <FileTextIcon className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                            ) : (
+                              <FileTextIcon className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                            )}
+                            <span className="truncate font-medium text-slate-800">{item.path || item.name}</span>
+                          </div>
+                          <span className="text-slate-400 font-mono text-[10px] shrink-0 ml-2">
+                            {(item.size / 1024).toFixed(1)} KB
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </>
+            ) : (
+              /* TAB 3: CUSTOM FOLDER SELECTION VIEW */
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-xs font-bold text-slate-800 block">
+                      Select Custom Folder to Transfer
+                    </label>
+                    <span className="text-[11px] text-slate-500">
+                      Destination: {isTopUploadSource
+                        ? topUploadTargetFolderObj
+                          ? '"' + topUploadTargetFolderObj.name + '" in Area ' + topUploadTargetAreaObj.number
+                          : 'Area ' + topUploadTargetAreaObj.number + ': ' + topUploadTargetAreaObj.name
+                        : currentActiveFolder
+                        ? '"' + currentActiveFolder.name + '"'
+                        : currentArea
+                        ? 'Area ' + currentArea.number
+                        : 'this Area'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                    {rootCustomFolders.length} {rootCustomFolders.length === 1 ? 'folder' : 'folders'} available
+                  </span>
+                </div>
+
+                {rootCustomFolders.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-xs text-slate-500 space-y-1.5">
+                    <FolderIcon className="mx-auto h-8 w-8 text-slate-400 mb-1" />
+                    <p className="font-semibold text-slate-800">No Custom Folders Available</p>
+                    <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                      All custom folders have been transferred or none exist for {campusName}. You can create new folders under the &quot;Custom Folders&quot; tab.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {rootCustomFolders.map((f) => {
+                      const isSelected = selectedCustomFolderToUpload === f.id;
+                      const docCount = getFolderDocCount(f);
+                      const subCount = getFolderSubfolderCount(f.id);
+                      return (
+                        <div
+                          key={f.id}
+                          onClick={() => setSelectedCustomFolderToUpload(f.id)}
+                          className={'flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ' + (
+                            isSelected
+                              ? 'border-brand-500 bg-brand-50/50 shadow-xs ring-1 ring-brand-500'
+                              : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/60'
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="selectedCustomFolderToUpload"
+                              checked={isSelected}
+                              onChange={() => setSelectedCustomFolderToUpload(f.id)}
+                              className="text-brand-600 focus:ring-brand-500 h-4 w-4"
+                            />
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 border border-amber-200/60 shrink-0">
+                              <FolderIcon className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <span className="text-xs font-bold text-slate-800 block">{f.name}</span>
+                              <span className="text-[10px] text-slate-400">{f.code || 'CUSTOM'} · Created {f.createdAt}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {subCount > 0 && (
+                              <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                                {subCount} {subCount === 1 ? 'subfolder' : 'subfolders'}
+                              </span>
+                            )}
+                            <span className="text-xs font-semibold text-brand-700 bg-brand-50 border border-brand-200/60 px-2.5 py-0.5 rounded-md">
+                              {docCount} {docCount === 1 ? 'file' : 'files'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </Modal>
