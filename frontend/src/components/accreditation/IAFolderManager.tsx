@@ -27,7 +27,8 @@ import {
   CheckIcon,
   FileEditIcon,
   AlertCircleIcon,
-  InfoIcon
+  InfoIcon,
+  FilterIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { EvidenceFolder, EvidenceDocument } from '../../types/evidence';
@@ -74,6 +75,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   // Inside-Folder Filtering and Sorting
   const [repoFilter, setRepoFilter] = useState<'all' | 'folders' | 'files'>('all');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  // Inside-Folder Approval Status Filter ('all' | 'approved' | 'pending' | 'needs_revision')
+  const [approvalStatusFilter, setApprovalStatusFilter] = useState<'all' | 'approved' | 'pending' | 'needs_revision'>('all');
 
   // Document Preview Modal
   const [previewDoc, setPreviewDoc] = useState<EvidenceDocument | null>(null);
@@ -475,10 +478,42 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
     });
   }, [iaFolders, activeFolderId, searchQuery, sortDirection]);
 
-  // Inside-Folder Files (sorted A to Z)
+  // Reset approval filter when active folder changes
+  useEffect(() => {
+    setApprovalStatusFilter('all');
+  }, [activeFolderId]);
+
+  // All documents strictly inside currentActiveFolder (before approval status filtering)
+  const allFolderDocs = useMemo(() => {
+    if (!currentActiveFolder) return [];
+    return campusIADocs.filter((d) => isDocInFolder(d, currentActiveFolder));
+  }, [campusIADocs, currentActiveFolder]);
+
+  // Counts by approval status for current active folder
+  const folderApprovalCounts = useMemo(() => {
+    const total = allFolderDocs.length;
+    const approved = allFolderDocs.filter((d) => d.approvalStatus === 'Approved').length;
+    const revision = allFolderDocs.filter((d) => d.approvalStatus === 'Needs Revision').length;
+    const pending = allFolderDocs.filter((d) => !d.approvalStatus || d.approvalStatus === 'Pending Review').length;
+    return { total, approved, revision, pending };
+  }, [allFolderDocs]);
+
+  // Inside-Folder Files (filtered by search and approval status, sorted A to Z)
   const insideFiles = useMemo(() => {
     if (!currentActiveFolder) return [];
-    let list = campusIADocs.filter((d) => isDocInFolder(d, currentActiveFolder));
+    let list = [...allFolderDocs];
+
+    // Filter by approval status if in official Area folder
+    if (!isCustomFolder && currentActiveFolder.areaId && approvalStatusFilter !== 'all') {
+      if (approvalStatusFilter === 'approved') {
+        list = list.filter((d) => d.approvalStatus === 'Approved');
+      } else if (approvalStatusFilter === 'needs_revision') {
+        list = list.filter((d) => d.approvalStatus === 'Needs Revision');
+      } else if (approvalStatusFilter === 'pending') {
+        list = list.filter((d) => !d.approvalStatus || d.approvalStatus === 'Pending Review');
+      }
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -494,7 +529,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
       const cmp = a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
       return sortDirection === 'asc' ? cmp : -cmp;
     });
-  }, [campusIADocs, currentActiveFolder, searchQuery, sortDirection]);
+  }, [allFolderDocs, currentActiveFolder, isCustomFolder, approvalStatusFilter, searchQuery, sortDirection]);
 
   // Click handler for Area cards (Areas 1–9)
   const handleSelectArea = (areaCode: string) => {
@@ -1652,20 +1687,101 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   </button>
                 </div>
 
-                {/* Alphabetical A to Z Sorting */}
-                <button
-                  type="button"
-                  onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-                  className="btn btn-secondary btn-xs h-7 text-xs gap-1.5 self-start sm:self-auto"
-                  title="Toggle alphabetical order (A–Z / Z–A)"
-                >
-                  <ArrowUpDownIcon className="h-3 w-3 text-brand-600" />
-                  <span className="font-semibold text-brand-700">Sort: {sortDirection === 'asc' ? 'A → Z' : 'Z → A'}</span>
-                </button>
+                {/* Evidence Approval Status Filter (Replaces Sort A–Z) */}
+                {!isCustomFolder && currentActiveFolder?.areaId ? (
+                  <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200 shadow-2xs self-start sm:self-auto flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1.5 hidden md:inline">
+                      Filter:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setApprovalStatusFilter('all')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                        approvalStatusFilter === 'all'
+                          ? 'bg-white text-ink shadow-2xs border border-slate-200'
+                          : 'text-ink-muted hover:text-ink hover:bg-white/60'
+                      }`}
+                    >
+                      <span>All Files</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        approvalStatusFilter === 'all' ? 'bg-slate-200 text-ink' : 'bg-slate-200/60 text-ink-subtle'
+                      }`}>
+                        {folderApprovalCounts.total}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setApprovalStatusFilter('approved')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                        approvalStatusFilter === 'approved'
+                          ? 'bg-emerald-600 text-white shadow-2xs'
+                          : 'text-emerald-700 hover:bg-emerald-50'
+                      }`}
+                      title="Filter by approved evidence"
+                    >
+                      <CheckCircle2Icon className="h-3.5 w-3.5" />
+                      <span>Approved</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        approvalStatusFilter === 'approved' ? 'bg-white/30 text-white' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {folderApprovalCounts.approved}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setApprovalStatusFilter('pending')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                        approvalStatusFilter === 'pending'
+                          ? 'bg-blue-600 text-white shadow-2xs'
+                          : 'text-brand-700 hover:bg-blue-50'
+                      }`}
+                      title="Filter by evidence pending review"
+                    >
+                      <ClockIcon className="h-3.5 w-3.5" />
+                      <span>Pending Review</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        approvalStatusFilter === 'pending' ? 'bg-white/30 text-white' : 'bg-blue-100 text-brand-800'
+                      }`}>
+                        {folderApprovalCounts.pending}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setApprovalStatusFilter('needs_revision')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                        approvalStatusFilter === 'needs_revision'
+                          ? 'bg-amber-600 text-white shadow-2xs'
+                          : 'text-amber-800 hover:bg-amber-50'
+                      }`}
+                      title="Filter by evidence requiring revision"
+                    >
+                      <AlertTriangleIcon className="h-3.5 w-3.5" />
+                      <span>Needs Revision</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        approvalStatusFilter === 'needs_revision' ? 'bg-white/30 text-white' : 'bg-amber-100 text-amber-900'
+                      }`}>
+                        {folderApprovalCounts.revision}
+                      </span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    className="btn btn-secondary btn-xs h-7 text-xs gap-1.5 self-start sm:self-auto"
+                    title="Toggle alphabetical order (A–Z / Z–A)"
+                  >
+                    <ArrowUpDownIcon className="h-3 w-3 text-brand-600" />
+                    <span className="font-semibold text-brand-700">Sort: {sortDirection === 'asc' ? 'A → Z' : 'Z → A'}</span>
+                  </button>
+                )}
               </div>
 
               {/* EMPTY STATE INSIDE THE FOLDER */}
-              {insideSubfolders.length === 0 && insideFiles.length === 0 && (
+              {insideSubfolders.length === 0 && allFolderDocs.length === 0 && (
                 <div className="rounded-xl border border-dashed border-line bg-canvas p-8 text-center">
                   <FolderOpenIcon className="mx-auto h-9 w-9 text-ink-subtle mb-2" />
                   <p className="text-xs font-semibold text-ink">No files or subfolders found</p>
@@ -1769,19 +1885,46 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               )}
 
               {/* FILES SECTION */}
-              {(repoFilter === 'all' || repoFilter === 'files') && insideFiles.length > 0 && (
+              {(repoFilter === 'all' || repoFilter === 'files') && (allFolderDocs.length > 0 || insideFiles.length > 0) && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                      Files ({insideFiles.length})
+                      Files ({insideFiles.length} of {allFolderDocs.length})
                     </span>
-                    <span className="text-[11px] text-ink-subtle">
-                      Sorted A to Z ({sortDirection === 'asc' ? 'Ascending' : 'Descending'})
-                    </span>
+                    <div className="flex items-center gap-2 text-[11px] text-ink-subtle">
+                      {!isCustomFolder && currentActiveFolder?.areaId ? (
+                        approvalStatusFilter !== 'all' ? (
+                          <div className="flex items-center gap-1.5">
+                            <span>
+                              Filtered by:{' '}
+                              <strong className="text-ink">
+                                {approvalStatusFilter === 'approved'
+                                  ? 'Approved'
+                                  : approvalStatusFilter === 'pending'
+                                  ? 'Pending Review'
+                                  : 'Needs Revision'}
+                              </strong>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setApprovalStatusFilter('all')}
+                              className="text-brand-600 hover:underline font-semibold ml-1"
+                            >
+                              (Reset Filter)
+                            </button>
+                          </div>
+                        ) : (
+                          <span>Showing all evidence files</span>
+                        )
+                      ) : (
+                        <span>Sorted A to Z ({sortDirection === 'asc' ? 'Ascending' : 'Descending'})</span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="overflow-hidden rounded-lg border border-line bg-white shadow-xs">
-                    <div className="divide-y divide-line">
+                  {insideFiles.length > 0 ? (
+                    <div className="overflow-hidden rounded-lg border border-line bg-white shadow-xs">
+                      <div className="divide-y divide-line">
                       {insideFiles.map((doc) => {
                         const isOfficialArea = !isCustomFolder && !!currentActiveFolder?.areaId;
                         const isApproved = doc.approvalStatus === 'Approved';
@@ -1932,6 +2075,27 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       })}
                     </div>
                   </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center space-y-2 shadow-2xs">
+                      <p className="text-xs font-bold text-slate-800">
+                        No files matching status "{approvalStatusFilter === 'approved' ? 'Approved' : approvalStatusFilter === 'pending' ? 'Pending Review' : 'Needs Revision'}"
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {approvalStatusFilter === 'needs_revision'
+                          ? 'Great! There are no files in this folder that require revision.'
+                          : approvalStatusFilter === 'pending'
+                          ? 'All files in this folder have already been reviewed and signed off.'
+                          : 'No evidence files in this folder match this status.'}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setApprovalStatusFilter('all')}
+                        className="btn btn-secondary btn-xs h-7 px-3 text-xs font-semibold"
+                      >
+                        Show All Evidence Files ({allFolderDocs.length})
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
