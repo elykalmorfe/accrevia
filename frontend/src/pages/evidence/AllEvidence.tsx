@@ -11,7 +11,10 @@ import {
   Share2Icon,
   SlidersHorizontalIcon,
   UploadIcon,
-  XIcon
+  XIcon,
+  CheckCircle2Icon,
+  ClockIcon,
+  Building2Icon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { useLookup } from '../../hooks/useLookup';
@@ -32,6 +35,8 @@ type FilterKey =
   | 'areaId'
   | 'docType'
   | 'status'
+  | 'approvalStatus'
+  | 'campus'
   | 'criterionId'
   | 'indicatorId'
   | 'program'
@@ -44,6 +49,8 @@ const emptyFilters: Record<FilterKey, string> = {
   areaId: '',
   docType: '',
   status: '',
+  approvalStatus: '',
+  campus: '',
   criterionId: '',
   indicatorId: '',
   program: '',
@@ -56,7 +63,9 @@ const labels: Record<FilterKey, string> = {
   frameworkId: 'Framework',
   areaId: 'Accreditation Area',
   docType: 'Document Type',
-  status: 'Status',
+  status: 'System Status',
+  approvalStatus: 'Accreditation Status',
+  campus: 'Campus',
   criterionId: 'Criterion',
   indicatorId: 'Indicator',
   program: 'Program',
@@ -68,8 +77,10 @@ const labels: Record<FilterKey, string> = {
 const placeholders: Record<FilterKey, string> = {
   frameworkId: 'All frameworks',
   areaId: 'All areas',
-  docType: 'All document types',
-  status: 'All statuses',
+  docType: 'All types',
+  status: 'All pipeline states',
+  approvalStatus: 'All review statuses',
+  campus: 'All campuses',
   criterionId: 'All criteria',
   indicatorId: 'All indicators',
   program: 'All programs',
@@ -78,7 +89,7 @@ const placeholders: Record<FilterKey, string> = {
   cycle: 'All accreditation cycles'
 };
 
-const secondaryKeys: FilterKey[] = ['criterionId', 'indicatorId', 'program', 'office', 'academicYear', 'cycle'];
+const secondaryKeys: FilterKey[] = ['campus', 'criterionId', 'indicatorId', 'program', 'office', 'academicYear', 'cycle'];
 
 export function AllEvidence() {
   const { documents, frameworks, areas, criteria, indicators, shares, accessRequests, pending } = usePortal();
@@ -94,6 +105,14 @@ export function AllEvidence() {
   const activeSharesCount = useMemo(() => shares.filter((s) => shareStatus(s) === 'Active').length, [shares]);
   const pendingRequestsCount = useMemo(() => accessRequests.filter((r) => r.status === 'Pending').length, [accessRequests]);
   const totalStorageMb = useMemo(() => Math.round(documents.reduce((acc, d) => acc + (d.sizeMb || 0), 0) * 10) / 10, [documents]);
+
+  // Master Accreditation Approval Counts
+  const approvalCounts = useMemo(() => {
+    const approved = activeDocs.filter((d) => d.approvalStatus === 'Approved').length;
+    const revision = activeDocs.filter((d) => d.approvalStatus === 'Needs Revision').length;
+    const pendingReview = activeDocs.filter((d) => !d.approvalStatus || d.approvalStatus === 'Pending Review').length;
+    return { approved, revision, pendingReview };
+  }, [activeDocs]);
 
   // Priority Document Processing breakdown (Running, Queued, Failed, Completed today)
   const processingStats = useMemo(() => {
@@ -113,6 +132,12 @@ export function AllEvidence() {
       areaId: areas.map((a) => ({ value: a.id, label: a.name })),
       docType: plain(documentTypes),
       status: plain(['Indexed', 'Processing', 'Pending Classification', 'Failed']),
+      approvalStatus: [
+        { value: 'Approved', label: 'Approved' },
+        { value: 'Pending Review', label: 'Pending Review' },
+        { value: 'Needs Revision', label: 'Needs Revision' }
+      ],
+      campus: plain(uniqueValues(activeDocs, (d) => d.campus || 'Tandag (Main Campus)')),
       criterionId: criteria
         .filter((c) => (!filters.frameworkId || c.frameworkId === filters.frameworkId) && (!filters.areaId || c.areaId === filters.areaId))
         .map((c) => ({ value: c.id, label: `${c.code} – ${c.name}` })),
@@ -144,8 +169,30 @@ export function AllEvidence() {
   const filtered = useMemo(() => {
     const needle = text.trim().toLowerCase();
     return activeDocs
-      .filter((d) => (Object.keys(filters) as FilterKey[]).every((k) => !filters[k] || String(d[k]) === filters[k]))
-      .filter((d) => !needle || `${d.title} ${d.keywords.join(' ')} ${d.office}`.toLowerCase().includes(needle))
+      .filter((d) => {
+        // Standard filters matching
+        for (const k of Object.keys(filters) as FilterKey[]) {
+          const filterVal = filters[k];
+          if (!filterVal) continue;
+
+          if (k === 'approvalStatus') {
+            if (filterVal === 'Approved' && d.approvalStatus !== 'Approved') return false;
+            if (filterVal === 'Needs Revision' && d.approvalStatus !== 'Needs Revision') return false;
+            if (filterVal === 'Pending Review' && (d.approvalStatus === 'Approved' || d.approvalStatus === 'Needs Revision')) return false;
+            continue;
+          }
+
+          if (k === 'campus') {
+            const docCampus = d.campus || 'Tandag (Main Campus)';
+            if (docCampus !== filterVal) return false;
+            continue;
+          }
+
+          if (String(d[k]) !== filterVal) return false;
+        }
+        return true;
+      })
+      .filter((d) => !needle || `${d.title} ${(d.keywords || []).join(' ')} ${d.office || ''} ${d.campus || ''}`.toLowerCase().includes(needle))
       .sort((a, b) => b.dateAdded.localeCompare(a.dateAdded));
   }, [activeDocs, filters, text]);
 
@@ -286,15 +333,22 @@ export function AllEvidence() {
                 {totalStorageMb} MB indexed across {frameworks.length} frameworks
               </p>
 
-              {/* Status breakdown pills */}
+              {/* Accreditation Approval Status Breakdown */}
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60" title="Approved Evidence">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                  {approvalCounts.approved} Approved
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-brand-700 border border-blue-200/60" title="Pending Review">
                   <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                  {documents.filter((d) => d.status === 'Indexed').length} Indexed
+                  {approvalCounts.pendingReview} Pending
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
-                  {documents.filter((d) => d.status !== 'Indexed' && d.status !== 'Archived').length} In Pipeline
-                </span>
+                {approvalCounts.revision > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/60" title="Needs Revision">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
+                    {approvalCounts.revision} Revisions
+                  </span>
+                )}
               </div>
             </div>
 
@@ -495,8 +549,91 @@ export function AllEvidence() {
       {/* ========================================================================= */}
       {/* 4. DOCUMENTS FILTER & TABLE SECTION (No Truncation, Professional Layout)   */}
       {/* ========================================================================= */}
-      <section className="panel overflow-hidden" aria-label="Compliance documents">
-        <div className="space-y-3 border-b border-line p-4 bg-canvas/40">
+      <section className="panel overflow-hidden shadow-xs" aria-label="Compliance documents">
+        <div className="space-y-3.5 border-b border-line p-4 bg-canvas/40">
+
+          {/* Quick Approval Status Filter Tabs */}
+          <div className="flex items-center justify-between flex-wrap gap-2.5 pb-1">
+            <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200 shadow-2xs flex-wrap">
+              <button
+                type="button"
+                onClick={() => setFilter('approvalStatus', '')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  !filters.approvalStatus
+                    ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                }`}
+              >
+                <span>All Documents</span>
+                <span className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
+                  !filters.approvalStatus ? 'bg-slate-200 text-slate-900' : 'bg-slate-200/70 text-slate-600'
+                }`}>
+                  {activeDocs.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilter('approvalStatus', 'Approved')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  filters.approvalStatus === 'Approved'
+                    ? 'bg-emerald-600 text-white shadow-2xs'
+                    : 'text-emerald-700 hover:bg-emerald-50'
+                }`}
+                title="Filter by approved evidence"
+              >
+                <CheckCircle2Icon className="h-3.5 w-3.5" />
+                <span>Approved</span>
+                <span className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
+                  filters.approvalStatus === 'Approved' ? 'bg-white/30 text-white' : 'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {approvalCounts.approved}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilter('approvalStatus', 'Pending Review')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  filters.approvalStatus === 'Pending Review'
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'text-brand-700 hover:bg-blue-50'
+                }`}
+                title="Filter by evidence pending review"
+              >
+                <ClockIcon className="h-3.5 w-3.5" />
+                <span>Pending Review</span>
+                <span className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
+                  filters.approvalStatus === 'Pending Review' ? 'bg-white/30 text-white' : 'bg-blue-100 text-brand-800'
+                }`}>
+                  {approvalCounts.pendingReview}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilter('approvalStatus', 'Needs Revision')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  filters.approvalStatus === 'Needs Revision'
+                    ? 'bg-amber-600 text-white shadow-2xs'
+                    : 'text-amber-800 hover:bg-amber-50'
+                }`}
+                title="Filter by evidence requiring revision"
+              >
+                <AlertTriangleIcon className="h-3.5 w-3.5" />
+                <span>Needs Revision</span>
+                <span className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
+                  filters.approvalStatus === 'Needs Revision' ? 'bg-white/30 text-white' : 'bg-amber-100 text-amber-900'
+                }`}>
+                  {approvalCounts.revision}
+                </span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span className="text-[11px] font-medium text-slate-400">Master Accreditation Repository</span>
+            </div>
+          </div>
           
           {/* Main Filter Row: Search Input + 4 Primary Dropdowns + Toggle More */}
           <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
@@ -528,17 +665,19 @@ export function AllEvidence() {
               )}
             </div>
 
-            {/* Primary Dropdowns (Guaranteed minimum widths to prevent truncation) */}
+            {/* Primary Dropdowns */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="w-[145px] sm:w-[155px]">
+              <div className="w-[140px] sm:w-[150px]">
                 {renderSelect('frameworkId')}
               </div>
               <div className="w-[140px] sm:w-[150px]">
                 {renderSelect('areaId')}
               </div>
-              {/* Document Type Dropdown (Sufficient width to prevent "All document typ" truncation) */}
-              <div className="w-[165px] sm:w-[175px]">
+              <div className="w-[150px] sm:w-[160px]">
                 {renderSelect('docType')}
+              </div>
+              <div className="w-[150px] sm:w-[160px]">
+                {renderSelect('campus')}
               </div>
               <div className="w-[130px] sm:w-[140px]">
                 {renderSelect('status')}
