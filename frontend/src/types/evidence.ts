@@ -13,6 +13,12 @@ export interface EvidenceFolder {
   color: FolderColor;
   createdAt: string;
   parentId?: string;
+  areaId?: string;
+  campusId?: string;
+  campus?: string;
+  startDate?: string;
+  expiredDate?: string | null;
+  hasNoDeadline?: boolean;
 }
 
 export interface Framework {
@@ -111,6 +117,7 @@ export interface EvidenceDocument {
   department: string;
   office: string;
   campus: string;
+  campusId?: string;
   documentDate: string;
   validUntil?: string;
   confidentiality: Confidentiality;

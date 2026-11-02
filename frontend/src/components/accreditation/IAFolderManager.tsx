@@ -1,6 +1,7 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
+  Building2Icon,
   FolderIcon,
   SearchIcon,
   FolderPlusIcon,
@@ -50,7 +51,7 @@ const OFFICIAL_IA_AREAS = [
   { code: 'AREA-IX', number: 9, name: 'Quality Assurance Culture', shortDesc: 'QA manual, ISO 9001:2015 QMS, IQA resolutions' }
 ];
 
-export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdated }: IAFolderManagerProps) {
+export function IAFolderManager({ campusId, campusName, iaRequirements, onRequirementUpdated }: IAFolderManagerProps) {
   const { folders, saveFolder, deleteFolder, documents, addDocument, deleteDocument, updateDocument } = usePortal();
 
   // Active view tab: 'areas' | 'folders'
@@ -96,15 +97,70 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter IA folders
-  const iaFolders = useMemo(() => {
-    return folders.filter((f) => f.frameworkId === 'ia' || f.category === 'Accreditation' || f.category === 'General / Custom' || f.id.startsWith('folder-ia'));
-  }, [folders]);
+  // Reset folder and area selection whenever switching campuses
+  useEffect(() => {
+    setActiveFolderId(null);
+    setSelectedAreaCode(null);
+    setSelectedTargetFolder('');
+    setSearchQuery('');
+  }, [campusId]);
 
-  // Documents mapped to this campus or IA framework
+  // STRICT CAMPUS & FRAMEWORK ISOLATION:
+  // Each campus (Tandag, Cantilan, San Miguel, etc.) has its own isolated folders for Areas 1–9.
+  const iaFolders = useMemo(() => {
+    return folders.filter((f) => {
+      const isIA =
+        f.frameworkId === 'ia' ||
+        f.category === 'Accreditation' ||
+        f.category === 'General / Custom' ||
+        f.id.startsWith('folder-ia');
+      if (!isIA) return false;
+
+      // Match folder strictly by campus:
+      if (f.campusId) {
+        return f.campusId === campusId;
+      }
+      if (f.campus) {
+        const cNorm = f.campus.toLowerCase();
+        const idNorm = campusId.toLowerCase();
+        if (idNorm === 'tandag' && (cNorm.includes('tandag') || cNorm.includes('main campus'))) {
+          return true;
+        }
+        return cNorm.includes(idNorm) || f.campus === campusName;
+      }
+      // For legacy/initial mock folders without campus metadata, associate them with default 'tandag'
+      return campusId === 'tandag';
+    });
+  }, [folders, campusId, campusName]);
+
+  // Documents mapped strictly to this campus and IA framework
   const campusIADocs = useMemo(() => {
-    return documents.filter((d) => d.frameworkId === 'ia');
-  }, [documents]);
+    return documents.filter((d) => {
+      const isIA = d.frameworkId === 'ia';
+      if (!isIA) return false;
+
+      // Match document strictly by campus:
+      if (d.campusId) {
+        return d.campusId === campusId;
+      }
+      if (d.campus) {
+        const cNorm = d.campus.toLowerCase();
+        const idNorm = campusId.toLowerCase();
+        if (idNorm === 'tandag' && (cNorm.includes('tandag') || cNorm.includes('main campus'))) {
+          return true;
+        }
+        return cNorm.includes(idNorm) || d.campus === campusName;
+      }
+      return campusId === 'tandag';
+    });
+  }, [documents, campusId, campusName]);
+
+  // Target folder for upload modal (prioritizes active drilled-down folder, or selected card target)
+  const modalTargetFolder = useMemo(() => {
+    const id = activeFolderId || selectedTargetFolder;
+    if (!id) return null;
+    return iaFolders.find((f) => f.id === id) || null;
+  }, [activeFolderId, selectedTargetFolder, iaFolders]);
 
   // Current active Area object if selected
   const currentArea = useMemo(() => {
@@ -299,7 +355,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       });
     }
 
-    // 1. Move the folder (and all nested subfolders) to the specific Area
+    // 1. Move the folder (and all nested subfolders) to the specific Area in this campus
     iaFolders.forEach((f) => {
       if (folderIdsToUpdate.has(f.id)) {
         if (f.id === folderToUpload.id) {
@@ -307,22 +363,26 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
             ...f,
             areaId: targetAreaId,
             category: 'Accreditation',
-            parentId: targetParentFolderId ?? f.parentId ?? undefined
+            parentId: targetParentFolderId ?? f.parentId ?? undefined,
+            campusId: campusId,
+            campus: campusName
           });
         } else {
           saveFolder({
             ...f,
             areaId: targetAreaId,
-            category: 'Accreditation'
+            category: 'Accreditation',
+            campusId: campusId,
+            campus: campusName
           });
         }
       }
     });
 
-    // 2. Move any documents in this folder and descendant folders to the target Area
+    // 2. Move any documents in this folder and descendant folders to the target Area and campus
     campusIADocs.forEach((d) => {
       if (d.folderId && folderIdsToUpdate.has(d.folderId)) {
-        updateDocument(d.id, { areaId: targetAreaId });
+        updateDocument(d.id, { areaId: targetAreaId, campus: campusName, campusId: campusId });
       }
     });
 
@@ -474,8 +534,8 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       if (uploadMode === 'folder' && uploadedFileList[0]?.path) {
         const rootFolderName = uploadedFileList[0].path.split('/')[0];
         if (rootFolderName && rootFolderName !== uploadedFileList[0].name) {
-          // If activeFolderId is set, parentId is activeFolderId. If at Area root, parentId is undefined.
-          const effectiveParentId = activeFolderId || undefined;
+          // If a target folder is active, nest inside it. If at Area root, parentId is undefined.
+          const effectiveParentId = (modalTargetFolder?.id || activeFolderId) || undefined;
           const effectiveAreaId = targetAreaId;
 
           const existingSub = iaFolders.find(
@@ -498,7 +558,9 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
               startDate: new Date().toISOString().slice(0, 10),
               hasNoDeadline: true,
               parentId: effectiveParentId,
-              areaId: effectiveAreaId
+              areaId: effectiveAreaId,
+              campusId: campusId,
+              campus: campusName
             };
             saveFolder(createdSub);
             destinationFolderId = newSubId;
@@ -508,7 +570,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
       } else if (uploadMode === 'files') {
         // Mode 3: Individual Files upload
         // If at Area root and no folder exists yet in this Area, auto-create initial Area folder
-        if (!activeFolderId && selectedAreaCode && (!effectiveFolderId || areaFolders.length === 0)) {
+        if (!effectiveFolderId && selectedAreaCode && areaFolders.length === 0) {
           const newAreaFolderId = `folder-ia-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
           const initialAreaFolder: EvidenceFolder = {
             id: newAreaFolderId,
@@ -521,7 +583,9 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
             createdAt: new Date().toISOString().slice(0, 10),
             startDate: new Date().toISOString().slice(0, 10),
             hasNoDeadline: true,
-            areaId: selectedAreaCode.toLowerCase()
+            areaId: selectedAreaCode.toLowerCase(),
+            campusId: campusId,
+            campus: campusName
           };
           saveFolder(initialAreaFolder);
           destinationFolderId = newAreaFolderId;
@@ -550,6 +614,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
           department: '—',
           office: 'Quality Assurance Office',
           campus: campusName,
+          campusId: campusId,
           documentDate: new Date().toISOString().slice(0, 10),
           confidentiality: 'Internal',
           status: 'Indexed',
@@ -710,12 +775,18 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
     <div className="panel mb-6 overflow-hidden">
       {/* Header */}
       <div className="border-b border-line bg-canvas/40 p-4">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-bold text-ink">IA Document & Folder Management</h3>
-          <Badge tone="brand">Official Areas 1–9</Badge>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-ink">IA Document & Folder Management</h3>
+            <Badge tone="brand">Official Areas 1–9</Badge>
+            <span className="font-semibold text-xs text-brand-700 bg-brand-50 border border-brand-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+              <Building2Icon className="h-3 w-3 text-brand-600" />
+              <span>{campusName}</span>
+            </span>
+          </div>
         </div>
         <p className="text-xs text-ink-muted mt-0.5">
-          Organize institutional accreditation portfolios, manage area folders with start and expired dates, and upload files.
+          Official institutional evidence portfolios strictly organized for <strong className="text-ink font-semibold">{campusName}</strong> across Areas 1–9.
         </p>
       </div>
 
@@ -1027,6 +1098,17 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                               <button
                                 type="button"
                                 onClick={() => {
+                                  setSelectedTargetFolder(folder.id);
+                                  setUploadModalOpen(true);
+                                }}
+                                className="p-1 text-ink-subtle hover:text-brand-600 rounded"
+                                title="Upload into folder"
+                              >
+                                <UploadIcon className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
                                   setEditingFolder(folder);
                                   setFolderFormOpen(true);
                                 }}
@@ -1059,9 +1141,31 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                               {docCount} document{docCount === 1 ? '' : 's'}
                               {subCount > 0 && ` · ${subCount} subfolder${subCount === 1 ? '' : 's'}`}
                             </span>
-                            <span className="font-semibold text-brand-600 group-hover:underline">
-                              Open Folder →
-                            </span>
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTargetFolder(folder.id);
+                                  setUploadModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2 py-0.5 rounded transition-colors"
+                                title="Upload files or folders into this folder"
+                              >
+                                <UploadIcon className="h-3 w-3" />
+                                <span>+ Upload</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveFolderId(folder.id);
+                                  setRepoFilter('all');
+                                  setSearchQuery('');
+                                }}
+                                className="font-semibold text-brand-600 hover:underline"
+                              >
+                                Open Folder →
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1233,7 +1337,21 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                           <div className="mt-2">{renderFolderDatesBadge(sub)}</div>
                           <div className="mt-2 pt-2 border-t border-line text-[11px] text-ink-muted flex items-center justify-between">
                             <span>{count} files inside</span>
-                            <span className="text-brand-600 font-semibold group-hover:underline">Open →</span>
+                            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTargetFolder(sub.id);
+                                  setUploadModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-1.5 py-0.5 rounded transition-colors"
+                                title="Upload files into this subfolder"
+                              >
+                                <UploadIcon className="h-2.5 w-2.5" />
+                                <span>+ Upload</span>
+                              </button>
+                              <span className="text-brand-600 font-semibold group-hover:underline">Open →</span>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1815,8 +1933,8 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
             setSelectedCustomFolderToUpload('');
           }}
           title={
-            currentActiveFolder
-              ? `Upload into "${currentActiveFolder.name}"`
+            modalTargetFolder
+              ? `Upload into "${modalTargetFolder.name}"`
               : currentArea
               ? `Upload into Area ${currentArea.number}: ${currentArea.name}`
               : 'Upload Evidence Files or Folders'
@@ -1831,6 +1949,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                   setUploadModalOpen(false);
                   setUploadedFileList([]);
                   setSelectedCustomFolderToUpload('');
+                  setSelectedTargetFolder('');
                 }}
               >
                 Cancel
@@ -1858,12 +1977,13 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
         >
           <div className="space-y-4">
             {/* Active Destination Notice */}
-            {currentActiveFolder ? (
+            {modalTargetFolder ? (
               <div className="rounded-lg border border-brand-200 bg-brand-50/70 p-2.5 text-xs text-brand-900 flex items-center gap-2">
                 <FolderOpenIcon className="h-4 w-4 text-brand-600 shrink-0" />
                 <span>
-                  Destination: <strong className="font-bold">{currentActiveFolder.name}</strong>
+                  Destination: <strong className="font-bold">{modalTargetFolder.name}</strong>
                   {currentArea && <span className="text-brand-700 font-normal"> (Area {currentArea.number})</span>}
+                  <span className="text-brand-600 font-medium"> · {campusName}</span>
                 </span>
               </div>
             ) : currentArea ? (
@@ -1871,6 +1991,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                 <FolderOpenIcon className="h-4 w-4 text-brand-600 shrink-0" />
                 <span>
                   Destination: <strong className="font-bold">Area {currentArea.number}: {currentArea.name}</strong>
+                  <span className="text-brand-600 font-medium"> · {campusName}</span>
                 </span>
               </div>
             ) : null}
@@ -2011,7 +2132,7 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
                 />
 
                 {/* Optional folder selector when at Area root with multiple folders */}
-                {selectedAreaCode && !activeFolderId && areaFolders.length > 0 && uploadMode === 'files' && (
+                {selectedAreaCode && !modalTargetFolder && areaFolders.length > 0 && uploadMode === 'files' && (
                   <div className="space-y-1.5 rounded-lg border border-line bg-canvas/60 p-2.5">
                     <label className="text-xs font-semibold text-ink flex items-center justify-between">
                       <span>Target Evidence Folder in Area {currentArea?.number}:</span>
@@ -2122,7 +2243,9 @@ export function IAFolderManager({ campusName, iaRequirements, onRequirementUpdat
             ...f,
             frameworkId: 'ia',
             category: assignedAreaId ? 'Accreditation' : 'General / Custom',
-            areaId: assignedAreaId
+            areaId: assignedAreaId,
+            campusId: editingFolder?.campusId || campusId,
+            campus: editingFolder?.campus || campusName
           };
           saveFolder(finalFolder);
           toast.success(editingFolder ? 'Folder updated successfully' : 'New evidence folder created');
