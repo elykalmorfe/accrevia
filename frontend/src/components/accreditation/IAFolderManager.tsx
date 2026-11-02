@@ -133,8 +133,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
         }
         return cNorm.includes(idNorm) || f.campus === campusName;
       }
-      // For legacy/initial mock folders without campus metadata, associate them with default 'tandag'
-      return campusId === 'tandag';
+      // ONLY associate initial untagged mock folder-ia with default 'tandag'
+      return f.id === 'folder-ia' && campusId === 'tandag';
     });
   }, [folders, campusId, campusName]);
 
@@ -928,33 +928,37 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setIsTopUploadSource(true);
-              const initialArea = selectedAreaCode || 'AREA-I';
-              setTopUploadTargetAreaCode(initialArea);
-              const foldersInInitArea = iaFolders.filter(
-                (f) => (f.areaId || '').toLowerCase() === initialArea.toLowerCase()
-              );
-              if (activeFolderId && foldersInInitArea.some((f) => f.id === activeFolderId)) {
-                setTopUploadTargetFolderId(activeFolderId);
-              } else if (foldersInInitArea.length > 0) {
-                setTopUploadTargetFolderId(foldersInInitArea[0].id);
-              } else {
-                setTopUploadTargetFolderId('');
-              }
-              setUploadMode('files');
-              setUploadedFileList([]);
-              setSelectedCustomFolderToUpload('');
-              setUploadModalOpen(true);
-            }}
-            className="btn btn-primary btn-sm h-8 shrink-0 text-xs gap-1.5"
-            title="Upload individual files, an entire folder, or custom folders into specific Areas"
-          >
-            <UploadIcon className="h-3.5 w-3.5" />
-            <span>Upload Files / Folder</span>
-          </button>
+          {/* Top upload button only appears when outside any area or custom folder to eliminate redundancy */}
+          {((activeTab === 'areas' && !selectedAreaCode && !activeFolderId) ||
+            (activeTab === 'folders' && !activeFolderId)) && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsTopUploadSource(true);
+                const initialArea = selectedAreaCode || 'AREA-I';
+                setTopUploadTargetAreaCode(initialArea);
+                const foldersInInitArea = iaFolders.filter(
+                  (f) => (f.areaId || '').toLowerCase() === initialArea.toLowerCase()
+                );
+                if (activeFolderId && foldersInInitArea.some((f) => f.id === activeFolderId)) {
+                  setTopUploadTargetFolderId(activeFolderId);
+                } else if (foldersInInitArea.length > 0) {
+                  setTopUploadTargetFolderId(foldersInInitArea[0].id);
+                } else {
+                  setTopUploadTargetFolderId('');
+                }
+                setUploadMode('files');
+                setUploadedFileList([]);
+                setSelectedCustomFolderToUpload('');
+                setUploadModalOpen(true);
+              }}
+              className="btn btn-primary btn-sm h-8 shrink-0 text-xs gap-1.5"
+              title="Upload individual files, an entire folder, or custom folders into specific Areas"
+            >
+              <UploadIcon className="h-3.5 w-3.5" />
+              <span>Upload Files / Folder</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1549,13 +1553,19 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           {/* LEVEL 1: ROOT REPOSITORY VIEW */}
           {!currentActiveFolder && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                    IA Evidence Folders Repository (Custom)
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                      IA Evidence Folders Repository (Custom)
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
+                      <Building2Icon className="h-3 w-3 text-brand-600" />
+                      <span>{campusName}</span>
+                    </span>
+                  </div>
                   <p className="text-[11px] text-ink-subtle mt-0.5">
-                    Create custom folders and portfolios. Folders can be uploaded directly to specific IA Areas 1–9.
+                    Custom evidence folders and portfolios strictly isolated to {campusName}. Folders can be uploaded directly to specific IA Areas 1–9.
                   </p>
                 </div>
                 <button
@@ -1575,7 +1585,18 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                 </button>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+              {rootCustomFolders.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-line bg-slate-50/70 p-8 text-center space-y-2">
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                    <FolderIcon className="h-5 w-5" />
+                  </div>
+                  <h4 className="text-xs font-bold text-ink">No Custom Folders in {campusName}</h4>
+                  <p className="text-[11px] text-ink-muted max-w-sm mx-auto">
+                    Folders created here belong exclusively to {campusName}. Click &quot;New Folder&quot; above to create a custom evidence portfolio for this campus.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                 {rootCustomFolders.map((folder) => {
                   const docCount = getFolderDocCount(folder);
                   const subCount = getFolderSubfolderCount(folder.id);
@@ -1599,7 +1620,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                             <h4 className="text-xs font-bold text-ink group-hover:text-brand-700 transition-colors">
                               {folder.name}
                             </h4>
-                            <span className="text-[10px] text-ink-subtle">{folder.code} · {folder.createdAt}</span>
+                            <span className="text-[10px] text-ink-subtle">{folder.code} · {folder.campus || campusName} · {folder.createdAt}</span>
                           </div>
                         </div>
 
@@ -1668,6 +1689,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   );
                 })}
               </div>
+              )}
             </div>
           )}
 
