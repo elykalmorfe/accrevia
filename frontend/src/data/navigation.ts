@@ -1,4 +1,4 @@
-﻿import {
+import {
   BookmarkIcon,
   BarChart3Icon,
   ListCheckIcon,
@@ -55,7 +55,7 @@ export const navigation: NavItem[] = [
     },
     children: [
       { label: 'All Documents', to: '/evidence' },
-      { label: 'Upload Evidence', to: '/evidence/upload' }
+      { label: 'Upload Documents', to: '/evidence/upload' }
     ]
   },
   {
