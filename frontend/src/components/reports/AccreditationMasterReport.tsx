@@ -4,6 +4,7 @@ import { Badge } from '../ui/Badge';
 import { PrinterIcon } from 'lucide-react';
 import { AccreditationReportModal } from '../accreditation/AccreditationReportModal';
 import { CampusId } from '../../types/accreditation';
+import { isUrl } from '../../utils/programAccreditation';
 
 export function AccreditationMasterReport() {
   const { campuses, programAccreditations, selectedCampus, setSelectedCampus, selectedCampusObj } = usePortal();
@@ -162,7 +163,13 @@ export function AccreditationMasterReport() {
                     {p.validityStart && p.validityEnd ? `${p.validityStart} to ${p.validityEnd}` : '—'}
                   </td>
                   <td className="td py-2.5 text-ink-muted truncate max-w-[120px]">
-                    {p.certificationFile || '—'}
+                    {isUrl(p.certificationFile) ? (
+                      <a href={p.certificationFile} target="_blank" rel="noreferrer" className="text-brand-700 hover:underline">
+                        View
+                      </a>
+                    ) : (
+                      p.certificationFile || '—'
+                    )}
                   </td>
                   <td className="td py-2.5">
                     {p.copcStatus === 'Compliant' ? (
