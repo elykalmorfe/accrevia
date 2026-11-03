@@ -1,5 +1,4 @@
-﻿import { Link } from 'react-router-dom';
-import { MenuIcon, PlusIcon } from 'lucide-react';
+import { MenuIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { Brand } from './Brand';
 import { GlobalSearch } from './GlobalSearch';
@@ -28,21 +27,11 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         <GlobalSearch />
       </div>
 
-      {/* RIGHT ACTIONS: QUICK UPLOAD, NOTIFICATIONS, PROFILE */}
+      {/* RIGHT ACTIONS: NOTIFICATIONS, PROFILE */}
       <div className="flex shrink-0 items-center gap-2.5">
-        {isAdmin && (
-          <Link
-            to="/evidence/upload"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200/80 px-3 py-1.5 text-xs font-semibold transition-all shadow-2xs"
-            title="Upload new evidence document"
-          >
-            <PlusIcon className="h-3.5 w-3.5 text-brand-600" />
-            <span>Upload Evidence</span>
-          </Link>
-        )}
         {isAdmin && <NotificationsMenu />}
         <ProfileMenu />
       </div>
     </header>
   );
-}
+}
