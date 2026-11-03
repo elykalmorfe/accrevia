@@ -36,7 +36,6 @@ import { CampusId, IARequirementItem } from '../../types/accreditation';
 import { Badge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
 import { FolderFormModal } from '../folders/FolderFormModal';
-import { DeleteFolderModal } from '../folders/DeleteFolderModal';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
 
 interface IAFolderManagerProps {
@@ -97,8 +96,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   const [folderFormInitialName, setFolderFormInitialName] = useState<string | undefined>(undefined);
   const [folderFormInitialCode, setFolderFormInitialCode] = useState<string | undefined>(undefined);
   const [editingFolder, setEditingFolder] = useState<EvidenceFolder | null>(null);
-  const [deletingFolder, setDeletingFolder] = useState<EvidenceFolder | null>(null);
-
+  
   // Upload Modal States
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadMode, setUploadMode] = useState<'files' | 'folder' | 'from-custom'>('files');
@@ -929,7 +927,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           sizeMb: Math.round((file.size / (1024 * 1024)) * 10) / 10 || 1.2,
           uploadedBy: 'Current User',
           passages: ['Institutional evidence registered under ' + (targetFolder?.name || targetAreaObj.name)],
-          folderId: destinationFolderId
+          folderId: destinationFolderId || undefined
         };
         addDocument(newDoc);
       });
@@ -1543,16 +1541,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                               >
                                 <PencilIcon className="h-3.5 w-3.5" />
                               </button>
-                              {!folder.isSystem && (
-                                <button
-                                  type="button"
-                                  onClick={() => setDeletingFolder(folder)}
-                                  className="p-1 text-ink-subtle hover:text-danger-600 rounded"
-                                  title="Delete folder"
-                                >
-                                  <Trash2Icon className="h-3.5 w-3.5" />
-                                </button>
-                              )}
+                              
                             </div>
                           </div>
 
@@ -1853,11 +1842,15 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setDeletingFolder(sub);
+                                setEditingFolder(sub);
+                                setFolderFormParentId(activeFolderId || undefined);
+                                setFolderFormAreaId(selectedAreaCode?.toLowerCase());
+                                setFolderFormOpen(true);
                               }}
-                              className="p-1 text-ink-subtle hover:text-danger-600"
+                              className="p-1 text-ink-subtle hover:text-brand-600 rounded"
+                              title="Rename / Edit subfolder"
                             >
-                              <Trash2Icon className="h-3 w-3" />
+                              <PencilIcon className="h-3.5 w-3.5" />
                             </button>
                           </div>
                           <div className="mt-2">{renderFolderDatesBadge(sub)}</div>
@@ -2228,16 +2221,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                           >
                             <PencilIcon className="h-3.5 w-3.5" />
                           </button>
-                          {!folder.isSystem && (
-                            <button
-                              type="button"
-                              onClick={() => setDeletingFolder(folder)}
-                              className="p-1 text-ink-subtle hover:text-danger-600 rounded"
-                              title="Delete folder"
-                            >
-                              <Trash2Icon className="h-3.5 w-3.5" />
-                            </button>
-                          )}
+                          
                         </div>
                       </div>
 
@@ -2437,11 +2421,15 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setDeletingFolder(sub);
+                                setEditingFolder(sub);
+                                setFolderFormParentId(activeFolderId || undefined);
+                                setFolderFormAreaId(selectedAreaCode?.toLowerCase());
+                                setFolderFormOpen(true);
                               }}
-                              className="p-1 text-ink-subtle hover:text-danger-600"
+                              className="p-1 text-ink-subtle hover:text-brand-600 rounded"
+                              title="Rename / Edit subfolder"
                             >
-                              <Trash2Icon className="h-3 w-3" />
+                              <PencilIcon className="h-3.5 w-3.5" />
                             </button>
                           </div>
                           <div className="mt-2">{renderFolderDatesBadge(sub)}</div>
@@ -2503,7 +2491,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                           </div>
 
                           <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                            <Badge tone={doc.status === 'Verified' ? 'success' : 'brand'} dot>
+                            <Badge tone={doc.status === 'Indexed' || doc.approvalStatus === 'Approved' ? 'success' : 'brand'} dot>
                               {doc.status || 'Indexed'}
                             </Badge>
 
@@ -3271,19 +3259,6 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
       )}
 
       {/* DELETE FOLDER MODAL */}
-      <DeleteFolderModal
-        open={!!deletingFolder}
-        folder={deletingFolder}
-        documentCount={deletingFolder ? getFolderDocCount(deletingFolder) : 0}
-        onClose={() => setDeletingFolder(null)}
-        onConfirm={(id) => {
-          deleteFolder(id);
-          if (activeFolderId === id) {
-            setActiveFolderId(null);
-          }
-          toast.success('Folder deleted');
-        }}
-      />
-    </div>
+      </div>
   );
 }

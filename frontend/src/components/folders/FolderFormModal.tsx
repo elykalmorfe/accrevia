@@ -17,6 +17,7 @@ interface FolderFormModalProps {
   parentId?: string;
   frameworkId?: string;
   category?: FrameworkCategory | 'General / Custom';
+  simplified?: boolean;
   initialAreaId?: string;
   initialName?: string;
   initialCode?: string;
@@ -30,6 +31,7 @@ export function FolderFormModal({
   parentId,
   frameworkId,
   category,
+  simplified,
   initialAreaId,
   initialName,
   initialCode,
@@ -96,9 +98,9 @@ export function FolderFormModal({
       size="md"
       title={folder ? 'Edit Evidence Folder' : 'Create Evidence Folder'}
       description={
-        folder
-          ? 'Update folder name, code, timeline dates, and guidelines.'
-          : 'Create a new evidence portfolio with designated start date and deadline.'
+        simplified
+          ? (folder ? 'Update folder name, code, and guidelines.' : 'Create a new folder portfolio with guidelines.')
+          : (folder ? 'Update folder name, code, timeline dates, and guidelines.' : 'Create a new evidence portfolio with designated start date and deadline.')
       }
       footer={
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
@@ -170,7 +172,8 @@ export function FolderFormModal({
           </div>
         </div>
 
-        {/* 2. Timeline & Expiration Card */}
+        {/* 2. Timeline & Expiration Card (Hidden in simplified mode) */}
+        {!simplified && (
         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4 space-y-3 shadow-2xs">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
@@ -229,6 +232,7 @@ export function FolderFormModal({
             </p>
           )}
         </div>
+        )}
 
         {/* 3. Folder Description & Guidelines */}
         <div>

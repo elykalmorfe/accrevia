@@ -2,19 +2,13 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangleIcon,
-  ArchiveIcon,
-  ArrowRightIcon,
-  FileTextIcon,
-  RotateCcwIcon,
-  RotateCwIcon,
-  SearchIcon,
-  Share2Icon,
-  SlidersHorizontalIcon,
-  UploadIcon,
-  XIcon,
   CheckCircle2Icon,
   ClockIcon,
-  Building2Icon
+  FileTextIcon,
+  SearchIcon,
+  SlidersHorizontalIcon,
+  UploadIcon,
+  XIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { useLookup } from '../../hooks/useLookup';
@@ -27,8 +21,6 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { EvidenceTable } from '../../components/evidence/EvidenceTable';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
 import { EditMetadataModal } from '../../components/documents/EditMetadataModal';
-import { processingJobs } from '../../data/processing';
-import { shareStatus } from '../../utils/sharing';
 
 type FilterKey =
   | 'frameworkId'
@@ -78,7 +70,7 @@ const placeholders: Record<FilterKey, string> = {
   frameworkId: 'All frameworks',
   areaId: 'All areas',
   docType: 'All types',
-  status: 'All pipeline states',
+  status: 'All statuses',
   approvalStatus: 'All review statuses',
   campus: 'All campuses',
   criterionId: 'All criteria',
@@ -89,10 +81,10 @@ const placeholders: Record<FilterKey, string> = {
   cycle: 'All accreditation cycles'
 };
 
-const secondaryKeys: FilterKey[] = ['campus', 'criterionId', 'indicatorId', 'program', 'office', 'academicYear', 'cycle'];
+const secondaryKeys: FilterKey[] = ['criterionId', 'indicatorId', 'program', 'office', 'academicYear', 'cycle'];
 
 export function AllEvidence() {
-  const { documents, frameworks, areas, criteria, indicators, shares, accessRequests, pending } = usePortal();
+  const { documents, frameworks, areas, criteria, indicators } = usePortal();
   const lookup = useLookup();
   const [text, setText] = useState('');
   const [filters, setFilters] = useState(emptyFilters);
@@ -101,10 +93,10 @@ export function AllEvidence() {
   const [editing, setEditing] = useState<EvidenceDocument | null>(null);
 
   const activeDocs = useMemo(() => documents.filter((d) => d.status !== 'Archived'), [documents]);
-  const archivedDocs = useMemo(() => documents.filter((d) => d.status === 'Archived'), [documents]);
-  const activeSharesCount = useMemo(() => shares.filter((s) => shareStatus(s) === 'Active').length, [shares]);
-  const pendingRequestsCount = useMemo(() => accessRequests.filter((r) => r.status === 'Pending').length, [accessRequests]);
-  const totalStorageMb = useMemo(() => Math.round(documents.reduce((acc, d) => acc + (d.sizeMb || 0), 0) * 10) / 10, [documents]);
+  const totalStorageMb = useMemo(
+    () => Math.round(activeDocs.reduce((acc, d) => acc + (d.sizeMb || 0), 0) * 10) / 10,
+    [activeDocs]
+  );
 
   // Master Accreditation Approval Counts
   const approvalCounts = useMemo(() => {
@@ -113,17 +105,6 @@ export function AllEvidence() {
     const pendingReview = activeDocs.filter((d) => !d.approvalStatus || d.approvalStatus === 'Pending Review').length;
     return { approved, revision, pendingReview };
   }, [activeDocs]);
-
-  // Priority Document Processing breakdown (Running, Queued, Failed, Completed today)
-  const processingStats = useMemo(() => {
-    return {
-      running: processingJobs.filter((j) => j.status === 'Running').length,
-      queued: processingJobs.filter((j) => j.status === 'Queued').length,
-      failed: processingJobs.filter((j) => j.status === 'Failed').length,
-      completed: processingJobs.filter((j) => j.status === 'Completed').length,
-      failedJob: processingJobs.find((j) => j.status === 'Failed')
-    };
-  }, []);
 
   const options = useMemo<Record<FilterKey, { value: string; label: string }[]>>(() => {
     const plain = (values: string[]) => values.map((v) => ({ value: v, label: v }));
@@ -137,7 +118,7 @@ export function AllEvidence() {
         { value: 'Pending Review', label: 'Pending Review' },
         { value: 'Needs Revision', label: 'Needs Revision' }
       ],
-      campus: plain(uniqueValues(activeDocs, (d) => d.campus || 'Tandag (Main Campus)')),
+      campus: plain(uniqueValues(activeDocs, (d) => d.campus || 'Main Campus (Tandag City)')),
       criterionId: criteria
         .filter((c) => (!filters.frameworkId || c.frameworkId === filters.frameworkId) && (!filters.areaId || c.areaId === filters.areaId))
         .map((c) => ({ value: c.id, label: `${c.code} – ${c.name}` })),
@@ -183,7 +164,7 @@ export function AllEvidence() {
           }
 
           if (k === 'campus') {
-            const docCampus = d.campus || 'Tandag (Main Campus)';
+            const docCampus = d.campus || 'Main Campus (Tandag City)';
             if (docCampus !== filterVal) return false;
             continue;
           }
@@ -215,344 +196,181 @@ export function AllEvidence() {
     />
   );
 
-  const actionItemsCount =
-    (processingStats.failed > 0 ? 1 : 0) +
-    (pendingRequestsCount > 0 ? 1 : 0) +
-    (pending.length > 0 ? 1 : 0);
-
   return (
     <>
       <PageHeader
-        eyebrow="Document Management"
+        eyebrow="Accreditation Repository"
         title="All Documents"
-        description="Master evidence repository with real-time pipeline monitoring, cross-framework indexing, and priority health indicators."
+        description="Master evidence catalog across all frameworks and campuses. Search, review, and verify accreditation compliance documents."
         actions={
-          <Link to="/evidence/upload" className="btn btn-primary shadow-sm">
-            <UploadIcon className="h-4 w-4" /> Upload Documents
+          <Link to="/evidence/upload" className="btn btn-primary shadow-xs gap-1.5 font-semibold">
+            <UploadIcon className="h-4 w-4" />
+            <span>Upload Documents</span>
           </Link>
         }
       />
 
       {/* ========================================================================= */}
-      {/* 1. PRIORITY ATTENTION CALLOUT BANNER (Clean, Professional Action Cards)   */}
+      {/* 1. DOCUMENT REPOSITORY KPIS (Focused, Document-Specific Metrics)           */}
       {/* ========================================================================= */}
-      {actionItemsCount > 0 && (
-        <div className="mb-6 rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/90 via-amber-50/50 to-orange-50/30 p-4 shadow-xs">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between border-b border-amber-200/70 pb-2.5">
-              <div className="flex items-center gap-2">
-                <span className="grid h-6 w-6 place-items-center rounded-lg bg-amber-500 text-white shadow-2xs">
-                  <AlertTriangleIcon className="h-3.5 w-3.5" />
-                </span>
-                <span className="font-bold text-sm text-amber-950 tracking-tight">
-                  Priority Attention Required
-                </span>
-                <span className="rounded-full bg-amber-200/90 px-2 py-0.2 text-[10.5px] font-black text-amber-950 border border-amber-300">
-                  {actionItemsCount} {actionItemsCount === 1 ? 'Action Item' : 'Action Items'}
-                </span>
-              </div>
-              <p className="hidden md:inline-block text-[11px] text-amber-900/80 font-medium">
-                Immediate review recommended to maintain accreditation compliance
-              </p>
-            </div>
-
-            {/* Individual Action Cards */}
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Item 1: Processing Job Failed */}
-              {processingStats.failed > 0 && (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-rose-200/90 bg-white/95 p-3 shadow-2xs">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-rose-600 animate-pulse" />
-                      <p className="text-xs font-bold text-rose-950 truncate">1 Processing Failed</p>
-                    </div>
-                    <p
-                      className="text-[11px] text-rose-800/80 truncate mt-0.5"
-                      title={processingStats.failedJob?.fileName}
-                    >
-                      {processingStats.failedJob?.fileName || 'OCR pipeline error'}
-                    </p>
-                  </div>
-                  <Link
-                    to="/evidence/processing"
-                    className="inline-flex items-center gap-1 shrink-0 rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-1 text-[11.5px] font-bold text-rose-700 hover:bg-rose-100 transition-colors"
-                  >
-                    <RotateCcwIcon className="h-3 w-3" /> Retry Job
-                  </Link>
-                </div>
-              )}
-
-              {/* Item 2: Access Requests Pending */}
-              {pendingRequestsCount > 0 && (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200/90 bg-white/95 p-3 shadow-2xs">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-amber-600" />
-                      <p className="text-xs font-bold text-amber-950 truncate">
-                        {pendingRequestsCount} Access {pendingRequestsCount === 1 ? 'Request' : 'Requests'}
-                      </p>
-                    </div>
-                    <p className="text-[11px] text-amber-800/80 truncate mt-0.5">
-                      Dean & accreditor permissions
-                    </p>
-                  </div>
-                  <Link
-                    to="/evidence/shared?tab=requests"
-                    className="inline-flex items-center gap-1 shrink-0 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1 text-[11.5px] font-bold text-amber-900 hover:bg-amber-100 transition-colors"
-                  >
-                    Review Access
-                  </Link>
-                </div>
-              )}
-
-              
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 2. OVERVIEW CARDS: HARMONIZED 4-CARD EXECUTIVE DASHBOARD                 */}
-      {/* ========================================================================= */}
-      <section className="mb-6 space-y-4" aria-label="Evidence Overview">
-        <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-          
-          {/* Card 1: All Documents Repository */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft flex flex-col justify-between hover:border-slate-300 hover:shadow-soft-lg transition-all">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Repository</span>
-                <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100/70">
-                  <FileTextIcon className="h-4 w-4" />
-                </span>
-              </div>
-              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">
-                {activeDocs.length} <span className="text-xs font-normal text-slate-500">Active Files</span>
-              </p>
-              <p className="mt-1 text-xs text-slate-600">
-                {totalStorageMb} MB indexed across {frameworks.length} frameworks
-              </p>
-
-              {/* Accreditation Approval Status Breakdown */}
-              <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60" title="Approved Evidence">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-                  {approvalCounts.approved} Approved
-                </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-brand-700 border border-blue-200/60" title="Pending Review">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                  {approvalCounts.pendingReview} Pending
-                </span>
-                {approvalCounts.revision > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/60" title="Needs Revision">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
-                    {approvalCounts.revision} Revisions
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-slate-400 text-[11px]">Primary Store</span>
-              <Link to="/evidence/upload" className="font-bold text-brand-600 hover:text-brand-700 inline-flex items-center gap-0.5">
-                Upload to Folders <ArrowRightIcon className="h-3 w-3" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 2: Document Processing Pipeline (Harmonized, Clean & Balanced) */}
+      <section className="mb-6 space-y-4" aria-label="Document Repository Overview">
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4 sm:gap-4.5">
+          {/* Card 1: All Documents */}
           <div
-            className={`rounded-2xl border bg-white p-4 shadow-soft flex flex-col justify-between hover:shadow-soft-lg transition-all ${
-              processingStats.failed > 0
-                ? 'border-rose-300 ring-1 ring-rose-200/50'
-                : 'border-slate-200/80 hover:border-slate-300'
+            role="button"
+            tabIndex={0}
+            onClick={() => setFilter('approvalStatus', '')}
+            onKeyDown={(e) => e.key === 'Enter' && setFilter('approvalStatus', '')}
+            className={`group rounded-2xl border p-5 shadow-xs transition-all duration-200 cursor-pointer text-left ${
+              !filters.approvalStatus
+                ? 'border-brand-500 bg-white ring-2 ring-brand-500/20 shadow-sm'
+                : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-sm'
             }`}
+            title="Click to view all active documents"
           >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Document Processing</span>
-                <span className="grid h-8 w-8 place-items-center rounded-xl bg-violet-50 text-violet-600 border border-violet-100/70">
-                  <RotateCwIcon className="h-4 w-4" />
-                </span>
-              </div>
-              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">
-                {processingJobs.length} <span className="text-xs font-normal text-slate-500">Pipeline Jobs</span>
-              </p>
-              <p className="mt-1 text-xs text-slate-600">
-                OCR extraction & metadata queue
-              </p>
-
-              {/* Status breakdown pills (Clean unified single row) */}
-              <div className="mt-3 flex flex-wrap items-center gap-1">
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/70" title="Running Jobs">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />
-                  {processingStats.running} Run
-                </span>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/70" title="Queued Jobs">
-                  {processingStats.queued} Queue
-                </span>
-                {processingStats.failed > 0 && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300" title="Failed Jobs">
-                    <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
-                    {processingStats.failed} Fail
-                  </span>
-                )}
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/70" title="Completed Today">
-                  {processingStats.completed} Done
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className={`text-[11px] font-semibold ${processingStats.failed > 0 ? 'text-rose-700' : 'text-slate-400'}`}>
-                {processingStats.failed > 0 ? 'Retry Required' : 'Pipeline Healthy'}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Active Repository
               </span>
-              <Link to="/evidence/processing" className="font-bold text-brand-600 hover:text-brand-700 inline-flex items-center gap-0.5">
-                Jobs ({processingJobs.length}) <ArrowRightIcon className="h-3 w-3" />
-              </Link>
+              <span
+                className={`grid h-9 w-9 place-items-center rounded-xl border shadow-2xs transition-colors ${
+                  !filters.approvalStatus
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-blue-50 text-blue-600 border-blue-100/70 group-hover:bg-blue-100'
+                }`}
+              >
+                <FileTextIcon className="h-4.5 w-4.5" />
+              </span>
             </div>
+            <p className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-ink">
+              {activeDocs.length}
+            </p>
+            <p className="mt-1 text-xs font-medium text-slate-500 truncate">
+              {totalStorageMb} MB indexed across {frameworks.length} frameworks
+            </p>
           </div>
 
-          {/* Card 3: Shared Access */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft flex flex-col justify-between hover:border-slate-300 hover:shadow-soft-lg transition-all">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Shared Access</span>
-                <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100/70">
-                  <Share2Icon className="h-4 w-4" />
-                </span>
-              </div>
-              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">
-                {activeSharesCount} <span className="text-xs font-normal text-slate-500">Active Shares</span>
-              </p>
-              <p className="mt-1 text-xs text-slate-600">
-                {new Set(shares.map((s) => s.documentId)).size} shared documents across campuses
-              </p>
-
-              {/* Status breakdown pills */}
-              <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-                  {activeSharesCount} Active
-                </span>
-                {pendingRequestsCount > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
-                    {pendingRequestsCount} Requests
-                  </span>
-                )}
-              </div>
+          {/* Card 2: Approved Documents */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setFilter('approvalStatus', filters.approvalStatus === 'Approved' ? '' : 'Approved')}
+            onKeyDown={(e) =>
+              e.key === 'Enter' && setFilter('approvalStatus', filters.approvalStatus === 'Approved' ? '' : 'Approved')
+            }
+            className={`group rounded-2xl border p-5 shadow-xs transition-all duration-200 cursor-pointer text-left ${
+              filters.approvalStatus === 'Approved'
+                ? 'border-emerald-500 bg-white ring-2 ring-emerald-500/20 shadow-sm'
+                : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-sm'
+            }`}
+            title="Click to filter by approved evidence"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Approved Evidence
+              </span>
+              <span
+                className={`grid h-9 w-9 place-items-center rounded-xl border shadow-2xs transition-colors ${
+                  filters.approvalStatus === 'Approved'
+                    ? 'bg-emerald-600 text-white border-emerald-600'
+                    : 'bg-emerald-50 text-emerald-600 border-emerald-100/70 group-hover:bg-emerald-100'
+                }`}
+              >
+                <CheckCircle2Icon className="h-4.5 w-4.5" />
+              </span>
             </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-slate-400 text-[11px]">{shares.filter((s) => shareStatus(s) === 'Expired').length} Expired</span>
-              <Link to="/evidence/shared" className="font-bold text-brand-600 hover:text-brand-700 inline-flex items-center gap-0.5">
-                Manage Access <ArrowRightIcon className="h-3 w-3" />
-              </Link>
-            </div>
+            <p className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-ink">
+              {approvalCounts.approved}
+            </p>
+            <p className="mt-1 text-xs font-medium text-slate-500 truncate">
+              Verified criteria compliance
+            </p>
           </div>
 
-          {/* Card 4: Archived & Review Inbox */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft flex flex-col justify-between hover:border-slate-300 hover:shadow-soft-lg transition-all">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Archived & Review</span>
-                <span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-50 text-amber-600 border border-amber-100/70">
-                  <ArchiveIcon className="h-4 w-4" />
-                </span>
-              </div>
-              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">
-                {archivedDocs.length} <span className="text-xs font-normal text-slate-500">Archived</span>
-              </p>
-              <p className="mt-1 text-xs text-slate-600">
-                Past-cycle records kept for audit reference
-              </p>
-
-              {/* Status breakdown pills */}
-              <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-brand-700 border border-brand-200/70">
-                  <span className="h-1.5 w-1.5 rounded-full bg-brand-600 animate-pulse" />
-                  {pending.length} Pending Tagging
-                </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
-                  Historical Archive
-                </span>
-              </div>
+          {/* Card 3: Pending Review Documents */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setFilter('approvalStatus', filters.approvalStatus === 'Pending Review' ? '' : 'Pending Review')}
+            onKeyDown={(e) =>
+              e.key === 'Enter' &&
+              setFilter('approvalStatus', filters.approvalStatus === 'Pending Review' ? '' : 'Pending Review')
+            }
+            className={`group rounded-2xl border p-5 shadow-xs transition-all duration-200 cursor-pointer text-left ${
+              filters.approvalStatus === 'Pending Review'
+                ? 'border-brand-500 bg-white ring-2 ring-brand-500/20 shadow-sm'
+                : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-sm'
+            }`}
+            title="Click to filter by evidence pending review"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Pending Review
+              </span>
+              <span
+                className={`grid h-9 w-9 place-items-center rounded-xl border shadow-2xs transition-colors ${
+                  filters.approvalStatus === 'Pending Review'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-blue-50 text-brand-600 border-blue-100/70 group-hover:bg-blue-100'
+                }`}
+              >
+                <ClockIcon className="h-4.5 w-4.5" />
+              </span>
             </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <Link to="/evidence/archived" className="text-slate-500 hover:text-slate-800 text-[11px] font-medium">
-                View Archive ({archivedDocs.length})
-              </Link>
-              
-            </div>
+            <p className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-ink">
+              {approvalCounts.pendingReview}
+            </p>
+            <p className="mt-1 text-xs font-medium text-slate-500 truncate">
+              Awaiting accreditation sign-off
+            </p>
           </div>
 
+          {/* Card 4: Needs Revision Documents */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setFilter('approvalStatus', filters.approvalStatus === 'Needs Revision' ? '' : 'Needs Revision')}
+            onKeyDown={(e) =>
+              e.key === 'Enter' &&
+              setFilter('approvalStatus', filters.approvalStatus === 'Needs Revision' ? '' : 'Needs Revision')
+            }
+            className={`group rounded-2xl border p-5 shadow-xs transition-all duration-200 cursor-pointer text-left ${
+              filters.approvalStatus === 'Needs Revision'
+                ? 'border-amber-500 bg-white ring-2 ring-amber-500/20 shadow-sm'
+                : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-sm'
+            }`}
+            title="Click to filter by evidence requiring revision"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Needs Revision
+              </span>
+              <span
+                className={`grid h-9 w-9 place-items-center rounded-xl border shadow-2xs transition-colors ${
+                  filters.approvalStatus === 'Needs Revision'
+                    ? 'bg-amber-600 text-white border-amber-600'
+                    : 'bg-amber-50 text-amber-600 border-amber-100/70 group-hover:bg-amber-100'
+                }`}
+              >
+                <AlertTriangleIcon className="h-4.5 w-4.5" />
+              </span>
+            </div>
+            <p className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-ink">
+              {approvalCounts.revision}
+            </p>
+            <p className="mt-1 text-xs font-medium text-slate-500 truncate">
+              Requires updates or re-upload
+            </p>
+          </div>
         </div>
       </section>
 
       {/* ========================================================================= */}
-      {/* 3. NAVIGATION VIEW TABS (Sleek Segmented Pill Control)                     */}
-      {/* ========================================================================= */}
-      <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-slate-100/80 p-1 shadow-2xs">
-          <Link
-            to="/evidence"
-            className="flex items-center gap-2 rounded-lg bg-white px-3.5 py-1.5 text-xs font-bold text-slate-900 shadow-xs border border-slate-200/60"
-          >
-            <span>All Active Documents</span>
-            <span className="rounded-full bg-brand-100 text-brand-800 px-1.5 py-0.2 text-[10.5px] font-black">
-              {activeDocs.length}
-            </span>
-          </Link>
-          <Link
-            to="/evidence/shared"
-            className="flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white/60 transition-all"
-          >
-            <span>Shared Documents</span>
-            <span className="rounded-full bg-slate-200/80 text-slate-700 px-1.5 py-0.2 text-[10px] font-bold">
-              {activeSharesCount}
-            </span>
-          </Link>
-          <Link
-            to="/evidence/archived"
-            className="flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white/60 transition-all"
-          >
-            <span>Archived Documents</span>
-            <span className="rounded-full bg-slate-200/80 text-slate-700 px-1.5 py-0.2 text-[10px] font-bold">
-              {archivedDocs.length}
-            </span>
-          </Link>
-          <Link
-            to="/evidence/processing"
-            className="flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white/60 transition-all"
-          >
-            <span>Processing Pipeline</span>
-            <span
-              className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
-                processingStats.failed > 0
-                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                  : 'bg-slate-200/80 text-slate-700'
-              }`}
-            >
-              {processingJobs.length}
-            </span>
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span>Active Compliance Repository</span>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 4. DOCUMENTS FILTER & TABLE SECTION (No Truncation, Professional Layout)   */}
+      {/* 2. DOCUMENTS FILTER & TABLE SECTION (Clean, Enterprise UX)                */}
       {/* ========================================================================= */}
       <section className="panel overflow-hidden shadow-xs" aria-label="Compliance documents">
-        <div className="space-y-3.5 border-b border-line p-4 bg-canvas/40">
-
-          {/* Quick Approval Status Filter Tabs */}
+        <div className="space-y-3.5 border-b border-line p-4 sm:p-5 bg-canvas/40">
+          {/* Quick Approval Status Filter Tabs + Active Count Summary */}
           <div className="flex items-center justify-between flex-wrap gap-2.5 pb-1">
             <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200 shadow-2xs flex-wrap">
               <button
@@ -565,9 +383,11 @@ export function AllEvidence() {
                 }`}
               >
                 <span>All Documents</span>
-                <span className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
-                  !filters.approvalStatus ? 'bg-slate-200 text-slate-900' : 'bg-slate-200/70 text-slate-600'
-                }`}>
+                <span
+                  className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
+                    !filters.approvalStatus ? 'bg-slate-200 text-slate-900' : 'bg-slate-200/70 text-slate-600'
+                  }`}
+                >
                   {activeDocs.length}
                 </span>
               </button>
@@ -584,9 +404,11 @@ export function AllEvidence() {
               >
                 <CheckCircle2Icon className="h-3.5 w-3.5" />
                 <span>Approved</span>
-                <span className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
-                  filters.approvalStatus === 'Approved' ? 'bg-white/30 text-white' : 'bg-emerald-100 text-emerald-800'
-                }`}>
+                <span
+                  className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
+                    filters.approvalStatus === 'Approved' ? 'bg-white/30 text-white' : 'bg-emerald-100 text-emerald-800'
+                  }`}
+                >
                   {approvalCounts.approved}
                 </span>
               </button>
@@ -603,9 +425,13 @@ export function AllEvidence() {
               >
                 <ClockIcon className="h-3.5 w-3.5" />
                 <span>Pending Review</span>
-                <span className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
-                  filters.approvalStatus === 'Pending Review' ? 'bg-white/30 text-white' : 'bg-blue-100 text-brand-800'
-                }`}>
+                <span
+                  className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
+                    filters.approvalStatus === 'Pending Review'
+                      ? 'bg-white/30 text-white'
+                      : 'bg-blue-100 text-brand-800'
+                  }`}
+                >
                   {approvalCounts.pendingReview}
                 </span>
               </button>
@@ -622,25 +448,32 @@ export function AllEvidence() {
               >
                 <AlertTriangleIcon className="h-3.5 w-3.5" />
                 <span>Needs Revision</span>
-                <span className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
-                  filters.approvalStatus === 'Needs Revision' ? 'bg-white/30 text-white' : 'bg-amber-100 text-amber-900'
-                }`}>
+                <span
+                  className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
+                    filters.approvalStatus === 'Needs Revision'
+                      ? 'bg-white/30 text-white'
+                      : 'bg-amber-100 text-amber-900'
+                  }`}
+                >
                   {approvalCounts.revision}
                 </span>
               </button>
             </div>
 
             <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span className="text-[11px] font-medium text-slate-400">Master Accreditation Repository</span>
+              <span className="text-[11.5px] font-medium text-slate-600">
+                Showing <strong className="text-slate-900 font-bold">{filtered.length}</strong> of{' '}
+                <strong className="text-slate-900 font-bold">{activeDocs.length}</strong> active documents
+              </span>
             </div>
           </div>
-          
-          {/* Main Filter Row: Search Input + 4 Primary Dropdowns + Toggle More */}
+
+          {/* Main Filter Row: Search Input + Primary Dropdowns (Framework, Campus, Type, Area) + Toggle More */}
           <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
             {/* Search Input */}
             <div className="relative flex-1 min-w-[220px]">
               <label htmlFor="evidence-filter" className="sr-only">
-                Filter documents by title, keyword, or office
+                Search documents by title, keyword, office, or campus
               </label>
               <SearchIcon
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -650,7 +483,7 @@ export function AllEvidence() {
                 id="evidence-filter"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Search by title, keyword, or office..."
+                placeholder="Search by title, keyword, office, or campus..."
                 className="input h-9 pl-9 pr-8 text-xs w-full"
               />
               {text && (
@@ -670,17 +503,14 @@ export function AllEvidence() {
               <div className="w-[140px] sm:w-[150px]">
                 {renderSelect('frameworkId')}
               </div>
-              <div className="w-[140px] sm:w-[150px]">
-                {renderSelect('areaId')}
+              <div className="w-[150px] sm:w-[160px]">
+                {renderSelect('campus')}
               </div>
               <div className="w-[150px] sm:w-[160px]">
                 {renderSelect('docType')}
               </div>
-              <div className="w-[150px] sm:w-[160px]">
-                {renderSelect('campus')}
-              </div>
-              <div className="w-[130px] sm:w-[140px]">
-                {renderSelect('status')}
+              <div className="w-[140px] sm:w-[150px]">
+                {renderSelect('areaId')}
               </div>
 
               {/* More Filters Button */}
@@ -713,32 +543,29 @@ export function AllEvidence() {
           )}
 
           {/* Active Filter Chips & Summary */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-slate-500 text-[11.5px]">
-                Showing <strong className="text-slate-900 font-bold">{filtered.length}</strong> of{' '}
-                <strong className="text-slate-900 font-bold">{activeDocs.length}</strong> active documents
-              </span>
+          {(activeKeys.length > 0 || text) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-slate-500 text-[11px] font-medium">Active filters:</span>
 
-              {activeKeys.map((k) => (
-                <span
-                  key={k}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-300/80 bg-white py-0.5 pl-2 pr-1 text-[11px] font-semibold text-slate-800 shadow-2xs"
-                >
-                  <span className="text-slate-400 font-medium">{labels[k]}:</span>
-                  <span>{displayValue(k)}</span>
-                  <button
-                    type="button"
-                    onClick={() => setFilter(k, '')}
-                    className="grid h-4 w-4 place-items-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700"
-                    aria-label={`Remove ${labels[k]} filter`}
+                {activeKeys.map((k) => (
+                  <span
+                    key={k}
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-300/80 bg-white py-0.5 pl-2 pr-1 text-[11px] font-semibold text-slate-800 shadow-2xs"
                   >
-                    <XIcon className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
+                    <span className="text-slate-400 font-medium">{labels[k]}:</span>
+                    <span>{displayValue(k)}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFilter(k, '')}
+                      className="grid h-4 w-4 place-items-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+                      aria-label={`Remove ${labels[k]} filter`}
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
 
-              {(activeKeys.length > 0 || text) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -749,13 +576,13 @@ export function AllEvidence() {
                 >
                   Reset all filters
                 </button>
-              )}
-            </div>
+              </div>
 
-            <span className="text-[11px] text-slate-400 hidden sm:inline">
-              Sorted by latest upload date
-            </span>
-          </div>
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
+                Sorted by latest upload date
+              </span>
+            </div>
+          )}
         </div>
 
         {filtered.length === 0 ? (
