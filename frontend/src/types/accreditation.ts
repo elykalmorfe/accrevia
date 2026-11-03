@@ -1,4 +1,4 @@
-﻿export type CampusId = 'tandag' | 'cantilan' | 'cagwait' | 'san-miguel' | 'lianga' | 'tagbina' | 'bislig';
+export type CampusId = 'tandag' | 'cantilan' | 'cagwait' | 'san-miguel' | 'lianga' | 'tagbina' | 'bislig';
 
 export interface Campus {
   id: CampusId;
@@ -14,7 +14,6 @@ export interface Campus {
 
 export type AccreditationLevel = 
   | 'Candidate'
-  | 'Candidate for Graduation'
   | 'Level 1'
   | 'Level 2'
   | 'Level 3'
@@ -116,6 +115,22 @@ export interface ProgramRequirementItem {
   remarks?: string;
 }
 
+export type AccreditationResult = 'Passed' | 'Failed' | 'Pending';
+
+export interface ProgramLevelHistoryEntry {
+  id: string;
+  year: number;
+  level: AccreditationLevel;
+  result: AccreditationResult;
+  surveyDate?: string;
+  validityStart?: string;
+  validityEnd?: string;
+  boardAction?: string;
+  remarks?: string;
+  recordedAt: string;
+  recordedBy?: string;
+}
+
 export interface ProgramAccreditation {
   id: string;
   campusId: CampusId;
@@ -137,6 +152,10 @@ export interface ProgramAccreditation {
   levelStatusForAccreditation?: string;
   scheduleForAccreditation?: string;
   remarks?: string;
+  boardAction?: string;
+  findingsSummary?: string;
+  recommendations?: string;
+  levelHistory?: ProgramLevelHistoryEntry[];
   requirements?: ProgramRequirementItem[];
 }
 
