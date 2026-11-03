@@ -18,6 +18,7 @@ import {
   initialCOPCRecords,
   initialISORecords
 } from '../data/accreditationData';
+import { PROGRAM_ACCREDITATION_DATA_VERSION } from '../data/programAccreditationRecords';
 import {
   AccreditationArea,
   Criterion,
@@ -49,6 +50,7 @@ import { metadataToPatch } from '../utils/metadata';
 import { isAdminRole, isRecipientRole, nowIso, permissionLabel, shareStatus } from '../utils/sharing';
 import { formatDate } from '../utils/format';
 import { isCampusMatch } from '../utils/campus';
+import { applyLevelChange, ensureLevelHistory, normalizeLegacyStatus } from '../utils/programAccreditation';
 
 interface PortalContextValue {
   currentUser: PortalUser;
@@ -153,6 +155,21 @@ function loadStorage<T>(key: string, defaultValue: T): T {
   }
 }
 
+/** Like loadStorage, but discards the stored copy when it was saved against an older seed version. */
+function loadVersionedStorage<T>(key: string, defaultValue: T, version: string): T {
+  const versionKey = `accrevia_${key}_version`;
+  try {
+    if (localStorage.getItem(versionKey) !== version) {
+      localStorage.removeItem(`accrevia_${key}`);
+      localStorage.setItem(versionKey, version);
+      return defaultValue;
+    }
+  } catch {
+    return defaultValue;
+  }
+  return loadStorage(key, defaultValue);
+}
+
 function saveStorage<T>(key: string, value: T) {
   try {
     localStorage.setItem(`accrevia_${key}`, JSON.stringify(value));
@@ -254,10 +271,19 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     });
   });
   const [pqaRecords, setPqaRecords] = useState<CampusPQAStatus[]>(() => loadStorage('pqaRecords', initialCampusPQA));
-  const [programAccreditations, setProgramAccreditations] = useState<ProgramAccreditation[]>(() =>
-    loadStorage('programAccreditations', initialProgramAccreditations)
+  const [programAccreditations, setProgramAccreditations] = useState<ProgramAccreditation[]>(() => {
+    const loaded = loadVersionedStorage(
+      'programAccreditations',
+      initialProgramAccreditations,
+      PROGRAM_ACCREDITATION_DATA_VERSION
+    );
+    const migrated = loaded.map((p) => ensureLevelHistory(normalizeLegacyStatus(p)));
+    if (migrated.some((p, i) => p !== loaded[i])) saveStorage('programAccreditations', migrated);
+    return migrated;
+  });
+  const [copcRecords, setCopcRecords] = useState<COPCRecord[]>(() =>
+    loadVersionedStorage('copcRecords', initialCOPCRecords, PROGRAM_ACCREDITATION_DATA_VERSION)
   );
-  const [copcRecords, setCopcRecords] = useState<COPCRecord[]>(() => loadStorage('copcRecords', initialCOPCRecords));
   const [isoRecords, setIsoRecords] = useState<ISOSurveillanceRecord[]>(() => loadStorage('isoRecords', initialISORecords));
 
   // Selected campus derived helpers
@@ -588,13 +614,17 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     });
   }, []);
 
-  const saveProgramAccreditation = useCallback((prog: ProgramAccreditation) => {
-    setProgramAccreditations((prev) => {
-      const next = upsert(prev, prog);
-      saveStorage('programAccreditations', next);
-      return next;
-    });
-  }, []);
+  const saveProgramAccreditation = useCallback(
+    (prog: ProgramAccreditation) => {
+      setProgramAccreditations((prev) => {
+        const previous = prev.find((p) => p.id === prog.id);
+        const next = upsert(prev, applyLevelChange(prog, previous, currentUser.name));
+        saveStorage('programAccreditations', next);
+        return next;
+      });
+    },
+    [currentUser.name]
+  );
 
   const deleteProgramAccreditation = useCallback((id: string) => {
     setProgramAccreditations((prev) => {
