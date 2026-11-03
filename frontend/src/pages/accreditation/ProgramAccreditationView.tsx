@@ -7,20 +7,27 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { ProgramFormModal } from '../../components/accreditation/ProgramFormModal';
 import { AccreditationDocModal } from '../../components/accreditation/AccreditationDocModal';
+import { ExpiryIndicator } from '../../components/accreditation/ExpiryIndicator';
+import { ProgramReportPrintModal, ProgramReportType } from '../../components/accreditation/reports/ProgramReportPrintModal';
+import { FindingsPrintModal } from '../../components/accreditation/reports/FindingsPrintModal';
 import { Modal } from '../../components/ui/Modal';
+import { compareYears, formatLevel, getExpiryInfo, getLevelHistory, isUrl, levelAsOf } from '../../utils/programAccreditation';
+
+type HigherLevelFilter = 'all' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'improved';
+
+const CURRENT_YEAR = new Date().getFullYear();
+const TARGET_YEAR = Math.max(2027, CURRENT_YEAR);
+const BASELINE_YEAR = CURRENT_YEAR - 1;
 import {
   SearchIcon,
   PlusIcon,
   ExternalLinkIcon,
   FileCheckIcon,
-  FolderOpenIcon,
-  CalendarIcon,
-  AlertCircleIcon,
   PencilIcon,
   Trash2Icon,
   CheckCircle2Icon,
-  FileTextIcon,
-  AwardIcon
+  AwardIcon,
+  PrinterIcon
 } from 'lucide-react';
 
 export function ProgramAccreditationView() {
@@ -37,7 +44,8 @@ export function ProgramAccreditationView() {
   const [selectedCampus, setSelectedCampus] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDegree, setSelectedDegree] = useState<string>('all');
-  const [validityFilter, setValidityFilter] = useState<'all' | 'expiring' | 'active'>('all');
+  const [validityFilter, setValidityFilter] = useState<'all' | 'expiring' | 'active' | 'expired'>('all');
+  const [higherLevelFilter, setHigherLevelFilter] = useState<HigherLevelFilter>('all');
 
   // Modal states
   const [formModalOpen, setFormModalOpen] = useState(false);
@@ -49,6 +57,20 @@ export function ProgramAccreditationView() {
     program: ProgramAccreditation;
     req: ProgramRequirementItem;
   } | null>(null);
+
+  // Print / report modals
+  const [reportModal, setReportModal] = useState<{
+    open: boolean;
+    type: ProgramReportType;
+    fromYear?: number;
+    targetYear?: number;
+  }>({ open: false, type: 'summary' });
+  const [findingsProgramId, setFindingsProgramId] = useState<string | null>(null);
+
+  const improvedProgramIds = useMemo(
+    () => new Set(compareYears(programAccreditations, BASELINE_YEAR, TARGET_YEAR).improved.map((c) => c.program.id)),
+    [programAccreditations]
+  );
 
   // Filtered Programs
   const filtered = useMemo(() => {
@@ -69,21 +91,25 @@ export function ProgramAccreditationView() {
         const matchCampus = prog.campusName.toLowerCase().includes(q);
         const matchRemarks = (prog.remarks || '').toLowerCase().includes(q);
         const matchCert = (prog.certificationFile || '').toLowerCase().includes(q);
-        if (!matchName && !matchCampus && !matchRemarks && !matchCert) return false;
+        const matchBoard = (prog.boardAction || '').toLowerCase().includes(q);
+        if (!matchName && !matchCampus && !matchRemarks && !matchCert && !matchBoard) return false;
       }
 
       // Validity Filter
-      if (validityFilter === 'expiring') {
-        const end = prog.validityEnd ? new Date(prog.validityEnd) : null;
-        if (!end || isNaN(end.getTime())) return false;
-        const now = new Date();
-        const diffDays = (end.getTime() - now.getTime()) / (1000 * 3600 * 24);
-        return diffDays >= 0 && diffDays <= 365;
+      if (validityFilter !== 'all') {
+        const expiry = getExpiryInfo(prog).state;
+        if (validityFilter === 'expired' && expiry !== 'expired') return false;
+        if (validityFilter === 'expiring' && expiry !== 'expiring') return false;
+        if (validityFilter === 'active' && expiry !== 'active' && expiry !== 'expiring') return false;
       }
+
+      // Higher Level Filter
+      if (higherLevelFilter === 'improved') return improvedProgramIds.has(prog.id);
+      if (higherLevelFilter !== 'all') return levelAsOf(prog, TARGET_YEAR) === higherLevelFilter;
 
       return true;
     });
-  }, [programAccreditations, selectedCampus, selectedStatus, selectedDegree, search, validityFilter]);
+  }, [programAccreditations, selectedCampus, selectedStatus, selectedDegree, search, validityFilter, higherLevelFilter, improvedProgramIds]);
 
   const handleDelete = (id: string, name: string) => {
     if (confirm(`Are you sure you want to remove "${name}" from accreditation tracking?`)) {
@@ -139,11 +165,11 @@ export function ProgramAccreditationView() {
     () => programAccreditations.filter((p) => p.status === 'Candidate').length,
     [programAccreditations]
   );
-  const pendingSurveyCount = useMemo(
+  const notAccreditableCount = useMemo(
     () => programAccreditations.filter((p) => !['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Candidate'].includes(p.status)).length,
     [programAccreditations]
   );
-  const candidateOrPendingCount = candidateCount + pendingSurveyCount;
+  const candidateOrNotAccreditableCount = candidateCount + notAccreditableCount;
   const accreditationRate = totalPrograms > 0 ? ((accreditedCount / totalPrograms) * 100).toFixed(2) : '0';
 
   // COPC metrics
@@ -166,16 +192,6 @@ export function ProgramAccreditationView() {
     if (selectedCampus === 'all') return programAccreditations;
     return programAccreditations.filter((p) => p.campusId === selectedCampus);
   }, [selectedCampus, programAccreditations]);
-
-  const activeLevelCounts = useMemo(() => {
-    return {
-      l4: currentCampusPrograms.filter((p) => p.status === 'Level 4').length,
-      l3: currentCampusPrograms.filter((p) => p.status === 'Level 3').length,
-      l2: currentCampusPrograms.filter((p) => p.status === 'Level 2').length,
-      l1: currentCampusPrograms.filter((p) => p.status === 'Level 1').length,
-      cand: currentCampusPrograms.filter((p) => p.status === 'Candidate').length,
-    };
-  }, [currentCampusPrograms]);
 
   const selectedCampusObj = useMemo(() => {
     return campuses.find((c) => c.id === selectedCampus) || null;
@@ -213,22 +229,10 @@ export function ProgramAccreditationView() {
         }
         title="AACCUP Program Accreditation Status"
         description="Comprehensive program accreditation tracking across all 7 campuses, including survey levels, certificates, Drive evaluation portfolios, technical reviews, and accreditation visit schedules."
-        actions={
-          <button
-            type="button"
-            onClick={() => {
-              setEditingProgram(null);
-              setFormModalOpen(true);
-            }}
-            className="btn btn-primary btn-sm"
-          >
-            <PlusIcon className="h-4 w-4" /> Add Academic Program
-          </button>
-        }
       />
 
       {/* Mode Switcher Tabs for Summary Cards */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 rounded-lg border border-line bg-canvas p-1">
           <button
             type="button"
@@ -241,24 +245,27 @@ export function ProgramAccreditationView() {
           >
             AACCUP Accreditation Summary ({accreditationRate}%)
           </button>
-          <button
-            type="button"
-            onClick={() => setSummaryMode('copc')}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
-              summaryMode === 'copc'
-                ? 'bg-white text-success-700 shadow-xs border border-line'
-                : 'text-ink-muted hover:text-ink'
-            }`}
-          >
-            CHED COPC Compliance Summary ({copcRate}%)
-          </button>
         </div>
 
-        <span className="text-xs text-ink-muted hidden sm:inline">
-          {summaryMode === 'aaccup'
-            ? 'AACCUP Survey Levels 1–4 vs Candidate Status'
-            : 'CHED Certificate of Program Compliance Alignment'}
-        </span>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setReportModal({ open: true, type: 'summary' })}
+            className="btn btn-secondary btn-sm"
+          >
+            <PrinterIcon className="h-4 w-4" /> Print Summary Report
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditingProgram(null);
+              setFormModalOpen(true);
+            }}
+            className="btn btn-primary btn-sm"
+          >
+            <PlusIcon className="h-4 w-4" /> Add Academic Program
+          </button>
+        </div>
       </div>
 
       {/* Institutional Summary Cards (Reflects 2nd Image Reference) */}
@@ -324,11 +331,11 @@ export function ProgramAccreditationView() {
               <p className="text-[11px] text-ink-subtle">Target: 100% accredited</p>
             </div>
 
-            {/* Card 5: Candidate / Under Evaluation */}
+            {/* Card 5: Candidate / Not Accreditable */}
             <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Candidate / Evaluation</span>
-              <p className="mt-1 text-2xl font-bold text-warning-700">{candidateOrPendingCount}</p>
-              <p className="text-[11px] text-ink-subtle">{candidateCount} Candidate · {pendingSurveyCount} Pending Visit</p>
+              <span className="text-xs text-ink-muted">Candidate / Not Accreditable</span>
+              <p className="mt-1 text-2xl font-bold text-warning-700">{candidateOrNotAccreditableCount}</p>
+              <p className="text-[11px] text-ink-subtle">{candidateCount} Candidate · {notAccreditableCount} Not Accreditable</p>
             </div>
           </>
         ) : (
@@ -614,23 +621,13 @@ export function ProgramAccreditationView() {
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="input h-9 text-xs py-0 w-auto"
             >
-              <option value="all">All Levels ({currentCampusPrograms.length})</option>
-              <option value="Candidate">Candidate ({activeLevelCounts.cand})</option>
-              <option value="Level 1">
-                Level 1 ({activeLevelCounts.l1}{selectedCampus !== 'all' ? ` in ${selectedCampusObj?.shortName || ''}` : ` across 4 Campuses`})
-              </option>
-              <option value="Level 2">
-                Level 2 ({activeLevelCounts.l2}{selectedCampus !== 'all' ? ` in ${selectedCampusObj?.shortName || ''}` : ` across 7 Campuses`})
-              </option>
-              <option value="Level 3">
-                Level 3 ({activeLevelCounts.l3}{selectedCampus !== 'all' ? ` in ${selectedCampusObj?.shortName || ''}` : ''})
-              </option>
-              <option value="Level 4">
-                Level 4 ({activeLevelCounts.l4}{selectedCampus !== 'all' ? ` in ${selectedCampusObj?.shortName || ''}` : ''})
-              </option>
+              <option value="all">All Levels</option>
+              <option value="Candidate">Candidate</option>
+              <option value="Level 1">Level 1</option>
+              <option value="Level 2">Level 2</option>
+              <option value="Level 3">Level 3</option>
+              <option value="Level 4">Level 4</option>
               <option value="Not Accreditable">Not Accreditable</option>
-              <option value="for accreditation">For Accreditation</option>
-              <option value="waiting">Waiting for Survey</option>
             </select>
             <select
               value={selectedDegree}
@@ -644,12 +641,27 @@ export function ProgramAccreditationView() {
 
             <select
               value={validityFilter}
-              onChange={(e) => setValidityFilter(e.target.value as 'all' | 'expiring' | 'active')}
+              onChange={(e) => setValidityFilter(e.target.value as 'all' | 'expiring' | 'active' | 'expired')}
               className="input h-9 text-xs py-0 w-auto"
             >
               <option value="all">All Validity</option>
               <option value="expiring">Expiring Soon (Within 1 Year)</option>
               <option value="active">Active</option>
+              <option value="expired">Expired</option>
+            </select>
+
+            <select
+              value={higherLevelFilter}
+              onChange={(e) => setHigherLevelFilter(e.target.value as HigherLevelFilter)}
+              className="input h-9 text-xs py-0 w-auto"
+              title={`Accreditation level achieved by end of ${TARGET_YEAR}, based on recorded level history`}
+            >
+              <option value="all">All Higher Levels</option>
+              <option value="Level 1">Level I by {TARGET_YEAR}</option>
+              <option value="Level 2">Level II by {TARGET_YEAR}</option>
+              <option value="Level 3">Level III by {TARGET_YEAR}</option>
+              <option value="Level 4">Level IV by {TARGET_YEAR}</option>
+              <option value="improved">Moved Up Since {BASELINE_YEAR}</option>
             </select>
           </div>
         </div>
@@ -665,90 +677,6 @@ export function ProgramAccreditationView() {
                 Campus: {selectedCampusObj?.shortName}
               </span>
             )}
-            {selectedStatus !== 'all' && (
-              <span className="inline-flex items-center gap-1 rounded bg-slate-100 text-slate-800 border border-slate-300 px-1.5 py-0.2 text-[10.5px] font-bold">
-                Level: {selectedStatus}
-              </span>
-            )}
-            {(selectedCampus !== 'all' || selectedStatus !== 'all' || search.trim()) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCampus('all');
-                  setSelectedStatus('all');
-                  setSearch('');
-                }}
-                className="text-[10.5px] text-brand-600 font-bold hover:underline ml-1"
-              >
-                Reset Filters
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-            <button
-              type="button"
-              onClick={() => setSelectedStatus(selectedStatus === 'Level 4' ? 'all' : 'Level 4')}
-              className={`flex items-center gap-1 rounded px-2 py-0.5 transition-colors cursor-pointer text-xs ${
-                selectedStatus === 'Level 4' ? 'bg-amber-100 text-amber-900 font-bold ring-1 ring-amber-400' : 'hover:bg-canvas'
-              }`}
-            >
-              <span className="h-2 w-2 rounded-full bg-amber-500" /> Level 4 ({activeLevelCounts.l4})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedStatus(selectedStatus === 'Level 3' ? 'all' : 'Level 3')}
-              className={`flex items-center gap-1 rounded px-2 py-0.5 transition-colors cursor-pointer text-xs ${
-                selectedStatus === 'Level 3' ? 'bg-emerald-100 text-emerald-900 font-bold ring-1 ring-emerald-400' : 'hover:bg-canvas'
-              }`}
-            >
-              <span className="h-2 w-2 rounded-full bg-emerald-600" /> Level 3 ({activeLevelCounts.l3})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedStatus(selectedStatus === 'Level 2' ? 'all' : 'Level 2')}
-              className={`flex items-center gap-1 rounded px-2 py-0.5 transition-colors cursor-pointer text-xs ${
-                selectedStatus === 'Level 2' ? 'bg-blue-100 text-blue-900 font-bold ring-1 ring-blue-400' : 'hover:bg-canvas'
-              }`}
-            >
-              <span className="h-2 w-2 rounded-full bg-blue-500" /> Level 2 ({activeLevelCounts.l2})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedStatus(selectedStatus === 'Level 1' ? 'all' : 'Level 1')}
-              className={`flex items-center gap-1.5 rounded-md px-2 py-0.5 transition-all cursor-pointer text-xs ${
-                selectedStatus === 'Level 1'
-                  ? 'bg-amber-200 text-amber-950 font-black border border-amber-400 shadow-2xs ring-1 ring-amber-400'
-                  : 'bg-amber-50/90 text-amber-900 border border-amber-300 hover:bg-amber-100 font-bold'
-              }`}
-              title="Click to filter table by Level 1 programs"
-            >
-              <span className="h-2 w-2 rounded-full bg-amber-600" />
-              <span>Level 1 ({activeLevelCounts.l1})</span>
-              <span className="rounded bg-amber-200/90 px-1 py-0.1 text-[9px] font-black uppercase text-amber-900">
-                Phase 1
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedStatus(selectedStatus === 'Candidate' ? 'all' : 'Candidate')}
-              className={`flex items-center gap-1 rounded px-2 py-0.5 transition-colors cursor-pointer text-xs ${
-                selectedStatus === 'Candidate' ? 'bg-slate-200 text-slate-900 font-bold ring-1 ring-slate-400' : 'hover:bg-canvas'
-              }`}
-            >
-              <span className="h-2 w-2 rounded-full bg-slate-400" /> Cand. ({activeLevelCounts.cand})
-            </button>
-
-            <span className="hidden xl:inline text-line">|</span>
-
-            <div className="hidden xl:flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
-                AACCUP Rate: {accreditationRate}%
-              </span>
-              <span className="text-[11px] font-semibold text-success-700 bg-success-50 px-2 py-0.5 rounded border border-success-200">
-                COPC Rate: {copcRate}%
-              </span>
-            </div>
           </div>
         </div>
       </div>
@@ -759,42 +687,41 @@ export function ProgramAccreditationView() {
           <table className="w-full text-left text-[12.5px]">
             <thead className="bg-canvas border-b border-line text-ink-muted">
               <tr>
-                <th className="th py-3 w-10">#</th>
                 <th className="th py-3 min-w-[240px]">Programs Offered</th>
                 <th className="th py-3">Campus</th>
-                <th className="th py-3">Initial Op.</th>
+                <th className="th py-3">Initial OP.</th>
                 <th className="th py-3">Accreditation Status</th>
                 <th className="th py-3 min-w-[150px]">Validity Period</th>
-                <th className="th py-3">Certification</th>
-                <th className="th py-3">Instruments & Review</th>
-                <th className="th py-3">COPC</th>
-                <th className="th py-3">Schedule</th>
-                <th className="th py-3 min-w-[180px]">Remarks</th>
+                <th className="th py-3">AACCUP Certification</th>
+                <th className="th py-3">AACCUP Technical Review</th>
+                <th className="th py-3 min-w-[160px]">Board Action</th>
+                <th className="th py-3 min-w-[170px]">Summary of Findings & Recommendation</th>
                 <th className="th py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="td py-8 text-center text-ink-muted">
+                  <td colSpan={10} className="td py-8 text-center text-ink-muted">
                     No programs matched the selected search criteria.
                   </td>
                 </tr>
               ) : (
-                filtered.map((prog, idx) => {
-                  const hasSchedule = !!prog.scheduleForAccreditation;
+                filtered.map((prog) => {
+                  const hasFindingsText = !!(prog.findingsSummary || prog.recommendations);
                   return (
                     <tr key={prog.id} className="hover:bg-canvas/50 transition-colors">
-                      <td className="td py-3 font-mono text-ink-subtle text-xs">{idx + 1}</td>
-
                       <td className="td py-3">
                         <div className="font-semibold text-ink leading-snug">{prog.programName}</div>
-                        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-muted">
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-ink-muted">
                           <span className="rounded bg-canvas px-1.5 py-0.5 border border-line">
                             {prog.degreeLevel}
                           </span>
                           {prog.borRes && <span>BOR: {prog.borRes}</span>}
                           {prog.cmoNo && <span>CMO: {prog.cmoNo}</span>}
+                          {prog.scheduleForAccreditation && (
+                            <span className="font-semibold text-brand-700">Survey: {prog.scheduleForAccreditation}</span>
+                          )}
                         </div>
                       </td>
 
@@ -836,10 +763,22 @@ export function ProgramAccreditationView() {
                         ) : (
                           <span className="text-ink-subtle">—</span>
                         )}
+                        <ExpiryIndicator program={prog} />
                       </td>
 
                       <td className="td py-3 text-xs">
-                        {prog.certificationFile ? (
+                        {prog.certificationFile && isUrl(prog.certificationFile) ? (
+                          <a
+                            href={prog.certificationFile}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded bg-success-50 px-2 py-0.5 font-medium text-success-700 text-[11.5px] border border-success-100 hover:border-success-300 whitespace-nowrap"
+                            title="Open AACCUP certificate"
+                          >
+                            <FileCheckIcon className="h-3 w-3 shrink-0" />
+                            View Certificate
+                          </a>
+                        ) : prog.certificationFile ? (
                           <span
                             className="inline-flex items-center gap-1 rounded bg-success-50 px-2 py-0.5 font-medium text-success-700 text-[11.5px] border border-success-100"
                             title={prog.certificationFile}
@@ -853,77 +792,60 @@ export function ProgramAccreditationView() {
                       </td>
 
                       <td className="td py-3 text-xs whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          {prog.instrumentLink && (
-                            <a
-                              href={prog.instrumentLink}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded border border-line bg-canvas p-1 text-ink-muted hover:text-brand-600 hover:border-brand-300"
-                              title="AACCUP Instrument"
-                            >
-                              <FolderOpenIcon className="h-3.5 w-3.5" />
-                            </a>
-                          )}
-                          {prog.findingsLink && (
-                            <a
-                              href={prog.findingsLink}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded border border-line bg-canvas p-1 text-ink-muted hover:text-brand-600 hover:border-brand-300"
-                              title="Summary of Findings & Recommendations"
-                            >
-                              <FileTextIcon className="h-3.5 w-3.5" />
-                            </a>
-                          )}
-                          {prog.technicalReviewLink && (
-                            <a
-                              href={prog.technicalReviewLink}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded border border-line bg-canvas p-1 text-ink-muted hover:text-brand-600 hover:border-brand-300"
-                              title="AACCUP Technical Review"
-                            >
-                              <CheckCircle2Icon className="h-3.5 w-3.5" />
-                            </a>
-                          )}
-                          {!prog.instrumentLink && !prog.findingsLink && !prog.technicalReviewLink && (
-                            <span className="text-ink-subtle">—</span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="td py-3 whitespace-nowrap">
-                        {prog.copcStatus === 'Compliant' ? (
-                          <span className="inline-flex items-center gap-1 text-success-700 font-medium text-xs">
-                            <CheckCircle2Icon className="h-3.5 w-3.5" /> Compliant
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-warning-700 font-medium text-xs">
-                            <AlertCircleIcon className="h-3.5 w-3.5" /> Pending
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="td py-3 whitespace-nowrap">
-                        {hasSchedule ? (
-                          <span className="inline-flex items-center gap-1 font-semibold text-brand-700 text-xs rounded bg-brand-50 px-2 py-0.5 border border-brand-100">
-                            <CalendarIcon className="h-3 w-3" />
-                            {prog.scheduleForAccreditation}
-                          </span>
+                        {prog.technicalReviewLink ? (
+                          <a
+                            href={prog.technicalReviewLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded border border-line bg-canvas px-2 py-0.5 font-medium text-brand-700 hover:border-brand-300"
+                            title="Open AACCUP Technical Review"
+                          >
+                            <CheckCircle2Icon className="h-3.5 w-3.5" /> View
+                          </a>
                         ) : (
                           <span className="text-ink-subtle">—</span>
                         )}
                       </td>
 
-                      <td className="td py-3 text-xs text-ink-muted max-w-[220px]">
-                        <p className="truncate" title={prog.remarks}>
-                          {prog.remarks || '—'}
+                      <td className="td py-3 text-xs text-ink max-w-[220px]">
+                        <p className="line-clamp-2" title={prog.boardAction}>
+                          {prog.boardAction || <span className="text-ink-subtle">—</span>}
                         </p>
+                      </td>
+
+                      <td className="td py-3 text-xs whitespace-nowrap">
+                        {prog.findingsLink ? (
+                          <a
+                            href={prog.findingsLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded border border-line bg-canvas px-2 py-0.5 font-medium text-brand-700 hover:border-brand-300"
+                            title="Open Summary of Findings & Recommendation"
+                          >
+                            <ExternalLinkIcon className="h-3.5 w-3.5" /> View
+                          </a>
+                        ) : hasFindingsText ? (
+                          <button
+                            type="button"
+                            onClick={() => setFindingsProgramId(prog.id)}
+                            className="inline-flex items-center gap-1 rounded border border-line bg-canvas px-2 py-0.5 font-medium text-brand-700 hover:border-brand-300"
+                            title="View recorded Summary of Findings & Recommendation"
+                          >
+                            <FileCheckIcon className="h-3.5 w-3.5" /> View
+                          </button>
+                        ) : null}
                       </td>
 
                       <td className="td py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setFindingsProgramId(prog.id)}
+                            className="btn btn-ghost btn-sm h-7 w-7 p-0"
+                            title="Print Summary of Findings & Recommendation"
+                          >
+                            <PrinterIcon className="h-3.5 w-3.5 text-ink-muted" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => setDetailsModalProgram(prog)}
@@ -999,7 +921,18 @@ export function ProgramAccreditationView() {
               <div>
                 <span className="text-ink-muted">Accreditation Certificate</span>
                 <p className="font-semibold text-ink truncate">
-                  {detailsModalProgram.certificationFile || 'No file registered'}
+                  {detailsModalProgram.certificationFile && isUrl(detailsModalProgram.certificationFile) ? (
+                    <a
+                      href={detailsModalProgram.certificationFile}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-brand-700 hover:underline"
+                    >
+                      View Certificate
+                    </a>
+                  ) : (
+                    detailsModalProgram.certificationFile || 'No file registered'
+                  )}
                 </p>
               </div>
               <div>
@@ -1008,6 +941,39 @@ export function ProgramAccreditationView() {
                   {detailsModalProgram.copcCertificateNumber || detailsModalProgram.copcStatus}
                 </p>
               </div>
+              {detailsModalProgram.remarks && (
+                <div className="sm:col-span-3">
+                  <span className="text-ink-muted">Remarks</span>
+                  <p className="text-ink">{detailsModalProgram.remarks}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Accreditation Level History */}
+            <div className="rounded-lg border border-line p-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-2">
+                Accreditation Level History
+              </h4>
+              {getLevelHistory(detailsModalProgram).length === 0 ? (
+                <p className="text-xs text-ink-muted">No accreditation results recorded yet.</p>
+              ) : (
+                <ol className="space-y-1.5 text-xs">
+                  {getLevelHistory(detailsModalProgram)
+                    .slice()
+                    .reverse()
+                    .map((entry) => (
+                      <li key={entry.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="font-mono font-semibold text-ink">{entry.year}</span>
+                        <span className="font-semibold text-ink">{formatLevel(entry.level)}</span>
+                        <Badge tone={entry.result === 'Passed' ? 'success' : entry.result === 'Failed' ? 'danger' : 'warning'}>
+                          {entry.result}
+                        </Badge>
+                        {entry.boardAction && <span className="text-ink-muted">· {entry.boardAction}</span>}
+                        {entry.remarks && <span className="text-ink-subtle">· {entry.remarks}</span>}
+                      </li>
+                    ))}
+                </ol>
+              )}
             </div>
 
             {/* Official External Review Links */}
@@ -1127,6 +1093,21 @@ export function ProgramAccreditationView() {
         open={formModalOpen}
         program={editingProgram}
         onClose={() => setFormModalOpen(false)}
+      />
+
+      <ProgramReportPrintModal
+        open={reportModal.open}
+        initialType={reportModal.type}
+        defaultCampus={selectedCampus}
+        defaultFromYear={reportModal.fromYear}
+        defaultTargetYear={reportModal.targetYear}
+        onClose={() => setReportModal((prev) => ({ ...prev, open: false }))}
+      />
+
+      <FindingsPrintModal
+        open={!!findingsProgramId}
+        programId={findingsProgramId}
+        onClose={() => setFindingsProgramId(null)}
       />
 
       {/* Program Requirement Evidence Modal */}
