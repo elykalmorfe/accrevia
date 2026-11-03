@@ -897,23 +897,6 @@ export function UploadEvidence() {
               </p>
             </div>
           </div>
-
-          {/* Clean Guidance Policy Callout */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-brand-200/70 bg-gradient-to-r from-brand-50/70 via-brand-50/40 to-slate-50/60 p-4 text-xs text-brand-950 shadow-2xs">
-            <div className="flex items-start gap-2.5">
-              <ShieldCheckIcon className="h-4 w-4 shrink-0 text-brand-600 mt-0.5" />
-              <div className="leading-relaxed">
-                <span className="font-bold text-brand-900">Campus & Framework Policy: </span>
-                Evidence folders exist strictly as 5 frameworks (IA, PA, COPC, PQA, ISO) per campus. Choose a campus filter above or click any framework below to view its files or upload new evidence.
-              </div>
-            </div>
-            <div className="shrink-0 self-start sm:self-auto">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-brand-700 border border-brand-200 shadow-2xs">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                {selectedCampus === 'all' ? 'All Campuses Scope' : (selectedCampusObj?.name || selectedCampus)}
-              </span>
-            </div>
-          </div>
         </section>
       )}
 
@@ -1782,7 +1765,7 @@ export function UploadEvidence() {
             }
           }}
           size="lg"
-          title={`Upload Evidence to ${currentFolder.name}`}
+          title={`Upload Documents to ${currentFolder.name}`}
           description={`Upload individual files or import an entire directory hierarchy into ${currentFolder.code}.`}
           footer={
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
