@@ -3,6 +3,7 @@ import { usePortal } from '../../contexts/PortalContext';
 import { Modal } from '../ui/Modal';
 import { PrinterIcon, DownloadIcon } from 'lucide-react';
 import { Badge } from '../ui/Badge';
+import { isUrl } from '../../utils/programAccreditation';
 
 interface AccreditationReportModalProps {
   open: boolean;
@@ -273,7 +274,13 @@ export function AccreditationReportModal({ open, onClose }: AccreditationReportM
                         : '—'}
                     </td>
                     <td className="td py-2 text-ink-muted truncate max-w-[120px]">
-                      {prog.certificationFile || '—'}
+                      {isUrl(prog.certificationFile) ? (
+                        <a href={prog.certificationFile} target="_blank" rel="noreferrer" className="text-brand-700 hover:underline">
+                          View
+                        </a>
+                      ) : (
+                        prog.certificationFile || '—'
+                      )}
                     </td>
                     <td className="td py-2 whitespace-nowrap">
                       {prog.copcStatus === 'Compliant' ? (
