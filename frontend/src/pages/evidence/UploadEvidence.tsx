@@ -33,6 +33,7 @@ import { Badge, BadgeTone } from '../../components/ui/Badge';
 import { ProcessingPipeline } from '../../components/processing/ProcessingPipeline';
 import { usePortal } from '../../contexts/PortalContext';
 import { EvidenceDocument, EvidenceFolder, FolderColor } from '../../types/evidence';
+import { initialFolders, isRootFrameworkFolder } from '../../data/folders';
 import { FolderFormModal } from '../../components/folders/FolderFormModal';
 import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
@@ -70,11 +71,12 @@ export function UploadEvidence() {
   const [deletingFolder, setDeletingFolder] = useState<EvidenceFolder | null>(null);
   const [previewDoc, setPreviewDoc] = useState<EvidenceDocument | null>(null);
 
-  // Inside folder state: tabs, search, filter, sort, and floating dock
+  // Inside folder state: tabs, search, filter, sort, active subfolder, and floating dock
   const [folderTab, setFolderTab] = useState<'documents' | 'upload'>('documents');
   const [docSearch, setDocSearch] = useState('');
   const [docTypeFilter, setDocTypeFilter] = useState('');
   const [docSort, setDocSort] = useState<'newest' | 'oldest' | 'title-asc' | 'title-desc' | 'size-desc'>('newest');
+  const [activeSubfolderFilter, setActiveSubfolderFilter] = useState<string>('all');
   const [dismissFloatingDock, setDismissFloatingDock] = useState(false);
 
   // Active folder
@@ -84,6 +86,7 @@ export function UploadEvidence() {
   }, [folderParam, folders]);
 
   const setFolder = (id: string | null) => {
+    setActiveSubfolderFilter('all');
     if (id) {
       setSearchParams({ folder: id });
     } else {
@@ -91,47 +94,112 @@ export function UploadEvidence() {
     }
   };
 
+  // The 5 Canonical Framework Root Repositories: IA, PA, COPC, PQA, ISO ONLY
+  const rootFrameworkFolders = useMemo(() => {
+    return initialFolders.map((initF) => {
+      const match = folders.find(
+        (f) => f.id === initF.id || (f.code?.toUpperCase() === initF.code?.toUpperCase() && isRootFrameworkFolder(f))
+      );
+      return match || initF;
+    });
+  }, [folders]);
+
+  // Determine current framework identity and parent root folder
+  const isCurrentRoot = useMemo(() => isRootFrameworkFolder(currentFolder), [currentFolder]);
+  const currentFrameworkId = useMemo(() => currentFolder?.frameworkId || 'ia', [currentFolder]);
+  const parentFrameworkFolder = useMemo(() => {
+    if (!currentFolder) return null;
+    if (isCurrentRoot) return currentFolder;
+    return rootFrameworkFolders.find((rf) => rf.frameworkId === currentFolder.frameworkId) || currentFolder;
+  }, [currentFolder, isCurrentRoot, rootFrameworkFolders]);
+
+  // Strictly isolated subfolders belonging to this framework
+  const subfoldersInFramework = useMemo(() => {
+    if (!currentFolder) return [];
+    return folders.filter((f) => {
+      if (isRootFrameworkFolder(f)) return false;
+      return f.frameworkId === currentFrameworkId;
+    });
+  }, [currentFolder, folders, currentFrameworkId]);
+
   // Compute document count and size for each folder
   const folderStats = useMemo(() => {
     const stats: Record<string, { count: number; sizeMb: number }> = {};
-    folders.forEach((f) => {
-      const docs = documents.filter((d) => d.frameworkId === f.frameworkId || d.folderId === f.id);
+    
+    // For the 5 root framework folders: ALL documents belonging to that frameworkId
+    rootFrameworkFolders.forEach((f) => {
+      const docs = documents.filter((d) => d.frameworkId === f.frameworkId);
       const size = docs.reduce((acc, curr) => acc + (curr.sizeMb || 0), 0);
       stats[f.id] = { count: docs.length, sizeMb: Math.round(size * 10) / 10 };
     });
+
+    // For any subfolders: documents strictly matching folderId
+    folders.forEach((f) => {
+      if (!stats[f.id]) {
+        const docs = documents.filter((d) => d.folderId === f.id);
+        const size = docs.reduce((acc, curr) => acc + (curr.sizeMb || 0), 0);
+        stats[f.id] = { count: docs.length, sizeMb: Math.round(size * 10) / 10 };
+      }
+    });
+
     return stats;
-  }, [folders, documents]);
+  }, [rootFrameworkFolders, folders, documents]);
 
   // Overall totals
   const totalStats = useMemo(() => {
     const totalDocs = documents.length;
     const totalSize = documents.reduce((acc, curr) => acc + (curr.sizeMb || 0), 0);
     return {
-      folderCount: folders.length,
+      folderCount: rootFrameworkFolders.length,
       docCount: totalDocs,
       totalSizeMb: Math.round(totalSize * 10) / 10,
       pendingCount: pending.length
     };
-  }, [folders, documents, pending]);
+  }, [rootFrameworkFolders, documents, pending]);
 
-  // Filter folders in directory view
+  // Filter ONLY the 5 root framework folders in directory view (IA, PA, COPC, PQA, ISO ONLY)
   const filteredFolders = useMemo(() => {
-    return folders.filter((f) => {
+    return rootFrameworkFolders.filter((f) => {
       const matchSearch =
         f.name.toLowerCase().includes(folderSearch.toLowerCase()) ||
         f.code.toLowerCase().includes(folderSearch.toLowerCase()) ||
         f.description.toLowerCase().includes(folderSearch.toLowerCase());
-      const matchCategory = categoryFilter === 'All' || f.category === categoryFilter;
+      
+      let matchCategory = true;
+      if (categoryFilter === 'Accreditation') {
+        matchCategory = f.frameworkId === 'ia' || f.frameworkId === 'pa';
+      } else if (categoryFilter === 'Compliance') {
+        matchCategory = f.frameworkId === 'copc';
+      } else if (categoryFilter === 'PQA') {
+        matchCategory = f.frameworkId === 'pqa';
+      } else if (categoryFilter === 'ISO') {
+        matchCategory = f.frameworkId === 'iso';
+      } else if (categoryFilter !== 'All') {
+        matchCategory = f.category === categoryFilter;
+      }
+
       return matchSearch && matchCategory;
     });
-  }, [folders, folderSearch, categoryFilter]);
+  }, [rootFrameworkFolders, folderSearch, categoryFilter]);
 
-  // Documents inside currently selected folder (filtered & sorted)
+  // Documents inside currently selected folder (filtered & sorted) with STRICT FRAMEWORK ISOLATION
   const docsInFolder = useMemo(() => {
     if (!currentFolder) return [];
     const list = documents.filter((d) => {
-      const belongs = d.frameworkId === currentFolder.frameworkId || d.folderId === currentFolder.id;
-      if (!belongs) return false;
+      // 1. STRICT ISOLATION: Document must belong to the active framework
+      if (d.frameworkId !== currentFrameworkId) return false;
+
+      // 2. If viewing a specific subfolder (either currentFolder is a subfolder, or subfolder pill filter active)
+      if (!isCurrentRoot) {
+        return d.folderId === currentFolder.id;
+      }
+      if (activeSubfolderFilter !== 'all') {
+        return d.folderId === activeSubfolderFilter;
+      }
+
+      // 3. Otherwise show all documents in this framework
+      return true;
+    }).filter((d) => {
       const matchSearch =
         !docSearch ||
         d.title.toLowerCase().includes(docSearch.toLowerCase()) ||
@@ -169,10 +237,9 @@ export function UploadEvidence() {
   // Total size for current folder
   const currentFolderSizeMb = useMemo(() => {
     if (!currentFolder) return 0;
-    const docs = documents.filter((d) => d.frameworkId === currentFolder.frameworkId || d.folderId === currentFolder.id);
-    const size = docs.reduce((acc, curr) => acc + (curr.sizeMb || 0), 0);
+    const size = docsInFolder.reduce((acc, curr) => acc + (curr.sizeMb || 0), 0);
     return Math.round(size * 10) / 10;
-  }, [currentFolder, documents]);
+  }, [currentFolder, docsInFolder]);
 
   // Queue items in current folder
   const folderQueueItems = useMemo(() => {
@@ -201,10 +268,11 @@ export function UploadEvidence() {
     if (!currentFolder) return;
     const droppedFiles = Array.from(e.dataTransfer.files);
     if (droppedFiles.length === 0) return;
+    const targetFolderId = (!isCurrentRoot ? currentFolder.id : activeSubfolderFilter !== 'all' ? activeSubfolderFilter : currentFolder.id);
     addFiles(droppedFiles, {
-      folderId: currentFolder.id,
+      folderId: targetFolderId,
       folderName: currentFolder.name,
-      frameworkId: currentFolder.frameworkId
+      frameworkId: currentFrameworkId
     });
     setFolderTab('upload');
     setDismissFloatingDock(false);
@@ -215,10 +283,11 @@ export function UploadEvidence() {
     if (!currentFolder) return;
     const pickedFiles = Array.from(e.target.files ?? []);
     if (pickedFiles.length === 0) return;
+    const targetFolderId = (!isCurrentRoot ? currentFolder.id : activeSubfolderFilter !== 'all' ? activeSubfolderFilter : currentFolder.id);
     addFiles(pickedFiles, {
-      folderId: currentFolder.id,
+      folderId: targetFolderId,
       folderName: currentFolder.name,
-      frameworkId: currentFolder.frameworkId
+      frameworkId: currentFrameworkId
     });
     setFolderTab('upload');
     setDismissFloatingDock(false);
@@ -261,26 +330,37 @@ export function UploadEvidence() {
 
         {/* Action Header Button */}
         {!currentFolder ? (
-          <button
-            type="button"
-            onClick={() => {
-              setEditingFolder(null);
-              setIsFolderModalOpen(true);
-            }}
-            className="btn btn-primary self-start sm:self-auto shrink-0 shadow-sm"
+          <Link
+            to="/evidence"
+            className="btn btn-secondary self-start sm:self-auto shrink-0 shadow-2xs text-xs font-semibold gap-1.5"
           >
-            <FolderPlusIcon className="h-4 w-4" />
-            <span>Create Folder</span>
-          </button>
+            <FileTextIcon className="h-4 w-4 text-slate-500" />
+            <span>View All Documents</span>
+          </Link>
         ) : (
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
             <button
               type="button"
-              onClick={() => setFolder(null)}
+              onClick={() => {
+                setActiveSubfolderFilter('all');
+                setFolder(null);
+              }}
               className="btn btn-secondary btn-sm"
             >
               <ArrowLeftIcon className="h-4 w-4" />
-              <span>All Folders</span>
+              <span>All Repositories</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingFolder(null);
+                setIsFolderModalOpen(true);
+              }}
+              className="btn btn-secondary btn-sm font-semibold text-brand-700 hover:text-brand-900 border-brand-200 bg-brand-50/50 hover:bg-brand-50"
+              title={`Create new subfolder inside ${parentFrameworkFolder?.name || 'this framework'}`}
+            >
+              <FolderPlusIcon className="h-4 w-4 text-brand-600" />
+              <span>+ New Subfolder</span>
             </button>
             {folderTab === 'documents' ? (
               <button
@@ -320,7 +400,7 @@ export function UploadEvidence() {
                 </span>
               </div>
               <p className="mt-2 text-2xl font-bold tracking-tight text-ink">{totalStats.folderCount}</p>
-              <p className="text-[11px] text-ink-subtle">Core & custom directories</p>
+              <p className="text-[11px] text-ink-subtle">IA, PA, COPC, PQA, ISO</p>
             </div>
 
             <div className="rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-xs transition-all hover:border-slate-300">
@@ -662,13 +742,16 @@ export function UploadEvidence() {
             </div>
 
             <div className="flex items-center gap-2 self-end sm:self-auto">
-              <span className="text-xs text-slate-400">Jump to:</span>
+              <span className="text-xs text-slate-400 font-medium">Jump to Repository:</span>
               <select
-                value={currentFolder.id}
-                onChange={(e) => setFolder(e.target.value)}
-                className="input h-8.5 text-xs py-1 pr-7 w-48 bg-slate-50 border-slate-200 rounded-lg"
+                value={parentFrameworkFolder?.id || currentFolder.id}
+                onChange={(e) => {
+                  setActiveSubfolderFilter('all');
+                  setFolder(e.target.value);
+                }}
+                className="input h-8.5 text-xs py-1 pr-7 w-56 bg-slate-50 border-slate-200 rounded-lg font-medium"
               >
-                {folders.map((f) => (
+                {rootFrameworkFolders.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name} ({f.code})
                   </option>
@@ -751,6 +834,111 @@ export function UploadEvidence() {
           {/* ========================================================================= */}
           {folderTab === 'documents' && (
             <div className="space-y-4">
+              {/* SUBFOLDERS SECTION FOR THIS FRAMEWORK */}
+              {subfoldersInFramework.length > 0 && (
+                <div className="rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FolderIcon className="h-4 w-4 text-brand-600" />
+                      <span className="text-xs font-bold text-slate-800 tracking-wide uppercase">
+                        Subfolders in {parentFrameworkFolder?.code || currentFolder.code} ({subfoldersInFramework.length})
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingFolder(null);
+                        setIsFolderModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-800 hover:underline"
+                    >
+                      <FolderPlusIcon className="h-3.5 w-3.5" />
+                      <span>+ Add Subfolder</span>
+                    </button>
+                  </div>
+
+                  {/* Subfolder Filter Bar / Grid */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setActiveSubfolderFilter('all')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        activeSubfolderFilter === 'all'
+                          ? 'bg-brand-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80'
+                      }`}
+                    >
+                      <span>All {parentFrameworkFolder?.code || currentFolder.code} Files</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                        activeSubfolderFilter === 'all' ? 'bg-white/30 text-white' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {documents.filter((d) => d.frameworkId === currentFrameworkId).length}
+                      </span>
+                    </button>
+
+                    {subfoldersInFramework.map((sub) => {
+                      const subDocsCount = documents.filter((d) => d.folderId === sub.id).length;
+                      const isActive = activeSubfolderFilter === sub.id;
+                      const theme = FOLDER_THEMES[sub.color] || FOLDER_THEMES.blue;
+
+                      return (
+                        <div
+                          key={sub.id}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                            isActive
+                              ? 'bg-brand-50 border-brand-300 text-brand-900 font-bold shadow-xs'
+                              : 'bg-white border-slate-200/90 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setActiveSubfolderFilter(isActive ? 'all' : sub.id)}
+                            className="flex items-center gap-1.5 text-left"
+                            title={sub.description}
+                          >
+                            <span className={`grid h-5 w-5 place-items-center rounded ${theme.iconBg}`}>
+                              <FolderIcon className="h-3 w-3" />
+                            </span>
+                            <span className="font-semibold text-xs">{sub.code || sub.name}</span>
+                            <span className="text-[11px] text-slate-500 truncate max-w-[140px] hidden sm:inline">
+                              {sub.name}
+                            </span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                              isActive ? 'bg-brand-200 text-brand-900' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {subDocsCount}
+                            </span>
+                          </button>
+
+                          {/* Quick Actions for Subfolder */}
+                          <div className="border-l border-slate-200/80 pl-1 ml-0.5">
+                            <RowActionsMenu
+                              label={`Options for ${sub.name}`}
+                              actions={[
+                                {
+                                  label: 'Edit Subfolder',
+                                  icon: PencilIcon,
+                                  onSelect: () => {
+                                    setEditingFolder(sub);
+                                    setIsFolderModalOpen(true);
+                                  }
+                                },
+                                {
+                                  label: 'Delete Subfolder',
+                                  icon: Trash2Icon,
+                                  tone: 'danger',
+                                  onSelect: () => setDeletingFolder(sub)
+                                }
+                              ]}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Filter & Action Toolbar */}
               <div className="flex flex-col gap-3 rounded-xl border border-slate-200/90 bg-white p-3 shadow-xs lg:flex-row lg:items-center lg:justify-between">
                 {/* Search Bar */}
@@ -1072,7 +1260,7 @@ export function UploadEvidence() {
                   {/* Table Footer */}
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-t border-slate-100 bg-slate-50/50 px-4 py-2.5 text-xs text-ink-muted">
                     <span>
-                      Showing <strong>{docsInFolder.length}</strong> of <strong>{documents.filter((d) => d.frameworkId === currentFolder.frameworkId || d.folderId === currentFolder.id).length}</strong> documents in this repository
+                      Showing <strong>{docsInFolder.length}</strong> of <strong>{documents.filter((d) => d.frameworkId === currentFrameworkId).length}</strong> documents in {parentFrameworkFolder?.name || currentFolder.name}
                     </span>
                     <span className="text-[11px] text-slate-400">
                       Drag and drop files anywhere to upload directly into {currentFolder.name}
@@ -1169,6 +1357,24 @@ export function UploadEvidence() {
                         Max file size: 50 MB
                       </span>
                     </div>
+
+                    {subfoldersInFramework.length > 0 && isCurrentRoot && (
+                      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/30 px-4 py-2 text-xs">
+                        <span className="font-semibold text-slate-700">Destination Subfolder:</span>
+                        <select
+                          value={activeSubfolderFilter}
+                          onChange={(e) => setActiveSubfolderFilter(e.target.value)}
+                          className="input h-7 text-xs py-0.5 pr-7 w-64 bg-white border-slate-200 rounded-md font-medium"
+                        >
+                          <option value="all">Root {parentFrameworkFolder?.name} (General Repository)</option>
+                          {subfoldersInFramework.map((sub) => (
+                            <option key={sub.id} value={sub.id}>
+                              {sub.code} — {sub.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
                     <label
                       htmlFor="folder-evidence-files"
@@ -1348,6 +1554,9 @@ export function UploadEvidence() {
       <FolderFormModal
         open={isFolderModalOpen}
         folder={editingFolder}
+        parentId={currentFolder ? (isCurrentRoot ? currentFolder.id : currentFolder.parentId || currentFolder.id) : undefined}
+        frameworkId={currentFolder ? currentFolder.frameworkId : undefined}
+        category={currentFolder ? currentFolder.category : undefined}
         onClose={() => {
           setIsFolderModalOpen(false);
           setEditingFolder(null);

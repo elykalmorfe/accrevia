@@ -7,7 +7,7 @@ import {
   FileTextIcon,
   ClockIcon
 } from 'lucide-react';
-import { EvidenceFolder } from '../../types/evidence';
+import { EvidenceFolder, FrameworkCategory } from '../../types/evidence';
 import { Modal } from '../ui/Modal';
 import { TextField } from '../ui/TextField';
 
@@ -15,6 +15,8 @@ interface FolderFormModalProps {
   open: boolean;
   folder?: EvidenceFolder | null;
   parentId?: string;
+  frameworkId?: string;
+  category?: FrameworkCategory | 'General / Custom';
   initialAreaId?: string;
   initialName?: string;
   initialCode?: string;
@@ -26,6 +28,8 @@ export function FolderFormModal({
   open,
   folder,
   parentId,
+  frameworkId,
+  category,
   initialAreaId,
   initialName,
   initialCode,
@@ -69,8 +73,8 @@ export function FolderFormModal({
       id: folder ? folder.id : `folder-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: name.trim(),
       code: safeCode,
-      frameworkId: folder?.frameworkId || 'ia',
-      category: folder?.category || 'Accreditation',
+      frameworkId: folder?.frameworkId || frameworkId || 'ia',
+      category: folder?.category || category || 'Accreditation',
       description: description.trim(),
       isSystem: folder?.isSystem ?? false,
       color: folder?.color || 'blue',

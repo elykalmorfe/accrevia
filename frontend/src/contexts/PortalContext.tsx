@@ -1,6 +1,6 @@
 ﻿import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { frameworks as initialFrameworks } from '../data/frameworks';
-import { initialFolders } from '../data/folders';
+import { initialFolders, frameworkSubfolders } from '../data/folders';
 import { sampleAreaFolders, sampleAreaDocuments } from '../data/seedAccreditationEvidence';
 import { areas as initialAreas } from '../data/areas';
 import { criteria as initialCriteria } from '../data/criteria';
@@ -171,19 +171,24 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     const baseList = (!stored || stored.length < initialDocuments.length) ? initialDocuments : stored;
     const existingIds = new Set(baseList.map((d) => d.id));
     const missing = sampleAreaDocuments.filter((d) => !existingIds.has(d.id));
-    if (missing.length > 0) {
-      const merged = [...baseList, ...missing];
-      saveStorage('documents', merged);
-      return merged;
-    }
-    return baseList;
+    const folderIdMap = new Map(initialDocuments.map((d) => [d.id, d.folderId]));
+    const withFolderIds = (missing.length > 0 ? [...baseList, ...missing] : baseList).map((d) => {
+      if (!d.folderId && folderIdMap.has(d.id) && folderIdMap.get(d.id)) {
+        return { ...d, folderId: folderIdMap.get(d.id) };
+      }
+      return d;
+    });
+    saveStorage('documents', withFolderIds);
+    return withFolderIds;
   });
   const [folders, setFolders] = useState<EvidenceFolder[]>(() => {
     const stored = loadStorage<EvidenceFolder[]>('folders', initialFolders);
     const existingIds = new Set(stored.map((f) => f.id));
-    const missing = sampleAreaFolders.filter((f) => !existingIds.has(f.id));
-    if (missing.length > 0) {
-      const merged = [...stored, ...missing];
+    const missingArea = sampleAreaFolders.filter((f) => !existingIds.has(f.id));
+    const missingSub = frameworkSubfolders.filter((f) => !existingIds.has(f.id));
+    const allMissing = [...missingArea, ...missingSub];
+    if (allMissing.length > 0) {
+      const merged = [...stored, ...allMissing];
       saveStorage('folders', merged);
       return merged;
     }
