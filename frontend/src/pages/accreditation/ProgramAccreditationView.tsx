@@ -15,9 +15,74 @@ import { compareYears, formatLevel, getExpiryInfo, getLevelHistory, isUrl, level
 
 type HigherLevelFilter = 'all' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'improved';
 
+export type OverviewStatFilter =
+  | 'none'
+  | 'total'
+  | 'new'
+  | 'candidate'
+  | 'level-1'
+  | 'level-2'
+  | 'level-3'
+  | 'level-4'
+  | 'accredited'
+  | 'undergraduate'
+  | 'graduate'
+  | 'due-this-year';
+
 const CURRENT_YEAR = new Date().getFullYear();
 const TARGET_YEAR = Math.max(2027, CURRENT_YEAR);
 const BASELINE_YEAR = CURRENT_YEAR - 1;
+
+function isNewProgram(p: ProgramAccreditation, currentYear = CURRENT_YEAR): boolean {
+  if (p.status === 'waiting') return true;
+  if (p.yearOfInitialOperation) {
+    const yearMatch = p.yearOfInitialOperation.match(/\d{4}/);
+    if (yearMatch) {
+      const year = parseInt(yearMatch[0], 10);
+      if (year >= currentYear - 2) return true;
+    }
+  }
+  if (p.remarks && p.remarks.toLowerCase().includes('new program')) return true;
+  return false;
+}
+
+function isDueThisYear(p: ProgramAccreditation, currentYear = CURRENT_YEAR): boolean {
+  const yearStr = String(currentYear);
+  const inValidityEnd = Boolean(p.validityEnd && p.validityEnd.includes(yearStr));
+  const inSchedule = Boolean(p.scheduleForAccreditation && p.scheduleForAccreditation.includes(yearStr));
+  const isForAccred = p.status === 'for accreditation';
+  const inLevelStatus = Boolean(p.levelStatusForAccreditation && p.levelStatusForAccreditation.includes(yearStr));
+  return inValidityEnd || inSchedule || isForAccred || inLevelStatus;
+}
+
+function getOverviewFilterLabel(filter: OverviewStatFilter): string {
+  switch (filter) {
+    case 'total':
+      return 'All Programs';
+    case 'accredited':
+      return 'Accredited Programs (Levels 1–4)';
+    case 'due-this-year':
+      return `For Accreditation This Year (${CURRENT_YEAR})`;
+    case 'level-1':
+      return 'Level 1 Accredited';
+    case 'level-2':
+      return 'Level 2 Re-accredited';
+    case 'level-3':
+      return 'Level 3 Re-accredited';
+    case 'level-4':
+      return 'Level 4 Accredited';
+    case 'candidate':
+      return 'Candidate Programs';
+    case 'new':
+      return 'New / Newly Established Programs';
+    case 'undergraduate':
+      return 'Undergraduate Degree Programs';
+    case 'graduate':
+      return 'Graduate Degree Programs (Master\'s & Ph.D.)';
+    default:
+      return '';
+  }
+}
 import {
   SearchIcon,
   PlusIcon,
@@ -26,8 +91,18 @@ import {
   PencilIcon,
   Trash2Icon,
   CheckCircle2Icon,
+  PrinterIcon,
+  Building2Icon,
+  GraduationCapIcon,
+  BookOpenIcon,
+  ClockIcon,
   AwardIcon,
-  PrinterIcon
+  SparklesIcon,
+  RotateCcwIcon,
+  XIcon,
+  ShieldCheckIcon,
+  FilterIcon,
+  LayersIcon
 } from 'lucide-react';
 
 export function ProgramAccreditationView() {
@@ -42,6 +117,7 @@ export function ProgramAccreditationView() {
   // Search & Filters
   const [search, setSearch] = useState('');
   const [selectedCampus, setSelectedCampus] = useState<string>('all');
+  const [overviewFilter, setOverviewFilter] = useState<OverviewStatFilter>('none');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDegree, setSelectedDegree] = useState<string>('all');
   const [validityFilter, setValidityFilter] = useState<'all' | 'expiring' | 'active' | 'expired'>('all');
@@ -75,16 +151,30 @@ export function ProgramAccreditationView() {
   // Filtered Programs
   const filtered = useMemo(() => {
     return programAccreditations.filter((prog) => {
-      // Campus Filter
+      // 1. Campus Filter (Primary Campus Scope)
       if (selectedCampus !== 'all' && prog.campusId !== selectedCampus) return false;
 
-      // Status Filter
+      // 2. Interactive Overview Stat Card Filter
+      if (overviewFilter !== 'none') {
+        if (overviewFilter === 'level-1' && prog.status !== 'Level 1') return false;
+        if (overviewFilter === 'level-2' && prog.status !== 'Level 2') return false;
+        if (overviewFilter === 'level-3' && prog.status !== 'Level 3') return false;
+        if (overviewFilter === 'level-4' && prog.status !== 'Level 4') return false;
+        if (overviewFilter === 'candidate' && prog.status !== 'Candidate') return false;
+        if (overviewFilter === 'new' && !isNewProgram(prog)) return false;
+        if (overviewFilter === 'accredited' && !['Level 1', 'Level 2', 'Level 3', 'Level 4'].includes(prog.status)) return false;
+        if (overviewFilter === 'undergraduate' && prog.degreeLevel !== 'Undergraduate') return false;
+        if (overviewFilter === 'graduate' && prog.degreeLevel !== 'Graduate') return false;
+        if (overviewFilter === 'due-this-year' && !isDueThisYear(prog)) return false;
+      }
+
+      // 3. Dropdown Status Filter
       if (selectedStatus !== 'all' && prog.status !== selectedStatus) return false;
 
-      // Degree Filter
+      // 4. Dropdown Degree Filter
       if (selectedDegree !== 'all' && prog.degreeLevel !== selectedDegree) return false;
 
-      // Search Filter
+      // 5. Search Filter
       if (search.trim()) {
         const q = search.toLowerCase();
         const matchName = prog.programName.toLowerCase().includes(q);
@@ -95,7 +185,7 @@ export function ProgramAccreditationView() {
         if (!matchName && !matchCampus && !matchRemarks && !matchCert && !matchBoard) return false;
       }
 
-      // Validity Filter
+      // 6. Validity Filter
       if (validityFilter !== 'all') {
         const expiry = getExpiryInfo(prog).state;
         if (validityFilter === 'expired' && expiry !== 'expired') return false;
@@ -103,13 +193,23 @@ export function ProgramAccreditationView() {
         if (validityFilter === 'active' && expiry !== 'active' && expiry !== 'expiring') return false;
       }
 
-      // Higher Level Filter
+      // 7. Higher Level Filter
       if (higherLevelFilter === 'improved') return improvedProgramIds.has(prog.id);
       if (higherLevelFilter !== 'all') return levelAsOf(prog, TARGET_YEAR) === higherLevelFilter;
 
       return true;
     });
-  }, [programAccreditations, selectedCampus, selectedStatus, selectedDegree, search, validityFilter, higherLevelFilter, improvedProgramIds]);
+  }, [
+    programAccreditations,
+    selectedCampus,
+    overviewFilter,
+    selectedStatus,
+    selectedDegree,
+    search,
+    validityFilter,
+    higherLevelFilter,
+    improvedProgramIds
+  ]);
 
   const handleDelete = (id: string, name: string) => {
     if (confirm(`Are you sure you want to remove "${name}" from accreditation tracking?`)) {
@@ -155,40 +255,10 @@ export function ProgramAccreditationView() {
   // Summary view mode: AACCUP or COPC
   const [summaryMode, setSummaryMode] = useState<'aaccup' | 'copc'>('aaccup');
 
-  // Overall calculations across all programs
-  const totalPrograms = programAccreditations.length;
-  const accreditedCount = useMemo(
-    () => programAccreditations.filter((p) => ['Level 1', 'Level 2', 'Level 3', 'Level 4'].includes(p.status)).length,
-    [programAccreditations]
-  );
-  const candidateCount = useMemo(
-    () => programAccreditations.filter((p) => p.status === 'Candidate').length,
-    [programAccreditations]
-  );
-  const notAccreditableCount = useMemo(
-    () => programAccreditations.filter((p) => !['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Candidate'].includes(p.status)).length,
-    [programAccreditations]
-  );
-  const candidateOrNotAccreditableCount = candidateCount + notAccreditableCount;
-  const accreditationRate = totalPrograms > 0 ? ((accreditedCount / totalPrograms) * 100).toFixed(2) : '0';
+  // Campus-scoped dataset (Strict Campus Scope: All Campuses vs Specific Campus)
+  const totalInstitutionalPrograms = programAccreditations.length;
 
-  // COPC metrics
-  const copcCompliantCount = useMemo(
-    () => programAccreditations.filter((p) => p.copcStatus === 'Compliant').length,
-    [programAccreditations]
-  );
-  const copcPendingCount = useMemo(
-    () => programAccreditations.filter((p) => p.copcStatus === 'Pending' || p.copcStatus === 'Not Applicable').length,
-    [programAccreditations]
-  );
-  const copcRate = totalPrograms > 0 ? ((copcCompliantCount / totalPrograms) * 100).toFixed(2) : '0';
-
-  const level1Count = useMemo(
-    () => programAccreditations.filter((p) => p.status === 'Level 1').length,
-    [programAccreditations]
-  );
-
-  const currentCampusPrograms = useMemo(() => {
+  const campusScopedPrograms = useMemo(() => {
     if (selectedCampus === 'all') return programAccreditations;
     return programAccreditations.filter((p) => p.campusId === selectedCampus);
   }, [selectedCampus, programAccreditations]);
@@ -197,24 +267,112 @@ export function ProgramAccreditationView() {
     return campuses.find((c) => c.id === selectedCampus) || null;
   }, [campuses, selectedCampus]);
 
-  const currentL1Count = useMemo(() => {
-    return currentCampusPrograms.filter((p) => p.status === 'Level 1').length;
-  }, [currentCampusPrograms]);
-
-  const campusLevel1Breakdown = useMemo(() => {
-    return campuses.map((c) => {
-      const progs = programAccreditations.filter((p) => p.campusId === c.id);
-      const l1Progs = progs.filter((p) => p.status === 'Level 1');
-      return {
-        id: c.id,
-        name: c.name,
-        shortName: c.shortName,
-        total: progs.length,
-        l1Count: l1Progs.length,
-        l1Programs: l1Progs.map((p) => p.programName)
-      };
+  // Program count per campus for quick badges
+  const campusProgramCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    campuses.forEach((c) => {
+      counts[c.id] = programAccreditations.filter((p) => p.campusId === c.id).length;
     });
+    return counts;
   }, [campuses, programAccreditations]);
+
+  // 11 Required Dashboard Statistics (Strictly scoped to selectedCampus)
+  // 1. Total Programs
+  const totalProgramsScoped = campusScopedPrograms.length;
+
+  // 2. New Programs
+  const newProgramsCount = useMemo(
+    () => campusScopedPrograms.filter((p) => isNewProgram(p)).length,
+    [campusScopedPrograms]
+  );
+
+  // 3. Candidate Programs
+  const candidateCount = useMemo(
+    () => campusScopedPrograms.filter((p) => p.status === 'Candidate').length,
+    [campusScopedPrograms]
+  );
+
+  // 4. Level 1 Programs
+  const level1Count = useMemo(
+    () => campusScopedPrograms.filter((p) => p.status === 'Level 1').length,
+    [campusScopedPrograms]
+  );
+
+  // 5. Level 2 Programs
+  const level2Count = useMemo(
+    () => campusScopedPrograms.filter((p) => p.status === 'Level 2').length,
+    [campusScopedPrograms]
+  );
+
+  // 6. Level 3 Programs
+  const level3Count = useMemo(
+    () => campusScopedPrograms.filter((p) => p.status === 'Level 3').length,
+    [campusScopedPrograms]
+  );
+
+  // 7. Level 4 Programs
+  const level4Count = useMemo(
+    () => campusScopedPrograms.filter((p) => p.status === 'Level 4').length,
+    [campusScopedPrograms]
+  );
+
+  // Total Accredited Programs (Levels 1–4)
+  const accreditedCount = level1Count + level2Count + level3Count + level4Count;
+
+  // Non-accreditable programs (e.g. recent or awaiting initial operating requirements)
+  const notAccreditableCount = useMemo(
+    () => campusScopedPrograms.filter((p) => !['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Candidate'].includes(p.status)).length,
+    [campusScopedPrograms]
+  );
+  const candidateOrNotAccreditableCount = candidateCount + notAccreditableCount;
+
+  // 8. Accreditation Rate (Strictly differentiated: Institutional vs Campus)
+  const accreditationRate =
+    totalProgramsScoped > 0
+      ? ((accreditedCount / totalProgramsScoped) * 100).toFixed(2)
+      : '0.00';
+
+  // 9. Undergraduate Programs
+  const undergradCount = useMemo(
+    () => campusScopedPrograms.filter((p) => p.degreeLevel === 'Undergraduate').length,
+    [campusScopedPrograms]
+  );
+
+  // 10. Graduate Programs
+  const gradCount = useMemo(
+    () => campusScopedPrograms.filter((p) => p.degreeLevel === 'Graduate').length,
+    [campusScopedPrograms]
+  );
+
+  // 11. Programs for Accreditation This Year
+  const dueThisYearCount = useMemo(
+    () => campusScopedPrograms.filter((p) => isDueThisYear(p)).length,
+    [campusScopedPrograms]
+  );
+
+  // Card filter click handlers
+  const handleOverviewFilterClick = (filterKey: OverviewStatFilter) => {
+    setOverviewFilter((prev) => (prev === filterKey ? 'none' : filterKey));
+  };
+
+  const handleTotalProgramsClick = () => {
+    setOverviewFilter('none');
+    setSelectedStatus('all');
+    setSelectedDegree('all');
+    setValidityFilter('all');
+    setHigherLevelFilter('all');
+  };
+
+  // COPC metrics (Scoped)
+  const copcCompliantCount = useMemo(
+    () => campusScopedPrograms.filter((p) => p.copcStatus === 'Compliant').length,
+    [campusScopedPrograms]
+  );
+  const copcPendingCount = useMemo(
+    () => campusScopedPrograms.filter((p) => p.copcStatus === 'Pending' || p.copcStatus === 'Not Applicable').length,
+    [campusScopedPrograms]
+  );
+  const copcRate = totalProgramsScoped > 0 ? ((copcCompliantCount / totalProgramsScoped) * 100).toFixed(2) : '0';
 
   return (
     <>
@@ -231,362 +389,445 @@ export function ProgramAccreditationView() {
         description="Comprehensive program accreditation tracking across all 7 campuses, including survey levels, certificates, Drive evaluation portfolios, technical reviews, and accreditation visit schedules."
       />
 
-      {/* Mode Switcher Tabs for Summary Cards */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 rounded-lg border border-line bg-canvas p-1">
-          <button
-            type="button"
-            onClick={() => setSummaryMode('aaccup')}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
-              summaryMode === 'aaccup'
-                ? 'bg-white text-brand-700 shadow-xs border border-line'
-                : 'text-ink-muted hover:text-ink'
-            }`}
-          >
-            AACCUP Accreditation Summary ({accreditationRate}%)
-          </button>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => setReportModal({ open: true, type: 'summary' })}
-            className="btn btn-secondary btn-sm"
-          >
-            <PrinterIcon className="h-4 w-4" /> Print Summary Report
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditingProgram(null);
-              setFormModalOpen(true);
-            }}
-            className="btn btn-primary btn-sm"
-          >
-            <PlusIcon className="h-4 w-4" /> Add Academic Program
-          </button>
-        </div>
+      {/* Header Action Buttons */}
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setReportModal({ open: true, type: 'summary' })}
+          className="btn btn-secondary btn-sm"
+        >
+          <PrinterIcon className="h-4 w-4" /> Print Summary Report
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setEditingProgram(null);
+            setFormModalOpen(true);
+          }}
+          className="btn btn-primary btn-sm"
+        >
+          <PlusIcon className="h-4 w-4" /> Add Academic Program
+        </button>
       </div>
 
-      {/* Institutional Summary Cards (Reflects 2nd Image Reference) */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {summaryMode === 'aaccup' ? (
-          <>
-            {/* Card 1: Total Programs Monitored */}
-            <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Total Programs Monitored</span>
-              <p className="mt-1 text-2xl font-bold text-ink">{totalPrograms}</p>
-              <p className="text-[11px] text-ink-subtle">University-wide degree offerings</p>
+      {/* Quick Action Overview Section */}
+      <section className="mb-6 space-y-4" aria-label="Quick Action Overview">
+        {/* 1. Campus Selection & Navigation Bar */}
+        <div className="panel p-3.5 border border-line/80 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 mb-2.5">
+            <div className="flex items-center gap-2">
+              <Building2Icon className="h-4 w-4 text-brand-700 shrink-0" />
+              <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
+                Campus Selection & Scope Filter
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 border border-brand-200 px-2 py-0.5 text-[10.5px] font-bold text-brand-800">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-600 animate-pulse" />
+                {selectedCampus === 'all'
+                  ? 'All Campuses Scope (Consolidated Institutional)'
+                  : `${selectedCampusObj?.name || selectedCampusObj?.shortName || 'Selected Campus'} Scope`}
+              </span>
             </div>
 
-            {/* Card 2: EMPHASIZED LEVEL 1 ACCREDITED PROGRAMS */}
+            {selectedCampus !== 'all' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCampus('all');
+                  setOverviewFilter('none');
+                }}
+                className="text-[11px] font-semibold text-brand-700 hover:text-brand-900 flex items-center gap-1 cursor-pointer transition-colors"
+                title="Return to consolidated institutional statistics"
+              >
+                <RotateCcwIcon className="h-3 w-3" /> Reset to All Campuses
+              </button>
+            )}
+          </div>
+
+          {/* Campus Buttons List */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            {/* All Campuses Button (Default) */}
             <button
               type="button"
-              onClick={() => setSelectedStatus(selectedStatus === 'Level 1' ? 'all' : 'Level 1')}
-              className={`panel p-4 text-left transition-all cursor-pointer relative overflow-hidden group/l1 ${
-                selectedStatus === 'Level 1'
-                  ? 'bg-amber-100/90 border-amber-400 ring-2 ring-amber-400/40 shadow-sm'
-                  : 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-white border-amber-300/90 hover:border-amber-400 shadow-2xs hover:shadow-soft'
+              onClick={() => setSelectedCampus('all')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                selectedCampus === 'all'
+                  ? 'bg-brand-700 text-white shadow-xs ring-2 ring-brand-700/20'
+                  : 'bg-canvas text-ink-muted hover:text-ink hover:bg-slate-100 border border-line/70'
               }`}
-              title="Click to filter table by Level 1 programs"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-amber-950 uppercase tracking-wider">Level 1 Accredited</span>
-                <span className="rounded-full bg-amber-200/90 text-amber-900 border border-amber-300 px-1.5 py-0.2 text-[9px] font-black uppercase">
-                  Phase 1
-                </span>
-              </div>
-              <div className="mt-1 flex items-baseline gap-2">
-                <p className="text-2xl font-black text-amber-950">
-                  {selectedCampus === 'all' ? level1Count : currentL1Count}
-                </p>
-                {selectedCampus !== 'all' && (
-                  <span className="text-[11px] font-semibold text-amber-800 truncate">
-                    of {level1Count} all-campus
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] font-bold text-amber-800 mt-0.5 truncate">
-                {selectedStatus === 'Level 1'
-                  ? '✓ Filter active (Click to clear)'
-                  : selectedCampus === 'all'
-                  ? 'Across 4 campuses · Click to filter'
-                  : currentL1Count > 0
-                  ? `${currentL1Count} in selected campus`
-                  : 'None in this campus'}
-              </p>
+              <Building2Icon className="h-3.5 w-3.5" />
+              <span>All Campuses</span>
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                  selectedCampus === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-ink-muted'
+                }`}
+              >
+                {totalInstitutionalPrograms}
+              </span>
             </button>
 
-            {/* Card 3: Accredited Programs (Levels 1–4) */}
-            <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Accredited (Levels 1–4)</span>
-              <p className="mt-1 text-2xl font-bold text-success-700">{accreditedCount}</p>
-              <p className="text-[11px] text-ink-subtle">AACCUP surveyed & certified</p>
-            </div>
-
-            {/* Card 4: Institutional Accreditation Rate */}
-            <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Institutional Rate</span>
-              <p className="mt-1 text-2xl font-bold text-brand-700">{accreditationRate}%</p>
-              <p className="text-[11px] text-ink-subtle">Target: 100% accredited</p>
-            </div>
-
-            {/* Card 5: Candidate / Not Accreditable */}
-            <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Candidate / Not Accreditable</span>
-              <p className="mt-1 text-2xl font-bold text-warning-700">{candidateOrNotAccreditableCount}</p>
-              <p className="text-[11px] text-ink-subtle">{candidateCount} Candidate · {notAccreditableCount} Not Accreditable</p>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Total Programs Monitored</span>
-              <p className="mt-1 text-2xl font-bold text-ink">{totalPrograms}</p>
-              <p className="text-[11px] text-ink-subtle">University-wide degree offerings</p>
-            </div>
-
-            <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Programs with Active COPC</span>
-              <p className="mt-1 text-2xl font-bold text-success-700">{copcCompliantCount}</p>
-              <p className="text-[11px] text-ink-subtle">Issued by CHED Regional Office</p>
-            </div>
-
-            <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Institutional COPC Compliance</span>
-              <p className="mt-1 text-2xl font-bold text-brand-700">{copcRate}%</p>
-              <p className="text-[11px] text-ink-subtle">Target: 100% compliance</p>
-            </div>
-
-            <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Under Evaluation / Pending</span>
-              <p className="mt-1 text-2xl font-bold text-warning-700">{copcPendingCount}</p>
-              <p className="text-[11px] text-ink-subtle">Submitted renewal applications</p>
-            </div>
-
-            <div className="panel p-4">
-              <span className="text-xs text-ink-muted">Coverage</span>
-              <p className="mt-1 text-2xl font-bold text-brand-700">7 Campuses</p>
-              <p className="text-[11px] text-ink-subtle">CHED Regional Scope</p>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Campus Distribution Breakdown Grid (Master Reference) */}
-      <div className="mb-6 panel p-4">
-        <div className="flex flex-col gap-2.5 pb-3 border-b border-line mb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                {summaryMode === 'aaccup'
-                  ? 'Campus AACCUP Accreditation Distribution (Master Reference)'
-                  : 'Campus COPC Compliance Distribution (Master Reference)'}
-              </h3>
-              {summaryMode === 'aaccup' && (
-                <p className="text-[11px] text-ink-muted mt-0.5">
-                  Click any campus to filter. <strong className="text-amber-900 font-bold">Level 1 program counts</strong> are highlighted for each campus below.
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              {summaryMode === 'aaccup' && (
+            {/* Individual Campus Buttons */}
+            {campuses.map((c) => {
+              const isSelected = selectedCampus === c.id;
+              const count = campusProgramCounts[c.id] || 0;
+              return (
                 <button
+                  key={c.id}
                   type="button"
-                  onClick={() => setSelectedStatus(selectedStatus === 'Level 1' ? 'all' : 'Level 1')}
-                  className={`btn btn-xs ${
-                    selectedStatus === 'Level 1'
-                      ? 'bg-amber-600 text-white hover:bg-amber-700 font-bold shadow-xs'
-                      : 'bg-amber-50 text-amber-950 border border-amber-300 hover:bg-amber-100 font-bold'
+                  onClick={() => setSelectedCampus(c.id)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-brand-700 text-white shadow-xs ring-2 ring-brand-700/20'
+                      : 'bg-canvas text-ink-muted hover:text-ink hover:bg-slate-100 border border-line/70'
                   }`}
-                  title="Toggle table filter to show only Level 1 programs across all campuses"
                 >
-                  <AwardIcon className="h-3 w-3" />
-                  <span>{selectedStatus === 'Level 1' ? 'Showing Level 1 (5)' : 'Filter All Level 1 (5)'}</span>
+                  <span>{c.shortName}</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-ink-muted'
+                    }`}
+                  >
+                    {count}
+                  </span>
                 </button>
-              )}
-              {selectedCampus !== 'all' && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedCampus('all')}
-                  className="text-[11px] text-brand-600 font-semibold hover:underline"
-                >
-                  Clear Campus Filter (Show All 7)
-                </button>
-              )}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Active Filter Notification Banner */}
+        {overviewFilter !== 'none' && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gradient-to-r from-brand-50 via-amber-50/40 to-white border border-brand-200/90 p-3 text-xs text-brand-950 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-2 w-2 rounded-full bg-brand-600 animate-pulse" />
+              <span>
+                Active Card Filter:{' '}
+                <strong className="text-brand-900 underline font-bold">
+                  {getOverviewFilterLabel(overviewFilter)}
+                </strong>
+                {' · '}
+                Displaying <strong>{filtered.length}</strong> matching programs
+                {selectedCampus !== 'all' ? ` in ${selectedCampusObj?.shortName}` : ' across all campuses'}.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOverviewFilter('none')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-brand-300 px-3 py-1 text-xs font-bold text-brand-900 hover:bg-brand-100 hover:border-brand-400 transition-all shadow-2xs cursor-pointer"
+            >
+              <XIcon className="h-3.5 w-3.5" /> Clear Filter
+            </button>
+          </div>
+        )}
+
+        {/* 2. Key Executive Overview Cards (4 Balanced, Semantically Organized KPI Cards) */}
+        <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Card 1: Total Degree Programs & Academic Offerings */}
+          <div
+            onClick={handleTotalProgramsClick}
+            className={`panel p-4 text-left transition-all cursor-pointer relative overflow-hidden group hover:shadow-soft flex flex-col justify-between ${
+              overviewFilter === 'none' || overviewFilter === 'total'
+                ? 'bg-slate-50/90 border-slate-300 ring-1 ring-slate-400/20'
+                : 'hover:border-slate-300 shadow-2xs'
+            }`}
+            title="Click to view all programs for active campus scope"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
+                  Total Programs
+                </span>
+                <span className="rounded-full bg-slate-100 text-ink-subtle px-2 py-0.5 text-[9.5px] font-bold">
+                  {selectedCampus === 'all' ? 'All Campuses' : selectedCampusObj?.shortName}
+                </span>
+              </div>
+              <p className="mt-1.5 text-3xl font-black text-ink">{totalProgramsScoped}</p>
+              <p className="text-[11px] text-ink-subtle mt-0.5 line-clamp-1">
+                {selectedCampus === 'all'
+                  ? 'University-wide degree offerings'
+                  : `Active in ${selectedCampusObj?.name || 'campus'}`}
+              </p>
+            </div>
+
+            {/* Program Breakdown Chips (Undergrad, Grad, New) */}
+            <div className="mt-3.5 flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-line/70">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOverviewFilterClick('undergraduate');
+                }}
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                  overviewFilter === 'undergraduate'
+                    ? 'bg-sky-100 text-sky-950 ring-1 ring-sky-400 font-bold shadow-2xs'
+                    : 'bg-canvas text-ink-muted hover:text-ink hover:bg-slate-100 border border-line/60'
+                }`}
+                title="Filter Undergraduate programs"
+              >
+                <GraduationCapIcon className="h-3.5 w-3.5 text-sky-700" />
+                <span>{undergradCount} Undergrad</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOverviewFilterClick('graduate');
+                }}
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                  overviewFilter === 'graduate'
+                    ? 'bg-violet-100 text-violet-950 ring-1 ring-violet-400 font-bold shadow-2xs'
+                    : 'bg-canvas text-ink-muted hover:text-ink hover:bg-slate-100 border border-line/60'
+                }`}
+                title="Filter Graduate programs"
+              >
+                <BookOpenIcon className="h-3.5 w-3.5 text-violet-700" />
+                <span>{gradCount} Grad</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOverviewFilterClick('new');
+                }}
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                  overviewFilter === 'new'
+                    ? 'bg-teal-100 text-teal-950 ring-1 ring-teal-400 font-bold shadow-2xs'
+                    : 'bg-canvas text-ink-muted hover:text-ink hover:bg-slate-100 border border-line/60'
+                }`}
+                title="Filter New programs"
+              >
+                <SparklesIcon className="h-3 w-3 text-teal-600" />
+                <span>{newProgramsCount} New</span>
+              </button>
             </div>
           </div>
 
-          {/* Quick Level 1 Campus Breakdown Chips (All Campus or Each Campus) */}
-          {summaryMode === 'aaccup' && (
-            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
-              <span className="font-bold text-ink-subtle text-[10.5px] uppercase tracking-wider mr-1">
-                Level 1 by Campus:
-              </span>
-              {campusLevel1Breakdown.map((cb) => {
-                const isCurrentCampus = selectedCampus === cb.id;
-                const hasL1 = cb.l1Count > 0;
-                return (
-                  <button
-                    key={cb.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCampus(isCurrentCampus ? 'all' : cb.id);
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] transition-all cursor-pointer ${
-                      isCurrentCampus
-                        ? 'bg-brand-700 text-white border-brand-800 font-bold shadow-xs'
-                        : hasL1
-                        ? 'bg-amber-50/90 text-amber-950 border-amber-300/80 hover:bg-amber-100 font-semibold'
-                        : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                    }`}
-                    title={`${cb.name}: ${cb.l1Count} Level 1 program${cb.l1Count > 1 ? 's' : ''}${
-                      hasL1 ? ` (${cb.l1Programs.join(', ')})` : ''
-                    }`}
-                  >
-                    <span>{cb.shortName}</span>
-                    <span
-                      className={`grid h-4 min-w-4 px-1 place-items-center rounded-full text-[9.5px] font-black ${
-                        isCurrentCampus
-                          ? 'bg-white text-brand-800'
-                          : hasL1
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-slate-200 text-slate-600'
-                      }`}
-                    >
-                      {cb.l1Count}
-                    </span>
-                  </button>
-                );
-              })}
+          {/* Card 2: Accreditation Rate & Certified Ratio */}
+          <div
+            onClick={() => handleOverviewFilterClick('accredited')}
+            className={`panel p-4 text-left transition-all cursor-pointer relative overflow-hidden group hover:shadow-soft flex flex-col justify-between ${
+              overviewFilter === 'accredited'
+                ? 'bg-brand-50/90 border-brand-500 ring-2 ring-brand-400/40 shadow-sm'
+                : 'bg-gradient-to-br from-brand-50/40 via-white to-white hover:border-brand-300 shadow-2xs'
+            }`}
+            title="Click to view all accredited programs (Levels 1–4)"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-brand-900 uppercase tracking-wider truncate">
+                  {selectedCampus === 'all'
+                    ? 'Institutional Rate'
+                    : `${selectedCampusObj?.shortName || 'Campus'} Rate`}
+                </span>
+                <span className="rounded-full bg-brand-100 text-brand-800 border border-brand-200 px-2 py-0.5 text-[9.5px] font-bold">
+                  {selectedCampus === 'all' ? 'Institutional' : 'Campus Scope'}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-baseline gap-2">
+                <p className="text-3xl font-black text-brand-700">{accreditationRate}%</p>
+                <span className="text-xs font-semibold text-ink-muted">
+                  ({accreditedCount} / {totalProgramsScoped})
+                </span>
+              </div>
+              <p className="text-[11px] text-ink-subtle mt-0.5 line-clamp-1">
+                {accreditedCount} of {totalProgramsScoped} degree offerings certified
+              </p>
+            </div>
+
+            {/* Visual Progress Bar & Filter Pills */}
+            <div className="mt-3.5 space-y-2 pt-2.5 border-t border-line/70">
+              <div>
+                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                  <div
+                    className="bg-brand-600 transition-all duration-500 rounded-full"
+                    style={{ width: `${Math.min(100, Math.max(0, parseFloat(accreditationRate)))}%` }}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOverviewFilterClick('accredited');
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10.5px] font-semibold transition-all cursor-pointer ${
+                    overviewFilter === 'accredited'
+                      ? 'bg-brand-700 text-white font-bold shadow-2xs'
+                      : 'bg-brand-50 text-brand-900 hover:bg-brand-100 border border-brand-200'
+                  }`}
+                  title="Filter all accredited programs (Levels 1–4)"
+                >
+                  <ShieldCheckIcon className="h-3 w-3 text-brand-600" />
+                  <span>{accreditedCount} Accredited</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOverviewFilterClick('candidate');
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10.5px] font-semibold transition-all cursor-pointer ${
+                    overviewFilter === 'candidate'
+                      ? 'bg-indigo-600 text-white font-bold shadow-2xs'
+                      : 'bg-indigo-50 text-indigo-900 hover:bg-indigo-100 border border-indigo-200'
+                  }`}
+                  title="Filter Candidate programs"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                  <span>{candidateCount} Candidate</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: AACCUP Accreditation Levels (Levels 1–4 Clean Breakdown) */}
+          <div
+            className={`panel p-4 text-left transition-all relative overflow-hidden flex flex-col justify-between ${
+              ['level-1', 'level-2', 'level-3', 'level-4'].includes(overviewFilter)
+                ? 'bg-slate-50/90 border-slate-300 ring-1 ring-slate-400/20'
+                : 'hover:border-slate-300 shadow-2xs'
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
+                  Accreditation Levels
+                </span>
+                <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[9.5px] font-black uppercase">
+                  Levels 1–4
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-baseline gap-2">
+                <p className="text-3xl font-black text-emerald-800">{accreditedCount}</p>
+                <span className="text-xs font-semibold text-ink-muted">
+                  Programs Certified
+                </span>
+              </div>
+              <p className="text-[11px] text-ink-subtle mt-0.5 line-clamp-1">
+                Distribution across survey levels
+              </p>
+            </div>
+
+            {/* 2x2 Grid of Clean Clickable Level Buttons */}
+            <div className="mt-3.5 grid grid-cols-2 gap-1.5 pt-2.5 border-t border-line/70">
               <button
                 type="button"
-                onClick={() => setSelectedCampus('all')}
-                className={`ml-1 text-[10.5px] px-2 py-0.5 rounded transition-colors ${
-                  selectedCampus === 'all'
-                    ? 'font-bold text-brand-700 underline'
-                    : 'text-ink-muted hover:text-ink'
+                onClick={() => handleOverviewFilterClick('level-1')}
+                className={`flex items-center justify-between px-2 py-1 rounded-md text-xs transition-all cursor-pointer ${
+                  overviewFilter === 'level-1'
+                    ? 'bg-amber-100 text-amber-950 ring-2 ring-amber-500 font-bold shadow-2xs'
+                    : 'bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 border border-amber-200/80'
                 }`}
+                title="Filter Level 1 Accredited"
               >
-                All Campuses (5)
+                <span className="flex items-center gap-1 font-semibold text-[11px]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                  Level 1
+                </span>
+                <span className="font-black text-xs">{level1Count}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleOverviewFilterClick('level-2')}
+                className={`flex items-center justify-between px-2 py-1 rounded-md text-xs transition-all cursor-pointer ${
+                  overviewFilter === 'level-2'
+                    ? 'bg-blue-100 text-blue-950 ring-2 ring-blue-500 font-bold shadow-2xs'
+                    : 'bg-blue-50/70 hover:bg-blue-100/80 text-blue-900 border border-blue-200/80'
+                }`}
+                title="Filter Level 2 Re-accredited"
+              >
+                <span className="flex items-center gap-1 font-semibold text-[11px]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                  Level 2
+                </span>
+                <span className="font-black text-xs">{level2Count}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleOverviewFilterClick('level-3')}
+                className={`flex items-center justify-between px-2 py-1 rounded-md text-xs transition-all cursor-pointer ${
+                  overviewFilter === 'level-3'
+                    ? 'bg-emerald-100 text-emerald-950 ring-2 ring-emerald-500 font-bold shadow-2xs'
+                    : 'bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 border border-emerald-200/80'
+                }`}
+                title="Filter Level 3 Re-accredited"
+              >
+                <span className="flex items-center gap-1 font-semibold text-[11px]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  Level 3
+                </span>
+                <span className="font-black text-xs">{level3Count}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleOverviewFilterClick('level-4')}
+                className={`flex items-center justify-between px-2 py-1 rounded-md text-xs transition-all cursor-pointer ${
+                  overviewFilter === 'level-4'
+                    ? 'bg-purple-100 text-purple-950 ring-2 ring-purple-500 font-bold shadow-2xs'
+                    : 'bg-purple-50/70 hover:bg-purple-100/80 text-purple-900 border border-purple-200/80'
+                }`}
+                title="Filter Level 4 Accredited"
+              >
+                <span className="flex items-center gap-1 font-semibold text-[11px]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-purple-500 shrink-0" />
+                  Level 4
+                </span>
+                <span className="font-black text-xs">{level4Count}</span>
               </button>
             </div>
-          )}
+          </div>
+
+          {/* Card 4: For Accreditation This Year (Annual Action Roster) */}
+          <div
+            onClick={() => handleOverviewFilterClick('due-this-year')}
+            className={`panel p-4 text-left transition-all cursor-pointer relative overflow-hidden group hover:shadow-soft flex flex-col justify-between ${
+              overviewFilter === 'due-this-year'
+                ? 'bg-amber-100/90 border-amber-500 ring-2 ring-amber-400/40 shadow-sm'
+                : 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-white border-amber-300/80 hover:border-amber-400 shadow-2xs'
+            }`}
+            title={`Click to filter programs due or scheduled for accreditation in ${CURRENT_YEAR}`}
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <ClockIcon className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+                  Due This Year
+                </span>
+                <span className="rounded-full bg-amber-200/90 text-amber-900 border border-amber-300 px-2 py-0.5 text-[9.5px] font-black uppercase tracking-wide">
+                  {CURRENT_YEAR} Action
+                </span>
+              </div>
+              <p className="mt-1.5 text-3xl font-black text-amber-950">{dueThisYearCount}</p>
+              <p className="text-[11px] text-amber-900/90 font-medium mt-0.5 line-clamp-1">
+                {dueThisYearCount > 0
+                  ? `Surveys & validities in ${CURRENT_YEAR}`
+                  : `No surveys due in ${CURRENT_YEAR}`}
+              </p>
+            </div>
+
+            {/* Prominent Action Banner for Due This Year */}
+            <div className="mt-3.5 pt-2.5 border-t border-amber-200/80">
+              <div
+                className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-bold transition-all ${
+                  overviewFilter === 'due-this-year'
+                    ? 'bg-amber-600 text-white shadow-2xs'
+                    : 'bg-amber-500/15 text-amber-900 hover:bg-amber-500/25 border border-amber-300/70'
+                }`}
+              >
+                <span className="flex items-center gap-1.5 truncate">
+                  <ClockIcon className="h-3.5 w-3.5 shrink-0" />
+                  <span>{overviewFilter === 'due-this-year' ? `Active: Due in ${CURRENT_YEAR}` : `View ${CURRENT_YEAR} Action Roster`}</span>
+                </span>
+                <span className="font-extrabold text-sm ml-1 shrink-0">→</span>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
-          {campuses.map((c) => {
-            const campusRecs = programAccreditations.filter((p) => p.campusId === c.id);
-            const total = campusRecs.length;
-
-            if (summaryMode === 'aaccup') {
-              const accredited = campusRecs.filter((p) =>
-                ['Level 1', 'Level 2', 'Level 3', 'Level 4'].includes(p.status)
-              ).length;
-              const l4Count = campusRecs.filter((p) => p.status === 'Level 4').length;
-              const l3Count = campusRecs.filter((p) => p.status === 'Level 3').length;
-              const l2Count = campusRecs.filter((p) => p.status === 'Level 2').length;
-              const l1Count = campusRecs.filter((p) => p.status === 'Level 1').length;
-              const rate = total > 0 ? ((accredited / total) * 100).toFixed(1) : '0';
-              const isFull = accredited === total && total > 0;
-
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setSelectedCampus(c.id === selectedCampus ? 'all' : c.id)}
-                  className={`rounded-xl border p-3 text-left transition-all relative group/card ${
-                    selectedCampus === c.id
-                      ? 'border-brand-500 bg-brand-50/80 ring-2 ring-brand-500/60 shadow-sm'
-                      : l1Count > 0
-                      ? 'border-amber-200/90 bg-gradient-to-b from-white via-white to-amber-50/30 hover:border-amber-300 hover:shadow-2xs'
-                      : 'border-line hover:bg-canvas'
-                  }`}
-                  title={`Filter by ${c.name} (${accredited}/${total} accredited — L4: ${l4Count}, L3: ${l3Count}, L2: ${l2Count}, L1: ${l1Count})`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-ink group-hover/card:text-brand-700 transition-colors">
-                      {c.shortName}
-                    </span>
-                    {isFull ? (
-                      <span className="text-[10px] font-semibold text-success-700">100%</span>
-                    ) : (
-                      <span className="text-[10px] font-semibold text-brand-700">{rate}%</span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-base font-extrabold text-brand-900">
-                    {accredited} / {total}
-                  </p>
-                  <p className="text-[10px] text-ink-muted">programs accredited</p>
-
-                  {/* Level breakdown badges (L4, L3, L2, L1) */}
-                  <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1">
-                    {l4Count > 0 && (
-                      <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-amber-50 text-amber-900 border border-amber-200" title={`Level 4: ${l4Count} program(s)`}>
-                        L4: {l4Count}
-                      </span>
-                    )}
-                    {l3Count > 0 && (
-                      <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title={`Level 3: ${l3Count} program(s)`}>
-                        L3: {l3Count}
-                      </span>
-                    )}
-                    {l2Count > 0 && (
-                      <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50 text-blue-800 border border-blue-200" title={`Level 2: ${l2Count} program(s)`}>
-                        L2: {l2Count}
-                      </span>
-                    )}
-                    {l1Count > 0 ? (
-                      <span
-                        className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9.5px] font-black bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs"
-                        title={`Level 1: ${l1Count} program(s)`}
-                      >
-                        <span className="h-1 w-1 rounded-full bg-amber-600" />
-                        L1: {l1Count}
-                      </span>
-                    ) : (
-                      <span className="px-1 py-0.5 rounded text-[9.5px] text-slate-400">
-                        L1: 0
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            } else {
-              const comp = campusRecs.filter((p) => p.copcStatus === 'Compliant').length;
-              const isFull = comp === total && total > 0;
-
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setSelectedCampus(c.id === selectedCampus ? 'all' : c.id)}
-                  className={`rounded-lg border p-3 text-left transition-all ${
-                    selectedCampus === c.id
-                      ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500 shadow-xs'
-                      : 'border-line hover:bg-canvas'
-                  }`}
-                  title={`Filter by ${c.name} (${comp}/${total} COPC compliant)`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-ink">{c.shortName}</span>
-                    {isFull ? (
-                      <span className="text-[10px] font-semibold text-success-700">100%</span>
-                    ) : (
-                      <span className="text-[10px] font-semibold text-warning-700">Pending</span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-base font-extrabold text-brand-900">
-                    {comp} / {total}
-                  </p>
-                  <p className="text-[10px] text-ink-muted">programs compliant</p>
-                </button>
-              );
-            }
-          })}
-        </div>
-      </div>
+      </section>
 
       {/* Filter and Search Bar */}
       <div className="mb-5 panel p-4 space-y-3">
@@ -617,8 +858,25 @@ export function ProgramAccreditationView() {
             </select>
 
             <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              value={
+                ['level-1', 'level-2', 'level-3', 'level-4', 'candidate'].includes(overviewFilter)
+                  ? overviewFilter === 'level-1'
+                    ? 'Level 1'
+                    : overviewFilter === 'level-2'
+                    ? 'Level 2'
+                    : overviewFilter === 'level-3'
+                    ? 'Level 3'
+                    : overviewFilter === 'level-4'
+                    ? 'Level 4'
+                    : 'Candidate'
+                  : selectedStatus
+              }
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                if (['level-1', 'level-2', 'level-3', 'level-4', 'candidate', 'accredited'].includes(overviewFilter)) {
+                  setOverviewFilter('none');
+                }
+              }}
               className="input h-9 text-xs py-0 w-auto"
             >
               <option value="all">All Levels</option>
@@ -670,14 +928,37 @@ export function ProgramAccreditationView() {
           <div className="flex flex-wrap items-center gap-1.5">
             <span>
               Showing <strong className="text-ink">{filtered.length}</strong> of{' '}
-              <strong className="text-ink">{programAccreditations.length}</strong> programs
+              <strong className="text-ink">{totalProgramsScoped}</strong> programs
+              {selectedCampus !== 'all' ? ` in ${selectedCampusObj?.shortName}` : ' across all campuses'}
             </span>
             {selectedCampus !== 'all' && (
               <span className="inline-flex items-center gap-1 rounded bg-brand-50 text-brand-800 border border-brand-200 px-1.5 py-0.2 text-[10.5px] font-bold">
                 Campus: {selectedCampusObj?.shortName}
               </span>
             )}
+            {overviewFilter !== 'none' && (
+              <span className="inline-flex items-center gap-1 rounded bg-amber-50 text-amber-900 border border-amber-300 px-1.5 py-0.2 text-[10.5px] font-bold">
+                Filter: {getOverviewFilterLabel(overviewFilter)}
+              </span>
+            )}
           </div>
+          {(overviewFilter !== 'none' || selectedCampus !== 'all' || selectedStatus !== 'all' || selectedDegree !== 'all' || search.trim() || validityFilter !== 'all' || higherLevelFilter !== 'all') && (
+            <button
+              type="button"
+              onClick={() => {
+                setOverviewFilter('none');
+                setSelectedCampus('all');
+                setSelectedStatus('all');
+                setSelectedDegree('all');
+                setSearch('');
+                setValidityFilter('all');
+                setHigherLevelFilter('all');
+              }}
+              className="text-xs text-brand-700 hover:text-brand-900 font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <RotateCcwIcon className="h-3 w-3" /> Reset all filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -691,7 +972,16 @@ export function ProgramAccreditationView() {
                 <th className="th py-3">Campus</th>
                 <th className="th py-3">Initial OP.</th>
                 <th className="th py-3">Accreditation Status</th>
-                <th className="th py-3 min-w-[150px]">Validity Period</th>
+                <th className="th py-3 min-w-[150px]">
+                  {overviewFilter === 'due-this-year' ? (
+                    <span className="flex items-center gap-1 text-amber-900 font-bold">
+                      <ClockIcon className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                      Validity & Due ({CURRENT_YEAR})
+                    </span>
+                  ) : (
+                    'Validity Period'
+                  )}
+                </th>
                 <th className="th py-3">AACCUP Certification</th>
                 <th className="th py-3">AACCUP Technical Review</th>
                 <th className="th py-3 min-w-[160px]">Board Action</th>
@@ -721,6 +1011,9 @@ export function ProgramAccreditationView() {
                           {prog.cmoNo && <span>CMO: {prog.cmoNo}</span>}
                           {prog.scheduleForAccreditation && (
                             <span className="font-semibold text-brand-700">Survey: {prog.scheduleForAccreditation}</span>
+                          )}
+                          {overviewFilter === 'due-this-year' && !prog.scheduleForAccreditation && (
+                            <span className="font-semibold text-amber-800 bg-amber-50 px-1 rounded">Action Due: {CURRENT_YEAR}</span>
                           )}
                         </div>
                       </td>
@@ -764,6 +1057,13 @@ export function ProgramAccreditationView() {
                           <span className="text-ink-subtle">—</span>
                         )}
                         <ExpiryIndicator program={prog} />
+                        {overviewFilter === 'due-this-year' && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 rounded bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 text-[10px] font-bold">
+                              <ClockIcon className="h-3 w-3 shrink-0" /> Due in {CURRENT_YEAR}
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       <td className="td py-3 text-xs">
