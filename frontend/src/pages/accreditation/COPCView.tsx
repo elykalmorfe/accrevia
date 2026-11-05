@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import { CampusId, COPCRecord, COPCRequirementItem, RequirementVerificationStatus } from '../../types/accreditation';
@@ -91,10 +90,7 @@ export function COPCView() {
       <PageHeader
         eyebrow={
           <span>
-            <Link to="/frameworks" className="hover:text-ink hover:underline">
-              Accreditation & Frameworks
-            </Link>{' '}
-            / Program Compliance
+            Accreditation & Frameworks / Program Compliance
           </span>
         }
         title="Certificate of Program Compliance (COPC)"

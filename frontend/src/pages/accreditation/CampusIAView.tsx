@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import { CampusId, IALevel, IA_LEVEL_OPTIONS } from '../../types/accreditation';
@@ -77,10 +76,7 @@ export function CampusIAView() {
       <PageHeader
         eyebrow={
           <span>
-            <Link to="/frameworks" className="hover:text-ink hover:underline">
-              Accreditation & Frameworks
-            </Link>{' '}
-            / Campus-Based Accreditation
+            Accreditation & Frameworks / Campus-Based Accreditation
           </span>
         }
         title="Institutional Accreditation (IA)"

@@ -142,10 +142,7 @@ export function CampusISOView() {
       <PageHeader
         eyebrow={
           <span>
-            <Link to="/frameworks" className="hover:text-ink hover:underline">
-              Accreditation & Frameworks
-            </Link>{' '}
-            / Quality Management
+            Accreditation & Frameworks / Quality Management
           </span>
         }
         title={sectionTitle}

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import { CampusId, PQACategoryScore } from '../../types/accreditation';
@@ -95,10 +94,7 @@ export function CampusPQAView() {
       <PageHeader
         eyebrow={
           <span>
-            <Link to="/frameworks" className="hover:text-ink hover:underline">
-              Accreditation & Frameworks
-            </Link>{' '}
-            / Quality Excellence
+            Accreditation & Frameworks / Quality Excellence
           </span>
         }
         title="Philippine Quality Award (PQA) Framework"

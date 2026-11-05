@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
-import { ProgramAccreditation, ProgramRequirementItem, RequirementVerificationStatus } from '../../types/accreditation';
+import { ProgramAccreditation } from '../../types/accreditation';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { ProgramFormModal } from '../../components/accreditation/ProgramFormModal';
-import { AccreditationDocModal } from '../../components/accreditation/AccreditationDocModal';
+import { ProgramAreaRepositoryModal } from '../../components/accreditation/ProgramAreaRepositoryModal';
 import { ExpiryIndicator } from '../../components/accreditation/ExpiryIndicator';
 import { ProgramReportPrintModal, ProgramReportType } from '../../components/accreditation/reports/ProgramReportPrintModal';
 import { FindingsPrintModal } from '../../components/accreditation/reports/FindingsPrintModal';
@@ -99,6 +98,8 @@ import {
   AwardIcon,
   SparklesIcon,
   RotateCcwIcon,
+  FolderOpenIcon,
+  UploadIcon,
   XIcon,
   ShieldCheckIcon,
   FilterIcon,
@@ -110,7 +111,8 @@ export function ProgramAccreditationView() {
     campuses,
     programAccreditations,
     deleteProgramAccreditation,
-    updateProgramRequirement,
+    documents,
+    folders,
     isAdmin
   } = usePortal();
 
@@ -128,11 +130,25 @@ export function ProgramAccreditationView() {
   const [editingProgram, setEditingProgram] = useState<ProgramAccreditation | null>(null);
 
   // Requirements / Detail Modal State
-  const [detailsModalProgram, setDetailsModalProgram] = useState<ProgramAccreditation | null>(null);
-  const [activeReqProgram, setActiveReqProgram] = useState<{
-    program: ProgramAccreditation;
-    req: ProgramRequirementItem;
-  } | null>(null);
+  const [detailsSnapshot, setDetailsModalProgram] = useState<ProgramAccreditation | null>(null);
+  const detailsModalProgram = detailsSnapshot
+    ? programAccreditations.find((p) => p.id === detailsSnapshot.id) ?? detailsSnapshot
+    : null;
+  const [repositoryReqId, setRepositoryReqId] = useState<string | null>(null);
+  const repositoryRequirement = detailsModalProgram?.requirements?.find((r) => r.id === repositoryReqId) ?? null;
+
+  const areaRepositoryStats = useMemo(() => {
+    const stats: Record<string, { files: number; folders: number }> = {};
+    const reqIds = new Set((detailsModalProgram?.requirements || []).map((r) => r.id));
+    const bump = (areaId: string | undefined, key: 'files' | 'folders') => {
+      if (!areaId || !reqIds.has(areaId)) return;
+      stats[areaId] = stats[areaId] || { files: 0, folders: 0 };
+      stats[areaId][key] += 1;
+    };
+    documents.forEach((d) => d.frameworkId === 'pa' && bump(d.areaId, 'files'));
+    folders.forEach((f) => f.frameworkId === 'pa' && bump(f.areaId, 'folders'));
+    return stats;
+  }, [detailsModalProgram?.requirements, documents, folders]);
 
   // Print / report modals
   const [reportModal, setReportModal] = useState<{
@@ -216,40 +232,6 @@ export function ProgramAccreditationView() {
       deleteProgramAccreditation(id);
       toast.success('Program removed from accreditation registry');
     }
-  };
-
-  const handleSaveProgramRequirement = (data: {
-    documentName: string;
-    documentUrl: string;
-    status: RequirementVerificationStatus;
-    reviewerNotes: string;
-  }) => {
-    if (!activeReqProgram) return;
-    updateProgramRequirement(activeReqProgram.program.id, activeReqProgram.req.id, {
-      documentName: data.documentName,
-      documentUrl: data.documentUrl,
-      verified: data.status === 'Approved',
-      remarks: data.reviewerNotes,
-      isSubmitted: !!data.documentName
-    });
-
-    // Also update current modal view state
-    setDetailsModalProgram((prev) => {
-      if (!prev) return null;
-      const reqs = (prev.requirements || []).map((r) =>
-        r.id === activeReqProgram.req.id
-          ? {
-              ...r,
-              documentName: data.documentName,
-              documentUrl: data.documentUrl,
-              verified: data.status === 'Approved',
-              remarks: data.reviewerNotes,
-              isSubmitted: !!data.documentName
-            }
-          : r
-      );
-      return { ...prev, requirements: reqs };
-    });
   };
 
   // Summary view mode: AACCUP or COPC
@@ -379,72 +361,18 @@ export function ProgramAccreditationView() {
       <PageHeader
         eyebrow={
           <span>
-            <Link to="/frameworks" className="hover:text-ink hover:underline">
-              Accreditation & Frameworks
-            </Link>{' '}
-            / Program-Level Accreditation
+            Accreditation & Frameworks / Program-Level Accreditation
           </span>
         }
         title="AACCUP Program Accreditation Status"
         description="Comprehensive program accreditation tracking across all 7 campuses, including survey levels, certificates, Drive evaluation portfolios, technical reviews, and accreditation visit schedules."
       />
 
-      {/* Header Action Buttons */}
-      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => setReportModal({ open: true, type: 'summary' })}
-          className="btn btn-secondary btn-sm"
-        >
-          <PrinterIcon className="h-4 w-4" /> Print Summary Report
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setEditingProgram(null);
-            setFormModalOpen(true);
-          }}
-          className="btn btn-primary btn-sm"
-        >
-          <PlusIcon className="h-4 w-4" /> Add Academic Program
-        </button>
-      </div>
-
       {/* Quick Action Overview Section */}
       <section className="mb-6 space-y-4" aria-label="Quick Action Overview">
-        {/* 1. Campus Selection & Navigation Bar */}
-        <div className="panel p-3.5 border border-line/80 shadow-2xs">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 mb-2.5">
-            <div className="flex items-center gap-2">
-              <Building2Icon className="h-4 w-4 text-brand-700 shrink-0" />
-              <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                Campus Selection & Scope Filter
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 border border-brand-200 px-2 py-0.5 text-[10.5px] font-bold text-brand-800">
-                <span className="h-1.5 w-1.5 rounded-full bg-brand-600 animate-pulse" />
-                {selectedCampus === 'all'
-                  ? 'All Campuses Scope (Consolidated Institutional)'
-                  : `${selectedCampusObj?.name || selectedCampusObj?.shortName || 'Selected Campus'} Scope`}
-              </span>
-            </div>
-
-            {selectedCampus !== 'all' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCampus('all');
-                  setOverviewFilter('none');
-                }}
-                className="text-[11px] font-semibold text-brand-700 hover:text-brand-900 flex items-center gap-1 cursor-pointer transition-colors"
-                title="Return to consolidated institutional statistics"
-              >
-                <RotateCcwIcon className="h-3 w-3" /> Reset to All Campuses
-              </button>
-            )}
-          </div>
-
-          {/* Campus Buttons List */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        {/* Campus scope pills + header actions */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto py-1 no-scrollbar">
             {/* All Campuses Button (Default) */}
             <button
               type="button"
@@ -492,6 +420,26 @@ export function ProgramAccreditationView() {
                 </button>
               );
             })}
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setReportModal({ open: true, type: 'summary' })}
+              className="btn btn-secondary btn-sm"
+            >
+              <PrinterIcon className="h-4 w-4" /> Print Summary Report
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingProgram(null);
+                setFormModalOpen(true);
+              }}
+              className="btn btn-primary btn-sm"
+            >
+              <PlusIcon className="h-4 w-4" /> Add Academic Program
+            </button>
           </div>
         </div>
 
@@ -1276,62 +1224,6 @@ export function ProgramAccreditationView() {
               )}
             </div>
 
-            {/* Official External Review Links */}
-            <div className="rounded-lg border border-line p-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-2">
-                Official Google Drive Repositories & Review Links
-              </h4>
-              <div className="grid gap-2 sm:grid-cols-3 text-xs">
-                {detailsModalProgram.instrumentLink ? (
-                  <a
-                    href={detailsModalProgram.instrumentLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between rounded border border-line p-2 hover:bg-canvas text-brand-700 font-medium"
-                  >
-                    <span>AACCUP Instrument</span>
-                    <ExternalLinkIcon className="h-3.5 w-3.5" />
-                  </a>
-                ) : (
-                  <span className="rounded border border-line p-2 text-ink-subtle bg-canvas/40">
-                    No Instrument link
-                  </span>
-                )}
-
-                {detailsModalProgram.findingsLink ? (
-                  <a
-                    href={detailsModalProgram.findingsLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between rounded border border-line p-2 hover:bg-canvas text-brand-700 font-medium"
-                  >
-                    <span>Findings & Recommendation</span>
-                    <ExternalLinkIcon className="h-3.5 w-3.5" />
-                  </a>
-                ) : (
-                  <span className="rounded border border-line p-2 text-ink-subtle bg-canvas/40">
-                    No Findings link
-                  </span>
-                )}
-
-                {detailsModalProgram.technicalReviewLink ? (
-                  <a
-                    href={detailsModalProgram.technicalReviewLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between rounded border border-line p-2 hover:bg-canvas text-brand-700 font-medium"
-                  >
-                    <span>Technical Review</span>
-                    <ExternalLinkIcon className="h-3.5 w-3.5" />
-                  </a>
-                ) : (
-                  <span className="rounded border border-line p-2 text-ink-subtle bg-canvas/40">
-                    No Technical Review
-                  </span>
-                )}
-              </div>
-            </div>
-
             {/* 10 AACCUP Survey Areas Checklist */}
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-2">
@@ -1339,7 +1231,9 @@ export function ProgramAccreditationView() {
               </h4>
 
               <div className="panel divide-y divide-line overflow-hidden max-h-80 overflow-y-auto">
-                {(detailsModalProgram.requirements || []).map((req) => (
+                {(detailsModalProgram.requirements || []).map((req) => {
+                  const repo = areaRepositoryStats[req.id];
+                  return (
                   <div
                     key={req.id}
                     className="flex items-center justify-between p-3 text-xs hover:bg-canvas/50"
@@ -1358,7 +1252,13 @@ export function ProgramAccreditationView() {
                         )}
                       </div>
                       <p className="text-[11px] text-ink-muted mt-0.5">
-                        {req.documentName ? (
+                        {repo ? (
+                          <span className="inline-flex items-center gap-1 font-medium text-brand-700">
+                            <FolderOpenIcon className="h-3 w-3" />
+                            {repo.files} file{repo.files === 1 ? '' : 's'}
+                            {repo.folders > 0 && ` · ${repo.folders} folder${repo.folders === 1 ? '' : 's'}`}
+                          </span>
+                        ) : req.documentName ? (
                           <span className="font-medium text-brand-700">{req.documentName}</span>
                         ) : (
                           'No document uploaded yet'
@@ -1369,19 +1269,15 @@ export function ProgramAccreditationView() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() =>
-                          setActiveReqProgram({
-                            program: detailsModalProgram,
-                            req
-                          })
-                        }
+                        onClick={() => setRepositoryReqId(req.id)}
                         className="btn btn-secondary btn-sm h-7 px-2"
                       >
-                        Upload / Verify
+                        <UploadIcon className="h-3.5 w-3.5" /> Upload / Verify
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1410,21 +1306,13 @@ export function ProgramAccreditationView() {
         onClose={() => setFindingsProgramId(null)}
       />
 
-      {/* Program Requirement Evidence Modal */}
-      {activeReqProgram && (
-        <AccreditationDocModal
-          open={!!activeReqProgram}
-          title={`${activeReqProgram.program.programName}`}
-          areaCode={activeReqProgram.req.areaCode}
-          requirementTitle={activeReqProgram.req.areaName}
-          currentDocumentName={activeReqProgram.req.documentName}
-          currentDocumentUrl={activeReqProgram.req.documentUrl}
-          currentStatus={activeReqProgram.req.verified ? 'Approved' : 'Under Review'}
-          currentNotes={activeReqProgram.req.remarks}
-          onClose={() => setActiveReqProgram(null)}
-          onSave={handleSaveProgramRequirement}
-        />
-      )}
+      {/* Program Area Evidence Repository */}
+      <ProgramAreaRepositoryModal
+        open={!!repositoryRequirement}
+        program={detailsModalProgram}
+        requirement={repositoryRequirement}
+        onClose={() => setRepositoryReqId(null)}
+      />
     </>
   );
 }
