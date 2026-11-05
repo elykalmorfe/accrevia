@@ -1,7 +1,6 @@
 import {
   BookmarkIcon,
   BarChart3Icon,
-  ListCheckIcon,
   FolderOpenIcon,
   ShieldCheckIcon,
   LayoutDashboardIcon,
@@ -60,7 +59,7 @@ export const navigation: NavItem[] = [
   },
   {
     label: 'Accreditation',
-    to: '/frameworks',
+    to: '/frameworks/ia',
     icon: ShieldCheckIcon,
     matchPrefix: '/frameworks',
     color: {
@@ -69,29 +68,11 @@ export const navigation: NavItem[] = [
       border: 'border-emerald-500/20'
     },
     children: [
-      { label: 'Frameworks Hub', to: '/frameworks' },
       { label: 'Institutional (IA)', to: '/frameworks/ia' },
       { label: 'Program (AACCUP)', to: '/frameworks/pa' },
       { label: 'CHED COPC', to: '/frameworks/copc' },
       { label: 'PQA Standards', to: '/frameworks/pqa' },
       { label: 'ISO 9001', to: '/frameworks/iso' }
-    ]
-  },
-  {
-    label: 'Criteria & Standards',
-    to: '/criteria/areas',
-    icon: ListCheckIcon,
-    matchPrefix: '/criteria',
-    color: {
-      iconBg: 'bg-indigo-500/10',
-      iconColor: 'text-indigo-600',
-      border: 'border-indigo-500/20'
-    },
-    children: [
-      { label: 'Areas', to: '/criteria/areas' },
-      { label: 'Criteria Explorer', to: '/criteria/criteria' },
-      { label: 'Indicators', to: '/criteria/indicators' },
-      { label: 'Requirements', to: '/criteria/requirements' }
     ]
   },
   {
