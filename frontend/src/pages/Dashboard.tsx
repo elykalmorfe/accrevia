@@ -8,7 +8,6 @@ import {
   GraduationCapIcon,
   Building2Icon,
   FileCheck2Icon,
-  SparklesIcon,
   CheckCircle2Icon,
   FileTextIcon,
   HelpCircleIcon,
@@ -450,9 +449,6 @@ export function Dashboard() {
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h2 className="text-sm font-bold text-ink">Framework Readiness</h2>
-              <Link to="/frameworks" className="text-xs font-semibold text-brand-600 hover:underline">
-                Hub Overview
-              </Link>
             </div>
 
             <div className="mt-3 space-y-2.5">
@@ -564,9 +560,6 @@ export function Dashboard() {
 
           <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
             <span className="text-ink-muted">All standards up to date</span>
-            <Link to="/criteria/areas" className="font-semibold text-brand-600 hover:underline">
-              Criteria Explorer →
-            </Link>
           </div>
         </div>
       </section>
@@ -773,18 +766,6 @@ export function Dashboard() {
                   <span className="flex items-center gap-2">
                     <UploadIcon className="h-3.5 w-3.5 text-brand-600" />
                     <span>Upload New Evidence</span>
-                  </span>
-                  <ChevronRightIcon className="h-3 w-3 text-slate-400" />
-                </Link>
-
-                
-                <Link
-                  to="/frameworks"
-                  className="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-emerald-50 text-ink hover:text-emerald-800 text-xs font-medium transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <SparklesIcon className="h-3.5 w-3.5 text-emerald-600" />
-                    <span>Accreditation Hub</span>
                   </span>
                   <ChevronRightIcon className="h-3 w-3 text-slate-400" />
                 </Link>
