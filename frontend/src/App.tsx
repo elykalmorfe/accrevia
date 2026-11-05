@@ -15,7 +15,6 @@ import { SharedEvidence } from './pages/evidence/SharedEvidence';
 import { ArchivedEvidence } from './pages/evidence/ArchivedEvidence';
 import { Frameworks } from './pages/frameworks/Frameworks';
 import { FrameworkDetail } from './pages/frameworks/FrameworkDetail';
-import { AccreditationDashboard } from './pages/accreditation/AccreditationDashboard';
 import { CampusIAView } from './pages/accreditation/CampusIAView';
 import { ProgramAccreditationView } from './pages/accreditation/ProgramAccreditationView';
 import { COPCView } from './pages/accreditation/COPCView';
@@ -62,7 +61,7 @@ export function App({ viewAs = 'Administrator' }: AppProps) {
                     <Route path="evidence/archived" element={<ArchivedEvidence />} />
                     
                     {/* Accreditation & Frameworks */}
-                    <Route path="frameworks" element={<AccreditationDashboard />} />
+                    <Route path="frameworks" element={<Navigate to="/frameworks/ia" replace />} />
                     <Route path="frameworks/ia" element={<CampusIAView />} />
                     <Route path="frameworks/pa" element={<ProgramAccreditationView />} />
                     <Route path="frameworks/copc" element={<COPCView />} />
@@ -91,7 +90,7 @@ export function App({ viewAs = 'Administrator' }: AppProps) {
                     <Route path="documents/:id" element={<DocumentViewer />} />
 
                     {/* Non-admin accreditation access */}
-                    <Route path="frameworks" element={<AccreditationDashboard />} />
+                    <Route path="frameworks" element={<Navigate to="/frameworks/ia" replace />} />
                     <Route path="frameworks/ia" element={<CampusIAView />} />
                     <Route path="frameworks/pa" element={<ProgramAccreditationView />} />
                     <Route path="frameworks/copc" element={<COPCView />} />
