@@ -24,8 +24,8 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { FrameworkTag } from '../components/ui/FrameworkTag';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
-import { repositoryStats } from '../data/analytics';
 import { formatDate, formatNumber } from '../utils/format';
+import { isAccreditedLevel, levelAsOf } from '../utils/programAccreditation';
 import { PendingAccessRequestsModal } from '../components/sharing/PendingAccessRequestsModal';
 import { AccreditationReportModal } from '../components/accreditation/AccreditationReportModal';
 
@@ -56,7 +56,10 @@ export function Dashboard() {
     documents,
     pending,
     accessRequests,
-    programAccreditations
+    programAccreditations,
+    iaRecords,
+    isoRecords,
+    pqaRecords
   } = usePortal();
   const lookup = useLookup();
 
@@ -70,11 +73,12 @@ export function Dashboard() {
   const [frameworkFilter, setFrameworkFilter] = useState<string>('all');
 
   const s = {
-    total: repositoryStats.total,
-    processing: repositoryStats.processing,
+    total: documents.length,
+    processing: documents.filter((d) => d.status === 'Processing').length,
     pending: pending.length,
-    indexed: repositoryStats.total - repositoryStats.processing - pending.length
+    indexed: documents.filter((d) => d.status === 'Indexed').length
   };
+  const awaitingProcessing = s.total - s.indexed + s.pending;
 
   const pendingAccessRequests = useMemo(
     () => accessRequests.filter((r) => r.status === 'Pending'),
@@ -98,21 +102,54 @@ export function Dashboard() {
   }, [activePrograms]);
 
   const copcRate = useMemo(() => {
-    if (activePrograms.length === 0) return '100';
+    if (activePrograms.length === 0) return '0';
     return ((compliantCopc / activePrograms.length) * 100).toFixed(1);
   }, [compliantCopc, activePrograms.length]);
 
   const level1To4Count = useMemo(() => {
-    return activePrograms.filter((p) =>
-      ['Level 1', 'Level 2', 'Level 3', 'Level 4'].includes(p.status)
-    ).length;
+    return activePrograms.filter((p) => isAccreditedLevel(p.status)).length;
   }, [activePrograms]);
 
   const certifiedPercentage = useMemo(() => {
-    if (selectedCampus === 'All Campuses') return '96.8';
-    if (activePrograms.length === 0) return '100';
+    if (activePrograms.length === 0) return '0';
     return ((level1To4Count / activePrograms.length) * 100).toFixed(1);
-  }, [selectedCampus, activePrograms.length, level1To4Count]);
+  }, [activePrograms.length, level1To4Count]);
+
+  const campusFilterId = selectedCampus === 'All Campuses' ? null : campusNameToId[selectedCampus];
+  const activeIa = useMemo(
+    () => iaRecords.filter((r) => !campusFilterId || r.campusId === campusFilterId),
+    [iaRecords, campusFilterId]
+  );
+  const highestIaLevel = useMemo(() => {
+    const ranked = ['Level IV', 'Level III', 'Level II', 'Level I'];
+    return ranked.find((lvl) => activeIa.some((r) => r.status === lvl || r.status.startsWith(`${lvl} `))) ?? 'No record';
+  }, [activeIa]);
+
+  const isoSummary = useMemo(() => {
+    const latestByCampus = new Map<string, (typeof isoRecords)[number]>();
+    isoRecords
+      .filter((r) => !r.isHistorical && (!campusFilterId || r.campusId === campusFilterId))
+      .forEach((r) => {
+        const current = latestByCampus.get(r.campusId);
+        if (!current || r.auditDate > current.auditDate) latestByCampus.set(r.campusId, r);
+      });
+    const latest = [...latestByCampus.values()];
+    const conforming = latest.filter((r) => r.complianceStatus === 'Compliant' || r.complianceStatus === 'Certified').length;
+    return {
+      campuses: latest.length,
+      conforming,
+      rate: latest.length === 0 ? 0 : Math.round((conforming / latest.length) * 100),
+      openMajor: latest.reduce((sum, r) => sum + (r.findingsCount?.majorNC ?? 0), 0)
+    };
+  }, [isoRecords, campusFilterId]);
+
+  const highestPqaLevel = useMemo(() => {
+    const levels = pqaRecords
+      .filter((r) => !campusFilterId || r.campusId === campusFilterId)
+      .map((r) => Number(/^Level (\d)/.exec(r.recognitionLevel)?.[1] ?? 0));
+    const top = Math.max(0, ...levels);
+    return top > 0 ? `PQA Level ${['', 'I', 'II', 'III', 'IV'][top] ?? top}` : 'PQA Candidate';
+  }, [pqaRecords, campusFilterId]);
 
   const recent = useMemo(() => {
     let list = [...documents].filter((d) => d.status !== 'Archived');
@@ -131,15 +168,21 @@ export function Dashboard() {
     return list.sort((a, b) => b.dateAdded.localeCompare(a.dateAdded)).slice(0, 6);
   }, [documents, frameworkFilter, docSearchQuery, lookup]);
 
-  // Dual Series Bar Chart Data (2021 - 2026)
-  const barChartYears = [
-    { year: '2021', inst: 88, prog: 70, delta: '+8.2%' },
-    { year: '2022', inst: 52, prog: 78, delta: '+12.4%' },
-    { year: '2023', inst: 48, prog: 22, delta: '-4.1%' },
-    { year: '2024', inst: 38, prog: 66, delta: '+15.3%' },
-    { year: '2025', inst: 72, prog: 55, delta: '+6.8%' },
-    { year: '2026', inst: 92, prog: 85, delta: '+18.5%' }
-  ];
+  const barChartYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const pct = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part / whole) * 100));
+    return Array.from({ length: 6 }, (_, i) => {
+      const year = currentYear - 5 + i;
+      const accreditedPrograms = activePrograms.filter((p) => isAccreditedLevel(levelAsOf(p, year))).length;
+      const accreditedCampuses = activeIa.filter((r) => {
+        const start = Number(r.validityStart?.slice(0, 4));
+        const end = Number(r.validityEnd?.slice(0, 4));
+        return start > 0 && start <= year && (!end || end >= year);
+      }).length;
+      return { year: String(year), inst: pct(accreditedCampuses, activeIa.length), prog: pct(accreditedPrograms, activePrograms.length) };
+    });
+  }, [activePrograms, activeIa]);
+  const latestAttainment = barChartYears[barChartYears.length - 1];
 
   const getFileIcon = (title: string) => {
     const lower = title.toLowerCase();
@@ -252,9 +295,9 @@ export function Dashboard() {
           </div>
           <div className="mt-3">
             <p className="text-2xl font-black text-ink tracking-tight">
-              {level1To4Count > 0 ? level1To4Count : (selectedCampus === 'All Campuses' ? 68 : 0)}
+              {level1To4Count}
               <span className="text-sm font-medium text-ink-subtle ml-1">
-                / {activePrograms.length > 0 ? activePrograms.length : (selectedCampus === 'All Campuses' ? 80 : 0)}
+                / {activePrograms.length}
               </span>
             </p>
             <div className="mt-2 flex items-center justify-between text-[11px]">
@@ -302,7 +345,9 @@ export function Dashboard() {
               {formatNumber(s.indexed)}
             </p>
             <div className="mt-2 flex items-center justify-between text-[11px]">
-              <span className="font-semibold text-emerald-700">All indexed & verified</span>
+              <span className={`font-semibold ${s.total === 0 || awaitingProcessing > 0 ? 'text-ink-muted' : 'text-emerald-700'}`}>
+                {s.total === 0 ? 'No uploads yet' : awaitingProcessing > 0 ? `${formatNumber(awaitingProcessing)} awaiting indexing` : 'All indexed'}
+              </span>
               <span className="text-ink-subtle">{formatNumber(s.total)} total</span>
             </div>
           </div>
@@ -321,11 +366,13 @@ export function Dashboard() {
           </div>
           <div className="mt-3">
             <p className="text-2xl font-black text-ink tracking-tight">
-              100%
+              {isoSummary.rate}%
             </p>
             <div className="mt-2 flex items-center justify-between text-[11px]">
-              <span className="font-semibold text-emerald-700">0 Major CARs</span>
-              <span className="text-ink-subtle">PQA Level II</span>
+              <span className={`font-semibold ${isoSummary.openMajor > 0 ? 'text-danger-700' : 'text-emerald-700'}`}>
+                {isoSummary.openMajor} Major NC{isoSummary.openMajor === 1 ? '' : 's'}
+              </span>
+              <span className="text-ink-subtle">{highestPqaLevel}</span>
             </div>
           </div>
         </Link>
@@ -341,7 +388,9 @@ export function Dashboard() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <h2 className="text-sm font-bold text-ink">Accreditation Attainment</h2>
-                <p className="text-xs text-ink-muted">2021 – 2026 Academic Cycles</p>
+                <p className="text-xs text-ink-muted">
+                  {barChartYears[0].year} – {latestAttainment.year} Academic Cycles
+                </p>
               </div>
 
               {/* Legend Toggles */}
@@ -436,7 +485,9 @@ export function Dashboard() {
           <div className="mt-2 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-ink-muted">
             <span className="font-medium text-emerald-700 flex items-center gap-1.5">
               <CheckCircle2Icon className="h-3.5 w-3.5" />
-              <span>Attainment comfortably exceeds 80% national benchmark</span>
+              <span>
+                {latestAttainment.prog}% of programs accredited as of {latestAttainment.year}
+              </span>
             </span>
             <Link to="/frameworks/pa" className="font-semibold text-brand-600 hover:underline">
               View Rosters →
@@ -466,13 +517,13 @@ export function Dashboard() {
                       AACCUP Programs
                     </p>
                     <p className="text-[11px] text-ink-muted">
-                      68 Programs Level I to IV
+                      {level1To4Count} Programs Level I to IV
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-[10px] font-bold">
-                    85% Certified
+                    {certifiedPercentage}% Certified
                   </span>
                   <ChevronRightIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700" />
                 </div>
@@ -518,13 +569,13 @@ export function Dashboard() {
                       Institutional (IA)
                     </p>
                     <p className="text-[11px] text-ink-muted">
-                      7 Campuses Monitored
+                      {activeIa.length} {activeIa.length === 1 ? 'Campus' : 'Campuses'} Monitored
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="rounded-full bg-brand-50 text-brand-700 px-2 py-0.5 text-[10px] font-bold">
-                    Level III
+                    {highestIaLevel}
                   </span>
                   <ChevronRightIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700" />
                 </div>
@@ -544,13 +595,13 @@ export function Dashboard() {
                       ISO 9001 & PQA
                     </p>
                     <p className="text-[11px] text-ink-muted">
-                      QMS Surveillance Certified
+                      QMS surveillance audits
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-[10px] font-bold">
-                    Validated
+                    {isoSummary.conforming}/{isoSummary.campuses} Conforming
                   </span>
                   <ChevronRightIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700" />
                 </div>
@@ -559,7 +610,7 @@ export function Dashboard() {
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-            <span className="text-ink-muted">All standards up to date</span>
+            <span className="text-ink-muted">Computed from current accreditation records</span>
           </div>
         </div>
       </section>
@@ -631,6 +682,13 @@ export function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
+                  {recent.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="td py-10 text-center text-xs text-ink-muted">
+                        {documents.length === 0 ? 'No documents uploaded yet.' : 'No documents match your filters.'}
+                      </td>
+                    </tr>
+                  )}
                   {recent.map((d) => (
                     <tr
                       key={d.id}

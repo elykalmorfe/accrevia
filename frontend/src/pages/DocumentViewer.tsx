@@ -20,7 +20,8 @@ import { useAccess } from '../hooks/useAccess';
 import { searchEvidence } from '../utils/search';
 import { formatDate } from '../utils/format';
 import { expiryLabel, shareStatus, summarizeShares } from '../utils/sharing';
-import { DocumentPage } from '../components/documents/DocumentPage';
+import { OriginalDocumentView } from '../components/documents/OriginalDocumentView';
+import { downloadStoredFile } from '../utils/fileStore';
 import { EditMetadataModal } from '../components/documents/EditMetadataModal';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { FrameworkTag } from '../components/ui/FrameworkTag';
@@ -106,10 +107,12 @@ export function DocumentViewer() {
   ['Confidentiality', doc.confidentiality]];
 
 
-  const download = () => {
+  const download = async () => {
     if (!rights.canDownload) return;
     logAccess('Downloaded', doc.id);
-    toast.success(`Downloading ${doc.title}`, { description: 'Download recorded in the access log.' });
+    const saved = await downloadStoredFile(doc.id, doc.title);
+    if (saved) toast.success(`Downloading ${doc.title}`, { description: 'Download recorded in the access log.' });
+    else toast.error(`No original file stored for ${doc.title}`);
   };
 
   const jumpTo = (index: number) => {
@@ -175,7 +178,13 @@ export function DocumentViewer() {
           </div>
           <div className="max-h-[calc(100vh-14rem)] overflow-auto bg-canvas p-2 sm:p-6 lg:p-8" onContextMenu={rights.canDownload ? undefined : (e) => e.preventDefault()}>
             <div style={{ width: `${zoom}%` }} className={`mx-auto min-w-0 max-w-full sm:min-w-[320px] ${rights.canDownload ? '' : 'select-none'}`}>
-              <DocumentPage doc={doc} terms={terms} activePassage={activePassage} />
+              <OriginalDocumentView
+                doc={doc}
+                terms={terms}
+                activePassage={activePassage}
+                canDownload={rights.canDownload}
+                heightClass="h-[calc(100vh-18rem)]"
+              />
             </div>
           </div>
         </section>
