@@ -97,92 +97,78 @@ export const standardIARequirements: Omit<IARequirementItem, 'id'>[] = [
     areaName: 'Governance and Management',
     title: 'Approved Campus Development Plan, Administrative Manual & Organizational Structure',
     description: 'Updated Board-approved campus organizational chart, administrative manuals, Transparency Seal compliance, and 5-year strategic plan.',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'Campus_Dev_Plan_2024_2028.pdf',
-    submissionDate: '2024-02-15'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     areaCode: 'AREA-II',
     areaName: 'Teaching, Learning, and Evaluation',
     title: 'Outcomes-Based Education (OBE) Implementation Matrix & Curricular Review',
     description: 'Syllabi compliance with CHED CMO policies, assessment rubrics, teaching portfolios, and retention/graduation metrics.',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'OBE_Compliance_Matrix_2024.pdf',
-    submissionDate: '2024-03-10'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     areaCode: 'AREA-III',
     areaName: 'Faculty and Staff',
     title: 'Faculty Plantilla, Academic Qualifications & Staff Development Portfolio',
     description: 'Verification of Masteral/Doctoral degrees in specialization, PRC licenses, NBC 461/QCE performance ratings, and staff development programs.',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'Faculty_Qualifications_Roster.pdf',
-    submissionDate: '2024-01-20'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     areaCode: 'AREA-IV',
     areaName: 'Research',
     title: 'Institutional Research Agenda, Peer-Reviewed Publications & IP Disclosures',
     description: 'Approved 2023–2028 research agenda, SCOPUS/WoS/CHED-recognized journal publications, intellectual property registrations, and funded R&D projects.',
-    isSubmitted: true,
-    status: 'Under Review',
-    documentName: 'Research_Accomplishments_AY2024.pdf',
-    submissionDate: '2024-04-12'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     areaCode: 'AREA-V',
     areaName: 'Extension, Consultancy, and Linkages',
     title: 'Institutional Extension Master Plan, MOUs & Community Impact Assessment',
     description: 'Active extension programs with adopted communities, industry MOUs, technology transfer/commercialization initiatives, and documented impact studies.',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'Extension_Program_Reports_2024.pdf',
-    submissionDate: '2024-02-28'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     areaCode: 'AREA-VI',
     areaName: 'Support to Students',
     title: 'Student Affairs and Services (SAS) Operations Manual & Welfare Records',
     description: 'Comprehensive student welfare, admission/registrar guidelines, medical/dental clinic services, scholarship assistance, and student council records.',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'Student_Affairs_Portfolio.pdf',
-    submissionDate: '2024-03-01'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     areaCode: 'AREA-VII',
     areaName: 'Library',
     title: 'Library Holdings Inventory, Electronic Databases & OPAC Portal System',
     description: 'Print and electronic collection holdings, ScienceDirect/Scopus database subscriptions, remote access portal, and licensed librarian plantilla.',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'Library_Holdings_Audit_2024.pdf',
-    submissionDate: '2024-03-25'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     areaCode: 'AREA-VIII',
     areaName: 'Infrastructure and Other Learning Resources',
     title: 'Physical Plant Facilities, Laboratory Safety & IT Network Infrastructure',
     description: 'Building safety certifications, laboratory equipment calibration reports, high-speed campus bandwidth, PWD accessibility, and disaster risk resilience.',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'Infrastructure_Safety_Audit_2024.pdf',
-    submissionDate: '2024-04-05'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     areaCode: 'AREA-IX',
     areaName: 'Quality Assurance Culture',
     title: 'University Quality Assurance Manual, ISO 9001:2015 QMS & Internal Audit Reports',
     description: 'Institutional QA manual, ISO 9001:2015 surveillance audit conformances, Internal Quality Audit (IQA) resolutions, and risk-opportunity registers.',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'QA_Culture_Manual_ISO_2024.pdf',
-    submissionDate: '2024-04-18'
+    isSubmitted: false,
+    status: 'Pending'
   }
 ];
+
+function blankIARequirements(campusSlug: string): IARequirementItem[] {
+  return standardIARequirements.map((r, i) => ({ ...r, id: `ia-req-${campusSlug}-${i + 1}` }));
+}
 
 export const initialCampusIA: CampusIAStatus[] = [
   {
@@ -196,11 +182,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     lastEvaluationDate: '2023-01-15',
     nextScheduledEvaluation: '2027-10-15',
     remarks: 'Compliant with all 9 institutional accreditation areas; designated as University Center of Excellence in Teacher Education.',
-    requirements: standardIARequirements.map((r, i) => ({
-      ...r,
-      id: `ia-req-tandag-${i + 1}`,
-      status: 'Approved'
-    }))
+    requirements: blankIARequirements('tandag')
   },
   {
     campusId: 'cantilan',
@@ -213,11 +195,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     lastEvaluationDate: '2023-08-20',
     nextScheduledEvaluation: '2026-05-15',
     remarks: 'Strong industrial technology and education facilities. Recommended for Level III survey in 2026.',
-    requirements: standardIARequirements.map((r, i) => ({
-      ...r,
-      id: `ia-req-cantilan-${i + 1}`,
-      status: i === 3 ? 'Under Review' : 'Approved'
-    }))
+    requirements: blankIARequirements('cantilan')
   },
   {
     campusId: 'lianga',
@@ -230,11 +208,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     lastEvaluationDate: '2022-09-18',
     nextScheduledEvaluation: '2025-09-30',
     remarks: 'Lead campus in Fisheries and Marine Biology; scheduled for Level III accreditation evaluation on Sep-30-2025.',
-    requirements: standardIARequirements.map((r, i) => ({
-      ...r,
-      id: `ia-req-lianga-${i + 1}`,
-      status: i === 7 ? 'Under Review' : 'Approved'
-    }))
+    requirements: blankIARequirements('lianga')
   },
   {
     campusId: 'bislig',
@@ -247,11 +221,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     lastEvaluationDate: '2021-10-10',
     nextScheduledEvaluation: '2025-10-15',
     remarks: 'Engineering and forestry hub. Re-accreditation visit scheduled for Oct-15-2025.',
-    requirements: standardIARequirements.map((r, i) => ({
-      ...r,
-      id: `ia-req-bislig-${i + 1}`,
-      status: i === 3 || i === 8 ? 'Under Review' : 'Approved'
-    }))
+    requirements: blankIARequirements('bislig')
   },
   {
     campusId: 'tagbina',
@@ -264,12 +234,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     lastEvaluationDate: '2022-08-10',
     nextScheduledEvaluation: '2025-08-15',
     remarks: 'Agriculture and hospitality hub. Scheduled for Level II evaluation visit on Aug-15-2025.',
-    requirements: standardIARequirements.map((r, i) => ({
-      ...r,
-      id: `ia-req-tagbina-${i + 1}`,
-      status: i === 3 ? 'Deficient' : i === 6 ? 'Under Review' : 'Approved',
-      reviewerNotes: i === 3 ? 'Requires more external research grant outputs and patent disclosures.' : undefined
-    }))
+    requirements: blankIARequirements('tagbina')
   },
   {
     campusId: 'san-miguel',
@@ -282,11 +247,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     lastEvaluationDate: '2021-09-25',
     nextScheduledEvaluation: '2025-09-30',
     remarks: 'Agronomy and Forestry campus; scheduled for survey evaluation on Sep-30-2025.',
-    requirements: standardIARequirements.map((r, i) => ({
-      ...r,
-      id: `ia-req-san-miguel-${i + 1}`,
-      status: i === 3 || i === 7 ? 'Under Review' : 'Approved'
-    }))
+    requirements: blankIARequirements('san-miguel')
   },
   {
     campusId: 'cagwait',
@@ -299,11 +260,7 @@ export const initialCampusIA: CampusIAStatus[] = [
     lastEvaluationDate: '2022-08-01',
     nextScheduledEvaluation: '2026-06-01',
     remarks: 'Candidate status for institutional survey. Preparation ongoing for full Level 1 institutional visit.',
-    requirements: standardIARequirements.map((r, i) => ({
-      ...r,
-      id: `ia-req-cagwait-${i + 1}`,
-      status: i >= 5 ? 'Under Review' : 'Approved'
-    }))
+    requirements: blankIARequirements('cagwait')
   }
 ];
 
@@ -467,11 +424,8 @@ function makeProgramRequirements(programId: string): ProgramRequirementItem[] {
     areaCode: `AREA-${idx + 1}`,
     areaName: area,
     title: `Compliance Portfolio for ${area}`,
-    isSubmitted: true,
-    submissionDate: '2024-03-01',
-    documentName: `${area.split(':')[0]}_Portfolio.pdf`,
-    documentUrl: 'https://drive.google.com/drive/folders/1c95n6ZIge4zvZZ11wN4y0IKDr_r2mYko',
-    verified: true
+    isSubmitted: false,
+    verified: false
   }));
 }
 
@@ -485,45 +439,40 @@ export const standardCOPCRequirements: Omit<COPCRequirementItem, 'id'>[] = [
     category: 'Curriculum',
     code: 'COPC-CURR',
     requirementName: 'CHED Policies, Standards and Guidelines (PSG) Curriculum Alignment',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'CMO_Compliant_Curriculum_Matrix.pdf'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     category: 'Faculty',
     code: 'COPC-FAC',
     requirementName: 'Faculty Qualifications Profile (100% relevant Master’s / Ph.D.)',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'Faculty_Qualifications_Verification.pdf'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     category: 'Laboratories',
     code: 'COPC-LAB',
     requirementName: 'Specialized Laboratories and Calibrated Equipment Inventory',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'Specialized_Laboratories_Inspection.pdf'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     category: 'Library',
     code: 'COPC-LIB',
     requirementName: 'Library Holdings, Subscriptions, and E-Resources Certification',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'Library_Titles_Holdings_Cert.pdf'
+    isSubmitted: false,
+    status: 'Pending'
   },
   {
     category: 'Practicum',
     code: 'COPC-OJT',
     requirementName: 'On-the-Job Training (OJT) / Internship MOAs with Partner Industries',
-    isSubmitted: true,
-    status: 'Approved',
-    documentName: 'Internship_MOA_Compilation.pdf'
+    isSubmitted: false,
+    status: 'Pending'
   }
 ];
 
-export const initialCOPCRecords: COPCRecord[] = initialProgramAccreditations.map((p, idx) => {
+export const initialCOPCRecords: COPCRecord[] = initialProgramAccreditations.map((p) => {
   const isPending = p.copcStatus === 'Pending';
   return {
     id: `copc-${p.id}`,
@@ -533,16 +482,13 @@ export const initialCOPCRecords: COPCRecord[] = initialProgramAccreditations.map
     programName: p.programName,
     degreeLevel: p.degreeLevel,
     copcStatus: isPending ? 'Pending Review' : 'Compliant',
-    certificateNumber: isPending ? undefined : (p.copcCertificateNumber || `COPC-CHED-RO13-${1000 + idx}`),
-    dateIssued: isPending ? undefined : '2023-08-15',
+    certificateNumber: isPending ? undefined : p.copcCertificateNumber,
     cmoNo: 'CMO No. 25, Series of 2015 / CMO No. 20, Series of 2013',
-    borRes: p.borRes || 'BOR Resolution No. 042, Series of 2021',
-    documentLink: 'https://drive.google.com/file/d/1xsNkKL7GoKyB47CFHPqu0lkF-CmuwH9p/view',
+    borRes: p.borRes,
     remarks: p.remarks,
     requirements: standardCOPCRequirements.map((r, rIdx) => ({
       ...r,
-      id: `copc-req-${p.id}-${rIdx + 1}`,
-      status: isPending && rIdx === 1 ? 'Under Review' : 'Approved'
+      id: `copc-req-${p.id}-${rIdx + 1}`
     }))
   };
 });
