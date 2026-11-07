@@ -37,16 +37,7 @@ export function Sidebar() {
       aria-label={isAdmin ? 'Administrator navigation' : 'User navigation'}
     >
       {/* SECTION: NAVIGATION */}
-      <div className="mb-5">
-        <div className="flex items-center justify-between px-3 pb-2 pt-1">
-          <div className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand-600" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Menu
-            </span>
-          </div>
-        </div>
-
+      <div className="mb-4">
         <ul className="space-y-1">
           {mainMenu.map((item) => {
             const hasActiveChild = item.children?.some((c) => pathname === c.to);
@@ -164,16 +155,7 @@ export function Sidebar() {
 
       {/* SECTION: SYSTEM */}
       {accountMenu.length > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between px-3 pb-2 pt-1">
-            <div className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                System
-              </span>
-            </div>
-          </div>
-
+        <div className="mb-4 border-t border-slate-200/80 pt-4">
           <ul className="space-y-1">
             {accountMenu.map((item) => {
               const active = isItemActive(item, pathname);
