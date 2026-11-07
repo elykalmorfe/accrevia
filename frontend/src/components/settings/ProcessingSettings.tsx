@@ -3,10 +3,13 @@ import { RefreshCwIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { RangeField, SaveBar, SettingRow, SettingsGroup } from './SettingsLayout';
 import { Switch } from '../ui/Switch';
-import { repositoryStats } from '../../data/analytics';
+import { usePortal } from '../../contexts/PortalContext';
 import { formatNumber } from '../../utils/format';
 
 export function ProcessingSettings() {
+  const { documents } = usePortal();
+  const passageCount = documents.reduce((sum, d) => sum + (d.passages?.length ?? 0), 0);
+  const processingCount = documents.filter((d) => d.status === 'Processing').length;
   const [s, setS] = useState({
     engine: 'Tesseract 5',
     languages: 'English + Filipino',
@@ -62,8 +65,8 @@ export function ProcessingSettings() {
       </SettingsGroup>
 
       <SettingsGroup title="Embedding and indexing status">
-        <SettingRow label="Indexed passages" description={`Across ${formatNumber(repositoryStats.total)} documents · ${repositoryStats.processing} currently processing`}>
-          <p className="text-xl font-semibold tabular-nums text-ink">{formatNumber(repositoryStats.chunks)}</p>
+        <SettingRow label="Indexed passages" description={`Across ${formatNumber(documents.length)} documents · ${processingCount} currently processing`}>
+          <p className="text-xl font-semibold tabular-nums text-ink">{formatNumber(passageCount)}</p>
         </SettingRow>
         <SettingRow label="Rebuild index" description="Re-embeds all passages. Takes about 40 minutes; search stays available.">
           <button type="button" className="btn btn-secondary" onClick={() => toast('Index rebuild scheduled for 11:00 PM tonight')}>

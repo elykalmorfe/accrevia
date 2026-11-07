@@ -1,25 +1,54 @@
-﻿import React from 'react';
-import { DownloadIcon, PlayIcon } from 'lucide-react';
+﻿import React, { useEffect, useState } from 'react';
+import { DownloadIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { SettingsGroup } from './SettingsLayout';
-import { Badge, BadgeTone } from '../ui/Badge';
+import { Badge } from '../ui/Badge';
+import { usePortal } from '../../contexts/PortalContext';
+import { formatNumber } from '../../utils/format';
 
-const services: {name: string;detail: string;status: string;tone: BadgeTone;}[] = [
-{ name: 'Database (PostgreSQL 16)', detail: 'Metadata, users, and audit records · 2.4 GB · 12 ms avg query', status: 'Operational', tone: 'success' },
-{ name: 'Vector database (Qdrant)', detail: '48,302 vectors in collection “evidence_passages” · 1024 dimensions', status: 'Operational', tone: 'success' },
-{ name: 'Lexical index (BM25)', detail: 'Last refreshed today at 8:40 AM', status: 'Healthy', tone: 'success' },
-{ name: 'Embedding service (BGE-M3)', detail: 'GPU worker · queue depth 3', status: 'Busy', tone: 'warning' }];
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
 
-
-const logs = [
-{ time: '08:51:12', level: 'INFO', message: 'Search “faculty qualification” returned 14 results in 402 ms' },
-{ time: '08:40:03', level: 'INFO', message: 'BM25 index refreshed (1,217 documents)' },
-{ time: '08:36:47', level: 'INFO', message: 'OCR started for Scanned_BOR_Resolutions_2024.pdf (52 pages)' },
-{ time: '07:52:19', level: 'ERROR', message: 'OCR confidence 41% below threshold for Old_Faculty_Records_1998.pdf' },
-{ time: '02:00:00', level: 'INFO', message: 'Nightly backup completed · 6.8 GB · verified' }];
-
+function exportPortalData() {
+  const data: Record<string, unknown> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith('accrevia_')) continue;
+    const raw = localStorage.getItem(key);
+    try {
+      data[key] = raw ? JSON.parse(raw) : raw;
+    } catch {
+      data[key] = raw;
+    }
+  }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `accrevia-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export function MaintenanceSettings() {
+  const { documents, folders } = usePortal();
+  const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null);
+  const passageCount = documents.reduce((sum, d) => sum + (d.passages?.length ?? 0), 0);
+
+  useEffect(() => {
+    navigator.storage?.estimate?.().then((e) => setStorage({ usage: e.usage ?? 0, quota: e.quota ?? 0 })).catch(() => setStorage(null));
+  }, [documents]);
+
+  const services = [
+    { name: 'Portal records', detail: `${formatNumber(documents.length)} documents · ${formatNumber(folders.length)} folders saved in this browser` },
+    { name: 'Original file storage', detail: storage ? `${formatBytes(storage.usage)} used of ${formatBytes(storage.quota)} available` : 'Storage estimate unavailable in this browser' },
+    { name: 'Search index', detail: `${formatNumber(passageCount)} passages from ${formatNumber(documents.length)} documents` }
+  ];
+
   return (
     <div className="space-y-4">
       <SettingsGroup title="System status">
@@ -30,7 +59,7 @@ export function MaintenanceSettings() {
                 <p className="text-[13px] font-medium text-ink">{s.name}</p>
                 <p className="text-xs text-ink-muted">{s.detail}</p>
               </div>
-              <Badge tone={s.tone} dot>{s.status}</Badge>
+              <Badge tone="success" dot>Available</Badge>
             </li>
           )}
         </ul>
@@ -39,31 +68,20 @@ export function MaintenanceSettings() {
       <SettingsGroup title="Backup">
         <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-[13px] font-medium text-ink">Last backup: Oct 1, 2026 at 2:00 AM</p>
-            <p className="text-xs text-ink-muted">Daily at 2:00 AM · 30 backups retained · includes database, vector index, and files</p>
+            <p className="text-[13px] font-medium text-ink">Export portal data</p>
+            <p className="text-xs text-ink-muted">Downloads folders, document records, and accreditation records as a JSON file. Original uploaded files are not included.</p>
           </div>
-          <button type="button" className="btn btn-secondary" onClick={() => toast.success('Backup started — you will be notified when it completes')}>
-            <PlayIcon className="h-4 w-4" /> Run backup now
+          <button type="button" className="btn btn-secondary" onClick={() => { exportPortalData(); toast.success('Portal data exported'); }}>
+            <DownloadIcon className="h-4 w-4" /> Export backup
           </button>
         </div>
       </SettingsGroup>
 
       <section className="panel overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4">
+        <div className="px-5 py-4">
           <h2 className="panel-title">System logs</h2>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => toast.success('Logs exported')}>
-            <DownloadIcon className="h-3.5 w-3.5" /> Download logs
-          </button>
         </div>
-        <ul className="divide-y divide-line border-t border-line font-mono text-xs">
-          {logs.map((l) =>
-          <li key={l.time} className="flex gap-4 px-5 py-2.5">
-              <span className="shrink-0 text-ink-subtle">{l.time}</span>
-              <span className={`w-12 shrink-0 font-semibold ${l.level === 'ERROR' ? 'text-danger-700' : 'text-ink-muted'}`}>{l.level}</span>
-              <span className="min-w-0 text-ink">{l.message}</span>
-            </li>
-          )}
-        </ul>
+        <p className="border-t border-line px-5 py-8 text-center text-xs text-ink-muted">No system logs have been recorded.</p>
       </section>
     </div>);
 
