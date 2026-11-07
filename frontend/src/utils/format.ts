@@ -16,6 +16,10 @@ export function formatNumber(value: number): string {
   return value.toLocaleString('en-US');
 }
 
+export function pluralize(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
+}
+
 export function initials(name: string): string {
   const parts = name.
   replace(/^(Dr\.|Prof\.|Engr\.)\s+/i, '').
