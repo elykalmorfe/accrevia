@@ -9,7 +9,6 @@ import {
   FileImageIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
-  FolderIcon,
   FolderOpenIcon,
   FolderPlusIcon,
   FolderUpIcon,
@@ -23,6 +22,8 @@ import {
 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
+import { FolderAction, FolderCard } from '../folders/FolderCard';
+import { pluralize } from '../../utils/format';
 import { usePortal } from '../../contexts/PortalContext';
 import { persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
@@ -541,18 +542,16 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
                         const count = fileCountIn(folder.id);
                         const subCount = areaFolders.filter((f) => f.parentId === folder.id).length;
                         return (
-                          <div
+                          <FolderCard
                             key={folder.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => renamingId !== folder.id && (setQuery(''), setCurrentFolderId(folder.id))}
-                            onKeyDown={(e) => e.key === 'Enter' && renamingId !== folder.id && setCurrentFolderId(folder.id)}
-                            className="group relative flex cursor-pointer items-center gap-3 rounded-xl border border-line bg-white p-3 transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md hover:shadow-brand-500/10">
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-500 transition group-hover:bg-amber-100">
-                              <FolderIcon className="h-5 w-5 fill-amber-400/40" />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              {renamingId === folder.id ? (
+                            onOpen={() => {
+                              if (renamingId === folder.id) return;
+                              setQuery('');
+                              setCurrentFolderId(folder.id);
+                            }}
+                            title={`Open ${folder.name}`}
+                            name={
+                              renamingId === folder.id ? (
                                 <input
                                   autoFocus
                                   value={renameValue}
@@ -566,37 +565,30 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
                                   className="w-full rounded-md border border-brand-300 px-1.5 py-0.5 text-[13px] font-semibold outline-none ring-2 ring-brand-100"
                                 />
                               ) : (
-                                <p className="truncate text-[13.5px] font-semibold text-ink">{folder.name}</p>
-                              )}
-                              <p className="text-[11.5px] text-ink-subtle">
-                                {count} file{count === 1 ? '' : 's'}
-                                {subCount > 0 && ` · ${subCount} folder${subCount === 1 ? '' : 's'}`}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 gap-0.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRenamingId(folder.id);
-                                  setRenameValue(folder.name);
-                                }}
-                                className="rounded-md p-1.5 text-ink-subtle hover:bg-canvas hover:text-brand-700"
-                                aria-label={`Rename ${folder.name}`}>
-                                <PencilIcon className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteFolder(folder);
-                                }}
-                                className="rounded-md p-1.5 text-ink-subtle hover:bg-danger-50 hover:text-danger-600"
-                                aria-label={`Delete ${folder.name}`}>
-                                <Trash2Icon className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
+                                folder.name
+                              )
+                            }
+                            meta={`${pluralize(count, 'file')}${subCount > 0 ? ` · ${pluralize(subCount, 'folder')}` : ''}`}
+                            status={count === 0 ? { label: 'No files yet', tone: 'neutral' } : null}
+                            actions={
+                              <>
+                                <FolderAction
+                                  icon={PencilIcon}
+                                  label={`Rename ${folder.name}`}
+                                  onClick={() => {
+                                    setRenamingId(folder.id);
+                                    setRenameValue(folder.name);
+                                  }}
+                                />
+                                <FolderAction
+                                  icon={Trash2Icon}
+                                  label={`Delete ${folder.name}`}
+                                  danger
+                                  onClick={() => handleDeleteFolder(folder)}
+                                />
+                              </>
+                            }
+                          />
                         );
                       })}
                     </div>

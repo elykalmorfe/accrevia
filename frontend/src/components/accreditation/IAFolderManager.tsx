@@ -36,6 +36,8 @@ import { CampusId, IARequirementItem } from '../../types/accreditation';
 import { Badge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
 import { FolderFormModal } from '../folders/FolderFormModal';
+import { FolderAction, FolderCard, FolderStatus } from '../folders/FolderCard';
+import { pluralize } from '../../utils/format';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
 import { persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
@@ -60,13 +62,36 @@ const OFFICIAL_IA_AREAS = [
   { code: 'AREA-IX', number: 9, name: 'Quality Assurance Culture', shortDesc: 'QA manual, ISO 9001:2015 QMS, IQA resolutions' }
 ];
 
-const AREA_STATUS_STYLE: Record<string, { bar: string; progress: string; tile: string }> = {
-  approved: { bar: 'from-emerald-400 to-emerald-600', progress: 'bg-emerald-500', tile: 'from-emerald-500 to-emerald-600' },
-  needs_revision: { bar: 'from-rose-400 to-rose-600', progress: 'bg-rose-500', tile: 'from-rose-500 to-rose-600' },
-  review_required: { bar: 'from-amber-300 to-amber-500', progress: 'bg-amber-500', tile: 'from-brand-500 to-violet-600' },
-  needs_files: { bar: 'from-amber-200 to-amber-300', progress: 'bg-amber-400', tile: 'from-brand-500 to-violet-600' },
-  needs_evidence: { bar: 'from-slate-200 to-slate-300', progress: 'bg-slate-300', tile: 'from-slate-400 to-slate-500' }
+const AREA_STATUS_STYLE: Record<string, { tile: string }> = {
+  approved: { tile: 'from-emerald-500 to-emerald-600' },
+  needs_revision: { tile: 'from-rose-500 to-rose-600' },
+  review_required: { tile: 'from-brand-500 to-violet-600' },
+  needs_files: { tile: 'from-brand-500 to-violet-600' },
+  needs_evidence: { tile: 'from-slate-400 to-slate-500' }
 };
+
+const AREA_STATUS: Record<string, FolderStatus> = {
+  approved: { label: 'All approved', tone: 'success' },
+  needs_revision: { label: 'Needs revision', tone: 'danger' },
+  review_required: { label: 'Awaiting review', tone: 'info' },
+  needs_files: { label: 'No files yet', tone: 'warning' },
+  needs_evidence: { label: 'Empty', tone: 'neutral' }
+};
+
+const FOLDER_STATUS: Record<string, FolderStatus> = {
+  approved: { label: 'All approved', tone: 'success' },
+  needs_revision: { label: 'Needs revision', tone: 'danger' },
+  review_required: { label: 'Awaiting review', tone: 'info' },
+  empty: { label: 'No files yet', tone: 'neutral' }
+};
+
+function folderDeadlineText(folder: EvidenceFolder): string {
+  if (folder.hasNoDeadline) return 'No deadline';
+  if (folder.expiredDate) {
+    return new Date(folder.expiredDate) < new Date() ? `Expired ${folder.expiredDate}` : `Due ${folder.expiredDate}`;
+  }
+  return `Created ${folder.createdAt}`;
+}
 
 export function IAFolderManager({ campusId, campusName, iaRequirements, onRequirementUpdated }: IAFolderManagerProps) {
   const { folders, saveFolder, deleteFolder, documents, addDocument, deleteDocument, updateDocument } = usePortal();
@@ -1339,98 +1364,16 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredAreas.map((area) => {
                   const areaStatus = getAreaApprovalStatus(area.code);
-                  const style = AREA_STATUS_STYLE[areaStatus.status] ?? AREA_STATUS_STYLE.needs_evidence;
-                  const approvedPct = areaStatus.fileCount
-                    ? Math.round((areaStatus.approvedCount / areaStatus.fileCount) * 100)
-                    : 0;
-
-                  // Count folders created strictly inside this specific area
-                  const existingAreaFolders = iaFolders.filter(
-                    (f) => !f.parentId && (f.areaId || '').toLowerCase() === area.code.toLowerCase()
-                  );
-
                   return (
-                    <div
+                    <FolderCard
                       key={area.code}
-                      onClick={() => handleSelectArea(area.code)}
-                      className="group relative cursor-pointer overflow-hidden rounded-2xl border border-line bg-white p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-lg hover:shadow-brand-500/10"
-                      title={`Click to view and manage folders for Area ${area.number}`}
-                    >
-                      <span className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${style.bar}`} />
-                      <span className="pointer-events-none absolute -bottom-4 right-2 select-none font-serif text-[88px] font-black leading-none text-slate-100 transition-colors group-hover:text-brand-50">
-                        {area.code.split('-')[1]}
-                      </span>
-
-                      <div className="relative flex items-start justify-between gap-2">
-                        <span
-                          className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br text-[15px] font-bold text-white shadow-md shadow-slate-300/50 ${style.tile}`}
-                        >
-                          {area.number}
-                        </span>
-                        <Badge
-                          tone={
-                            areaStatus.status === 'approved'
-                              ? 'success'
-                              : areaStatus.status === 'needs_revision'
-                              ? 'danger'
-                              : areaStatus.status === 'review_required'
-                              ? 'warning'
-                              : 'neutral'
-                          }
-                          dot
-                        >
-                          {areaStatus.label}
-                        </Badge>
-                      </div>
-
-                      <div className="relative">
-                        <p className="mt-3 text-[10.5px] font-bold uppercase tracking-wider text-ink-subtle">
-                          Area {area.number}
-                        </p>
-                        <h4 className="text-[14px] font-bold leading-snug text-ink transition-colors group-hover:text-brand-700">
-                          {area.name}
-                        </h4>
-                        <p className="mt-1 line-clamp-2 text-xs text-ink-muted">{area.shortDesc}</p>
-
-                        <div className="mt-3.5">
-                          <div className="mb-1 flex items-center justify-between text-[10.5px] font-semibold text-ink-subtle">
-                            <span>Approval progress</span>
-                            <span className="text-ink-muted">
-                              {areaStatus.fileCount ? `${areaStatus.approvedCount}/${areaStatus.fileCount}` : '—'}
-                            </span>
-                          </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                            <div
-                              className={`h-full rounded-full transition-all duration-500 ${style.progress}`}
-                              style={{ width: `${approvedPct}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="mt-3.5 flex items-center justify-between text-[11.5px]">
-                          {existingAreaFolders.length > 0 ? (
-                            <span className="flex items-center gap-3 font-semibold text-ink-muted">
-                              <span className="inline-flex items-center gap-1">
-                                <FolderIcon className="h-3.5 w-3.5 fill-amber-300/60 text-amber-500" />
-                                {existingAreaFolders.length}
-                              </span>
-                              <span className="inline-flex items-center gap-1">
-                                <FileTextIcon className="h-3.5 w-3.5 text-brand-500" />
-                                {areaStatus.fileCount}
-                              </span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 font-medium text-ink-subtle">
-                              <FolderPlusIcon className="h-3.5 w-3.5" />
-                              Create first folder
-                            </span>
-                          )}
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-canvas text-ink-subtle transition-all group-hover:translate-x-0.5 group-hover:bg-brand-600 group-hover:text-white">
-                            <ChevronRightIcon className="h-4 w-4" />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                      onOpen={() => handleSelectArea(area.code)}
+                      title={`Open Area ${area.number}: ${area.name}`}
+                      eyebrow={`Area ${area.number}`}
+                      name={area.name}
+                      meta={`${pluralize(areaStatus.folderCount, 'folder')} · ${pluralize(areaStatus.fileCount, 'file')}`}
+                      status={AREA_STATUS[areaStatus.status] ?? AREA_STATUS.needs_evidence}
+                    />
                   );
                 })}
               </div>
@@ -1627,126 +1570,40 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       const docCount = getFolderDocCount(folder);
                       const subCount = getFolderSubfolderCount(folder.id);
                       return (
-                        <div
+                        <FolderCard
                           key={folder.id}
-                          onClick={() => {
+                          onOpen={() => {
                             setActiveFolderId(folder.id);
                             setRepoFilter('all');
                             setSearchQuery('');
                           }}
-                          className="group relative cursor-pointer rounded-2xl border border-line bg-white p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-lg hover:shadow-brand-500/10"
-                          title="Click to open this folder"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500 ring-1 ring-amber-100 transition-colors group-hover:bg-amber-100">
-                                <FolderIcon className="h-5 w-5" />
-                              </div>
-                              <div>
-                                <h4 className="text-xs font-bold text-ink group-hover:text-brand-700 transition-colors">
-                                  {folder.name}
-                                </h4>
-                                <span className="text-[10px] text-ink-subtle">{folder.code}</span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
+                          title={folder.description || 'Open this folder'}
+                          eyebrow={folderDeadlineText(folder)}
+                          name={folder.name}
+                          meta={`${pluralize(docCount, 'file')}${subCount > 0 ? ` · ${pluralize(subCount, 'subfolder')}` : ''}`}
+                          status={FOLDER_STATUS[getFolderApprovalStatus(folder).status]}
+                          actions={
+                            <>
+                              <FolderAction
+                                icon={UploadIcon}
+                                label="Upload into folder"
                                 onClick={() => {
                                   setIsTopUploadSource(false);
                                   setSelectedTargetFolder(folder.id);
                                   setUploadModalOpen(true);
                                 }}
-                                className="p-1 text-ink-subtle hover:text-brand-600 rounded"
-                                title="Upload into folder"
-                              >
-                                <UploadIcon className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
+                              />
+                              <FolderAction
+                                icon={PencilIcon}
+                                label="Edit folder"
                                 onClick={() => {
                                   setEditingFolder(folder);
                                   setFolderFormOpen(true);
                                 }}
-                                className="p-1 text-ink-subtle hover:text-brand-600 rounded"
-                                title="Edit folder"
-                              >
-                                <PencilIcon className="h-3.5 w-3.5" />
-                              </button>
-                              
-                            </div>
-                          </div>
-
-                          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                            {renderFolderDatesBadge(folder)}
-                            {(() => {
-                              const folderStatus = getFolderApprovalStatus(folder);
-                              if (folderStatus.status === 'approved') {
-                                return (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full shadow-2xs">
-                                    <CheckCircle2Icon className="h-3 w-3 text-emerald-600" />
-                                    <span>Approved</span>
-                                  </span>
-                                );
-                              }
-                              if (folderStatus.status === 'needs_revision') {
-                                return (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full shadow-2xs">
-                                    <AlertTriangleIcon className="h-3 w-3 text-amber-600" />
-                                    <span>Needs Revision</span>
-                                  </span>
-                                );
-                              }
-                              if (folderStatus.status === 'review_required') {
-                                return (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
-                                    <ClockIcon className="h-3 w-3 text-brand-600" />
-                                    <span>Review Required</span>
-                                  </span>
-                                );
-                              }
-                              return null;
-                            })()}
-                          </div>
-
-                          <p className="mt-2 text-[11px] text-ink-muted line-clamp-2">
-                            {folder.description || 'No description provided.'}
-                          </p>
-
-                          <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-[11px] text-ink-subtle">
-                            <span className="font-medium text-ink-muted">
-                              {docCount} document{docCount === 1 ? '' : 's'}
-                              {subCount > 0 && ` · ${subCount} subfolder${subCount === 1 ? '' : 's'}`}
-                            </span>
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsTopUploadSource(false);
-                                  setSelectedTargetFolder(folder.id);
-                                  setUploadModalOpen(true);
-                                }}
-                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-2 py-0.5 rounded transition-colors"
-                                title="Upload files or folders into this folder"
-                              >
-                                <UploadIcon className="h-3 w-3" />
-                                <span>+ Upload</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveFolderId(folder.id);
-                                  setRepoFilter('all');
-                                  setSearchQuery('');
-                                }}
-                                className="font-semibold text-brand-600 hover:underline"
-                              >
-                                Open Folder →
-                              </button>
-                            </div>
-                          </div>
-                        </div>
+                              />
+                            </>
+                          }
+                        />
                       );
                     })}
                   </div>
@@ -1953,60 +1810,41 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     {insideSubfolders.map((sub) => {
                       const count = getFolderDocCount(sub);
                       return (
-                        <div
+                        <FolderCard
                           key={sub.id}
-                          onClick={() => {
+                          onOpen={() => {
                             setActiveFolderId(sub.id);
                             setSearchQuery('');
                           }}
-                          className="group relative cursor-pointer rounded-xl border border-line bg-white p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md hover:shadow-brand-500/10"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-500 ring-1 ring-amber-100 transition-colors group-hover:bg-amber-100">
-                                <FolderIcon className="h-4 w-4" />
-                              </div>
-                              <div>
-                                <h5 className="text-xs font-bold text-ink group-hover:text-brand-700">{sub.name}</h5>
-                                <span className="text-[10px] text-ink-subtle">{sub.createdAt}</span>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingFolder(sub);
-                                setFolderFormParentId(activeFolderId || undefined);
-                                setFolderFormAreaId(selectedAreaCode?.toLowerCase());
-                                setFolderFormOpen(true);
-                              }}
-                              className="p-1 text-ink-subtle hover:text-brand-600 rounded"
-                              title="Rename / Edit subfolder"
-                            >
-                              <PencilIcon className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                          <div className="mt-2">{renderFolderDatesBadge(sub)}</div>
-                          <div className="mt-2 pt-2 border-t border-line text-[11px] text-ink-muted flex items-center justify-between">
-                            <span>{count} files inside</span>
-                            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
+                          title={sub.description || 'Open this subfolder'}
+                          eyebrow={folderDeadlineText(sub)}
+                          name={sub.name}
+                          meta={pluralize(count, 'file')}
+                          status={FOLDER_STATUS[getFolderApprovalStatus(sub).status]}
+                          actions={
+                            <>
+                              <FolderAction
+                                icon={UploadIcon}
+                                label="Upload into subfolder"
                                 onClick={() => {
                                   setIsTopUploadSource(false);
                                   setSelectedTargetFolder(sub.id);
                                   setUploadModalOpen(true);
                                 }}
-                                className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 px-1.5 py-0.5 rounded transition-colors"
-                                title="Upload files into this subfolder"
-                              >
-                                <UploadIcon className="h-2.5 w-2.5" />
-                                <span>+ Upload</span>
-                              </button>
-                              <span className="text-brand-600 font-semibold group-hover:underline">Open →</span>
-                            </div>
-                          </div>
-                        </div>
+                              />
+                              <FolderAction
+                                icon={PencilIcon}
+                                label="Rename / edit subfolder"
+                                onClick={() => {
+                                  setEditingFolder(sub);
+                                  setFolderFormParentId(activeFolderId || undefined);
+                                  setFolderFormAreaId(selectedAreaCode?.toLowerCase());
+                                  setFolderFormOpen(true);
+                                }}
+                              />
+                            </>
+                          }
+                        />
                       );
                     })}
                   </div>
@@ -2319,82 +2157,45 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   const docCount = getFolderDocCount(folder);
                   const subCount = getFolderSubfolderCount(folder.id);
                   return (
-                    <div
+                    <FolderCard
                       key={folder.id}
-                      onClick={() => {
+                      onOpen={() => {
                         setActiveFolderId(folder.id);
                         setRepoFilter('all');
                         setSearchQuery('');
                       }}
-                      className="group relative cursor-pointer rounded-2xl border border-line bg-white p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-lg hover:shadow-brand-500/10"
-                      title="Click to open this folder"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500 ring-1 ring-amber-100 transition-colors group-hover:bg-amber-100">
-                            <FolderIcon className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <h4 className="text-xs font-bold text-ink group-hover:text-brand-700 transition-colors">
-                              {folder.name}
-                            </h4>
-                            <span className="text-[10px] text-ink-subtle">{folder.code} · {folder.campus || campusName} · {folder.createdAt}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingFolder(folder);
-                              setFolderFormOpen(true);
-                            }}
-                            className="p-1 text-ink-subtle hover:text-brand-600 rounded"
-                            title="Rename folder"
-                          >
-                            <PencilIcon className="h-3.5 w-3.5" />
-                          </button>
-                          
-                        </div>
-                      </div>
-
-                      <div className="mt-2.5">{renderFolderDatesBadge(folder)}</div>
-
-                      <p className="mt-2 text-[11px] text-ink-muted line-clamp-2">
-                        {folder.description || 'No description provided.'}
-                      </p>
-
-                      <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-[11px] text-ink-subtle">
-                        <span className="font-medium text-ink-muted">
-                          {docCount} document{docCount === 1 ? '' : 's'} inside
-                          {subCount > 0 && ` · ${subCount} subfolder${subCount === 1 ? '' : 's'}`}
-                        </span>
-
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
+                      title={folder.description || 'Open this folder'}
+                      eyebrow={folderDeadlineText(folder)}
+                      name={folder.name}
+                      meta={`${pluralize(docCount, 'file')}${subCount > 0 ? ` · ${pluralize(subCount, 'subfolder')}` : ''}`}
+                      status={FOLDER_STATUS[getFolderApprovalStatus(folder).status]}
+                      actions={
+                        <>
+                          <FolderAction
+                            icon={Share2Icon}
+                            label="Move into an official IA Area"
                             onClick={() => setUploadingCustomFolder(folder)}
-                            className="font-semibold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1"
-                            title="Upload and transfer this folder into an official IA Area"
-                          >
-                            <Share2Icon className="h-3 w-3" />
-                            <span>Upload to Area</span>
-                          </button>
-
-                          <button
-                            type="button"
+                          />
+                          <FolderAction
+                            icon={UploadIcon}
+                            label="Upload into folder"
                             onClick={() => {
                               setIsTopUploadSource(false);
                               setSelectedTargetFolder(folder.id);
                               setUploadModalOpen(true);
                             }}
-                            className="font-semibold text-brand-600 hover:underline"
-                          >
-                            + Upload
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                          />
+                          <FolderAction
+                            icon={PencilIcon}
+                            label="Rename folder"
+                            onClick={() => {
+                              setEditingFolder(folder);
+                              setFolderFormOpen(true);
+                            }}
+                          />
+                        </>
+                      }
+                    />
                   );
                 })}
               </div>
@@ -2532,45 +2333,30 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     {insideSubfolders.map((sub) => {
                       const count = getFolderDocCount(sub);
                       return (
-                        <div
+                        <FolderCard
                           key={sub.id}
-                          onClick={() => {
+                          onOpen={() => {
                             setActiveFolderId(sub.id);
                             setSearchQuery('');
                           }}
-                          className="group relative cursor-pointer rounded-xl border border-line bg-white p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md hover:shadow-brand-500/10"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-500 ring-1 ring-amber-100 transition-colors group-hover:bg-amber-100">
-                                <FolderIcon className="h-4 w-4" />
-                              </div>
-                              <div>
-                                <h5 className="text-xs font-bold text-ink group-hover:text-brand-700">{sub.name}</h5>
-                                <span className="text-[10px] text-ink-subtle">{sub.createdAt}</span>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
+                          title={sub.description || 'Open this subfolder'}
+                          eyebrow={folderDeadlineText(sub)}
+                          name={sub.name}
+                          meta={pluralize(count, 'file')}
+                          status={FOLDER_STATUS[getFolderApprovalStatus(sub).status]}
+                          actions={
+                            <FolderAction
+                              icon={PencilIcon}
+                              label="Rename / edit subfolder"
+                              onClick={() => {
                                 setEditingFolder(sub);
                                 setFolderFormParentId(activeFolderId || undefined);
                                 setFolderFormAreaId(selectedAreaCode?.toLowerCase());
                                 setFolderFormOpen(true);
                               }}
-                              className="p-1 text-ink-subtle hover:text-brand-600 rounded"
-                              title="Rename / Edit subfolder"
-                            >
-                              <PencilIcon className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                          <div className="mt-2">{renderFolderDatesBadge(sub)}</div>
-                          <div className="mt-2 pt-2 border-t border-line text-[11px] text-ink-muted flex items-center justify-between">
-                            <span>{count} files inside</span>
-                            <span className="text-brand-600 font-semibold group-hover:underline">Open →</span>
-                          </div>
-                        </div>
+                            />
+                          }
+                        />
                       );
                     })}
                   </div>
