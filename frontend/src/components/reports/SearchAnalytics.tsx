@@ -3,37 +3,52 @@ import { Link } from 'react-router-dom';
 import { useLookup } from '../../hooks/useLookup';
 import { usePortal } from '../../contexts/PortalContext';
 import { BarList } from '../ui/BarList';
-import { mostRetrievedDocuments, requestedCriteria, searchStats, topSearchTerms } from '../../data/analytics';
 import { formatNumber } from '../../utils/format';
 
 export function SearchAnalytics() {
   const lookup = useLookup();
-  const { documents, filteredDocuments, selectedCampus, selectedCampusObj } = usePortal();
+  const { documents, filteredDocuments, selectedCampus, selectedCampusObj, accessLog, recentSearches } = usePortal();
 
   const campusDocIds = useMemo(() => new Set(filteredDocuments.map((d) => d.id)), [filteredDocuments]);
-
-  const campusSearches = useMemo(() => {
-    if (selectedCampus === 'all') return searchStats.totalSearches;
-    return Math.round(searchStats.totalSearches / 7);
-  }, [selectedCampus]);
-
-  const campusLast30 = useMemo(() => {
-    if (selectedCampus === 'all') return searchStats.last30Days;
-    return Math.round(searchStats.last30Days / 7);
-  }, [selectedCampus]);
+  const retrievals = useMemo(
+    () => accessLog.filter((e) => (e.action === 'Viewed' || e.action === 'Downloaded') && campusDocIds.has(e.documentId)),
+    [accessLog, campusDocIds]
+  );
 
   const kpis = [
-    { label: 'Total searches', value: formatNumber(campusSearches) },
-    { label: 'Last 30 days', value: formatNumber(campusLast30) },
-    { label: 'Avg. response time', value: `${searchStats.avgResponseMs} ms` },
-    { label: 'Searches with no results', value: `${searchStats.zeroResultRate}%` },
-    { label: 'Searches leading to a document view', value: `${searchStats.clickThroughRate}%` }
+    { label: 'Recent searches', value: formatNumber(recentSearches.length) },
+    { label: 'Document views', value: formatNumber(retrievals.filter((e) => e.action === 'Viewed').length) },
+    { label: 'Downloads', value: formatNumber(retrievals.filter((e) => e.action === 'Downloaded').length) },
+    { label: 'Searchable documents', value: formatNumber(filteredDocuments.length) },
+    { label: 'Criteria with evidence', value: formatNumber(new Set(filteredDocuments.map((d) => d.criterionId).filter(Boolean)).size) }
   ];
 
-  const campusRetrieved = useMemo(() => {
-    if (selectedCampus === 'all') return mostRetrievedDocuments;
-    return mostRetrievedDocuments.filter((m) => campusDocIds.has(m.docId));
-  }, [selectedCampus, campusDocIds]);
+  const mostRetrieved = useMemo(() => {
+    const counts = new Map<string, number>();
+    retrievals.forEach((e) => counts.set(e.documentId, (counts.get(e.documentId) || 0) + 1));
+    return [...counts.entries()]
+      .flatMap(([docId, value]) => {
+        const doc = documents.find((d) => d.id === docId);
+        return doc ? [{ doc, value }] : [];
+      })
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [retrievals, documents]);
+
+  const requestedCriteria = useMemo(() => {
+    const counts = new Map<string, number>();
+    retrievals.forEach((e) => {
+      const criterionId = documents.find((d) => d.id === e.documentId)?.criterionId;
+      if (criterionId) counts.set(criterionId, (counts.get(criterionId) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .map(([criterionId, value]) => {
+        const c = lookup.criterion(criterionId);
+        return { label: `${c ? lookup.framework(c.frameworkId)?.shortName : ''} · ${c?.code || criterionId} – ${c?.name || ''}`, value };
+      })
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [retrievals, documents, lookup]);
 
   return (
     <div className="space-y-4">
@@ -53,39 +68,40 @@ export function SearchAnalytics() {
       </dl>
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="panel p-5">
-          <h2 className="panel-title mb-4">Most searched terms</h2>
-          <BarList items={topSearchTerms.map((t) => ({ ...t, to: `/search?q=${encodeURIComponent(t.label)}` }))} tone="gold" />
+          <h2 className="panel-title mb-3">Recent search terms</h2>
+          {recentSearches.length === 0 ? (
+            <p className="py-4 text-xs text-ink-muted">No searches recorded yet.</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {recentSearches.map((q) => (
+                <li key={q} className="py-2">
+                  <Link to={`/search?q=${encodeURIComponent(q)}`} className="text-[13px] text-ink hover:text-brand-700 hover:underline">{q}</Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
         <section className="panel p-5">
           <h2 className="panel-title mb-3">Most retrieved documents</h2>
-          {campusRetrieved.length === 0 ? (
-            <p className="text-xs text-ink-muted py-4">No campus-specific retrievals recorded yet.</p>
+          {mostRetrieved.length === 0 ? (
+            <p className="py-4 text-xs text-ink-muted">No document retrievals recorded yet.</p>
           ) : (
             <ol className="divide-y divide-line">
-              {campusRetrieved.map((m, i) => {
-                const doc = documents.find((d) => d.id === m.docId);
-                if (!doc) return null;
-                return (
-                  <li key={m.docId} className="flex items-start gap-3 py-2.5">
-                    <span className="w-4 shrink-0 text-[13px] font-semibold tabular-nums text-ink-subtle">{i + 1}</span>
-                    <div className="min-w-0 flex-1">
-                      <Link to={`/documents/${doc.id}`} className="text-[13px] font-medium text-ink hover:text-brand-700 hover:underline">{doc.title}</Link>
-                      <p className="text-xs text-ink-muted">{m.value} retrievals</p>
-                    </div>
-                  </li>
-                );
-              })}
+              {mostRetrieved.map(({ doc, value }, i) => (
+                <li key={doc.id} className="flex items-start gap-3 py-2.5">
+                  <span className="w-4 shrink-0 text-[13px] font-semibold tabular-nums text-ink-subtle">{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <Link to={`/documents/${doc.id}`} className="text-[13px] font-medium text-ink hover:text-brand-700 hover:underline">{doc.title}</Link>
+                    <p className="text-xs text-ink-muted">{value} {value === 1 ? 'retrieval' : 'retrievals'}</p>
+                  </div>
+                </li>
+              ))}
             </ol>
           )}
         </section>
         <section className="panel p-5">
           <h2 className="panel-title mb-4">Frequently requested criteria</h2>
-          <BarList
-            items={requestedCriteria.map((r) => {
-              const c = lookup.criterion(r.criterionId);
-              return { label: `${c ? lookup.framework(c.frameworkId)?.shortName : ''} · ${c?.code} – ${c?.name}`, value: r.value };
-            })}
-          />
+          <BarList items={requestedCriteria} emptyText="No criteria requested yet." />
         </section>
       </div>
     </div>
