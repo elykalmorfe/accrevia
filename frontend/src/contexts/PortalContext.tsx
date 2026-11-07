@@ -1,15 +1,10 @@
 ﻿import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { frameworks as initialFrameworks } from '../data/frameworks';
-import { initialFolders, frameworkSubfolders } from '../data/folders';
-import { sampleAreaFolders, sampleAreaDocuments } from '../data/seedAccreditationEvidence';
+import { initialFolders } from '../data/folders';
 import { areas as initialAreas } from '../data/areas';
 import { criteria as initialCriteria } from '../data/criteria';
 import { indicators as initialIndicators } from '../data/indicators';
-import { documents as initialDocuments } from '../data/documents';
-import { pendingDocuments as initialPending } from '../data/pendingDocuments';
 import { users as initialUsers } from '../data/users';
-import { shares as initialShares, accessLog as initialAccessLog, initialAccessRequests } from '../data/shares';
-import { recentSearchActivity, notifications as initialNotifications } from '../data/analytics';
 import {
   campuses as initialCampuses,
   initialCampusIA,
@@ -50,7 +45,11 @@ import { metadataToPatch } from '../utils/metadata';
 import { isAdminRole, isRecipientRole, nowIso, permissionLabel, shareStatus } from '../utils/sharing';
 import { formatDate } from '../utils/format';
 import { isCampusMatch } from '../utils/campus';
+import { deleteStoredFile } from '../utils/fileStore';
 import { applyLevelChange, ensureLevelHistory, normalizeLegacyStatus } from '../utils/programAccreditation';
+import { purgeLegacySampleData } from '../utils/samplePurge';
+
+purgeLegacySampleData();
 
 interface PortalContextValue {
   currentUser: PortalUser;
@@ -183,46 +182,25 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const [areas, setAreas] = useState(initialAreas);
   const [criteria, setCriteria] = useState(initialCriteria);
   const [indicators, setIndicators] = useState(initialIndicators);
-  const [documents, setDocuments] = useState<EvidenceDocument[]>(() => {
-    const stored = loadStorage<EvidenceDocument[]>('documents', initialDocuments);
-    const baseList = (!stored || stored.length < initialDocuments.length) ? initialDocuments : stored;
-    const existingIds = new Set(baseList.map((d) => d.id));
-    const missing = sampleAreaDocuments.filter((d) => !existingIds.has(d.id));
-    const folderIdMap = new Map(initialDocuments.map((d) => [d.id, d.folderId]));
-    const withFolderIds = (missing.length > 0 ? [...baseList, ...missing] : baseList).map((d) => {
-      if (!d.folderId && folderIdMap.has(d.id) && folderIdMap.get(d.id)) {
-        return { ...d, folderId: folderIdMap.get(d.id) };
-      }
-      return d;
-    });
-    saveStorage('documents', withFolderIds);
-    return withFolderIds;
-  });
+  const [documents, setDocuments] = useState<EvidenceDocument[]>(() => loadStorage<EvidenceDocument[]>('documents', []));
   const [folders, setFolders] = useState<EvidenceFolder[]>(() => {
     const stored = loadStorage<EvidenceFolder[]>('folders', initialFolders);
     const existingIds = new Set(stored.map((f) => f.id));
-    const missingArea = sampleAreaFolders.filter((f) => !existingIds.has(f.id));
-    const missingSub = frameworkSubfolders.filter((f) => !existingIds.has(f.id));
-    const allMissing = [...missingArea, ...missingSub];
-    if (allMissing.length > 0) {
-      const merged = [...stored, ...allMissing];
-      saveStorage('folders', merged);
-      return merged;
-    }
-    return stored;
+    const missingRoots = initialFolders.filter((f) => !existingIds.has(f.id));
+    return missingRoots.length > 0 ? [...missingRoots, ...stored] : stored;
   });
-  const [pending, setPending] = useState(initialPending);
+  const [pending, setPending] = useState<PendingDocument[]>([]);
   const [users, setUsers] = useState(initialUsers);
-  const [shares, setShares] = useState(initialShares);
+  const [shares, setShares] = useState<DocumentShare[]>([]);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>(() =>
-    loadStorage('accessRequests', initialAccessRequests)
+    loadStorage<AccessRequest[]>('accessRequests', [])
   );
   const [notifications, setNotifications] = useState<Array<{ id: string; title: string; detail: string; to: string; time: string }>>(() =>
-    loadStorage('notifications', initialNotifications)
+    loadStorage('notifications', [])
   );
-  const [accessLog, setAccessLog] = useState(initialAccessLog);
-  const [recentSearches, setRecentSearches] = useState<string[]>(() => recentSearchActivity.map((s) => s.query));
-  const [savedIds, setSavedIds] = useState<string[]>(['d-002', 'd-001']);
+  const [accessLog, setAccessLog] = useState<AccessLogEntry[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
 
   // Global Campus Filter State
   const [selectedCampus, setSelectedCampusState] = useState<CampusId | 'all'>(() => {
@@ -333,7 +311,10 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     []
   );
   const addDocument = useCallback((doc: EvidenceDocument) => setDocuments((prev) => [doc, ...prev]), []);
-  const deleteDocument = useCallback((id: string) => setDocuments((prev) => prev.filter((d) => d.id !== id)), []);
+  const deleteDocument = useCallback((id: string) => {
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
+    deleteStoredFile(id).catch(() => undefined);
+  }, []);
   const saveFolder = useCallback((folder: EvidenceFolder) => {
     setFolders((prev) => {
       const idx = prev.findIndex((f) => f.id === folder.id);
