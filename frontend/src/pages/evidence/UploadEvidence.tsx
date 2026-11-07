@@ -34,10 +34,10 @@ import { initialFolders, isRootFrameworkFolder } from '../../data/folders';
 import { FolderFormModal } from '../../components/folders/FolderFormModal';
 import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
+import { FolderAction, FolderCard } from '../../components/folders/FolderCard';
 import { persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
-import { RowActionsMenu } from '../../components/ui/RowActionsMenu';
-import { formatDate } from '../../utils/format';
+import { formatDate, pluralize } from '../../utils/format';
 import { toast } from 'sonner';
 
 const FOLDER_THEMES: Record<FolderColor, { iconBg: string; iconColor: string; tagBg: string; tagText: string; borderHover: string }> = {
@@ -987,78 +987,28 @@ export function UploadEvidence() {
           {viewMode === 'grid' ? (
             <div className="grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {filteredFolders.map((folder) => {
-                const theme = FOLDER_THEMES[folder.color] || FOLDER_THEMES.blue;
                 const stats = folderStats[folder.id] || { count: 0, sizeMb: 0 };
 
                 return (
-                  <div
+                  <FolderCard
                     key={folder.id}
-                    onClick={() => setFolder(folder.id)}
-                    className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-xs transition-all duration-200 hover:border-brand-400 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
-                  >
-                    <div>
-                      {/* Top Row: Icon, Code Badge, Category, Options Menu */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className={`grid h-11 w-11 place-items-center rounded-xl shadow-2xs transition-transform duration-200 group-hover:scale-105 shrink-0 ${theme.iconBg}`}>
-                            <FolderIcon className="h-5 w-5" />
-                          </span>
-                          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-800 tracking-wide">
-                              {folder.code}
-                            </span>
-                            <Badge tone={getCategoryBadgeTone(folder.category)}>
-                              {folder.category}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        {/* Actions Menu */}
-                        <div onClick={(e) => e.stopPropagation()} className="shrink-0">
-                          <RowActionsMenu
-                            label={`Options for ${folder.name}`}
-                            actions={[
-                              {
-                                label: 'Open Repository',
-                                icon: FolderOpenIcon,
-                                onSelect: () => setFolder(folder.id)
-                              },
-                              {
-                                label: 'Edit Repository',
-                                icon: PencilIcon,
-                                onSelect: () => {
-                                  setEditingFolder(folder);
-                                  setIsFolderModalOpen(true);
-                                }
-                              }
-                            ]}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Title & Description with generous breathing room */}
-                      <h3 className="mt-4 text-[15px] sm:text-base font-bold text-ink tracking-tight group-hover:text-brand-600 transition-colors">
-                        {folder.name}
-                      </h3>
-                      <p className="mt-1.5 text-xs sm:text-[13px] text-ink-muted leading-relaxed line-clamp-2 min-h-[2.5rem]">
-                        {folder.description}
-                      </p>
-                    </div>
-
-                    {/* Card Footer: Metadata and Action Button */}
-                    <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3.5 text-xs text-ink-muted">
-                      <div className="flex items-center gap-1.5 font-semibold text-slate-700">
-                        <FileTextIcon className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                        <span>{stats.count} {stats.count === 1 ? 'file' : 'files'}</span>
-                        <span className="text-slate-300">·</span>
-                        <span className="font-normal text-slate-500">{stats.sizeMb} MB</span>
-                      </div>
-                      <span className="text-xs font-bold text-brand-600 group-hover:text-brand-700 group-hover:translate-x-1 transition-all flex items-center gap-1">
-                        <span>Open repository</span>
-                        <span>→</span>
-                      </span>
-                    </div>
-                  </div>
+                    onOpen={() => setFolder(folder.id)}
+                    title={folder.description || `Open ${folder.name}`}
+                    eyebrow={folder.category ? `${folder.code} · ${folder.category}` : folder.code}
+                    name={folder.name}
+                    meta={`${pluralize(stats.count, 'file')} · ${stats.sizeMb} MB`}
+                    status={stats.count === 0 ? { label: 'No files yet', tone: 'neutral' } : null}
+                    actions={
+                      <FolderAction
+                        icon={PencilIcon}
+                        label="Edit folder"
+                        onClick={() => {
+                          setEditingFolder(folder);
+                          setIsFolderModalOpen(true);
+                        }}
+                      />
+                    }
+                  />
                 );
               })}
             </div>
@@ -1079,7 +1029,6 @@ export function UploadEvidence() {
                   </thead>
                   <tbody>
                     {filteredFolders.map((folder) => {
-                      const theme = FOLDER_THEMES[folder.color] || FOLDER_THEMES.blue;
                       const stats = folderStats[folder.id] || { count: 0, sizeMb: 0 };
 
                       return (
@@ -1090,9 +1039,7 @@ export function UploadEvidence() {
                         >
                           <td>
                             <div className="flex items-center gap-3">
-                              <span className={`grid h-8 w-8 place-items-center rounded-lg shrink-0 ${theme.iconBg}`}>
-                                <FolderIcon className="h-4 w-4" />
-                              </span>
+                              <FolderIcon className="h-7 w-7 shrink-0 fill-amber-100 text-amber-400" strokeWidth={1.5} />
                               <div className="min-w-0">
                                 <p className="font-semibold text-ink text-xs sm:text-[13px] truncate">{folder.name}</p>
                                 <p className="text-[11px] text-ink-muted truncate max-w-sm">{folder.description}</p>
@@ -1469,82 +1416,28 @@ export function UploadEvidence() {
                     const count = getSubfolderDocCount(sub);
 
                     return (
-                      <div
+                      <FolderCard
                         key={sub.id}
-                        onClick={() => setFolder(sub.id)}
-                        className="group relative flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-xs transition-all duration-150 hover:border-brand-400 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
-                      >
-                        <div>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="grid h-9 w-9 place-items-center rounded-lg bg-amber-50 text-amber-600 border border-amber-200/60 shadow-2xs group-hover:bg-amber-100 group-hover:scale-105 transition-all shrink-0">
-                                <FolderIcon className="h-4 w-4" />
-                              </span>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <h5 className="text-xs sm:text-[13px] font-bold text-ink group-hover:text-brand-600 transition-colors truncate">
-                                    {sub.name}
-                                  </h5>
-                                  {sub.code && (
-                                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 uppercase shrink-0">
-                                      {sub.code}
-                                    </span>
-                                  )}
-                                </div>
-                                {sub.campus && sub.campus !== 'All Campuses' && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-700 mt-0.5">
-                                    <Building2Icon className="h-2.5 w-2.5" />
-                                    <span>{sub.campus}</span>
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Row options menu */}
-                            <div onClick={(e) => e.stopPropagation()} className="shrink-0">
-                              <RowActionsMenu
-                                label={`Options for ${sub.name}`}
-                                actions={[
-                                  {
-                                    label: 'Open Subfolder',
-                                    icon: FolderOpenIcon,
-                                    onSelect: () => setFolder(sub.id)
-                                  },
-                                  {
-                                    label: 'Edit Subfolder',
-                                    icon: PencilIcon,
-                                    onSelect: () => {
-                                      setEditingFolder(sub);
-                                      setIsFolderModalOpen(true);
-                                    }
-                                  },
-                                  {
-                                    label: 'Delete Subfolder',
-                                    icon: Trash2Icon,
-                                    tone: 'danger',
-                                    onSelect: () => setDeletingFolder(sub)
-                                  }
-                                ]}
-                              />
-                            </div>
-                          </div>
-
-                          <p className="mt-2 text-xs text-ink-muted line-clamp-2 leading-relaxed">
-                            {sub.description || 'Dedicated subfolder guidelines'}
-                          </p>
-                        </div>
-
-                        <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-ink-muted">
-                          <span className="font-semibold text-slate-700 flex items-center gap-1">
-                            <FileTextIcon className="h-3.5 w-3.5 text-slate-400" />
-                            <span>{count} {count === 1 ? 'file' : 'files'} inside</span>
-                          </span>
-                          <span className="text-[11px] font-bold text-brand-600 group-hover:translate-x-0.5 group-hover:text-brand-700 transition-all flex items-center gap-1">
-                            <span>Open folder</span>
-                            <span>→</span>
-                          </span>
-                        </div>
-                      </div>
+                        onOpen={() => setFolder(sub.id)}
+                        title={sub.description || `Open ${sub.name}`}
+                        eyebrow={[sub.code, sub.campus && sub.campus !== 'All Campuses' ? sub.campus : null].filter(Boolean).join(' · ') || undefined}
+                        name={sub.name}
+                        meta={pluralize(count, 'file')}
+                        status={count === 0 ? { label: 'No files yet', tone: 'neutral' } : null}
+                        actions={
+                          <>
+                            <FolderAction
+                              icon={PencilIcon}
+                              label="Edit subfolder"
+                              onClick={() => {
+                                setEditingFolder(sub);
+                                setIsFolderModalOpen(true);
+                              }}
+                            />
+                            <FolderAction icon={Trash2Icon} label="Delete subfolder" danger onClick={() => setDeletingFolder(sub)} />
+                          </>
+                        }
+                      />
                     );
                   })}
                 </div>
