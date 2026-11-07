@@ -1,11 +1,12 @@
 ﻿import { format, parseISO } from 'date-fns';
+import { getSettings } from '../settings/portalSettings';
 
 export function formatDate(iso: string): string {
-  return format(parseISO(iso), 'MMM d, yyyy');
+  return format(parseISO(iso), getSettings().preferences.dateFormat);
 }
 
 export function formatDateTime(iso: string): string {
-  return format(parseISO(iso), "MMM d, yyyy 'at' h:mm a");
+  return format(parseISO(iso), `${getSettings().preferences.dateFormat} 'at' h:mm a`);
 }
 
 export function formatTime(iso: string): string {

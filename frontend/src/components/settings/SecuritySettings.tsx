@@ -1,9 +1,12 @@
-﻿import React, { useState } from 'react';
+﻿import React from 'react';
 import { SaveBar, SettingRow, SettingsGroup } from './SettingsLayout';
 import { Switch } from '../ui/Switch';
 import { SharingDefaults } from './SharingDefaults';
 import { userRoles } from '../../data/options';
 import { UserRole } from '../../types/user';
+import { PortalSettings, useSettingsDraft } from '../../settings/portalSettings';
+
+type SecurityConfig = PortalSettings['security'];
 
 const permissions = [
 'Search and view documents shared with them',
@@ -26,16 +29,20 @@ const defaults: Record<UserRole, number> = {
   User: 2
 };
 
+function isAllowed(overrides: Record<string, boolean>, role: UserRole, permission: string, index: number) {
+  const key = `${role}|${permission}`;
+  return key in overrides ? overrides[key] : index < defaults[role];
+}
+
 export function SecuritySettings() {
-  const [s, setS] = useState({ timeout: '30', sessions: 2, minLength: 12, complexity: true, expiry: '90', mfa: true });
-  const [matrix, setMatrix] = useState<Record<string, boolean>>(() =>
-  Object.fromEntries(userRoles.flatMap((r) => permissions.map((p, i) => [`${r}|${p}`, i < defaults[r]])))
-  );
-  const set = <K extends keyof typeof s,>(key: K, value: (typeof s)[K]) => setS((prev) => ({ ...prev, [key]: value }));
+  const security = useSettingsDraft('security');
+  const sharing = useSettingsDraft('sharing');
+  const s = security.value;
+  const set = <K extends keyof SecurityConfig,>(key: K, value: SecurityConfig[K]) => security.set({ [key]: value } as Partial<SecurityConfig>);
 
   return (
     <div className="space-y-4">
-      <SettingsGroup title="Sessions">
+      <SettingsGroup title="Sessions" description="Enforced by the sign-in server once it is connected.">
         <SettingRow label="Sign out after inactivity">
           <select aria-label="Session timeout" className="input" value={s.timeout} onChange={(e) => set('timeout', e.target.value)}>
             {['15', '30', '60', '120'].map((m) => <option key={m} value={m}>{m} minutes</option>)}
@@ -63,7 +70,7 @@ export function SecuritySettings() {
         </SettingRow>
       </SettingsGroup>
 
-      <SharingDefaults />
+      <SharingDefaults value={sharing.value} onChange={sharing.set} />
 
       <section className="panel overflow-hidden">
         <div className="px-5 py-4">
@@ -79,20 +86,21 @@ export function SecuritySettings() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {permissions.map((p) =>
+              {permissions.map((p, i) =>
               <tr key={p}>
                   <td className="td">{p}</td>
                   {userRoles.map((r) => {
                   const key = `${r}|${p}`;
                   const locked = r === 'Administrator';
+                  const checked = isAllowed(s.permissions, r, p, i);
                   return (
                     <td key={r} className="td text-center">
                         <input
                         type="checkbox"
                         aria-label={`${r}: ${p}`}
-                        checked={matrix[key]}
+                        checked={checked}
                         disabled={locked}
-                        onChange={() => setMatrix((m) => ({ ...m, [key]: !m[key] }))}
+                        onChange={() => set('permissions', { ...s.permissions, [key]: !checked })}
                         className="h-4 w-4 rounded border-line-strong accent-brand-600 disabled:opacity-60" />
                       
                       </td>);
@@ -104,7 +112,21 @@ export function SecuritySettings() {
           </table>
         </div>
       </section>
-      <SaveBar label="Security settings saved" />
+      <SaveBar
+        dirty={security.dirty || sharing.dirty}
+        onSave={() => {
+          security.save();
+          sharing.save();
+        }}
+        onDiscard={() => {
+          security.discard();
+          sharing.discard();
+        }}
+        onReset={() => {
+          security.reset();
+          sharing.reset();
+        }}
+        label="Security settings saved" />
     </div>);
 
 }

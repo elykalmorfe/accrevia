@@ -48,6 +48,7 @@ import { isCampusMatch } from '../utils/campus';
 import { deleteStoredFile } from '../utils/fileStore';
 import { applyLevelChange, ensureLevelHistory, normalizeLegacyStatus } from '../utils/programAccreditation';
 import { purgeLegacySampleData } from '../utils/samplePurge';
+import { getSettings } from '../settings/portalSettings';
 
 purgeLegacySampleData();
 
@@ -108,6 +109,7 @@ interface PortalContextValue {
 
   // ================= Accreditation & QA Core =================
   campuses: Campus[];
+  saveCampus: (campus: Campus) => void;
   iaRecords: CampusIAStatus[];
   updateCampusIA: (campusId: CampusId, patch: Partial<CampusIAStatus>) => void;
   updateIARequirement: (campusId: CampusId, reqId: string, patch: Partial<IARequirementItem>) => void;
@@ -204,6 +206,8 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
   // Global Campus Filter State
   const [selectedCampus, setSelectedCampusState] = useState<CampusId | 'all'>(() => {
+    const { startupCampus } = getSettings().preferences;
+    if (startupCampus !== 'remember') return startupCampus;
     return loadStorage<CampusId | 'all'>('selected_campus', 'all');
   });
 
@@ -214,6 +218,8 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
   // Sidebar Collapse State
   const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(() => {
+    const { startupSidebar } = getSettings().preferences;
+    if (startupSidebar !== 'remember') return startupSidebar === 'collapsed';
     return loadStorage<boolean>('sidebar_collapsed', false);
   });
 
@@ -238,7 +244,17 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   }, [documents]);
 
   // Accreditation & QA State
-  const [campuses] = useState<Campus[]>(() => loadStorage('campuses', initialCampuses));
+  const [campuses, setCampuses] = useState<Campus[]>(() => {
+    const stored = loadStorage<Campus[]>('campuses', initialCampuses);
+    return initialCampuses.map((c) => ({ ...c, ...stored.find((s) => s.id === c.id) }));
+  });
+  const saveCampus = useCallback((campus: Campus) => {
+    setCampuses((prev) => {
+      const next = prev.map((c) => (c.id === campus.id ? campus : c));
+      saveStorage('campuses', next);
+      return next;
+    });
+  }, []);
   const [iaRecords, setIaRecords] = useState<CampusIAStatus[]>(() => {
     const loaded = loadStorage('iaRecords', initialCampusIA);
     return loaded.map((rec) => {
@@ -749,6 +765,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
       // Accreditation & QA
       campuses,
+      saveCampus,
       iaRecords,
       updateCampusIA,
       updateIARequirement,
@@ -820,6 +837,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       savedIds,
       toggleSaved,
       campuses,
+      saveCampus,
       iaRecords,
       updateCampusIA,
       updateIARequirement,

@@ -1,63 +1,84 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useRef } from 'react';
 import { toast } from 'sonner';
 import { SaveBar, SettingRow, SettingsGroup } from './SettingsLayout';
-import { academicYears } from '../../data/options';
+import { DEFAULT_LOGO_SRC, usePortalSettings, useSettingsDraft } from '../../settings/portalSettings';
+
+const MAX_LOGO_BYTES = 512 * 1024;
 
 export function GeneralSettings() {
-  const [form, setForm] = useState({
-    name: 'Accrevia',
-    institution: 'North Eastern Mindanao State University – Main Campus',
-    year: '2025–2026',
-    pageSize: '20',
-    timezone: 'Asia/Manila (UTC+8)'
-  });
+  const { value: form, set, dirty, save, discard, reset } = useSettingsDraft('general');
+  const { accreditation } = usePortalSettings();
+  const logoInput = useRef<HTMLInputElement>(null);
+
+  const handleLogo = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Choose an image file (PNG, JPG, or SVG).');
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      toast.error('Logo must be 512 KB or smaller.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => set({ logoDataUrl: String(reader.result) });
+    reader.readAsDataURL(file);
+  };
+
+  const years = accreditation.academicYears.includes(form.defaultAcademicYear) ?
+  accreditation.academicYears :
+  [form.defaultAcademicYear, ...accreditation.academicYears];
 
   return (
     <div className="space-y-4">
       <SettingsGroup title="General settings" description="Identity and defaults shown across the portal.">
-        <SettingRow label="System name">
-          <input aria-label="System name" className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+        <SettingRow label="System name" description="Shown in the header and the browser tab.">
+          <input aria-label="System name" className="input" value={form.systemName} onChange={(e) => set({ systemName: e.target.value })} />
         </SettingRow>
         <SettingRow label="Institution">
-          <input aria-label="Institution" className="input" value={form.institution} onChange={(e) => setForm((f) => ({ ...f, institution: e.target.value }))} />
+          <input aria-label="Institution" className="input" value={form.institution} onChange={(e) => set({ institution: e.target.value })} />
         </SettingRow>
-        <SettingRow label="Logo" description="Shown in the header, reports, and mobile navigation. Official university seal.">
+        <SettingRow label="Logo" description="Shown in the header and on printed reports. PNG, JPG, or SVG up to 512 KB.">
           <div className="flex items-center gap-3">
-            <div className="relative h-12 w-12 overflow-hidden rounded-full ring-2 ring-brand-200 shadow-sm flex items-center justify-center">
-              <img
-                src="/nemsu-logo.png"
-                alt="NEMSU Seal"
-                className="h-full w-full object-cover rounded-full select-none"
-              />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 ring-brand-200 shadow-sm">
+              <img src={form.logoDataUrl || DEFAULT_LOGO_SRC} alt="Current logo" className="h-full w-full select-none object-cover" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-ink">North Eastern Mindanao State University Seal</p>
-              <div className="mt-1 flex items-center gap-2">
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => toast.success('NEMSU seal is set as primary institutional logo')}>
-                  Active Logo
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => logoInput.current?.click()}>
+                Upload new
+              </button>
+              {form.logoDataUrl &&
+              <button type="button" className="btn btn-ghost btn-sm text-xs" onClick={() => set({ logoDataUrl: '' })}>
+                  Use NEMSU seal
                 </button>
-                <button type="button" className="btn btn-ghost btn-sm text-xs" onClick={() => toast('Choose a new logo image file')}>
-                  Upload New
-                </button>
-              </div>
+              }
+              <input
+                ref={logoInput}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  handleLogo(e.target.files?.[0]);
+                  e.target.value = '';
+                }} />
             </div>
           </div>
         </SettingRow>
-        <SettingRow label="Default academic year" description="Pre-selected when classifying new evidence.">
-          <select aria-label="Default academic year" className="input" value={form.year} onChange={(e) => setForm((f) => ({ ...f, year: e.target.value }))}>
-            {academicYears.map((y) => <option key={y}>{y}</option>)}
+        <SettingRow label="Default academic year" description="Pre-selected when classifying and uploading new evidence. Manage the list under Accreditation Setup.">
+          <select aria-label="Default academic year" className="input" value={form.defaultAcademicYear} onChange={(e) => set({ defaultAcademicYear: e.target.value })}>
+            {years.map((y) => <option key={y}>{y}</option>)}
           </select>
         </SettingRow>
-        <SettingRow label="Rows per page" description="Default page size for evidence and user tables.">
-          <select aria-label="Rows per page" className="input" value={form.pageSize} onChange={(e) => setForm((f) => ({ ...f, pageSize: e.target.value }))}>
-            {['10', '20', '50', '100'].map((n) => <option key={n}>{n}</option>)}
+        <SettingRow label="Rows per page" description="Page size for the evidence tables.">
+          <select aria-label="Rows per page" className="input" value={form.pageSize} onChange={(e) => set({ pageSize: Number(e.target.value) })}>
+            {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </SettingRow>
         <SettingRow label="Time zone">
           <input aria-label="Time zone" className="input" value={form.timezone} readOnly />
         </SettingRow>
       </SettingsGroup>
-      <SaveBar />
+      <SaveBar dirty={dirty} onSave={save} onDiscard={discard} onReset={reset} label="General settings saved" />
     </div>);
 
 }

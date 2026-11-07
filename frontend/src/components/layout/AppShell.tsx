@@ -7,8 +7,12 @@ import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { Brand } from './Brand';
 import { easeOut } from '../../utils/motion';
+import { usePortal } from '../../contexts/PortalContext';
+import { usePortalSettings } from '../../settings/portalSettings';
 
 export function AppShell() {
+  const { sidebarCollapsed } = usePortal();
+  usePortalSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
 
@@ -27,7 +31,7 @@ export function AppShell() {
       </a>
       <Header onOpenMenu={() => setMobileOpen(true)} />
       <div className="flex">
-        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-[280px] xl:w-[300px] shrink-0 overflow-y-auto border-r border-slate-100 bg-white lg:block shadow-[1px_0_4px_0_rgba(15,23,42,0.02)]">
+        <aside className={`sticky top-16 hidden h-[calc(100vh-4rem)] w-[280px] xl:w-[300px] shrink-0 overflow-y-auto border-r border-slate-100 bg-white shadow-[1px_0_4px_0_rgba(15,23,42,0.02)] ${sidebarCollapsed ? '' : 'lg:block'}`}>
           <Sidebar />
         </aside>
 

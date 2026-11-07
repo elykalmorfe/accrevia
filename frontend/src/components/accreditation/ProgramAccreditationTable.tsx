@@ -23,6 +23,7 @@ import {
   ExpiryState,
   formatReportDate,
   getExpiryInfo,
+  expiringWindowMonths,
   isUrl,
   levelRank,
   parseAccreditationDate
@@ -108,11 +109,11 @@ export function FilterSelect({
 
 export type ValidityTab = 'all' | 'active' | 'expiring' | 'expired';
 
-const VALIDITY_TABS: { id: ValidityTab; label: string; hint: string; dot: string }[] = [
-  { id: 'all', label: 'All', hint: 'Every program', dot: 'bg-slate-400' },
-  { id: 'active', label: 'Valid', hint: 'More than 1 year of validity left', dot: 'bg-emerald-500' },
-  { id: 'expiring', label: 'Expiring Soon', hint: 'Validity ends within the next 12 months', dot: 'bg-amber-500' },
-  { id: 'expired', label: 'Expired', hint: 'Validity period has already ended', dot: 'bg-rose-500' }
+const VALIDITY_TABS: { id: ValidityTab; label: string; hint: (months: number) => string; dot: string }[] = [
+  { id: 'all', label: 'All', hint: () => 'Every program', dot: 'bg-slate-400' },
+  { id: 'active', label: 'Valid', hint: (m) => `More than ${m} months of validity left`, dot: 'bg-emerald-500' },
+  { id: 'expiring', label: 'Expiring Soon', hint: (m) => `Validity ends within the next ${m} months`, dot: 'bg-amber-500' },
+  { id: 'expired', label: 'Expired', hint: () => 'Validity period has already ended', dot: 'bg-rose-500' }
 ];
 
 export function ValidityTabs({
@@ -134,7 +135,7 @@ export function ValidityTabs({
             type="button"
             role="tab"
             aria-selected={selected}
-            title={tab.hint}
+            title={tab.hint(expiringWindowMonths())}
             onClick={() => onChange(tab.id)}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
               selected ? 'bg-white text-ink shadow-sm ring-1 ring-line' : 'text-ink-muted hover:text-ink'

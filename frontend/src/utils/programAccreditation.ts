@@ -4,6 +4,7 @@ import {
   ProgramAccreditation,
   ProgramLevelHistoryEntry
 } from '../types/accreditation';
+import { getSettings, ValidityLevel } from '../settings/portalSettings';
 
 const MONTH_INDEX: Record<string, number> = {
   jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
@@ -12,7 +13,19 @@ const MONTH_INDEX: Record<string, number> = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export const EXPIRING_WINDOW_MONTHS = 12;
+/** "Expiring soon" window in months, from Settings → Deadlines & Reminders. */
+export function expiringWindowMonths(): number {
+  return getSettings().reminders.expiryWarningMonths;
+}
+
+/** Suggested validity end date: start date plus the configured validity years for the level. */
+export function suggestValidityEnd(level: AccreditationLevel, validityStart: string): string | null {
+  const years = getSettings().accreditation.levelValidityYears[level as ValidityLevel];
+  const start = parseAccreditationDate(validityStart);
+  if (!years || !start) return null;
+  const end = new Date(start.getFullYear() + years, start.getMonth(), start.getDate() - 1);
+  return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+}
 
 export const RANKED_LEVELS: AccreditationLevel[] = ['Level 4', 'Level 3', 'Level 2', 'Level 1', 'Candidate'];
 
@@ -101,7 +114,7 @@ export function getExpiryInfo(p: Pick<ProgramAccreditation, 'validityEnd'>, now:
   if (!endDate) return { state: 'none', endDate: null, daysRemaining: null };
 
   const today = startOfDay(now);
-  const windowEnd = addMonths(today, EXPIRING_WINDOW_MONTHS);
+  const windowEnd = addMonths(today, expiringWindowMonths());
   const daysRemaining = Math.round((startOfDay(endDate).getTime() - today.getTime()) / DAY_MS);
 
   let state: ExpiryState = 'active';

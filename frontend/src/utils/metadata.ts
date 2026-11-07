@@ -1,4 +1,5 @@
 ﻿import { DocumentMetadata, DocumentType, EvidenceDocument } from '../types/evidence';
+import { getSettings } from '../settings/portalSettings';
 
 export function emptyMetadata(): DocumentMetadata {
   return {
@@ -16,7 +17,7 @@ export function emptyMetadata(): DocumentMetadata {
     department: '—',
     program: 'Institution-wide',
     office: '',
-    academicYear: '2025–2026',
+    academicYear: getSettings().general.defaultAcademicYear,
     cycle: '',
     documentDate: '',
     validUntil: '',

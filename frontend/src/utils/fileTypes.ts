@@ -17,6 +17,15 @@ const FILE_TYPE_BY_EXT: Record<string, FileType> = {
 };
 
 export function fileTypeFromName(name: string): FileType {
-  const ext = name.split('.').pop()?.toLowerCase() ?? '';
-  return FILE_TYPE_BY_EXT[ext] ?? 'PDF';
+  return knownFileType(name) ?? 'PDF';
+}
+
+/** File type for a recognised extension, or null when the extension is not supported. */
+export function knownFileType(name: string): FileType | null {
+  const ext = name.includes('.') ? name.split('.').pop()?.toLowerCase() ?? '' : '';
+  return FILE_TYPE_BY_EXT[ext] ?? null;
+}
+
+export function extensionsFor(types: FileType[]): string[] {
+  return Object.entries(FILE_TYPE_BY_EXT).filter(([, t]) => types.includes(t)).map(([ext]) => ext);
 }

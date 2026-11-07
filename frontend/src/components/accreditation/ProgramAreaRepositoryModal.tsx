@@ -27,6 +27,8 @@ import { pluralize } from '../../utils/format';
 import { usePortal } from '../../contexts/PortalContext';
 import { persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
+import { applyNamingPattern, filterAllowedUploads, uploadAcceptAttribute } from '../../utils/uploadRules';
+import { getSettings } from '../../settings/portalSettings';
 import type { ProgramAccreditation, ProgramRequirementItem } from '../../types/accreditation';
 import type { EvidenceDocument, EvidenceFolder, FileType } from '../../types/evidence';
 
@@ -183,11 +185,11 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
   });
 
   const buildDocument = (file: File, folderId: string | null): EvidenceDocument => {
-    const year = new Date().getFullYear();
+    const { general, uploads } = getSettings();
     const sizeMb = Math.max(0.1, Math.round((file.size / (1024 * 1024)) * 10) / 10);
     return {
       id: uid('doc-pa'),
-      title: file.name,
+      title: applyNamingPattern(file.name, { campus: program.campusName, area: requirement.areaCode, year: general.defaultAcademicYear }),
       description: `${requirement.areaName} evidence for ${program.programName}`,
       keywords: ['Program Accreditation', 'AACCUP', requirement.areaCode, program.programName],
       frameworkId: 'pa',
@@ -196,7 +198,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
       indicatorId: '',
       requirementId: requirement.id,
       docType: 'Report',
-      academicYear: `${year}–${year + 1}`,
+      academicYear: general.defaultAcademicYear,
       cycle: 'AACCUP Program Accreditation',
       program: program.programName,
       college: '—',
@@ -214,12 +216,12 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
       uploadedBy: currentUser.name,
       passages: [`${requirement.areaName} — ${program.programName} (${program.campusName})`],
       folderId: folderId ?? undefined,
-      approvalStatus: 'Pending Review'
+      approvalStatus: uploads.newUploadStatus
     };
   };
 
   const ingest = (uploads: PendingUpload[]) => {
-    const accepted = uploads.filter((u) => !u.file.name.startsWith('.'));
+    const accepted = filterAllowedUploads(uploads, (u) => u.file);
     if (!accepted.length) return;
 
     const created: EvidenceFolder[] = [];
@@ -438,7 +440,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
                 <UploadIcon className="h-4 w-4" />
                 Upload Files
               </button>
-              <input ref={fileInputRef} type="file" multiple hidden onChange={handleInputChange} />
+              <input ref={fileInputRef} type="file" multiple hidden accept={uploadAcceptAttribute()} onChange={handleInputChange} />
               <input ref={folderInputRef} type="file" multiple hidden onChange={handleInputChange} />
             </div>
           </div>

@@ -38,6 +38,8 @@ import { FolderAction, FolderCard } from '../../components/folders/FolderCard';
 import { persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
 import { formatDate, pluralize } from '../../utils/format';
+import { applyNamingPattern, filterAllowedUploads, uploadAcceptAttribute } from '../../utils/uploadRules';
+import { usePortalSettings } from '../../settings/portalSettings';
 import { toast } from 'sonner';
 
 const FOLDER_THEMES: Record<FolderColor, { iconBg: string; iconColor: string; tagBg: string; tagText: string; borderHover: string }> = {
@@ -74,8 +76,11 @@ export function UploadEvidence() {
     selectedCampus,
     setSelectedCampus,
     selectedCampusObj,
-    isCampusMatch
+    isCampusMatch,
+    currentUser
   } = usePortal();
+  const settings = usePortalSettings();
+  const uploadDefaults = { academicYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
 
   // Root directory view states
   const [folderSearch, setFolderSearch] = useState('');
@@ -415,8 +420,11 @@ export function UploadEvidence() {
         file: files[i]
       });
     }
-    setUploadedFileList(list);
-    toast.success(`Selected ${list.length} file(s) for upload`);
+    const allowed = filterAllowedUploads(list, (f) => f);
+    e.target.value = '';
+    if (allowed.length === 0) return;
+    setUploadedFileList(allowed);
+    toast.success(`Selected ${allowed.length} file(s) for upload`);
   };
 
   const handleFolderInputSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -433,8 +441,11 @@ export function UploadEvidence() {
         file: file
       });
     }
-    setUploadedFileList(list);
-    toast.success(`Selected directory containing ${list.length} file(s)`);
+    const allowed = filterAllowedUploads(list, (f) => f);
+    e.target.value = '';
+    if (allowed.length === 0) return;
+    setUploadedFileList(allowed);
+    toast.success(`Selected directory containing ${allowed.length} file(s)`);
   };
 
   const handleDropUpload = async (e: React.DragEvent<HTMLDivElement>) => {
@@ -488,9 +499,10 @@ export function UploadEvidence() {
       }
     }
 
-    if (collected.length > 0) {
-      setUploadedFileList(collected);
-      toast.success(`Prepared ${collected.length} file(s) from drop`);
+    const allowed = filterAllowedUploads(collected, (f) => f);
+    if (allowed.length > 0) {
+      setUploadedFileList(allowed);
+      toast.success(`Prepared ${allowed.length} file(s) from drop`);
     }
   };
 
@@ -554,7 +566,7 @@ export function UploadEvidence() {
         persistUpload(docId, item.file);
         addDocument({
           id: docId,
-          title: item.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '),
+          title: applyNamingPattern(item.name, { campus: campusTag, area: currentFolder.code, year: uploadDefaults.academicYear }).replace(/[_-]+/g, ' '),
           description: `Evidence document stored in ${targetFolderName} for ${currentFolder.code} accreditation compliance.`,
           fileType: fileTypeFromName(item.name),
           pages,
@@ -567,17 +579,17 @@ export function UploadEvidence() {
           campusId: campusIdTag,
           campus: campusTag,
           docType: 'Report',
-          academicYear: '2024–2025',
+          academicYear: uploadDefaults.academicYear,
           cycle: '3rd Cycle',
           program: 'Institutional Portfolio',
           college: 'University System',
           department: 'Quality Assurance Office',
           office: 'Quality Assurance Office',
           status: 'Indexed',
-          approvalStatus: 'Approved',
+          approvalStatus: uploadDefaults.status,
           documentDate: today,
           dateAdded: today,
-          uploadedBy: 'Accreditation Officer',
+          uploadedBy: currentUser.name,
           confidentiality: 'Internal',
           keywords: [item.name.toLowerCase().replace(/\.[^.]+$/, ''), currentFolder.code.toLowerCase()],
           passages: [`Stored in ${targetFolderName} for ${currentFolder.code} compliance.`]
@@ -1777,7 +1789,7 @@ export function UploadEvidence() {
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.pptx,.jpg,.jpeg,.png,.tif,.tiff"
+              accept={uploadAcceptAttribute()}
               className="hidden"
               onChange={handleFilesInputSelection}
             />

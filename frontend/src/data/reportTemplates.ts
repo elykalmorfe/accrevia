@@ -1,3 +1,5 @@
+import { getSettings, logoSrc } from '../settings/portalSettings';
+
 export interface Signatory {
   name: string;
   designation: string;
@@ -6,21 +8,27 @@ export interface Signatory {
 export interface ReportSignatories {
   preparedBy: Signatory;
   checkedBy: Signatory;
+  approvedBy: Signatory;
 }
 
-export const REPORT_INSTITUTION = {
-  republic: 'Republic of the Philippines',
-  university: 'North Eastern Mindanao State University',
-  office: 'Office of Quality Assurance & Accreditation',
-  address: 'Tandag City, Surigao del Sur',
-  logoPath: '/nemsu-logo.png'
-};
+export interface ReportInstitution {
+  republic: string;
+  university: string;
+  office: string;
+  address: string;
+  logoPath: string;
+}
 
-// The official "Prepared by" template is still to be supplied by the QA Office (Ma'am Lea);
-// update these defaults (and SignatoryBlock in ProgramReportDocuments) once it is available.
+/** Letterhead for printed reports, as configured in Settings → Reports & Printing. */
+export function getReportInstitution(): ReportInstitution {
+  const settings = getSettings();
+  return { ...settings.reports, logoPath: logoSrc(settings) };
+}
+
 export const DEFAULT_SIGNATORIES: ReportSignatories = {
   preparedBy: { name: '', designation: 'Accreditation Staff, Office of Quality Assurance' },
-  checkedBy: { name: 'Prof. Liza M. Cabrera', designation: 'Director, Quality Assurance & Accreditation' }
+  checkedBy: { name: 'Prof. Liza M. Cabrera', designation: 'Director, Quality Assurance & Accreditation' },
+  approvedBy: { name: '', designation: 'University President' }
 };
 
 const STORAGE_KEY = 'accrevia_report_signatories';
@@ -32,7 +40,8 @@ export function loadSignatories(): ReportSignatories {
     const parsed = JSON.parse(raw) as Partial<ReportSignatories>;
     return {
       preparedBy: { ...DEFAULT_SIGNATORIES.preparedBy, ...parsed.preparedBy },
-      checkedBy: { ...DEFAULT_SIGNATORIES.checkedBy, ...parsed.checkedBy }
+      checkedBy: { ...DEFAULT_SIGNATORIES.checkedBy, ...parsed.checkedBy },
+      approvedBy: { ...DEFAULT_SIGNATORIES.approvedBy, ...parsed.approvedBy }
     };
   } catch {
     return DEFAULT_SIGNATORIES;

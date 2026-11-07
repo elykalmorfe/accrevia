@@ -40,7 +40,7 @@ export const REPORT_CSS = `
 .pr-kv th { width: 30%; background: #e8eef6; font-weight: 700; }
 .pr-text { white-space: pre-wrap; border: 1px solid #9ca3af; padding: 8px 10px; min-height: 90px; font-size: 9.5pt; }
 .pr-text-empty { color: #6b7280; font-style: italic; }
-.pr-signatories { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; margin-top: 30px; break-inside: avoid; page-break-inside: avoid; }
+.pr-signatories { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 36px; margin-top: 30px; break-inside: avoid; page-break-inside: avoid; }
 .pr-sign-label { font-weight: 600; font-size: 9.5pt; }
 .pr-sign-line { margin-top: 36px; border-top: 1px solid #111827; padding-top: 3px; text-align: center; }
 .pr-sign-name { font-weight: 700; text-transform: uppercase; min-height: 1.3em; }

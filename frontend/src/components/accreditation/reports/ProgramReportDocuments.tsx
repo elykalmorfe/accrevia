@@ -1,11 +1,12 @@
 import { ReactNode } from 'react';
 import { ProgramAccreditation } from '../../../types/accreditation';
-import { REPORT_INSTITUTION, ReportSignatories } from '../../../data/reportTemplates';
+import { getReportInstitution, ReportSignatories } from '../../../data/reportTemplates';
 import { formatPrintTimestamp } from '../../../utils/print';
 import {
   accreditedCount,
   compareYears,
   describeDaysRemaining,
+  expiringWindowMonths,
   formatLevel,
   formatReportDate,
   formatValidity,
@@ -33,15 +34,16 @@ function printedLabel(printedAt: Date | null): string {
 }
 
 function ReportHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+  const institution = getReportInstitution();
   return (
     <>
       <div className="pr-header">
-        <img className="pr-logo" src={REPORT_INSTITUTION.logoPath} alt="" />
+        <img className="pr-logo" src={institution.logoPath} alt="" />
         <div className="pr-header-text">
-          <div className="pr-republic">{REPORT_INSTITUTION.republic}</div>
-          <div className="pr-univ">{REPORT_INSTITUTION.university}</div>
-          <div className="pr-office">{REPORT_INSTITUTION.office}</div>
-          <div className="pr-address">{REPORT_INSTITUTION.address}</div>
+          <div className="pr-republic">{institution.republic}</div>
+          <div className="pr-univ">{institution.university}</div>
+          <div className="pr-office">{institution.office}</div>
+          <div className="pr-address">{institution.address}</div>
         </div>
         <div className="pr-header-spacer" />
       </div>
@@ -86,7 +88,8 @@ function EmptyRow({ colSpan, text }: { colSpan: number; text: string }) {
 function SignatoryBlock({ signatories, printedAt }: { signatories: ReportSignatories; printedAt: Date | null }) {
   const blocks = [
     { label: 'Prepared by:', person: signatories.preparedBy },
-    { label: 'Checked by:', person: signatories.checkedBy }
+    { label: 'Checked by:', person: signatories.checkedBy },
+    ...(signatories.approvedBy?.name ? [{ label: 'Approved by:', person: signatories.approvedBy }] : [])
   ];
   const dateText = printedAt ? printedAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
   return (
@@ -258,7 +261,7 @@ export function SummaryReportDocument({ programs, scopeLabel, fromYear, toYear, 
     { label: 'Programs monitored', value: programs.length },
     { label: 'Currently accredited (Level I–IV)', value: accreditedNow },
     { label: `Increased level (${fromYear} → ${toYear})`, value: comparison.improved.length },
-    { label: 'Expiring within 12 months', value: expiring.length },
+    { label: `Expiring within ${expiringWindowMonths()} months`, value: expiring.length },
     { label: `Survey results passed (${years[0]}–${years[years.length - 1]})`, value: passed },
     { label: `Survey results failed (${years[0]}–${years[years.length - 1]})`, value: failed },
     { label: 'Expired – renewal overdue', value: expired.length },
@@ -375,8 +378,8 @@ export function SummaryReportDocument({ programs, scopeLabel, fromYear, toYear, 
       </Section>
 
       <Section
-        title="V. Programs Approaching Expiration (Expiring Soon – within 12 months)"
-        note={`Validity ending between ${formatReportDate(now)} and ${formatReportDate(new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()))}. Prepare renewal, appeal or proposal documents ahead of the expiry date.`}
+        title={`V. Programs Approaching Expiration (Expiring Soon – within ${expiringWindowMonths()} months)`}
+        note={`Validity ending between ${formatReportDate(now)} and ${formatReportDate(new Date(now.getFullYear(), now.getMonth() + expiringWindowMonths(), now.getDate()))}. Prepare renewal, appeal or proposal documents ahead of the expiry date.`}
       >
         <ExpiryTable rows={expiring} now={now} />
       </Section>

@@ -41,6 +41,8 @@ import { pluralize } from '../../utils/format';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
 import { persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
+import { applyNamingPattern, filterAllowedUploads, uploadAcceptAttribute } from '../../utils/uploadRules';
+import { usePortalSettings } from '../../settings/portalSettings';
 
 interface IAFolderManagerProps {
   campusId: CampusId;
@@ -48,19 +50,6 @@ interface IAFolderManagerProps {
   iaRequirements: IARequirementItem[];
   onRequirementUpdated?: (reqId: string, docName: string, docUrl: string) => void;
 }
-
-// 9 Official AACCUP Institutional Accreditation Instrument Areas
-const OFFICIAL_IA_AREAS = [
-  { code: 'AREA-I', number: 1, name: 'Governance and Management', shortDesc: 'Strategic plans, organizational manuals, BOR resolutions' },
-  { code: 'AREA-II', number: 2, name: 'Teaching, Learning, and Evaluation', shortDesc: 'OBE syllabi, curricular approvals, graduation metrics' },
-  { code: 'AREA-III', number: 3, name: 'Faculty and Staff', shortDesc: 'Plantilla credentials, FDP plans, QCE/NBC 461 ratings' },
-  { code: 'AREA-IV', number: 4, name: 'Research', shortDesc: 'Institutional agenda, Scopus publications, IP disclosures' },
-  { code: 'AREA-V', number: 5, name: 'Extension, Consultancy, and Linkages', shortDesc: 'Extension master plan, LGU MOUs, impact assessment' },
-  { code: 'AREA-VI', number: 6, name: 'Support to Students', shortDesc: 'SAS operations manual, guidance counseling, scholarships' },
-  { code: 'AREA-VII', number: 7, name: 'Library', shortDesc: 'Holdings inventory, electronic databases, OPAC portal' },
-  { code: 'AREA-VIII', number: 8, name: 'Infrastructure and Other Learning Resources', shortDesc: 'Physical plant, lab safety audit, IT high-speed network' },
-  { code: 'AREA-IX', number: 9, name: 'Quality Assurance Culture', shortDesc: 'QA manual, ISO 9001:2015 QMS, IQA resolutions' }
-];
 
 const AREA_STATUS_STYLE: Record<string, { tile: string }> = {
   approved: { tile: 'from-emerald-500 to-emerald-600' },
@@ -94,7 +83,13 @@ function folderDeadlineText(folder: EvidenceFolder): string {
 }
 
 export function IAFolderManager({ campusId, campusName, iaRequirements, onRequirementUpdated }: IAFolderManagerProps) {
-  const { folders, saveFolder, deleteFolder, documents, addDocument, deleteDocument, updateDocument } = usePortal();
+  const { folders, saveFolder, deleteFolder, documents, addDocument, deleteDocument, updateDocument, updateIARequirement, currentUser } = usePortal();
+  const settings = usePortalSettings();
+  // 9 official AACCUP Institutional Accreditation areas (names editable in Settings → Accreditation Setup)
+  const OFFICIAL_IA_AREAS = settings.accreditation.iaAreas;
+  const { approverRoles, requireRevisionNote, autoVerifyArea } = settings.workflow;
+  const canReview = approverRoles.includes(currentUser.role);
+  const uploadSettings = { defaultYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
 
   // Active view tab: 'areas' | 'folders'
   const [activeTab, setActiveTab] = useState<'folders' | 'areas'>('areas');
@@ -219,12 +214,12 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   const currentArea = useMemo(() => {
     if (!selectedAreaCode) return null;
     return OFFICIAL_IA_AREAS.find((a) => a.code === selectedAreaCode) || null;
-  }, [selectedAreaCode]);
+  }, [selectedAreaCode, OFFICIAL_IA_AREAS]);
 
   // Destination helpers for the Top Upload Button beside search bar:
   const topUploadTargetAreaObj = useMemo(() => {
     return OFFICIAL_IA_AREAS.find((a) => a.code === topUploadTargetAreaCode) || OFFICIAL_IA_AREAS[0];
-  }, [topUploadTargetAreaCode]);
+  }, [topUploadTargetAreaCode, OFFICIAL_IA_AREAS]);
 
   const foldersInTopUploadArea = useMemo(() => {
     const areaIdStr = topUploadTargetAreaCode.toLowerCase();
@@ -263,14 +258,32 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   };
 
   // --- DOCUMENT APPROVAL & REVISION WORKFLOW ---
+  const areaRequirement = (doc: EvidenceDocument) => {
+    const code = (doc.areaId || '').toUpperCase();
+    return code ? iaRequirements.find((r) => r.areaCode === code) : undefined;
+  };
+
   const handleApproveDocument = (doc: EvidenceDocument) => {
     updateDocument(doc.id, {
       approvalStatus: 'Approved',
       revisionNotes: undefined,
-      reviewedBy: 'Accreditation Reviewer',
+      reviewedBy: currentUser.name,
       reviewedAt: new Date().toISOString()
     });
     toast.success('Approved "' + doc.title + '"');
+
+    const req = areaRequirement(doc);
+    if (!autoVerifyArea || !req || req.status === 'Approved') return;
+    const areaDocs = campusIADocs.filter((d) => d.areaId === doc.areaId);
+    if (areaDocs.every((d) => d.id === doc.id || d.approvalStatus === 'Approved')) {
+      updateIARequirement(campusId, req.id, {
+        status: 'Approved',
+        isSubmitted: true,
+        submissionDate: req.submissionDate || new Date().toISOString().slice(0, 10),
+        documentName: doc.title
+      });
+      toast.success(req.areaName + ' marked as verified', { description: 'All files in this area are approved.' });
+    }
   };
 
   const handleOpenRevisionModal = (doc: EvidenceDocument) => {
@@ -279,14 +292,18 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   };
 
   const handleSubmitRevision = () => {
-    if (!revisionModalDoc || !revisionRemarks.trim()) return;
+    if (!revisionModalDoc || (requireRevisionNote && !revisionRemarks.trim())) return;
     setIsSubmittingRevision(true);
     updateDocument(revisionModalDoc.id, {
       approvalStatus: 'Needs Revision',
-      revisionNotes: revisionRemarks.trim(),
-      reviewedBy: 'Accreditation Reviewer',
+      revisionNotes: revisionRemarks.trim() || undefined,
+      reviewedBy: currentUser.name,
       reviewedAt: new Date().toISOString()
     });
+    const req = areaRequirement(revisionModalDoc);
+    if (autoVerifyArea && req?.status === 'Approved') {
+      updateIARequirement(campusId, req.id, { status: 'Under Review' });
+    }
     toast.warning('Revision requested for "' + revisionModalDoc.title + '"');
     setIsSubmittingRevision(false);
     setRevisionModalDoc(null);
@@ -490,7 +507,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
         a.shortDesc.toLowerCase().includes(q) ||
         `area ${a.number}`.includes(q)
     );
-  }, [searchQuery]);
+  }, [searchQuery, OFFICIAL_IA_AREAS]);
 
   // Inside-Folder Subfolders (sorted A to Z)
   const insideSubfolders = useMemo(() => {
@@ -705,8 +722,11 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
         file
       });
     }
-    setUploadedFileList(list);
-    toast.success(`Selected folder with ${list.length} file(s)`);
+    const allowed = filterAllowedUploads(list, (f) => f);
+    e.target.value = '';
+    if (allowed.length === 0) return;
+    setUploadedFileList(allowed);
+    toast.success(`Selected folder with ${allowed.length} file(s)`);
   };
 
   // Handle Files Upload from input
@@ -722,8 +742,11 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
         file: files[i]
       });
     }
-    setUploadedFileList(list);
-    toast.success(`Selected ${list.length} file(s) for upload`);
+    const allowed = filterAllowedUploads(list, (f) => f);
+    e.target.value = '';
+    if (allowed.length === 0) return;
+    setUploadedFileList(allowed);
+    toast.success(`Selected ${allowed.length} file(s) for upload`);
   };
 
   // Drag and Drop Recursive Folder Handler
@@ -778,9 +801,10 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
       }
     }
 
-    if (collected.length > 0) {
-      setUploadedFileList(collected);
-      toast.success(`Prepared ${collected.length} file(s) from folder drop`);
+    const allowed = filterAllowedUploads(collected, (f) => f);
+    if (allowed.length > 0) {
+      setUploadedFileList(allowed);
+      toast.success(`Prepared ${allowed.length} file(s) from folder drop`);
     }
   };
 
@@ -940,7 +964,11 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
       uploadedFileList.forEach((file, idx) => {
         const newDoc: EvidenceDocument = {
           id: 'doc-ia-' + Date.now() + '-' + idx,
-          title: file.path ? file.path.split('/')[0] + ': ' + file.name : file.name,
+          title: applyNamingPattern(file.path ? file.path.split('/')[0] + ': ' + file.name : file.name, {
+            campus: campusName,
+            area: 'Area ' + targetAreaObj.number,
+            year: uploadSettings.defaultYear
+          }),
           description: 'Uploaded evidence document for Institutional Accreditation (' + (targetFolder?.name || targetAreaObj.name) + ').',
           keywords: ['IA Evidence', targetFolder?.name || targetAreaObj.name, campusName],
           frameworkId: 'ia',
@@ -948,7 +976,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           criterionId: 'c-ia-1',
           indicatorId: 'i-1-1',
           docType: file.name.endsWith('.xlsx') ? 'Statistical Report' : 'Report',
-          academicYear: '2024–2025',
+          academicYear: uploadSettings.defaultYear,
           cycle: '2025 Institutional Accreditation',
           program: 'Institution-wide',
           college: 'University-wide',
@@ -963,9 +991,10 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           fileType: fileTypeFromName(file.name),
           pages: Math.max(1, Math.round(file.size / 50000)),
           sizeMb: Math.round((file.size / (1024 * 1024)) * 10) / 10 || 1.2,
-          uploadedBy: 'Current User',
+          uploadedBy: currentUser.name,
           passages: ['Institutional evidence registered under ' + (targetFolder?.name || targetAreaObj.name)],
-          folderId: destinationFolderId || undefined
+          folderId: destinationFolderId || undefined,
+          approvalStatus: uploadSettings.status
         };
         persistUpload(newDoc.id, file.file);
         addDocument(newDoc);
@@ -1982,7 +2011,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                               </button>
 
                               {/* 2. Review Decision CTAs */}
-                              {isOfficialArea && (
+                              {isOfficialArea && canReview && (
                                 <>
                                   {isApproved ? (
                                     /* Already Approved: status is shown on badge; provide clean revision trigger */
@@ -2867,6 +2896,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   ref={fileInputRef}
                   type="file"
                   multiple
+                  accept={uploadAcceptAttribute()}
                   className="hidden"
                   onChange={handleFilesInputSelection}
                 />
@@ -3130,7 +3160,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               </button>
               <button
                 type="button"
-                disabled={isSubmittingRevision || !revisionRemarks.trim()}
+                disabled={isSubmittingRevision || (requireRevisionNote && !revisionRemarks.trim())}
                 className="btn btn-primary w-full sm:w-auto text-xs font-semibold h-9 px-4 gap-1.5 shadow-xs bg-amber-600 hover:bg-amber-700 border-amber-600 text-white disabled:opacity-50"
                 onClick={handleSubmitRevision}
               >

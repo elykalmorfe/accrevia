@@ -9,8 +9,23 @@ import { initials } from '../../utils/format';
 import { isRecipientRole, recipientRoles, roleGroupName, shareStatus, TODAY } from '../../utils/sharing';
 import { Modal } from '../ui/Modal';
 import { Badge } from '../ui/Badge';
+import { getSettings, usePortalSettings } from '../../settings/portalSettings';
 
 type Mode = 'users' | 'role';
+
+/** Initial expiration date for a new share, from Settings → Security → Sharing defaults. */
+function defaultShareExpiry(option: string, academicYear: string): string {
+  if (option === 'none') return '';
+  if (option === 'ay') {
+    const endYear = Number(academicYear.match(/(\d{4})\D*$/)?.[1]);
+    return endYear ? `${endYear}-07-31` : '';
+  }
+  const days = Number(option);
+  if (!days) return '';
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 interface Draft extends ShareRecipientInput {
   office: string;
 }
@@ -26,15 +41,20 @@ export function ShareModal({ docId, onClose }: {docId: string | null;onClose: ()
   const [roleDownload, setRoleDownload] = useState(false);
   const [expiresAt, setExpiresAt] = useState('');
   const [error, setError] = useState('');
+  const sharing = usePortalSettings().sharing;
+  const downloadBlocked = sharing.confidentialViewOnly && doc?.confidentiality === 'Confidential';
+  const defaultDownload = sharing.permission === 'download' && !downloadBlocked;
+  const modes: Mode[] = sharing.roleSharing ? ['users', 'role'] : ['users'];
 
   useEffect(() => {
     if (!docId) return;
+    const { sharing: defaults, general } = getSettings();
     setMode('users');
     setQuery('');
     setDrafts([]);
     setRole('Faculty');
-    setRoleDownload(false);
-    setExpiresAt('');
+    setRoleDownload(defaults.permission === 'download');
+    setExpiresAt(defaultShareExpiry(defaults.expiry, general.defaultAcademicYear));
     setError('');
   }, [docId]);
 
@@ -58,7 +78,7 @@ export function ShareModal({ docId, onClose }: {docId: string | null;onClose: ()
     if (!isRecipientRole(u.role)) return;
     setDrafts((d) => [
     ...d,
-    { recipientType: 'user', recipientId: u.id, recipientName: u.name, recipientRole: u.role as RecipientRole, office: u.office, canView: true, canDownload: false }]
+    { recipientType: 'user', recipientId: u.id, recipientName: u.name, recipientRole: u.role as RecipientRole, office: u.office, canView: true, canDownload: defaultDownload }]
     );
     setQuery('');
     setError('');
@@ -72,9 +92,9 @@ export function ShareModal({ docId, onClose }: {docId: string | null;onClose: ()
     if (mode === 'users') {
       if (!drafts.length) return setError('Select at least one person to share with.');
       if (drafts.some((d) => !d.canView)) return setError('Every recipient needs View permission. Download cannot be granted without View.');
-      recipients = drafts.map(({ recipientType, recipientId, recipientName, recipientRole, canView, canDownload }) => ({ recipientType, recipientId, recipientName, recipientRole, canView, canDownload }));
+      recipients = drafts.map(({ recipientType, recipientId, recipientName, recipientRole, canView, canDownload }) => ({ recipientType, recipientId, recipientName, recipientRole, canView, canDownload: canDownload && !downloadBlocked }));
     } else {
-      recipients = [{ recipientType: 'role', recipientId: `role-${role}`, recipientName: roleGroupName(role), recipientRole: role, canView: true, canDownload: roleDownload }];
+      recipients = [{ recipientType: 'role', recipientId: `role-${role}`, recipientName: roleGroupName(role), recipientRole: role, canView: true, canDownload: roleDownload && !downloadBlocked }];
     }
     if (expiresAt && expiresAt < TODAY) return setError('The expiration date must be today or later.');
     shareDocument(doc.id, recipients, expiresAt || null);
@@ -112,7 +132,7 @@ export function ShareModal({ docId, onClose }: {docId: string | null;onClose: ()
           </div>
 
           <div role="radiogroup" aria-label="Share with" className="inline-flex rounded-md border border-line-strong p-0.5">
-            {(['users', 'role'] as Mode[]).map((m) =>
+            {modes.map((m) =>
           <button
             key={m}
             type="button"
@@ -186,8 +206,8 @@ export function ShareModal({ docId, onClose }: {docId: string | null;onClose: ()
                         <label className={`flex items-center gap-1.5 text-[13px] ${d.canView ? 'text-ink' : 'text-ink-subtle'}`} title={d.canView ? undefined : 'Download requires View permission'}>
                           <input
                     type="checkbox"
-                    checked={d.canDownload}
-                    disabled={!d.canView}
+                    checked={d.canDownload && !downloadBlocked}
+                    disabled={!d.canView || downloadBlocked}
                     onChange={(e) => update(d.recipientId, { canDownload: e.target.checked })}
                     className="h-4 w-4 accent-brand-600" />
                   
@@ -219,9 +239,10 @@ export function ShareModal({ docId, onClose }: {docId: string | null;onClose: ()
               <fieldset>
                 <legend className="label">Permission</legend>
                 <div className="flex flex-wrap gap-4 text-[13px] text-ink">
-                  <label className="flex items-center gap-2"><input type="radio" name="role-perm" checked={!roleDownload} onChange={() => setRoleDownload(false)} className="accent-brand-600" /> View</label>
-                  <label className="flex items-center gap-2"><input type="radio" name="role-perm" checked={roleDownload} onChange={() => setRoleDownload(true)} className="accent-brand-600" /> View + Download</label>
+                  <label className="flex items-center gap-2"><input type="radio" name="role-perm" checked={!roleDownload || downloadBlocked} onChange={() => setRoleDownload(false)} className="accent-brand-600" /> View</label>
+                  <label className={`flex items-center gap-2 ${downloadBlocked ? 'text-ink-subtle' : ''}`}><input type="radio" name="role-perm" checked={roleDownload && !downloadBlocked} disabled={downloadBlocked} onChange={() => setRoleDownload(true)} className="accent-brand-600" /> View + Download</label>
                 </div>
+                {downloadBlocked && <p className="mt-2 text-xs text-ink-muted">Confidential documents are view only (Settings → Security).</p>}
               </fieldset>
             </div>
         }

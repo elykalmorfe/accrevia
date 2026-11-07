@@ -66,9 +66,10 @@ function SignatoryInputs({ label, value, onChange }: { label: string; value: Sig
 
 export function SignatoryFields({ value, onChange }: { value: ReportSignatories; onChange: (value: ReportSignatories) => void }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-3">
       <SignatoryInputs label="Prepared by" value={value.preparedBy} onChange={(preparedBy) => onChange({ ...value, preparedBy })} />
       <SignatoryInputs label="Checked by" value={value.checkedBy} onChange={(checkedBy) => onChange({ ...value, checkedBy })} />
+      <SignatoryInputs label="Approved by (optional)" value={value.approvedBy} onChange={(approvedBy) => onChange({ ...value, approvedBy })} />
     </div>
   );
 }

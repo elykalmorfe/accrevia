@@ -13,7 +13,8 @@ import { Modal } from '../ui/Modal';
 import { TextField } from '../ui/TextField';
 import { SelectField } from '../ui/SelectField';
 import { Badge } from '../ui/Badge';
-import { RESULT_OPTIONS, createHistoryEntry, formatLevel, getLevelHistory } from '../../utils/programAccreditation';
+import { RESULT_OPTIONS, createHistoryEntry, formatLevel, getLevelHistory, suggestValidityEnd } from '../../utils/programAccreditation';
+import { getSettings, ValidityLevel } from '../../settings/portalSettings';
 
 const HISTORY_LEVEL_OPTIONS: AccreditationLevel[] = ['Candidate', 'Level 1', 'Level 2', 'Level 3', 'Level 4'];
 const STATUS_OPTIONS: AccreditationLevel[] = [...HISTORY_LEVEL_OPTIONS, 'Not Accreditable'];
@@ -92,7 +93,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
       setCopcStatus('Compliant');
       setCopcCertificateNumber('');
       setBorRes('');
-      setCmoNo('');
+      setCmoNo(getSettings().accreditation.copcCmoDefault);
       setRemarks('');
       setBoardAction('');
       setHistory([]);
@@ -102,6 +103,9 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
     setHistoryResult('Passed');
     setHistoryRemarks('');
   }, [open, program, defaultCampusId]);
+
+  const suggestedEnd = suggestValidityEnd(status, validityStart);
+  const validityYears = getSettings().accreditation.levelValidityYears[status as ValidityLevel];
 
   const handleAddHistory = () => {
     const year = Number(historyYear);
@@ -126,9 +130,10 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
     }
 
     const campusObj = campuses.find((c) => c.id === campusId);
+    const id = program?.id ?? `pa-${campusId}-${Date.now().toString(36)}`;
     const newProgram: ProgramAccreditation = {
       ...program,
-      id: program?.id ?? `pa-${campusId}-${Date.now().toString(36)}`,
+      id,
       campusId,
       campusName: campusObj?.name ?? 'Main Campus',
       programName: programName.trim(),
@@ -149,7 +154,16 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
       remarks: remarks.trim() || undefined,
       boardAction: boardAction.trim() || undefined,
       levelHistory: program ? history : undefined,
-      requirements: program?.requirements
+      requirements:
+        program?.requirements ??
+        getSettings().accreditation.programAreas.map((area, idx) => ({
+          id: `req-${id}-${idx + 1}`,
+          areaCode: `AREA-${idx + 1}`,
+          areaName: area,
+          title: `Compliance Portfolio for ${area}`,
+          isSubmitted: false,
+          verified: false
+        }))
     };
 
     saveProgramAccreditation(newProgram);
@@ -251,12 +265,23 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
             placeholder="e.g. 2023-09-01 or Sep-01-2023"
           />
 
-          <TextField
-            label="Validity End Date"
-            value={validityEnd}
-            onChange={(val) => setValidityEnd(val)}
-            placeholder="e.g. 2026-08-31 or Aug-31-2026"
-          />
+          <div>
+            <TextField
+              label="Validity End Date"
+              value={validityEnd}
+              onChange={(val) => setValidityEnd(val)}
+              placeholder="e.g. 2026-08-31 or Aug-31-2026"
+            />
+            {suggestedEnd && suggestedEnd !== validityEnd && (
+              <button
+                type="button"
+                className="mt-1 text-[11.5px] font-medium text-brand-700 hover:underline"
+                onClick={() => setValidityEnd(suggestedEnd)}
+              >
+                Use {suggestedEnd} ({formatLevel(status)} is valid for {validityYears} years)
+              </button>
+            )}
+          </div>
         </div>
 
         <TextField

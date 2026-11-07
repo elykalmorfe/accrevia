@@ -241,6 +241,13 @@ body {
     font-size: 13px;
     color: #0F172A;
   }
+  [data-density='compact'] .th {
+    padding: 0.5rem 0.75rem;
+  }
+  [data-density='compact'] .td {
+    padding: 0.4rem 0.75rem;
+    font-size: 12.5px;
+  }
   .kbd {
     display: inline-flex;
     height: 1.25rem;

@@ -5,9 +5,13 @@ import { BellIcon, XIcon } from 'lucide-react';
 import { useDismiss } from '../../hooks/useDismiss';
 import { usePortal } from '../../contexts/PortalContext';
 import { popoverMotion } from '../../utils/motion';
+import { useReminders } from '../../hooks/useReminders';
 
 export function NotificationsMenu() {
-  const { notifications, dismissNotification } = usePortal();
+  const { notifications: portalNotifications, dismissNotification: dismissPortalNotification } = usePortal();
+  const { reminders, dismissReminder } = useReminders();
+  const notifications = [...reminders, ...portalNotifications];
+  const dismissNotification = (id: string) => (id.startsWith('rem-') ? dismissReminder(id) : dismissPortalNotification(id));
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   const ref = useDismiss<HTMLDivElement>(open, close);

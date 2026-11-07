@@ -1,30 +1,24 @@
-﻿import React, { useState } from 'react';
-import { RefreshCwIcon } from 'lucide-react';
-import { toast } from 'sonner';
-import { RangeField, SaveBar, SettingRow, SettingsGroup } from './SettingsLayout';
+﻿import React from 'react';
+import { RangeField, SaveBar, ServerNotice, SettingRow, SettingsGroup } from './SettingsLayout';
 import { Switch } from '../ui/Switch';
 import { usePortal } from '../../contexts/PortalContext';
 import { formatNumber } from '../../utils/format';
+import { PortalSettings, useSettingsDraft } from '../../settings/portalSettings';
+
+type ProcessingConfig = PortalSettings['processing'];
 
 export function ProcessingSettings() {
   const { documents } = usePortal();
   const passageCount = documents.reduce((sum, d) => sum + (d.passages?.length ?? 0), 0);
   const processingCount = documents.filter((d) => d.status === 'Processing').length;
-  const [s, setS] = useState({
-    engine: 'Tesseract 5',
-    languages: 'English + Filipino',
-    autoDetect: true,
-    dpi: '300',
-    minConfidence: 60,
-    keepTables: true,
-    stripHeaders: true,
-    chunkSize: 512,
-    overlap: 64
-  });
-  const set = <K extends keyof typeof s,>(key: K, value: (typeof s)[K]) => setS((prev) => ({ ...prev, [key]: value }));
+  const { value: s, set: patch, dirty, save, discard, reset } = useSettingsDraft('processing');
+  const set = <K extends keyof ProcessingConfig,>(key: K, value: ProcessingConfig[K]) => patch({ [key]: value } as Partial<ProcessingConfig>);
 
   return (
     <div className="space-y-4">
+      <ServerNotice>
+        OCR, chunking, and indexing run on the processing server, which is not connected yet. Your values are saved now and take effect once the server is online.
+      </ServerNotice>
       <SettingsGroup title="OCR configuration" description="Applied to scanned documents and images.">
         <SettingRow label="OCR engine">
           <select aria-label="OCR engine" className="input" value={s.engine} onChange={(e) => set('engine', e.target.value)}>
@@ -68,13 +62,13 @@ export function ProcessingSettings() {
         <SettingRow label="Indexed passages" description={`Across ${formatNumber(documents.length)} documents · ${processingCount} currently processing`}>
           <p className="text-xl font-semibold tabular-nums text-ink">{formatNumber(passageCount)}</p>
         </SettingRow>
-        <SettingRow label="Rebuild index" description="Re-embeds all passages. Takes about 40 minutes; search stays available.">
-          <button type="button" className="btn btn-secondary" onClick={() => toast('Index rebuild scheduled for 11:00 PM tonight')}>
-            <RefreshCwIcon className="h-4 w-4" /> Schedule rebuild
+        <SettingRow label="Rebuild index" description="Re-embeds all passages. Available when the processing server is connected.">
+          <button type="button" className="btn btn-secondary" disabled>
+            Schedule rebuild
           </button>
         </SettingRow>
       </SettingsGroup>
-      <SaveBar label="Processing settings saved" />
+      <SaveBar dirty={dirty} onSave={save} onDiscard={discard} onReset={reset} label="Processing settings saved" />
     </div>);
 
 }

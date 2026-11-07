@@ -4,6 +4,8 @@ import { Modal } from '../ui/Modal';
 import { PrinterIcon, DownloadIcon } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { isUrl } from '../../utils/programAccreditation';
+import { getReportInstitution, loadSignatories } from '../../data/reportTemplates';
+import { usePortalSettings } from '../../settings/portalSettings';
 
 interface AccreditationReportModalProps {
   open: boolean;
@@ -13,6 +15,14 @@ interface AccreditationReportModalProps {
 export function AccreditationReportModal({ open, onClose }: AccreditationReportModalProps) {
   const { campuses, programAccreditations, iaRecords, isoRecords } = usePortal();
   const [selectedCampus, setSelectedCampus] = useState<string>('all');
+  usePortalSettings();
+  const institution = getReportInstitution();
+  const signatories = loadSignatories();
+  const signatureBlocks = [
+    { label: 'Prepared by:', person: signatories.preparedBy },
+    { label: 'Checked by:', person: signatories.checkedBy },
+    ...(signatories.approvedBy.name ? [{ label: 'Approved by:', person: signatories.approvedBy }] : [])
+  ];
 
   const filteredPrograms = selectedCampus === 'all'
     ? programAccreditations
@@ -110,17 +120,18 @@ export function AccreditationReportModal({ open, onClose }: AccreditationReportM
         <div className="border-b border-line pb-4 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full overflow-hidden mb-2 ring-2 ring-brand-200 shadow-xs">
             <img
-              src="/nemsu-logo.png"
-              alt="NEMSU Official Seal"
+              src={institution.logoPath}
+              alt="Institution logo"
               className="h-full w-full object-cover rounded-full select-none"
             />
           </div>
           <h2 className="text-lg font-bold uppercase tracking-wider text-ink">
-            North Eastern Mindanao State University
+            {institution.university}
           </h2>
           <p className="text-xs font-semibold uppercase text-brand-700">
-            Office of Quality Assurance & Accreditation
+            {institution.office}
           </p>
+          <p className="text-[11px] text-ink-subtle">{institution.address}</p>
           <h3 className="mt-1 text-sm font-semibold text-ink-muted">
             AACCUP PROGRAM ACCREDITATION & COPC STATUS REPORT
           </h3>
@@ -303,21 +314,16 @@ export function AccreditationReportModal({ open, onClose }: AccreditationReportM
         </div>
 
         {/* Official Certification Signature Block */}
-        <div className="grid grid-cols-2 gap-8 border-t border-line pt-6 text-center text-xs text-ink">
-          <div>
-            <p className="font-semibold">Prepared by:</p>
-            <div className="mt-8 border-t border-line mx-auto w-48 pt-1">
-              <p className="font-bold">Prof. Liza M. Cabrera</p>
-              <p className="text-ink-muted">Director, Quality Assurance & Accreditation</p>
+        <div className="grid grid-flow-col auto-cols-fr gap-8 border-t border-line pt-6 text-center text-xs text-ink">
+          {signatureBlocks.map(({ label, person }) => (
+            <div key={label}>
+              <p className="font-semibold">{label}</p>
+              <div className="mt-8 border-t border-line mx-auto w-48 pt-1">
+                <p className="font-bold">{person.name || '\u00a0'}</p>
+                <p className="text-ink-muted">{person.designation}</p>
+              </div>
             </div>
-          </div>
-          <div>
-            <p className="font-semibold">Approved by:</p>
-            <div className="mt-8 border-t border-line mx-auto w-48 pt-1">
-              <p className="font-bold">Dr. Maria L. Santos</p>
-              <p className="text-ink-muted">University President / Executive VP</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </Modal>

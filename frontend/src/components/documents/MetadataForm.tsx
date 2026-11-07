@@ -3,9 +3,8 @@ import { usePortal } from '../../contexts/PortalContext';
 import { Confidentiality, DocumentMetadata, DocumentType, ISODocumentStage } from '../../types/evidence';
 import { SelectField } from '../ui/SelectField';
 import { TextField } from '../ui/TextField';
+import { usePortalSettings } from '../../settings/portalSettings';
 import {
-  academicYears,
-  accreditationCycles,
   campuses,
   colleges,
   confidentialityLevels,
@@ -34,8 +33,14 @@ function Section({ title, description, children }: {title: string;description?: 
 
 }
 
+/** Keeps a document's existing value selectable even after it was removed from the settings list. */
+function withCurrent(options: string[], current: string): string[] {
+  return current && !options.includes(current) ? [current, ...options] : options;
+}
+
 export function MetadataForm({ value, onChange }: MetadataFormProps) {
   const { frameworks, areas, criteria, indicators } = usePortal();
+  const { academicYears, cycles } = usePortalSettings().accreditation;
 
   const availableAreaIds = useMemo(() => {
     if (!value.frameworkId) return new Set(areas.map((a) => a.id));
@@ -166,13 +171,13 @@ export function MetadataForm({ value, onChange }: MetadataFormProps) {
         <SelectField label="Department" value={value.department} onChange={(department) => onChange({ department })} options={departments} />
         <SelectField label="Academic program" value={value.program} onChange={(program) => onChange({ program })} options={programs} />
         <SelectField label="Office / Unit" value={value.office} onChange={(office) => onChange({ office })} placeholder="Select office" options={offices} />
-        <SelectField label="Academic year" value={value.academicYear} onChange={(academicYear) => onChange({ academicYear })} options={academicYears} />
+        <SelectField label="Academic year" value={value.academicYear} onChange={(academicYear) => onChange({ academicYear })} options={withCurrent(academicYears, value.academicYear)} />
         <SelectField
           label="Accreditation cycle"
           value={value.cycle}
           onChange={(cycle) => onChange({ cycle })}
           placeholder="Select cycle"
-          options={accreditationCycles}
+          options={withCurrent(cycles, value.cycle)}
           className="sm:col-span-2" />
         
       </Section>

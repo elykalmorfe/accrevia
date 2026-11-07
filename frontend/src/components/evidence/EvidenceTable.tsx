@@ -1,7 +1,9 @@
-﻿import React from 'react';
+﻿import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArchiveIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   DownloadIcon,
   EyeIcon,
   FileTextIcon,
@@ -23,6 +25,7 @@ import { StatusBadge } from '../ui/StatusBadge';
 import { FrameworkTag } from '../ui/FrameworkTag';
 import { RowActionsMenu, RowAction } from '../ui/RowActionsMenu';
 import { SharingStatusBadge } from '../sharing/SharingStatusBadge';
+import { usePortalSettings } from '../../settings/portalSettings';
 
 interface EvidenceTableProps {
   docs: EvidenceDocument[];
@@ -30,11 +33,17 @@ interface EvidenceTableProps {
   onEdit: (doc: EvidenceDocument) => void;
 }
 
-export function EvidenceTable({ docs, onPreview, onEdit }: EvidenceTableProps) {
+export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTableProps) {
   const navigate = useNavigate();
   const { updateDocument, logAccess } = usePortal();
   const { openShare, openManageAccess } = useSharingDialogs();
   const lookup = useLookup();
+  const { pageSize } = usePortalSettings().general;
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(allDocs.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const firstIndex = (currentPage - 1) * pageSize;
+  const docs = allDocs.slice(firstIndex, firstIndex + pageSize);
 
   const renderApprovalBadge = (doc: EvidenceDocument) => {
     const isApproved = doc.approvalStatus === 'Approved';
@@ -321,6 +330,38 @@ export function EvidenceTable({ docs, onPreview, onEdit }: EvidenceTableProps) {
           </li>
         ))}
       </ul>
+
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-3 text-xs text-ink-muted">
+          <span>
+            Showing <strong className="text-ink">{firstIndex + 1}–{firstIndex + docs.length}</strong> of{' '}
+            <strong className="text-ink">{allDocs.length}</strong>
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={currentPage <= 1}
+              onClick={() => setPage(currentPage - 1)}
+              aria-label="Previous page"
+            >
+              <ChevronLeftIcon className="h-3.5 w-3.5" />
+            </button>
+            <span className="px-1 tabular-nums">
+              Page {currentPage} of {pageCount}
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={currentPage >= pageCount}
+              onClick={() => setPage(currentPage + 1)}
+              aria-label="Next page"
+            >
+              <ChevronRightIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </>);
 
 }
