@@ -67,7 +67,10 @@ export function CampusIAView() {
     }
     return {
       level: 'Level I Accredited',
-      explanation: 'Institutional survey documentation satisfies baseline Level I criteria.'
+      explanation:
+        approvedCount === 0
+          ? 'No areas have been verified yet; Level I is the entry level until evidence is approved.'
+          : 'Institutional survey documentation satisfies baseline Level I criteria.'
     };
   };
 
@@ -99,7 +102,7 @@ export function CampusIAView() {
       </div>
 
       {/* Campus Selector Pills */}
-      <div className="mb-6 flex overflow-x-auto no-scrollbar sm:flex-wrap gap-2 border-b border-line pb-4">
+      <div className="mb-6 grid grid-flow-col auto-cols-[minmax(140px,1fr)] lg:auto-cols-fr overflow-x-auto no-scrollbar gap-2 border-b border-line p-0.5 pb-4">
         {campuses.map((c) => {
           const rec = iaRecords.find((r) => r.campusId === c.id);
           const isSelected = c.id === selectedCampusId;
@@ -111,18 +114,18 @@ export function CampusIAView() {
                 setSelectedCampusId(c.id);
                 setSelectedCampus(c.id);
               }}
-              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${
+              className={`flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-all ${
                 isSelected
                   ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-1 ring-brand-500'
                   : 'border-line bg-white hover:bg-canvas'
               }`}
             >
-              <Building2Icon className={`h-4 w-4 ${isSelected ? 'text-brand-700' : 'text-ink-subtle'}`} />
-              <div>
+              <Building2Icon className={`hidden h-4 w-4 shrink-0 2xl:block ${isSelected ? 'text-brand-700' : 'text-ink-subtle'}`} />
+              <div className="min-w-0">
                 <p className={`text-xs font-semibold ${isSelected ? 'text-brand-900' : 'text-ink'}`}>
                   {c.shortName} {c.isMain && '★'}
                 </p>
-                <p className="text-[11px] font-medium text-slate-600">{statusText}</p>
+                <p className="text-[11px] font-medium leading-tight text-slate-600">{statusText.replace(/-/g, '\u2011')}</p>
               </div>
             </button>
           );
