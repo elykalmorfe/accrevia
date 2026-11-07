@@ -12,9 +12,13 @@ interface BarListProps {
   items: BarItem[];
   unit?: string;
   tone?: 'brand' | 'gold';
+  emptyText?: string;
 }
 
-export function BarList({ items, unit, tone = 'brand' }: BarListProps) {
+export function BarList({ items, unit, tone = 'brand', emptyText = 'No data recorded yet.' }: BarListProps) {
+  if (items.length === 0) {
+    return <p className="py-4 text-xs text-ink-muted">{emptyText}</p>;
+  }
   const max = Math.max(...items.map((i) => i.value), 1);
   return (
     <ul className="space-y-3">

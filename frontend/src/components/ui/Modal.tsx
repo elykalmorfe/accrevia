@@ -1,4 +1,4 @@
-﻿import React, { ReactNode, useEffect, useId } from 'react';
+﻿import React, { ReactNode, useEffect, useId, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { XIcon } from 'lucide-react';
 import { easeOut } from '../../utils/motion';
@@ -15,22 +15,29 @@ interface ModalProps {
 
 const sizes = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
 
+// Stacked modals: Escape only closes the most recently opened one.
+const openModalStack: string[] = [];
+
 export function Modal({ open, onClose, title, description, children, footer, size = 'md' }: ModalProps) {
   const titleId = useId();
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
+    openModalStack.push(titleId);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && openModalStack[openModalStack.length - 1] === titleId) onCloseRef.current();
     };
     document.addEventListener('keydown', onKey);
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
+      openModalStack.splice(openModalStack.lastIndexOf(titleId), 1);
       document.body.style.overflow = previous;
     };
-  }, [open, onClose]);
+  }, [open, titleId]);
 
   return (
     <AnimatePresence>
