@@ -7,7 +7,8 @@ import { usePortal } from '../../contexts/PortalContext';
 import { useLookup } from '../../hooks/useLookup';
 import { useAccess } from '../../hooks/useAccess';
 import { Modal } from '../ui/Modal';
-import { DocumentPage } from './DocumentPage';
+import { downloadStoredFile } from '../../utils/fileStore';
+import { OriginalDocumentView } from './OriginalDocumentView';
 
 interface DocumentPreviewModalProps {
   doc: EvidenceDocument | null;
@@ -39,9 +40,10 @@ export function DocumentPreviewModal({ doc, onClose, terms = [], query }: Docume
         <button
           type="button"
           className="btn btn-secondary"
-          onClick={() => {
+          onClick={async () => {
             logAccess('Downloaded', doc.id);
-            toast.success(`Downloading ${doc.title}`);
+            const saved = await downloadStoredFile(doc.id, doc.title);
+            toast.success(saved ? `Downloading ${doc.title}` : `No original file stored for ${doc.title}`);
           }}>
           
                 <DownloadIcon className="h-4 w-4" /> Download
@@ -56,7 +58,7 @@ export function DocumentPreviewModal({ doc, onClose, terms = [], query }: Docume
       
       {doc && rights.canView &&
       <div className="-mx-6 -my-5 bg-canvas p-4 sm:p-6">
-          <DocumentPage doc={doc} terms={terms} />
+          <OriginalDocumentView doc={doc} terms={terms} canDownload={rights.canDownload} />
         </div>
       }
     </Modal>);
