@@ -34,6 +34,8 @@ import { initialFolders, isRootFrameworkFolder } from '../../data/folders';
 import { FolderFormModal } from '../../components/folders/FolderFormModal';
 import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
+import { persistUpload } from '../../utils/fileStore';
+import { fileTypeFromName } from '../../utils/fileTypes';
 import { RowActionsMenu } from '../../components/ui/RowActionsMenu';
 import { formatDate } from '../../utils/format';
 import { toast } from 'sonner';
@@ -545,16 +547,16 @@ export function UploadEvidence() {
       const today = new Date().toISOString().slice(0, 10);
 
       uploadedFileList.forEach((item) => {
-        const ext = item.name.split('.').pop()?.toUpperCase() || 'PDF';
         const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const sizeMb = Math.max(0.1, Math.round((item.size / 1024 / 1024) * 10) / 10);
         const pages = Math.max(1, Math.round(sizeMb * 6));
 
+        persistUpload(docId, item.file);
         addDocument({
           id: docId,
           title: item.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '),
           description: `Evidence document stored in ${targetFolderName} for ${currentFolder.code} accreditation compliance.`,
-          fileType: (ext === 'DOC' || ext === 'DOCX') ? 'DOCX' : (ext === 'XLS' || ext === 'XLSX') ? 'XLSX' : (ext === 'PPT' || ext === 'PPTX') ? 'PPTX' : (ext === 'PNG' || ext === 'JPG' || ext === 'JPEG') ? 'PNG' : 'PDF',
+          fileType: fileTypeFromName(item.name),
           pages,
           sizeMb,
           frameworkId: currentFrameworkId,

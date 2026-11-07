@@ -1,9 +1,10 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeftIcon, RotateCcwIcon, TriangleAlertIcon } from 'lucide-react';
+import { ArrowLeftIcon, FileStackIcon, RotateCcwIcon, TriangleAlertIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { processingJobs, processingStages } from '../../data/processing';
-import { repositoryStats } from '../../data/analytics';
+import { processingStages } from '../../data/processing';
+import { usePortal } from '../../contexts/PortalContext';
+import { DocumentStatus } from '../../types/evidence';
 import { JobStatus, ProcessingJob } from '../../types/processing';
 import { formatNumber, formatTime } from '../../utils/format';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -14,36 +15,35 @@ import { ProcessingPipeline } from '../../components/processing/ProcessingPipeli
 const LAST = processingStages.length - 1;
 const statusTone: Record<JobStatus, BadgeTone> = { Running: 'brand', Queued: 'neutral', Failed: 'danger', Completed: 'success' };
 
-export function DocumentProcessing() {
-  const [jobs, setJobs] = useState<ProcessingJob[]>(processingJobs);
-  const [selectedId, setSelectedId] = useState('j-2');
-  const selected = jobs.find((j) => j.id === selectedId) ?? jobs[0];
+const jobFromStatus: Partial<Record<DocumentStatus, { status: JobStatus; stage: number }>> = {
+  Indexed: { status: 'Completed', stage: LAST },
+  Processing: { status: 'Running', stage: 3 },
+  'Pending Classification': { status: 'Queued', stage: 0 },
+  Failed: { status: 'Failed', stage: 1 }
+};
 
-  useEffect(() => {
-    if (!jobs.some((j) => j.status === 'Running' || j.status === 'Queued')) return;
-    const timer = setTimeout(() => {
-      setJobs((prev) => {
-        const advanced = prev.map((j): ProcessingJob => {
-          if (j.status !== 'Running') return j;
-          const stage = j.stage + 1;
-          return stage >= LAST ? { ...j, stage: LAST, status: 'Completed' } : { ...j, stage };
-        });
-        const running = advanced.filter((j) => j.status === 'Running').length;
-        const nextQueued = advanced.find((j) => j.status === 'Queued');
-        if (running < 2 && nextQueued) {
-          return advanced.map((j) => j.id === nextQueued.id ? { ...j, status: 'Running' as const, stage: 1 } : j);
-        }
-        return advanced;
-      });
-    }, 2400);
-    return () => clearTimeout(timer);
-  }, [jobs]);
+export function DocumentProcessing() {
+  const { documents, updateDocument } = usePortal();
+  const jobs = useMemo<ProcessingJob[]>(
+    () =>
+      documents
+        .flatMap((d) => {
+          const job = jobFromStatus[d.status];
+          if (!job) return [];
+          return [{ id: d.id, fileName: d.title, stage: job.stage, status: job.status, startedAt: d.dateAdded, ocr: false, pages: d.pages }];
+        })
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt)),
+    [documents]
+  );
+  const passageCount = useMemo(() => documents.reduce((sum, d) => sum + (d.passages?.length ?? 0), 0), [documents]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = jobs.find((j) => j.id === selectedId) ?? jobs[0];
 
   const count = (s: JobStatus) => jobs.filter((j) => j.status === s).length;
 
   const retry = (job: ProcessingJob) => {
-    setJobs((prev) => prev.map((j): ProcessingJob => j.id === job.id ? { ...j, status: 'Running', note: undefined, ocr: true } : j));
-    toast(`Retrying ${job.fileName} with enhanced OCR`);
+    updateDocument(job.id, { status: 'Indexed' });
+    toast(`Reprocessed ${job.fileName}`);
   };
 
   return (
@@ -65,13 +65,23 @@ export function DocumentProcessing() {
         {(['Running', 'Queued', 'Failed', 'Completed'] as JobStatus[]).map((s) =>
         <div key={s} className="flex items-baseline gap-2">
             <span className={`text-xl font-semibold tabular-nums ${s === 'Failed' && count(s) ? 'text-danger-700' : 'text-ink'}`}>{count(s)}</span>
-            <span className="text-[13px] text-ink-muted">{s === 'Completed' ? 'Completed today' : s}</span>
+            <span className="text-[13px] text-ink-muted">{s}</span>
           </div>
         )}
         <div className="text-[13px] text-ink-muted sm:ml-auto">
-          Search index: <span className="font-medium text-ink">{formatNumber(repositoryStats.chunks)}</span> passages · updated 4 min ago
+          Search index: <span className="font-medium text-ink">{formatNumber(passageCount)}</span> passages
         </div>
       </div>
+
+      {!selected ?
+      <div className="panel flex flex-col items-center justify-center px-6 py-16 text-center">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+            <FileStackIcon className="h-6 w-6" />
+          </div>
+          <p className="mt-4 text-sm font-semibold text-ink">No documents have been processed yet</p>
+          <p className="mt-1 max-w-sm text-[13px] text-ink-muted">Uploaded documents will appear here as they are extracted, chunked, and indexed.</p>
+          <Link to="/evidence/upload" className="btn btn-primary btn-sm mt-5">Upload documents</Link>
+        </div> :
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="panel overflow-hidden" aria-label="Processing jobs">
@@ -151,11 +161,12 @@ export function DocumentProcessing() {
           </div>
           {selected.status === 'Failed' &&
           <button type="button" className="btn btn-primary mt-5 w-full" onClick={() => retry(selected)}>
-              <RotateCcwIcon className="h-4 w-4" /> Retry with enhanced OCR
+              <RotateCcwIcon className="h-4 w-4" /> Retry processing
             </button>
           }
         </aside>
       </div>
+      }
     </>);
 
 }
