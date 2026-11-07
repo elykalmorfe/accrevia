@@ -24,6 +24,8 @@ import {
 import { Modal } from '../ui/Modal';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
 import { usePortal } from '../../contexts/PortalContext';
+import { persistUpload } from '../../utils/fileStore';
+import { fileTypeFromName } from '../../utils/fileTypes';
 import type { ProgramAccreditation, ProgramRequirementItem } from '../../types/accreditation';
 import type { EvidenceDocument, EvidenceFolder, FileType } from '../../types/evidence';
 
@@ -39,22 +41,6 @@ interface PendingUpload {
   path: string;
 }
 
-const FILE_TYPE_BY_EXT: Record<string, FileType> = {
-  pdf: 'PDF',
-  doc: 'DOCX',
-  docx: 'DOCX',
-  xls: 'XLSX',
-  xlsx: 'XLSX',
-  csv: 'XLSX',
-  ppt: 'PPTX',
-  pptx: 'PPTX',
-  jpg: 'JPG',
-  jpeg: 'JPG',
-  png: 'PNG',
-  tif: 'TIFF',
-  tiff: 'TIFF'
-};
-
 const FILE_TYPE_STYLE: Record<FileType, { icon: React.ElementType; className: string }> = {
   PDF: { icon: FileTextIcon, className: 'bg-rose-50 text-rose-600 ring-rose-100' },
   DOCX: { icon: FileTextIcon, className: 'bg-sky-50 text-sky-600 ring-sky-100' },
@@ -67,11 +53,6 @@ const FILE_TYPE_STYLE: Record<FileType, { icon: React.ElementType; className: st
 
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-function fileTypeOf(name: string): FileType {
-  const ext = name.split('.').pop()?.toLowerCase() ?? '';
-  return FILE_TYPE_BY_EXT[ext] ?? 'PDF';
-}
 
 function formatSize(mb: number): string {
   return mb < 1 ? `${Math.max(1, Math.round(mb * 1024))} KB` : `${mb.toFixed(1)} MB`;
@@ -226,7 +207,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
       confidentiality: 'Internal',
       status: 'Indexed',
       dateAdded: today(),
-      fileType: fileTypeOf(file.name),
+      fileType: fileTypeFromName(file.name),
       pages: Math.max(1, Math.round(file.size / 50000)),
       sizeMb,
       uploadedBy: currentUser.name,
@@ -258,7 +239,9 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
 
     accepted.forEach(({ file, path }) => {
       const segments = path.split('/').filter(Boolean);
-      addDocument(buildDocument(file, resolveFolder(segments.slice(0, -1))));
+      const doc = buildDocument(file, resolveFolder(segments.slice(0, -1)));
+      persistUpload(doc.id, file);
+      addDocument(doc);
     });
     created.forEach(saveFolder);
 

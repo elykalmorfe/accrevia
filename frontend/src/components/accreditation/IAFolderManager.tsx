@@ -37,6 +37,8 @@ import { Badge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
 import { FolderFormModal } from '../folders/FolderFormModal';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
+import { persistUpload } from '../../utils/fileStore';
+import { fileTypeFromName } from '../../utils/fileTypes';
 
 interface IAFolderManagerProps {
   campusId: CampusId;
@@ -57,6 +59,14 @@ const OFFICIAL_IA_AREAS = [
   { code: 'AREA-VIII', number: 8, name: 'Infrastructure and Other Learning Resources', shortDesc: 'Physical plant, lab safety audit, IT high-speed network' },
   { code: 'AREA-IX', number: 9, name: 'Quality Assurance Culture', shortDesc: 'QA manual, ISO 9001:2015 QMS, IQA resolutions' }
 ];
+
+const AREA_STATUS_STYLE: Record<string, { bar: string; progress: string; tile: string }> = {
+  approved: { bar: 'from-emerald-400 to-emerald-600', progress: 'bg-emerald-500', tile: 'from-emerald-500 to-emerald-600' },
+  needs_revision: { bar: 'from-rose-400 to-rose-600', progress: 'bg-rose-500', tile: 'from-rose-500 to-rose-600' },
+  review_required: { bar: 'from-amber-300 to-amber-500', progress: 'bg-amber-500', tile: 'from-brand-500 to-violet-600' },
+  needs_files: { bar: 'from-amber-200 to-amber-300', progress: 'bg-amber-400', tile: 'from-brand-500 to-violet-600' },
+  needs_evidence: { bar: 'from-slate-200 to-slate-300', progress: 'bg-slate-300', tile: 'from-slate-400 to-slate-500' }
+};
 
 export function IAFolderManager({ campusId, campusName, iaRequirements, onRequirementUpdated }: IAFolderManagerProps) {
   const { folders, saveFolder, deleteFolder, documents, addDocument, deleteDocument, updateDocument } = usePortal();
@@ -103,7 +113,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   const [selectedCustomFolderToUpload, setSelectedCustomFolderToUpload] = useState<string>('');
   const [selectedTargetFolder, setSelectedTargetFolder] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadedFileList, setUploadedFileList] = useState<Array<{ name: string; size: number; path?: string }>>([]);
+  const [uploadedFileList, setUploadedFileList] = useState<Array<{ name: string; size: number; path?: string; file?: File }>>([]);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
 
   // States for Top Upload Button (beside search bar)
@@ -660,13 +670,14 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const list: Array<{ name: string; size: number; path?: string }> = [];
+    const list: Array<{ name: string; size: number; path?: string; file?: File }> = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       list.push({
         name: file.name,
         size: file.size,
-        path: file.webkitRelativePath || file.name
+        path: file.webkitRelativePath || file.name,
+        file
       });
     }
     setUploadedFileList(list);
@@ -678,11 +689,12 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const list: Array<{ name: string; size: number }> = [];
+    const list: Array<{ name: string; size: number; file?: File }> = [];
     for (let i = 0; i < files.length; i++) {
       list.push({
         name: files[i].name,
-        size: files[i].size
+        size: files[i].size,
+        file: files[i]
       });
     }
     setUploadedFileList(list);
@@ -697,7 +709,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
     const items = e.dataTransfer.items;
     if (!items || items.length === 0) return;
 
-    const collected: Array<{ name: string; size: number; path?: string }> = [];
+    const collected: Array<{ name: string; size: number; path?: string; file?: File }> = [];
 
     interface FileSystemEntryLike {
       name: string;
@@ -715,7 +727,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
             collected.push({
               name: file.name,
               size: file.size,
-              path: path + file.name
+              path: path + file.name,
+              file
             });
             resolve();
           });
@@ -922,13 +935,14 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           confidentiality: 'Internal',
           status: 'Indexed',
           dateAdded: new Date().toISOString().slice(0, 10),
-          fileType: file.name.endsWith('.docx') ? 'DOCX' : file.name.endsWith('.xlsx') ? 'XLSX' : 'PDF',
+          fileType: fileTypeFromName(file.name),
           pages: Math.max(1, Math.round(file.size / 50000)),
           sizeMb: Math.round((file.size / (1024 * 1024)) * 10) / 10 || 1.2,
           uploadedBy: 'Current User',
           passages: ['Institutional evidence registered under ' + (targetFolder?.name || targetAreaObj.name)],
           folderId: destinationFolderId || undefined
         };
+        persistUpload(newDoc.id, file.file);
         addDocument(newDoc);
       });
 
@@ -954,27 +968,27 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
     const ft = (fileType || '').toUpperCase();
     if (ft === 'PDF') {
       return (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600 border border-red-200/80 shadow-2xs">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 border border-red-200/80 shadow-2xs">
           <FileTextIcon className="h-4 w-4" />
         </div>
       );
     }
     if (ft === 'XLSX' || ft === 'CSV') {
       return (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200/80 shadow-2xs">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 shadow-2xs">
           <FileSpreadsheetIcon className="h-4 w-4" />
         </div>
       );
     }
     if (ft === 'DOCX' || ft === 'DOC') {
       return (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 border border-blue-200/80 shadow-2xs">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 shadow-2xs">
           <FileTextIcon className="h-4 w-4" />
         </div>
       );
     }
     return (
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 border border-slate-200 shadow-2xs">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 border border-slate-200 shadow-2xs">
         <FileIcon className="h-4 w-4" />
       </div>
     );
@@ -991,7 +1005,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
       : 'Custom Folders Repository';
 
     return (
-      <div className="rounded-xl border border-line bg-white p-4 shadow-xs space-y-3">
+      <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-r from-white via-white to-amber-50/60 p-4 shadow-xs space-y-3">
         {/* Top: Breadcrumb Navigation & Optional Transfer Action */}
         <div className="flex items-center justify-between text-xs text-ink-muted">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1034,7 +1048,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
         {/* Main Row: Folder Identity on Left, Action Buttons on Right */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2.5 border-t border-line/60">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 border border-amber-200/80 shadow-2xs">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md shadow-amber-500/30">
               <FolderOpenIcon className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -1119,29 +1133,80 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
     );
   };
 
+  const areaStatuses = OFFICIAL_IA_AREAS.map((a) => getAreaApprovalStatus(a.code));
+  const overviewStats = [
+    {
+      label: 'Areas Approved',
+      value: `${areaStatuses.filter((s) => s.status === 'approved').length}/${OFFICIAL_IA_AREAS.length}`,
+      icon: CheckCircle2Icon,
+      tile: 'bg-emerald-50 text-emerald-600'
+    },
+    {
+      label: 'Evidence Files',
+      value: areaStatuses.reduce((sum, s) => sum + s.fileCount, 0),
+      icon: FileTextIcon,
+      tile: 'bg-brand-50 text-brand-600'
+    },
+    {
+      label: 'Pending Review',
+      value: areaStatuses.reduce((sum, s) => sum + s.pendingCount, 0),
+      icon: ClockIcon,
+      tile: 'bg-sky-50 text-sky-600'
+    },
+    {
+      label: 'Needs Revision',
+      value: areaStatuses.reduce((sum, s) => sum + s.revisionCount, 0),
+      icon: AlertTriangleIcon,
+      tile: 'bg-amber-50 text-amber-600'
+    }
+  ];
+
   return (
     <div className="panel mb-6 overflow-hidden">
       {/* Header */}
-      <div className="border-b border-line bg-canvas/40 p-4">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-ink">IA Document & Folder Management</h3>
-            <Badge tone="brand">Official Areas 1–9</Badge>
-            <span className="font-semibold text-xs text-brand-700 bg-brand-50 border border-brand-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
-              <Building2Icon className="h-3 w-3 text-brand-600" />
-              <span>{campusName}</span>
-            </span>
+      <div className="relative overflow-hidden border-b border-line bg-gradient-to-br from-brand-50 via-white to-violet-50/70 p-5">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand-200/40 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-violet-200/30 blur-3xl" />
+
+        <div className="relative flex flex-col gap-5 2xl:flex-row 2xl:items-center 2xl:justify-between">
+          <div className="flex items-start">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-[17px] font-bold tracking-tight text-ink">IA Document & Folder Management</h3>
+                <span className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-white/80 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700 backdrop-blur">
+                  <Building2Icon className="h-3 w-3" />
+                  {campusName}
+                </span>
+              </div>
+              <p className="mt-1 max-w-xl text-[12.5px] text-ink-muted">
+                Official institutional evidence portfolios for Areas 1–9 — organize folders, upload evidence, and track review progress.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 2xl:min-w-[600px]">
+            {overviewStats.map((stat) => (
+              <div
+                key={stat.label}
+                className="flex items-center gap-2.5 rounded-xl border border-white/80 bg-white/70 px-3 py-2.5 shadow-sm shadow-slate-200/60 backdrop-blur"
+              >
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${stat.tile}`}>
+                  <stat.icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[16px] font-bold leading-tight text-ink">{stat.value}</p>
+                  <p className="text-[10.5px] font-semibold uppercase leading-tight tracking-wider text-ink-subtle">{stat.label}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-        <p className="text-xs text-ink-muted mt-0.5">
-          Official institutional evidence portfolios strictly organized for <strong className="text-ink font-semibold">{campusName}</strong> across Areas 1–9.
-        </p>
       </div>
 
       {/* Segmented View Tabs & Action Row */}
-      <div className="flex flex-col gap-3 border-b border-line bg-white px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-line bg-white px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Tabs */}
-        <div className="flex items-center gap-1">
+        <div className="inline-flex items-center gap-1 self-start rounded-xl border border-line bg-canvas p-1">
           <button
             type="button"
             onClick={() => {
@@ -1149,14 +1214,21 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               setSelectedAreaCode(null);
               setActiveFolderId(null);
             }}
-            className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
               activeTab === 'areas'
-                ? 'border-brand-600 text-brand-700'
-                : 'border-transparent text-ink-muted hover:text-ink'
+                ? 'bg-white text-brand-700 shadow-sm ring-1 ring-line'
+                : 'text-ink-muted hover:text-ink'
             }`}
           >
             <LayersIcon className="h-3.5 w-3.5" />
-            <span>IA Areas 1–9 ({OFFICIAL_IA_AREAS.length} Areas)</span>
+            <span>IA Areas</span>
+            <span
+              className={`rounded-full px-1.5 text-[10px] font-bold ${
+                activeTab === 'areas' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200/80 text-ink-muted'
+              }`}
+            >
+              {OFFICIAL_IA_AREAS.length}
+            </span>
           </button>
 
           <button
@@ -1166,21 +1238,28 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               setSelectedAreaCode(null);
               setActiveFolderId(null);
             }}
-            className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
               activeTab === 'folders'
-                ? 'border-brand-600 text-brand-700'
-                : 'border-transparent text-ink-muted hover:text-ink'
+                ? 'bg-white text-brand-700 shadow-sm ring-1 ring-line'
+                : 'text-ink-muted hover:text-ink'
             }`}
           >
-            <FolderIcon className="h-3.5 w-3.5 text-amber-600" />
-            <span>Custom Folders ({rootCustomFolders.length})</span>
+            <FolderIcon className="h-3.5 w-3.5 text-amber-500" />
+            <span>Custom Folders</span>
+            <span
+              className={`rounded-full px-1.5 text-[10px] font-bold ${
+                activeTab === 'folders' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200/80 text-ink-muted'
+              }`}
+            >
+              {rootCustomFolders.length}
+            </span>
           </button>
         </div>
 
         {/* Search Bar + Upload Files/Folder Button on the same row */}
         <div className="flex items-center gap-2">
           <div className="relative w-48 sm:w-64">
-            <SearchIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-subtle" />
+            <SearchIcon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" />
             <input
               type="text"
               value={searchQuery}
@@ -1194,13 +1273,13 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   ? 'Search areas 1–9...'
                   : 'Search folders...'
               }
-              className="input h-8 pl-8 text-xs w-full bg-slate-50 border-line focus:bg-white"
+              className="h-9 w-full rounded-xl border border-line bg-canvas pl-8 pr-7 text-xs outline-none transition focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-2 text-xs text-ink-subtle hover:text-ink"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm leading-none text-ink-subtle hover:text-ink"
                 title="Clear search"
               >
                 ×
@@ -1232,7 +1311,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                 setSelectedCustomFolderToUpload('');
                 setUploadModalOpen(true);
               }}
-              className="btn btn-primary btn-sm h-8 shrink-0 text-xs gap-1.5"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-violet-600 px-3.5 text-xs font-semibold text-white shadow-md shadow-brand-600/25 transition hover:shadow-lg hover:shadow-brand-600/30 hover:brightness-110"
               title="Upload individual files, an entire folder, or custom folders into specific Areas"
             >
               <UploadIcon className="h-3.5 w-3.5" />
@@ -1249,17 +1328,21 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           {!selectedAreaCode && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                  Official AACCUP Institutional Accreditation Areas 1–9
+                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
+                  Official AACCUP Institutional Accreditation Areas
                 </span>
-                <span className="text-xs text-ink-subtle">
-                  Click any Area to create/open its evidence folders with timeline & deadlines
+                <span className="text-[11.5px] text-ink-subtle">
+                  Open an area to manage its evidence folders, timelines & deadlines
                 </span>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredAreas.map((area) => {
                   const areaStatus = getAreaApprovalStatus(area.code);
+                  const style = AREA_STATUS_STYLE[areaStatus.status] ?? AREA_STATUS_STYLE.needs_evidence;
+                  const approvedPct = areaStatus.fileCount
+                    ? Math.round((areaStatus.approvedCount / areaStatus.fileCount) * 100)
+                    : 0;
 
                   // Count folders created strictly inside this specific area
                   const existingAreaFolders = iaFolders.filter(
@@ -1270,12 +1353,19 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     <div
                       key={area.code}
                       onClick={() => handleSelectArea(area.code)}
-                      className="group relative cursor-pointer rounded-lg border border-line bg-white p-3.5 shadow-xs transition-all hover:border-brand-400 hover:shadow-sm"
+                      className="group relative cursor-pointer overflow-hidden rounded-2xl border border-line bg-white p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-lg hover:shadow-brand-500/10"
                       title={`Click to view and manage folders for Area ${area.number}`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="font-mono text-xs font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded group-hover:bg-brand-100 transition-colors">
-                          Area {area.number}
+                      <span className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${style.bar}`} />
+                      <span className="pointer-events-none absolute -bottom-4 right-2 select-none font-serif text-[88px] font-black leading-none text-slate-100 transition-colors group-hover:text-brand-50">
+                        {area.code.split('-')[1]}
+                      </span>
+
+                      <div className="relative flex items-start justify-between gap-2">
+                        <span
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br text-[15px] font-bold text-white shadow-md shadow-slate-300/50 ${style.tile}`}
+                        >
+                          {area.number}
                         </span>
                         <Badge
                           tone={
@@ -1293,26 +1383,52 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                         </Badge>
                       </div>
 
-                      <h4 className="mt-2 text-sm font-bold text-ink leading-tight group-hover:text-brand-700 transition-colors">
-                        {area.name}
-                      </h4>
-                      <p className="mt-1 text-xs text-ink-muted line-clamp-2">{area.shortDesc}</p>
+                      <div className="relative">
+                        <p className="mt-3 text-[10.5px] font-bold uppercase tracking-wider text-ink-subtle">
+                          Area {area.number}
+                        </p>
+                        <h4 className="text-[14px] font-bold leading-snug text-ink transition-colors group-hover:text-brand-700">
+                          {area.name}
+                        </h4>
+                        <p className="mt-1 line-clamp-2 text-xs text-ink-muted">{area.shortDesc}</p>
 
-                      <div className="mt-3 pt-2.5 border-t border-line flex items-center justify-between text-xs">
-                        <span className="text-[11px] text-ink-subtle">
+                        <div className="mt-3.5">
+                          <div className="mb-1 flex items-center justify-between text-[10.5px] font-semibold text-ink-subtle">
+                            <span>Approval progress</span>
+                            <span className="text-ink-muted">
+                              {areaStatus.fileCount ? `${areaStatus.approvedCount}/${areaStatus.fileCount}` : '—'}
+                            </span>
+                          </div>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${style.progress}`}
+                              style={{ width: `${approvedPct}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-3.5 flex items-center justify-between text-[11.5px]">
                           {existingAreaFolders.length > 0 ? (
-                            <span className="font-semibold text-brand-700 flex items-center gap-1.5">
-                              <span>📁 {existingAreaFolders.length} folder{existingAreaFolders.length === 1 ? '' : 's'}</span>
-                              <span>·</span>
-                              <span>{areaStatus.fileCount} file{areaStatus.fileCount === 1 ? '' : 's'}</span>
+                            <span className="flex items-center gap-3 font-semibold text-ink-muted">
+                              <span className="inline-flex items-center gap-1">
+                                <FolderIcon className="h-3.5 w-3.5 fill-amber-300/60 text-amber-500" />
+                                {existingAreaFolders.length}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <FileTextIcon className="h-3.5 w-3.5 text-brand-500" />
+                                {areaStatus.fileCount}
+                              </span>
                             </span>
                           ) : (
-                            <span className="text-slate-500 font-medium">+ Click to create folder</span>
+                            <span className="inline-flex items-center gap-1 font-medium text-ink-subtle">
+                              <FolderPlusIcon className="h-3.5 w-3.5" />
+                              Create first folder
+                            </span>
                           )}
-                        </span>
-                        <span className="text-[11px] font-semibold text-brand-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
-                          Open Area →
-                        </span>
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-canvas text-ink-subtle transition-all group-hover:translate-x-0.5 group-hover:bg-brand-600 group-hover:text-white">
+                            <ChevronRightIcon className="h-4 w-4" />
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1325,25 +1441,42 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           {selectedAreaCode && currentArea && !activeFolderId && (
             <div className="space-y-4">
               {/* Breadcrumb Header for Area */}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white p-3.5 shadow-xs">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-gradient-to-r from-white via-white to-brand-50/60 p-4 shadow-xs">
+                <div className="flex min-w-0 items-center gap-3">
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedAreaCode(null);
                       setSearchQuery('');
                     }}
-                    className="flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-white text-ink-muted transition hover:border-brand-300 hover:text-brand-700"
+                    title="Back to IA Areas"
                   >
-                    <ArrowLeftIcon className="h-3.5 w-3.5" />
-                    <span>IA Areas 1–9</span>
+                    <ArrowLeftIcon className="h-4 w-4" />
                   </button>
-                  <ChevronRightIcon className="h-3.5 w-3.5 text-brand-400" />
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-ink">
-                    <span className="font-mono bg-brand-100 text-brand-800 px-1.5 py-0.2 rounded text-[11px]">
-                      Area {currentArea.number}
-                    </span>
-                    <span>{currentArea.name}</span>
+                  <span
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-[15px] font-bold text-white shadow-md shadow-slate-300/50 ${
+                      (AREA_STATUS_STYLE[getAreaApprovalStatus(currentArea.code).status] ?? AREA_STATUS_STYLE.needs_evidence).tile
+                    }`}
+                  >
+                    {currentArea.number}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-ink-subtle">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedAreaCode(null);
+                          setSearchQuery('');
+                        }}
+                        className="hover:text-brand-700"
+                      >
+                        IA Areas
+                      </button>
+                      <ChevronRightIcon className="h-3 w-3" />
+                      <span>Area {currentArea.number}</span>
+                    </div>
+                    <h4 className="truncate text-[15px] font-bold text-ink">{currentArea.name}</h4>
                   </div>
                 </div>
 
@@ -1355,7 +1488,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       setSelectedTargetFolder(areaFolders[0]?.id || '');
                       setUploadModalOpen(true);
                     }}
-                    className="btn btn-primary btn-xs text-xs gap-1.5 shadow-xs"
+                    className="btn btn-primary btn-sm text-xs gap-1.5 shadow-xs"
                     title="Upload individual files, an entire folder, or a custom folder into this Area"
                   >
                     <UploadIcon className="h-3.5 w-3.5" />
@@ -1371,7 +1504,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       setFolderFormInitialCode(currentArea.code);
                       setFolderFormOpen(true);
                     }}
-                    className="btn btn-secondary btn-xs text-xs gap-1"
+                    className="btn btn-secondary btn-sm text-xs gap-1.5"
                   >
                     <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
                     <span>Create Folder</span>
@@ -1437,8 +1570,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               {/* Area Folders Display */}
               {areaFolders.length === 0 ? (
                 /* Prompt to create first folder if none exists */
-                <div className="rounded-xl border border-dashed border-brand-300 bg-white p-8 text-center space-y-3">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                <div className="rounded-2xl border-2 border-dashed border-brand-200 bg-gradient-to-b from-white to-brand-50/40 p-10 text-center space-y-3">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-lg shadow-brand-500/30">
                     <FolderPlusIcon className="h-6 w-6" />
                   </div>
                   <div>
@@ -1501,12 +1634,12 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                             setRepoFilter('all');
                             setSearchQuery('');
                           }}
-                          className="group relative cursor-pointer rounded-lg border border-line bg-white p-3.5 shadow-xs transition-all hover:border-brand-400 hover:shadow-sm"
+                          className="group relative cursor-pointer rounded-2xl border border-line bg-white p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-lg hover:shadow-brand-500/10"
                           title="Click to open this folder"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-2">
-                              <div className="p-1.5 rounded-md bg-blue-50 text-brand-600 group-hover:bg-brand-100 transition-colors">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500 ring-1 ring-amber-100 transition-colors group-hover:bg-amber-100">
                                 <FolderIcon className="h-5 w-5" />
                               </div>
                               <div>
@@ -1774,8 +1907,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
               {/* EMPTY STATE INSIDE THE FOLDER */}
               {insideSubfolders.length === 0 && allFolderDocs.length === 0 && (
-                <div className="rounded-xl border border-dashed border-line bg-canvas p-8 text-center">
-                  <FolderOpenIcon className="mx-auto h-9 w-9 text-ink-subtle mb-2" />
+                <div className="rounded-2xl border-2 border-dashed border-line bg-gradient-to-b from-white to-canvas p-10 text-center">
+                  <FolderOpenIcon className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-amber-50 p-2.5 text-amber-500 ring-1 ring-amber-100" />
                   <p className="text-xs font-semibold text-ink">No files or subfolders found</p>
                   <p className="text-[11px] text-ink-muted mt-1">
                     {searchQuery
@@ -1826,11 +1959,11 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                             setActiveFolderId(sub.id);
                             setSearchQuery('');
                           }}
-                          className="group relative cursor-pointer rounded-lg border border-line bg-white p-3 shadow-xs transition-all hover:border-brand-400"
+                          className="group relative cursor-pointer rounded-xl border border-line bg-white p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md hover:shadow-brand-500/10"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-2">
-                              <div className="p-1 rounded bg-amber-50 text-amber-600 group-hover:bg-amber-100">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-500 ring-1 ring-amber-100 transition-colors group-hover:bg-amber-100">
                                 <FolderIcon className="h-4 w-4" />
                               </div>
                               <div>
@@ -1922,7 +2055,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   </div>
 
                   {insideFiles.length > 0 ? (
-                    <div className="overflow-hidden rounded-lg border border-line bg-white shadow-xs">
+                    <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-xs">
                       <div className="divide-y divide-line">
                       {insideFiles.map((doc) => {
                         const isOfficialArea = !isCustomFolder && !!currentActiveFolder?.areaId;
@@ -1932,7 +2065,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                         return (
                           <div
                             key={doc.id}
-                            className="flex flex-col gap-2.5 p-3.5 text-xs transition-colors hover:bg-slate-50/70 sm:flex-row sm:items-center sm:justify-between"
+                            className="flex flex-col gap-2.5 p-3.5 text-xs transition-colors hover:bg-brand-50/40 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="flex items-start gap-3 min-w-0 flex-1">
                               <div className="mt-0.5 shrink-0">{renderFileIcon(doc.fileType)}</div>
@@ -2171,7 +2304,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               </div>
 
               {rootCustomFolders.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-line bg-slate-50/70 p-8 text-center space-y-2">
+                <div className="rounded-2xl border-2 border-dashed border-line bg-gradient-to-b from-white to-canvas p-10 text-center space-y-2">
                   <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-brand-600">
                     <FolderIcon className="h-5 w-5" />
                   </div>
@@ -2193,12 +2326,12 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                         setRepoFilter('all');
                         setSearchQuery('');
                       }}
-                      className="group relative cursor-pointer rounded-lg border border-line bg-white p-3.5 shadow-xs transition-all hover:border-brand-400 hover:shadow-sm"
+                      className="group relative cursor-pointer rounded-2xl border border-line bg-white p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-lg hover:shadow-brand-500/10"
                       title="Click to open this folder"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="p-1.5 rounded-md bg-amber-50 text-amber-600 group-hover:bg-amber-100 transition-colors">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500 ring-1 ring-amber-100 transition-colors group-hover:bg-amber-100">
                             <FolderIcon className="h-5 w-5" />
                           </div>
                           <div>
@@ -2353,8 +2486,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
               {/* EMPTY STATE INSIDE THE FOLDER */}
               {insideSubfolders.length === 0 && insideFiles.length === 0 && (
-                <div className="rounded-xl border border-dashed border-line bg-canvas p-8 text-center">
-                  <FolderOpenIcon className="mx-auto h-9 w-9 text-ink-subtle mb-2" />
+                <div className="rounded-2xl border-2 border-dashed border-line bg-gradient-to-b from-white to-canvas p-10 text-center">
+                  <FolderOpenIcon className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-amber-50 p-2.5 text-amber-500 ring-1 ring-amber-100" />
                   <p className="text-xs font-semibold text-ink">No files or subfolders found</p>
                   <p className="text-[11px] text-ink-muted mt-1">
                     {searchQuery
@@ -2405,11 +2538,11 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                             setActiveFolderId(sub.id);
                             setSearchQuery('');
                           }}
-                          className="group relative cursor-pointer rounded-lg border border-line bg-white p-3 shadow-xs transition-all hover:border-brand-400"
+                          className="group relative cursor-pointer rounded-xl border border-line bg-white p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md hover:shadow-brand-500/10"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-2">
-                              <div className="p-1 rounded bg-amber-50 text-amber-600 group-hover:bg-amber-100">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-500 ring-1 ring-amber-100 transition-colors group-hover:bg-amber-100">
                                 <FolderIcon className="h-4 w-4" />
                               </div>
                               <div>
@@ -2456,12 +2589,12 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     </span>
                   </div>
 
-                  <div className="overflow-hidden rounded-lg border border-line bg-white shadow-xs">
+                  <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-xs">
                     <div className="divide-y divide-line">
                       {insideFiles.map((doc) => (
                         <div
                           key={doc.id}
-                          className="flex flex-col gap-2 p-3 text-xs transition-colors hover:bg-slate-50/70 sm:flex-row sm:items-center sm:justify-between"
+                          className="flex flex-col gap-2 p-3 text-xs transition-colors hover:bg-brand-50/40 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <div className="flex items-start gap-2.5 min-w-0">
                             <div className="mt-0.5">{renderFileIcon(doc.fileType)}</div>
