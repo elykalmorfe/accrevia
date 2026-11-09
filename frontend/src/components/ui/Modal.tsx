@@ -1,4 +1,4 @@
-﻿import React, { ReactNode, useEffect, useId, useRef } from 'react';
+import React, { ReactNode, useEffect, useId, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { XIcon } from 'lucide-react';
 import { easeOut } from '../../utils/motion';
@@ -11,6 +11,7 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   size?: 'md' | 'lg' | 'xl';
+  zIndex?: string;
 }
 
 const sizes = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
@@ -18,7 +19,7 @@ const sizes = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
 // Stacked modals: Escape only closes the most recently opened one.
 const openModalStack: string[] = [];
 
-export function Modal({ open, onClose, title, description, children, footer, size = 'md' }: ModalProps) {
+export function Modal({ open, onClose, title, description, children, footer, size = 'md', zIndex = 'z-50' }: ModalProps) {
   const titleId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -30,19 +31,22 @@ export function Modal({ open, onClose, title, description, children, footer, siz
       if (e.key === 'Escape' && openModalStack[openModalStack.length - 1] === titleId) onCloseRef.current();
     };
     document.addEventListener('keydown', onKey);
-    const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
-      openModalStack.splice(openModalStack.lastIndexOf(titleId), 1);
-      document.body.style.overflow = previous;
+      const idx = openModalStack.lastIndexOf(titleId);
+      if (idx !== -1) openModalStack.splice(idx, 1);
+      // Reliably restore body scroll whenever all stacked modals are closed
+      if (openModalStack.length === 0) {
+        document.body.style.overflow = '';
+      }
     };
   }, [open, titleId]);
 
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-0 sm:items-center sm:p-4">
+        <div className={`fixed inset-0 ${zIndex} flex items-end justify-center overflow-y-auto p-0 sm:items-center sm:p-4`}>
           <motion.div
             className="fixed inset-0 bg-ink/50 backdrop-blur-xs"
             initial={{ opacity: 0 }}
@@ -57,7 +61,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className={`relative flex max-h-[92vh] sm:max-h-[calc(100vh-4rem)] w-full flex-col rounded-t-3xl sm:rounded-2xl border border-line bg-white shadow-2xl pb-safe sm:pb-0 ${sizes[size]}`}
+            className={`relative flex max-h-[92vh] sm:max-h-[calc(100vh-4rem)] w-full min-h-0 flex-col overflow-hidden rounded-t-3xl sm:rounded-2xl border border-line bg-white shadow-2xl pb-safe sm:pb-0 ${sizes[size]}`}
             initial={{ opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.98 }}
@@ -99,7 +103,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
                 </button>
               </div>
             )}
-            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">{children}</div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 overscroll-contain">{children}</div>
             {footer && (
               <div className="flex flex-col-reverse sm:flex-row flex-wrap sm:justify-end gap-2 border-t border-line px-4 py-3 sm:px-6 sm:py-4 bg-slate-50/60 sm:bg-transparent">
                 {footer}

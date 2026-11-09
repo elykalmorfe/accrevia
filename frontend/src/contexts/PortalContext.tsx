@@ -1,4 +1,4 @@
-﻿import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { frameworks as initialFrameworks } from '../data/frameworks';
 import { initialFolders } from '../data/folders';
 import { areas as initialAreas } from '../data/areas';
@@ -13,7 +13,7 @@ import {
   initialCOPCRecords,
   initialISORecords
 } from '../data/accreditationData';
-import { PROGRAM_ACCREDITATION_DATA_VERSION } from '../data/programAccreditationRecords';
+import { PROGRAM_ACCREDITATION_DATA_VERSION, COPC_DATA_VERSION } from '../data/programAccreditationRecords';
 import {
   AccreditationArea,
   Criterion,
@@ -125,6 +125,7 @@ interface PortalContextValue {
   copcRecords: COPCRecord[];
   updateCOPCRecord: (id: string, patch: Partial<COPCRecord>) => void;
   updateCOPCRequirement: (copcId: string, reqId: string, patch: Partial<COPCRequirementItem>) => void;
+  resetCOPCRecords: () => void;
 
   isoRecords: ISOSurveillanceRecord[];
   saveISOSurveillanceRecord: (record: ISOSurveillanceRecord) => void;
@@ -275,9 +276,21 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     if (migrated.some((p, i) => p !== loaded[i])) saveStorage('programAccreditations', migrated);
     return migrated;
   });
-  const [copcRecords, setCopcRecords] = useState<COPCRecord[]>(() =>
-    loadVersionedStorage('copcRecords', initialCOPCRecords, PROGRAM_ACCREDITATION_DATA_VERSION)
-  );
+  const [copcRecords, setCopcRecords] = useState<COPCRecord[]>(() => {
+    const loaded = loadVersionedStorage('copcRecords', initialCOPCRecords, COPC_DATA_VERSION);
+    // Auto-heal: If all records have 0 approved requirements (stale legacy cache), force re-seed to initialCOPCRecords
+    const hasApproved = loaded.some((c) => c.requirements.some((r) => r.status === 'Approved'));
+    if (!hasApproved && initialCOPCRecords.some((c) => c.requirements.some((r) => r.status === 'Approved'))) {
+      saveStorage('copcRecords', initialCOPCRecords);
+      try {
+        localStorage.setItem('accrevia_copcRecords_version', COPC_DATA_VERSION);
+      } catch {
+        // ignore storage errors
+      }
+      return initialCOPCRecords;
+    }
+    return loaded;
+  });
   const [isoRecords, setIsoRecords] = useState<ISOSurveillanceRecord[]>(() => loadStorage('isoRecords', initialISORecords));
 
   // Selected campus derived helpers
@@ -663,6 +676,16 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     });
   }, []);
 
+  const resetCOPCRecords = useCallback(() => {
+    setCopcRecords(initialCOPCRecords);
+    saveStorage('copcRecords', initialCOPCRecords);
+    try {
+      localStorage.setItem('accrevia_copcRecords_version', COPC_DATA_VERSION);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const saveISOSurveillanceRecord = useCallback((rec: ISOSurveillanceRecord) => {
     setIsoRecords((prev) => {
       // Historical Preservation: Never overwrite or delete previous records when adding a new standard/audit.
@@ -778,6 +801,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       copcRecords,
       updateCOPCRecord,
       updateCOPCRequirement,
+      resetCOPCRecords,
       isoRecords,
       saveISOSurveillanceRecord,
       addISOCorrectiveAction,
@@ -850,6 +874,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       copcRecords,
       updateCOPCRecord,
       updateCOPCRequirement,
+      resetCOPCRecords,
       isoRecords,
       saveISOSurveillanceRecord,
       addISOCorrectiveAction,

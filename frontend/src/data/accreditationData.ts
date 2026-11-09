@@ -472,8 +472,196 @@ export const standardCOPCRequirements: Omit<COPCRequirementItem, 'id'>[] = [
   }
 ];
 
-export const initialCOPCRecords: COPCRecord[] = initialProgramAccreditations.map((p) => {
-  const isPending = p.copcStatus === 'Pending';
+interface ProgramCOPCDetails {
+  code: string;
+  cmo: string;
+  certNo: string;
+  dateIssued: string;
+  borRes: string;
+}
+
+function getProgramCOPCDetails(programName: string, degreeLevel: string, idx: number): ProgramCOPCDetails {
+  const lower = programName.toLowerCase();
+  let code = 'PROG';
+  let cmo = 'CMO No. 46, Series of 2012';
+
+  if (lower.includes('computer science')) {
+    code = 'BSCS';
+    cmo = 'CMO No. 25, Series of 2015';
+  } else if (lower.includes('information technology')) {
+    code = 'BSIT';
+    cmo = 'CMO No. 25, Series of 2015';
+  } else if (lower.includes('information system')) {
+    code = 'BSIS';
+    cmo = 'CMO No. 25, Series of 2015';
+  } else if (lower.includes('civil engineering')) {
+    code = 'BSCE';
+    cmo = 'CMO No. 92, Series of 2017';
+  } else if (lower.includes('mechanical engineering')) {
+    code = 'BSME';
+    cmo = 'CMO No. 97, Series of 2017';
+  } else if (lower.includes('electrical engineering')) {
+    code = 'BSEE';
+    cmo = 'CMO No. 88, Series of 2017';
+  } else if (lower.includes('elementary education')) {
+    code = 'BEED';
+    cmo = 'CMO No. 74, Series of 2017';
+  } else if (lower.includes('secondary education')) {
+    code = 'BSED';
+    cmo = 'CMO No. 75, Series of 2017';
+  } else if (lower.includes('physical education')) {
+    code = 'BPED';
+    cmo = 'CMO No. 80, Series of 2017';
+  } else if (lower.includes('early childhood')) {
+    code = 'BECEd';
+    cmo = 'CMO No. 76, Series of 2017';
+  } else if (lower.includes('special needs')) {
+    code = 'BSNEd';
+    cmo = 'CMO No. 77, Series of 2017';
+  } else if (lower.includes('accountancy')) {
+    code = 'BSA';
+    cmo = 'CMO No. 27, Series of 2017';
+  } else if (lower.includes('business administration')) {
+    code = 'BSBA';
+    cmo = 'CMO No. 17, Series of 2017';
+  } else if (lower.includes('hospitality') || lower.includes('hotel')) {
+    code = 'BSHM';
+    cmo = 'CMO No. 62, Series of 2017';
+  } else if (lower.includes('tourism')) {
+    code = 'BSTM';
+    cmo = 'CMO No. 62, Series of 2017';
+  } else if (lower.includes('agriculture')) {
+    code = 'BSAgr';
+    cmo = 'CMO No. 14, Series of 2019';
+  } else if (lower.includes('fisheries') || lower.includes('marine biology')) {
+    code = 'BSFi';
+    cmo = 'CMO No. 43, Series of 2019';
+  } else if (lower.includes('forestry')) {
+    code = 'BSFor';
+    cmo = 'CMO No. 44, Series of 2019';
+  } else if (lower.includes('environmental')) {
+    code = 'BSES';
+    cmo = 'CMO No. 35, Series of 2017';
+  } else if (lower.includes('biology')) {
+    code = 'BSBio';
+    cmo = 'CMO No. 49, Series of 2017';
+  } else if (lower.includes('criminology')) {
+    code = 'BSCrim';
+    cmo = 'CMO No. 05, Series of 2018';
+  } else if (lower.includes('nursing')) {
+    code = 'BSN';
+    cmo = 'CMO No. 15, Series of 2017';
+  } else if (lower.includes('psychology') || lower.includes('pyschology')) {
+    code = 'BSPsych';
+    cmo = 'CMO No. 34, Series of 2017';
+  } else if (lower.includes('technical') || lower.includes('btvted') || lower.includes('industrial')) {
+    code = 'BTVTEd';
+    cmo = 'CMO No. 79, Series of 2017';
+  } else if (lower.includes('filipino')) {
+    code = 'BA-Fil';
+    cmo = 'CMO No. 04, Series of 2018';
+  } else if (lower.includes('english')) {
+    code = 'BA-ELS';
+    cmo = 'CMO No. 24, Series of 2017';
+  } else if (lower.includes('mathematics')) {
+    code = 'BSMath';
+    cmo = 'CMO No. 19, Series of 2007';
+  } else if (degreeLevel === 'Graduate' || lower.includes('master') || lower.includes('doctor')) {
+    code = 'GRAD';
+    cmo = 'CMO No. 15, Series of 2019';
+  }
+
+  const yearSeq = 2021 + (idx % 3);
+  const certSeq = String(101 + idx).padStart(4, '0');
+  const certNo = `CHED-RO13-COPC-No. ${yearSeq}-${certSeq}`;
+  const month = String(1 + (idx % 12)).padStart(2, '0');
+  const day = String(10 + (idx % 18)).padStart(2, '0');
+  const dateIssued = `${yearSeq}-${month}-${day}`;
+  const borRes = `BOR Res. No. ${12 + (idx % 58)}, Series of ${yearSeq}`;
+
+  return { code, cmo, certNo, dateIssued, borRes };
+}
+
+const PENDING_COPC_CONFIG: Record<string, { pendingCodes: string[]; notes: Record<string, string> }> = {
+  'pa-tan-21': {
+    pendingCodes: ['COPC-OJT'],
+    notes: {
+      'COPC-OJT': 'Pending final signed MOA from partner audit firm for accountancy internship.'
+    }
+  },
+  'pa-tan-22': {
+    pendingCodes: ['COPC-LAB', 'COPC-LIB'],
+    notes: {
+      'COPC-LAB': 'Social science observation lab equipment inventory awaiting validation.',
+      'COPC-LIB': 'Social studies reference books cataloging in progress.'
+    }
+  },
+  'pa-tan-23': {
+    pendingCodes: ['COPC-LAB'],
+    notes: {
+      'COPC-LAB': 'Psychological testing laboratory tools calibration pending CHED validation.'
+    }
+  },
+  'pa-tan-g06': {
+    pendingCodes: ['COPC-FAC', 'COPC-LIB'],
+    notes: {
+      'COPC-FAC': 'Awaiting faculty doctoral credentials endorsement from CHED.',
+      'COPC-LIB': 'IEEE / ACM digital library subscription renewal in process.'
+    }
+  },
+  'pa-can-14': {
+    pendingCodes: ['COPC-OJT'],
+    notes: {
+      'COPC-OJT': 'Industry immersion partnership agreement awaiting regional consortium signature.'
+    }
+  },
+  'pa-bis-07': {
+    pendingCodes: ['COPC-LAB'],
+    notes: {
+      'COPC-LAB': 'Automotive diagnostics dynamometer inspection checklist scheduled for upload.'
+    }
+  }
+};
+
+export const initialCOPCRecords: COPCRecord[] = initialProgramAccreditations.map((p, idx) => {
+  const isPending = p.copcStatus === 'Pending' || Boolean(PENDING_COPC_CONFIG[p.id]);
+  const details = getProgramCOPCDetails(p.programName, p.degreeLevel, idx);
+  const pendingConfig = PENDING_COPC_CONFIG[p.id];
+
+  const requirements: COPCRequirementItem[] = standardCOPCRequirements.map((base, rIdx) => {
+    const isThisReqPending = isPending && pendingConfig?.pendingCodes?.includes(base.code);
+
+    if (isThisReqPending) {
+      return {
+        ...base,
+        id: `copc-req-${p.id}-${rIdx + 1}`,
+        isSubmitted: false,
+        status: 'Pending',
+        documentName: undefined,
+        documentUrl: undefined,
+        deficiencyNote: pendingConfig?.notes?.[base.code] || 'Evidence document awaiting department submission.'
+      };
+    }
+
+    // Fully approved requirement (5 of 5 for compliant programs, 3 or 4 of 5 for pending programs)
+    let docSuffix = 'Compliance_Document.pdf';
+    if (base.code === 'COPC-CURR') docSuffix = 'CMO_Curriculum_Compliance_Matrix.pdf';
+    else if (base.code === 'COPC-FAC') docSuffix = 'Faculty_Roster_Credentials.pdf';
+    else if (base.code === 'COPC-LAB') docSuffix = 'Specialized_Laboratory_Inventory.pdf';
+    else if (base.code === 'COPC-LIB') docSuffix = 'Library_Holdings_Certification.pdf';
+    else if (base.code === 'COPC-OJT') docSuffix = 'Industry_OJT_Partnership_MOA.pdf';
+
+    return {
+      ...base,
+      id: `copc-req-${p.id}-${rIdx + 1}`,
+      isSubmitted: true,
+      status: 'Approved',
+      documentName: `${details.code}_${docSuffix}`,
+      documentUrl: `https://drive.google.com/file/d/accrevia-copc-${p.id}-${base.code.toLowerCase()}/view`,
+      deficiencyNote: undefined
+    };
+  });
+
   return {
     id: `copc-${p.id}`,
     programId: p.id,
@@ -482,14 +670,17 @@ export const initialCOPCRecords: COPCRecord[] = initialProgramAccreditations.map
     programName: p.programName,
     degreeLevel: p.degreeLevel,
     copcStatus: isPending ? 'Pending Review' : 'Compliant',
-    certificateNumber: isPending ? undefined : p.copcCertificateNumber,
-    cmoNo: 'CMO No. 25, Series of 2015 / CMO No. 20, Series of 2013',
-    borRes: p.borRes,
-    remarks: p.remarks,
-    requirements: standardCOPCRequirements.map((r, rIdx) => ({
-      ...r,
-      id: `copc-req-${p.id}-${rIdx + 1}`
-    }))
+    certificateNumber: isPending ? undefined : (p.copcCertificateNumber || details.certNo),
+    dateIssued: isPending ? undefined : details.dateIssued,
+    cmoNo: details.cmo,
+    borRes: isPending ? 'BOR Res. No. 08, S. 2024 (Endorsed)' : (p.borRes || details.borRes),
+    documentLink: isPending
+      ? undefined
+      : `https://drive.google.com/file/d/accrevia-copc-certificate-${details.code.toLowerCase()}-${p.id}/view`,
+    remarks: isPending
+      ? 'CHED Regional Office validation visit pending.'
+      : (p.remarks || 'Full COPC compliance issued by CHED Regional Office XIII.'),
+    requirements
   };
 });
 
