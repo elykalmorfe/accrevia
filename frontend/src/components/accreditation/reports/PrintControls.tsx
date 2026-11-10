@@ -78,7 +78,7 @@ export function ReportPreview({ children }: { children: ReactNode }) {
   return (
     <div className="overflow-auto rounded-xl border border-line bg-slate-100 p-2 sm:p-4">
       <style>{REPORT_CSS}</style>
-      <div className="mx-auto min-w-[640px] max-w-[820px] bg-white p-5 shadow-sm sm:p-7">{children}</div>
+      <div className="light-island mx-auto min-w-[640px] max-w-[820px] bg-white p-5 text-ink shadow-sm sm:p-7">{children}</div>
     </div>
   );
 }
