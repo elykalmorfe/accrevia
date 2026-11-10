@@ -1,12 +1,13 @@
-﻿import React from 'react';
-import { Link } from 'react-router-dom';
-import { FolderOpenIcon } from 'lucide-react';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { FolderOpenIcon, PenSquareIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { useAccess } from '../../hooks/useAccess';
 import { summarizeShares, TODAY } from '../../utils/sharing';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SharedDocumentRow } from '../../components/sharing/SharedDocumentRow';
+import { ComposeRequestModal } from '../../components/requests/ComposeRequestModal';
 
 function daysUntil(date: string) {
   return Math.round((new Date(date).getTime() - new Date(TODAY).getTime()) / 86400000);
@@ -24,12 +25,20 @@ export function UserHome() {
     return e && daysUntil(e) <= 60;
   }).length;
   const firstName = currentUser.name.replace(/^(Dr\.|Prof\.|Engr\.)\s+/, '').split(' ')[0];
+  const [composeOpen, setComposeOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <>
       <PageHeader
         title={`Welcome, ${firstName}`}
-        description="Accreditation evidence the Quality Assurance Office has shared with you. Search only returns documents you have access to." />
+        description="Accreditation evidence the Quality Assurance Office has shared with you. Search only returns documents you have access to."
+        actions={
+          <button type="button" onClick={() => setComposeOpen(true)} className="btn btn-primary">
+            <PenSquareIcon className="h-4 w-4" /> Request a document
+          </button>
+        } />
+      <ComposeRequestModal open={composeOpen} onClose={() => setComposeOpen(false)} onCreated={(id) => navigate(`/requests/${id}`)} />
       
       <dl className="panel mb-5 grid grid-cols-1 gap-px overflow-hidden bg-line sm:grid-cols-3">
         <div className="bg-white p-5"><dt className="text-[13px] text-ink-muted">Shared with you</dt><dd className="mt-1 text-3xl font-semibold tabular-nums text-ink">{items.length}</dd></div>
