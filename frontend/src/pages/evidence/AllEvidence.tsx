@@ -471,7 +471,7 @@ export function AllEvidence() {
           {/* Main Filter Row: Search Input + Primary Dropdowns (Framework, Campus, Type, Area) + Toggle More */}
           <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
             {/* Search Input */}
-            <div className="relative flex-1 min-w-[220px]">
+            <div className="relative w-full flex-1 lg:min-w-[220px]">
               <label htmlFor="evidence-filter" className="sr-only">
                 Search documents by title, keyword, office, or campus
               </label>
@@ -499,17 +499,17 @@ export function AllEvidence() {
             </div>
 
             {/* Primary Dropdowns */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="w-[140px] sm:w-[150px]">
+            <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap">
+              <div className="w-full sm:w-[150px]">
                 {renderSelect('frameworkId')}
               </div>
-              <div className="w-[150px] sm:w-[160px]">
+              <div className="w-full sm:w-[160px]">
                 {renderSelect('campus')}
               </div>
-              <div className="w-[150px] sm:w-[160px]">
+              <div className="w-full sm:w-[160px]">
                 {renderSelect('docType')}
               </div>
-              <div className="w-[140px] sm:w-[150px]">
+              <div className="w-full sm:w-[150px]">
                 {renderSelect('areaId')}
               </div>
 
@@ -518,7 +518,7 @@ export function AllEvidence() {
                 type="button"
                 onClick={() => setShowMore((s) => !s)}
                 aria-expanded={showMore}
-                className={`btn btn-sm shrink-0 h-9 px-3 ${
+                className={`btn btn-sm col-span-2 h-9 shrink-0 px-3 sm:col-span-1 ${
                   showMore || secondaryActive
                     ? 'border-brand-300 bg-brand-50 text-brand-700 font-bold'
                     : 'btn-secondary text-xs'

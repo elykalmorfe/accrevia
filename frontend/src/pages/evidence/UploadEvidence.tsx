@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeftIcon,
@@ -8,7 +8,6 @@ import {
   CheckIcon,
   CloudUploadIcon,
   EyeIcon,
-  FileSpreadsheetIcon,
   FileTextIcon,
   FolderArchiveIcon,
   FolderIcon,
@@ -22,7 +21,6 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
   Trash2Icon,
-  UploadIcon,
   XIcon
 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
@@ -38,7 +36,10 @@ import { FolderAction, FolderCard } from '../../components/folders/FolderCard';
 import { persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
 import { formatDate, pluralize } from '../../utils/format';
-import { applyNamingPattern, filterAllowedUploads, uploadAcceptAttribute } from '../../utils/uploadRules';
+import { applyNamingPattern, filterAllowedUploads } from '../../utils/uploadRules';
+import type { PendingUpload } from '../../utils/dropFiles';
+import { UploadDropzone } from '../../components/upload/UploadDropzone';
+import { StagedFileList } from '../../components/upload/StagedFileList';
 import { usePortalSettings } from '../../settings/portalSettings';
 import { toast } from 'sonner';
 
@@ -110,14 +111,9 @@ export function UploadEvidence() {
   // Dedicated Upload Modal state (Dual-mode: Individual Files & Entire Folder)
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadMode, setUploadMode] = useState<'files' | 'folder'>('files');
-  const [isDragging, setIsDragging] = useState(false);
   const [uploadedFileList, setUploadedFileList] = useState<PreparedUploadItem[]>([]);
   const [selectedDestinationFolderId, setSelectedDestinationFolderId] = useState<string>('');
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
-
-  // File & Folder input refs
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Active folder object
   const currentFolder = useMemo(() => {
@@ -408,102 +404,16 @@ export function UploadEvidence() {
   };
 
   // --- DUAL-MODE UPLOAD HANDLING (Individual Files & Entire Folder) ---
-  const handleFilesInputSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const list: PreparedUploadItem[] = [];
-    for (let i = 0; i < files.length; i++) {
-      list.push({
-        name: files[i].name,
-        size: files[i].size,
-        file: files[i]
-      });
-    }
+  const handleStageUploads = (uploads: PendingUpload[]) => {
+    const list: PreparedUploadItem[] = uploads.map(({ file, path }) => ({
+      name: file.name,
+      size: file.size,
+      path: path !== file.name ? path : undefined,
+      file
+    }));
     const allowed = filterAllowedUploads(list, (f) => f);
-    e.target.value = '';
     if (allowed.length === 0) return;
-    setUploadedFileList(allowed);
-    toast.success(`Selected ${allowed.length} file(s) for upload`);
-  };
-
-  const handleFolderInputSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const list: PreparedUploadItem[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      list.push({
-        name: file.name,
-        size: file.size,
-        path: file.webkitRelativePath || file.name,
-        file: file
-      });
-    }
-    const allowed = filterAllowedUploads(list, (f) => f);
-    e.target.value = '';
-    if (allowed.length === 0) return;
-    setUploadedFileList(allowed);
-    toast.success(`Selected directory containing ${allowed.length} file(s)`);
-  };
-
-  const handleDropUpload = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const items = e.dataTransfer.items;
-    if (!items || items.length === 0) return;
-
-    const collected: PreparedUploadItem[] = [];
-
-    interface FileSystemEntryLike {
-      name: string;
-      isFile: boolean;
-      isDirectory: boolean;
-      file?: (callback: (file: File) => void) => void;
-      createReader?: () => { readEntries: (callback: (entries: FileSystemEntryLike[]) => void) => void };
-    }
-
-    const traverseFileTree = async (item: FileSystemEntryLike, path = '') => {
-      if (item.isFile && item.file) {
-        const getFile = item.file;
-        await new Promise<void>((resolve) => {
-          getFile((file: File) => {
-            collected.push({
-              name: file.name,
-              size: file.size,
-              path: path + file.name,
-              file
-            });
-            resolve();
-          });
-        });
-      } else if (item.isDirectory && item.createReader) {
-        const dirReader = item.createReader();
-        await new Promise<void>((resolve) => {
-          dirReader.readEntries(async (entries: FileSystemEntryLike[]) => {
-            for (const entry of entries) {
-              await traverseFileTree(entry, path + item.name + '/');
-            }
-            resolve();
-          });
-        });
-      }
-    };
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i].webkitGetAsEntry?.();
-      if (item) {
-        await traverseFileTree(item);
-      }
-    }
-
-    const allowed = filterAllowedUploads(collected, (f) => f);
-    if (allowed.length > 0) {
-      setUploadedFileList(allowed);
-      toast.success(`Prepared ${allowed.length} file(s) from drop`);
-    }
+    setUploadedFileList((prev) => (uploadMode === 'folder' ? allowed : [...prev, ...allowed]));
   };
 
   const handleConfirmUpload = () => {
@@ -1027,7 +937,31 @@ export function UploadEvidence() {
           ) : (
             /* LIST VIEW */
             <div className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-xs">
-              <div className="overflow-x-auto">
+              <ul className="divide-y divide-line-subtle md:hidden">
+                {filteredFolders.map((folder) => {
+                  const stats = folderStats[folder.id] || { count: 0, sizeMb: 0 };
+                  return (
+                    <li key={folder.id}>
+                      <button
+                        type="button"
+                        onClick={() => setFolder(folder.id)}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-canvas"
+                      >
+                        <FolderIcon className="h-8 w-8 shrink-0 fill-amber-100 text-amber-400" strokeWidth={1.5} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-semibold text-ink">{folder.name}</span>
+                          <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-muted">
+                            <span className="rounded bg-slate-100 px-1.5 py-0.5 font-bold text-slate-700">{folder.code}</span>
+                            <Badge tone={getCategoryBadgeTone(folder.category)}>{folder.category}</Badge>
+                            <span>{stats.count} files · {stats.sizeMb} MB</span>
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="table">
                   <thead>
                     <tr>
@@ -1047,7 +981,7 @@ export function UploadEvidence() {
                         <tr
                           key={folder.id}
                           onClick={() => setFolder(folder.id)}
-                          className="hover:bg-slate-50/70 cursor-pointer transition-colors"
+                          className="tr-hover cursor-pointer"
                         >
                           <td>
                             <div className="flex items-center gap-3">
@@ -1184,7 +1118,7 @@ export function UploadEvidence() {
             </div>
 
             {/* Quick Switchers: Campus & Framework/Subfolder Jump */}
-            <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
               {/* Quick Campus Switcher inside folder */}
               <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg text-xs">
                 <Building2Icon className="h-3.5 w-3.5 text-slate-400" />
@@ -1213,7 +1147,7 @@ export function UploadEvidence() {
                       setActiveSubfolderFilter('all');
                       setFolder(e.target.value);
                     }}
-                    className="input h-8.5 text-xs py-1 pr-7 w-52 bg-slate-50 border-slate-200 rounded-lg font-medium"
+                    className="input h-8.5 text-xs py-1 pr-7 w-full sm:w-52 bg-slate-50 border-slate-200 rounded-lg font-medium"
                   >
                     {rootFrameworkFolders.map((f) => (
                       <option key={f.id} value={f.id}>
@@ -1228,7 +1162,7 @@ export function UploadEvidence() {
                   <select
                     value={currentFolder.id}
                     onChange={(e) => setFolder(e.target.value)}
-                    className="input h-8.5 text-xs py-1 pr-7 w-48 sm:w-56 bg-slate-50 border-slate-200 rounded-lg font-medium"
+                    className="input h-8.5 text-xs py-1 pr-7 w-full sm:w-56 bg-slate-50 border-slate-200 rounded-lg font-medium"
                   >
                     {siblingSubfolders.map((sib) => (
                       <option key={sib.id} value={sib.id}>
@@ -1368,14 +1302,14 @@ export function UploadEvidence() {
 
                 <div className="flex items-center gap-2 flex-wrap">
                   {insideSubfolders.length > 3 && (
-                    <div className="relative">
+                    <div className="relative w-full sm:w-auto">
                       <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                       <input
                         type="text"
                         value={subfolderSearch}
                         onChange={(e) => setSubfolderSearch(e.target.value)}
                         placeholder="Search subfolders..."
-                        className="input pl-7.5 pr-2 h-7.5 text-xs w-44 bg-slate-50 border-slate-200 rounded-lg focus:bg-white"
+                        className="input pl-7.5 pr-2 h-7.5 text-xs w-full sm:w-44 bg-slate-50 border-slate-200 rounded-lg focus:bg-surface"
                       />
                       {subfolderSearch && (
                         <button
@@ -1784,114 +1718,20 @@ export function UploadEvidence() {
               </div>
             )}
 
-            {/* Hidden native inputs */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept={uploadAcceptAttribute()}
-              className="hidden"
-              onChange={handleFilesInputSelection}
-            />
-            <input
-              ref={folderInputRef}
-              type="file"
-              // @ts-expect-error webkitdirectory standard on modern browsers
-              webkitdirectory=""
-              directory=""
-              multiple
-              className="hidden"
-              onChange={handleFolderInputSelection}
+            <UploadDropzone
+              key={uploadMode}
+              onFiles={handleStageUploads}
+              selectFolder={uploadMode === 'folder'}
+              allowFolders
+              title={uploadMode === 'folder' ? 'Drag a folder here' : 'Drag & drop files here'}
+              hint={uploadMode === 'folder' ? 'Imports the entire directory structure and indexes every nested evidence file.' : undefined}
             />
 
-            {/* Interactive Dropzone */}
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDropUpload}
-              onClick={() => {
-                if (uploadMode === 'folder') {
-                  folderInputRef.current?.click();
-                } else {
-                  fileInputRef.current?.click();
-                }
-              }}
-              className={`group border-2 border-dashed rounded-xl p-6 sm:p-7 text-center cursor-pointer transition-all duration-200 ${
-                isDragging
-                  ? 'border-brand-500 bg-brand-50/70 ring-2 ring-brand-400/30'
-                  : 'border-slate-300 hover:border-brand-400 bg-slate-50/40 hover:bg-brand-50/20'
-              }`}
-            >
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white border border-slate-200 shadow-2xs group-hover:scale-105 group-hover:border-brand-200 transition-all duration-200 mb-2.5">
-                {uploadMode === 'folder' ? (
-                  <FolderArchiveIcon className="h-6 w-6 text-amber-600" />
-                ) : (
-                  <UploadIcon className="h-6 w-6 text-brand-600" />
-                )}
-              </div>
-              <p className="text-sm font-semibold text-slate-800">
-                {uploadMode === 'folder' ? (
-                  <>
-                    <span className="text-brand-600 group-hover:underline">Choose a folder</span> or drag directory here
-                  </>
-                ) : (
-                  <>
-                    <span className="text-brand-600 group-hover:underline">Choose files</span> or drag and drop here
-                  </>
-                )}
-              </p>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                {uploadMode === 'folder'
-                  ? 'Imports entire directory structure and indexes all nested evidence files.'
-                  : 'Supports PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), and images up to 50 MB.'}
-              </p>
-            </div>
-
-            {/* Selected Files Preview List */}
-            {uploadedFileList.length > 0 && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 max-h-44 overflow-y-auto space-y-1.5 text-xs shadow-2xs">
-                <div className="flex items-center justify-between font-semibold text-slate-800 pb-1.5 border-b border-slate-200">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span>Ready for upload ({uploadedFileList.length} items)</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setUploadedFileList([])}
-                    className="text-danger-600 hover:underline text-[11px] font-semibold"
-                  >
-                    Clear All
-                  </button>
-                </div>
-                <div className="space-y-1 pr-1">
-                  {uploadedFileList.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between text-[11px] bg-white border border-slate-200/80 rounded-lg px-2.5 py-1.5 shadow-2xs"
-                    >
-                      <div className="flex items-center gap-2 truncate max-w-[420px]">
-                        {item.name.endsWith('.xlsx') || item.name.endsWith('.csv') ? (
-                          <FileSpreadsheetIcon className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                        ) : item.name.endsWith('.docx') ? (
-                          <FileTextIcon className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                        ) : (
-                          <FileTextIcon className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                        )}
-                        <span className="truncate font-medium text-slate-800">
-                          {item.path || item.name}
-                        </span>
-                      </div>
-                      <span className="text-slate-400 font-mono text-[10px] shrink-0 ml-2">
-                        {(item.size / 1024).toFixed(1)} KB
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <StagedFileList
+              items={uploadedFileList}
+              onRemove={(idx) => setUploadedFileList((prev) => prev.filter((_, i) => i !== idx))}
+              onClear={() => setUploadedFileList([])}
+            />
           </div>
         </Modal>
       )}
