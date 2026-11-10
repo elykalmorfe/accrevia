@@ -1,10 +1,22 @@
+const token = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
 export default {
+  darkMode: 'class',
   content: [
     './index.html',
     './src/**/*.{js,ts,jsx,tsx}'
   ],
   theme: {
     extend: {
+      screens: {
+        xs: '480px',
+      },
+      spacing: {
+        '4.5': '1.125rem',
+      },
+      backdropBlur: {
+        xs: '2px',
+      },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
         serif: ['"Source Serif 4"', 'Georgia', 'serif'],
@@ -34,25 +46,34 @@ export default {
           500: '#F59E0B',
           700: '#B45309',
         },
-        canvas: '#F8FAFC', // Crisp cool light slate background (from reference)
+        // Theme-aware tokens; values live in index.css (:root and .dark).
+        canvas: token('canvas'),
+        surface: {
+          DEFAULT: token('surface'),
+          raised: token('surface-raised'),
+        },
+        'brand-tint': token('brand-tint'),
         line: {
-          DEFAULT: '#E2E8F0',
-          strong: '#CBD5E1',
-          subtle: '#F1F5F9',
+          DEFAULT: token('line'),
+          strong: token('line-strong'),
+          subtle: token('line-subtle'),
         },
         ink: {
-          DEFAULT: '#0F172A', // High contrast slate/black
-          muted: '#64748B',  // Slate 500
-          subtle: '#94A3B8', // Slate 400
+          DEFAULT: token('ink'),
+          muted: token('ink-muted'),
+          subtle: token('ink-subtle'),
         },
         success: { 50: '#F0FDF4', 100: '#DCFCE7', 600: '#16A34A', 700: '#15803D' },
         warning: { 50: '#FFFBEB', 100: '#FEF3C7', 600: '#D97706', 700: '#B45309' },
         danger: { 50: '#FEF2F2', 100: '#FEE2E2', 600: '#DC2626', 700: '#B91C1C' },
       },
       boxShadow: {
-        'soft': '0 4px 20px -2px rgba(15, 23, 42, 0.05)',
-        'soft-lg': '0 10px 25px -3px rgba(15, 23, 42, 0.06), 0 4px 6px -4px rgba(15, 23, 42, 0.02)',
+        '2xs': '0 1px 0 0 rgb(var(--shadow-color) / 0.04)',
+        'xs': '0 1px 2px 0 rgb(var(--shadow-color) / 0.06)',
+        'soft': '0 4px 20px -2px rgb(var(--shadow-color) / var(--shadow-strength))',
+        'soft-lg': '0 12px 32px -6px rgb(var(--shadow-color) / calc(var(--shadow-strength) * 2)), 0 4px 8px -4px rgb(var(--shadow-color) / var(--shadow-strength))',
         'brand': '0 8px 24px -4px rgba(37, 99, 235, 0.25)',
+        'glow': '0 0 0 1px rgb(59 130 246 / 0.15), 0 6px 20px -4px rgb(59 130 246 / 0.35)',
       }
     },
   },
