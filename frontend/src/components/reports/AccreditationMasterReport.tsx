@@ -4,7 +4,7 @@ import { Badge } from '../ui/Badge';
 import { PrinterIcon } from 'lucide-react';
 import { AccreditationReportModal } from '../accreditation/AccreditationReportModal';
 import { CampusId } from '../../types/accreditation';
-import { isUrl } from '../../utils/programAccreditation';
+import { isUrl, statusLabel } from '../../utils/programAccreditation';
 
 export function AccreditationMasterReport() {
   const { campuses, programAccreditations, selectedCampus, setSelectedCampus, selectedCampusObj } = usePortal();
@@ -156,7 +156,7 @@ export function AccreditationMasterReport() {
                       }
                       dot
                     >
-                      {p.status}
+                      {statusLabel(p.status)}
                     </Badge>
                   </td>
                   <td className="td py-2.5 text-ink-muted whitespace-nowrap">
