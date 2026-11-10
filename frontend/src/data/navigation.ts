@@ -5,8 +5,10 @@ import {
   ShieldCheckIcon,
   LayoutDashboardIcon,
   FolderKanbanIcon,
+  InboxIcon,
   LucideIcon,
   SettingsIcon,
+  UserIcon,
   UsersIcon
 } from 'lucide-react';
 
@@ -23,6 +25,10 @@ export interface NavItem {
   icon: LucideIcon;
   matchPrefix?: string;
   badge?: string;
+  /** Shows a live count badge computed by the sidebar. */
+  countKey?: 'requests';
+  /** `account` items render in the lower group of the sidebar. */
+  section?: 'account';
   color: {
     iconBg: string;
     iconColor: string;
@@ -76,6 +82,18 @@ export const navigation: NavItem[] = [
     ]
   },
   {
+    label: 'Requests',
+    to: '/requests',
+    icon: InboxIcon,
+    matchPrefix: '/requests',
+    countKey: 'requests',
+    color: {
+      iconBg: 'bg-rose-500/10',
+      iconColor: 'text-rose-600',
+      border: 'border-rose-500/20'
+    }
+  },
+  {
     label: 'Reports & Analytics',
     to: '/reports',
     icon: BarChart3Icon,
@@ -86,9 +104,22 @@ export const navigation: NavItem[] = [
     }
   },
   {
-    label: 'Users',
+    label: 'My Profile',
+    to: '/account',
+    matchPrefix: '/account',
+    icon: UserIcon,
+    section: 'account',
+    color: {
+      iconBg: 'bg-indigo-500/10',
+      iconColor: 'text-indigo-600',
+      border: 'border-indigo-500/20'
+    }
+  },
+  {
+    label: 'User Management',
     to: '/users',
     icon: UsersIcon,
+    section: 'account',
     color: {
       iconBg: 'bg-cyan-500/10',
       iconColor: 'text-cyan-600',
@@ -99,6 +130,7 @@ export const navigation: NavItem[] = [
     label: 'Settings',
     to: '/settings',
     icon: SettingsIcon,
+    section: 'account',
     color: {
       iconBg: 'bg-slate-500/10',
       iconColor: 'text-slate-600',
@@ -136,6 +168,30 @@ export const userNavigation: NavItem[] = [
       iconBg: 'bg-purple-500/10',
       iconColor: 'text-purple-600',
       border: 'border-purple-500/20'
+    }
+  },
+  {
+    label: 'My Requests',
+    to: '/requests',
+    icon: InboxIcon,
+    matchPrefix: '/requests',
+    countKey: 'requests',
+    color: {
+      iconBg: 'bg-rose-500/10',
+      iconColor: 'text-rose-600',
+      border: 'border-rose-500/20'
+    }
+  },
+  {
+    label: 'My Profile',
+    to: '/account',
+    matchPrefix: '/account',
+    icon: UserIcon,
+    section: 'account',
+    color: {
+      iconBg: 'bg-indigo-500/10',
+      iconColor: 'text-indigo-600',
+      border: 'border-indigo-500/20'
     }
   }
 ];
