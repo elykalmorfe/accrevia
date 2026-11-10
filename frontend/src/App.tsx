@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import { PortalProvider } from './contexts/PortalContext';
@@ -31,6 +31,7 @@ import { Account } from './pages/Account';
 import { UserHome } from './pages/user/UserHome';
 import { SharedWithMe } from './pages/user/SharedWithMe';
 import { SavedEvidence } from './pages/user/SavedEvidence';
+import { Requests } from './pages/Requests';
 
 interface AppProps {
   /** Which signed-in experience to preview. Non-administrators only see evidence explicitly shared with them. */
@@ -59,6 +60,8 @@ export function App({ viewAs = 'Administrator' }: AppProps) {
                     <Route path="evidence/processing" element={<DocumentProcessing />} />
                     <Route path="evidence/shared" element={<SharedEvidence />} />
                     <Route path="evidence/archived" element={<ArchivedEvidence />} />
+                    <Route path="requests" element={<Requests />} />
+                    <Route path="requests/:requestId" element={<Requests />} />
                     
                     {/* Accreditation & Frameworks */}
                     <Route path="frameworks" element={<Navigate to="/frameworks/ia" replace />} />
@@ -85,6 +88,8 @@ export function App({ viewAs = 'Administrator' }: AppProps) {
                     <Route index element={<UserHome />} />
                     <Route path="shared-with-me" element={<SharedWithMe />} />
                     <Route path="saved" element={<SavedEvidence />} />
+                    <Route path="requests" element={<Requests />} />
+                    <Route path="requests/:requestId" element={<Requests />} />
                     <Route path="evidence/common" element={<CommonDocumentsView />} />
                     <Route path="search" element={<SearchResults />} />
                     <Route path="documents/:id" element={<DocumentViewer />} />
