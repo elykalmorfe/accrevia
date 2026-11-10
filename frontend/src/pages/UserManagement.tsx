@@ -34,6 +34,52 @@ const statusTone: Record<UserStatus, BadgeTone> = {
   Rejected: 'danger'
 };
 
+type AccessTone = 'full' | 'elevated' | 'scoped' | 'limited' | 'denied';
+
+const ACCESS_TONE: Record<AccessTone, string> = {
+  full: 'text-emerald-600 font-bold',
+  elevated: 'text-purple-700 font-bold',
+  scoped: 'text-brand-700 font-bold',
+  limited: 'text-ink-muted',
+  denied: 'text-rose-600 font-bold'
+};
+
+const PERMISSION_ROLES = ['Superadmin', 'Admin', 'QA Personnel', 'Faculty / Staff (User)', 'Accreditor (Ext.)'];
+
+const cell = (label: string, tone: AccessTone) => ({ label, tone });
+const YES = cell('Yes', 'full');
+const NO = cell('No', 'denied');
+
+const PERMISSION_MATRIX: { capability: string; access: { label: string; tone: AccessTone }[] }[] = [
+  {
+    capability: 'Accessible Common Docs (Instruments, PPP, Findings, BOR)',
+    access: [
+      cell('Full Access', 'full'),
+      cell('Full Access', 'full'),
+      cell('Full Access', 'full'),
+      cell('Full Access', 'full'),
+      cell('Read-Only', 'full')
+    ]
+  },
+  {
+    capability: 'Confidential Common Docs (Technical Review, COPC, Memos, Endorsements)',
+    access: [
+      cell('Full Access', 'elevated'),
+      cell('Authorized Only', 'scoped'),
+      cell('Audit-Scoped', 'limited'),
+      cell('Restricted', 'denied'),
+      cell('Restricted', 'denied')
+    ]
+  },
+  { capability: 'IA Document Folder Management (Create, Rename, Delete)', access: [YES, YES, YES, NO, NO] },
+  {
+    capability: 'Upload Recursive Folders & Evidence Documents',
+    access: [YES, YES, YES, cell('Assigned Only', 'limited'), NO]
+  },
+  { capability: 'User Management & Affiliation Verification', access: [YES, YES, NO, NO, NO] },
+  { capability: 'System Configuration & Security Overrides', access: [cell('Complete', 'elevated'), NO, NO, NO, NO] }
+];
+
 export function UserManagement() {
   const { users: list, saveUser, setUserStatus: updateUserStatus } = usePortal();
   const [activeTab, setActiveTab] = useState<'users' | 'approvals' | 'permissions'>('users');
@@ -470,7 +516,7 @@ export function UserManagement() {
                 return (
                   <div
                     key={u.id}
-                    className="panel p-4 flex flex-col justify-between border-amber-200/80 bg-white shadow-xs"
+                    className="panel p-4 flex flex-col justify-between border-amber-200/80 shadow-xs"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
@@ -554,79 +600,41 @@ export function UserManagement() {
               Security permissions are strictly partitioned across Superadmin, Administrator, and User roles to safeguard confidential institutional accreditation assets.
             </p>
 
-            <div className="mt-4 overflow-x-auto">
+            <ul className="mt-4 space-y-2.5 md:hidden">
+              {PERMISSION_MATRIX.map((row) => (
+                <li key={row.capability} className="rounded-xl border border-line p-3.5">
+                  <p className="text-[13px] font-semibold text-ink">{row.capability}</p>
+                  <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-2">
+                    {PERMISSION_ROLES.map((role, i) => (
+                      <div key={role} className="min-w-0">
+                        <dt className="text-[10.5px] font-semibold uppercase tracking-wide text-ink-subtle">{role}</dt>
+                        <dd className={`text-xs ${ACCESS_TONE[row.access[i].tone]}`}>{row.access[i].label}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-4 hidden overflow-x-auto md:block">
               <table className="w-full text-left text-xs min-w-[700px]">
                 <thead className="bg-canvas border-b border-line text-ink-muted">
                   <tr>
                     <th className="th py-3">Security Capability / Asset</th>
-                    <th className="th py-3">Superadmin</th>
-                    <th className="th py-3">Admin</th>
-                    <th className="th py-3">QA Personnel</th>
-                    <th className="th py-3">Faculty / Staff (User)</th>
-                    <th className="th py-3">Accreditor (Ext.)</th>
+                    {PERMISSION_ROLES.map((role) => (
+                      <th key={role} className="th py-3">{role}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  <tr>
-                    <td className="td py-3 font-medium text-ink">
-                      Accessible Common Docs (Instruments, PPP, Findings, BOR)
-                    </td>
-                    <td className="td py-3 text-emerald-600 font-bold">Full Access</td>
-                    <td className="td py-3 text-emerald-600 font-bold">Full Access</td>
-                    <td className="td py-3 text-emerald-600 font-bold">Full Access</td>
-                    <td className="td py-3 text-emerald-600 font-bold">Full Access</td>
-                    <td className="td py-3 text-emerald-600 font-bold">Read-Only</td>
-                  </tr>
-                  <tr>
-                    <td className="td py-3 font-medium text-ink">
-                      Confidential Common Docs (Technical Review, COPC, Memos, Endorsements)
-                    </td>
-                    <td className="td py-3 text-purple-700 font-bold">Full Access</td>
-                    <td className="td py-3 text-brand-700 font-bold">Authorized Only</td>
-                    <td className="td py-3 text-ink-muted">Audit-Scoped</td>
-                    <td className="td py-3 text-rose-600 font-bold">Restricted</td>
-                    <td className="td py-3 text-rose-600 font-bold">Restricted</td>
-                  </tr>
-                  <tr>
-                    <td className="td py-3 font-medium text-ink">
-                      IA Document Folder Management (Create, Rename, Delete)
-                    </td>
-                    <td className="td py-3 text-emerald-600 font-bold">Yes</td>
-                    <td className="td py-3 text-emerald-600 font-bold">Yes</td>
-                    <td className="td py-3 text-emerald-600 font-bold">Yes</td>
-                    <td className="td py-3 text-rose-600 font-bold">No</td>
-                    <td className="td py-3 text-rose-600 font-bold">No</td>
-                  </tr>
-                  <tr>
-                    <td className="td py-3 font-medium text-ink">
-                      Upload Recursive Folders & Evidence Documents
-                    </td>
-                    <td className="td py-3 text-emerald-600 font-bold">Yes</td>
-                    <td className="td py-3 text-emerald-600 font-bold">Yes</td>
-                    <td className="td py-3 text-emerald-600 font-bold">Yes</td>
-                    <td className="td py-3 text-ink-muted">Assigned Only</td>
-                    <td className="td py-3 text-rose-600 font-bold">No</td>
-                  </tr>
-                  <tr>
-                    <td className="td py-3 font-medium text-ink">
-                      User Management & Affiliation Verification
-                    </td>
-                    <td className="td py-3 text-emerald-600 font-bold">Yes</td>
-                    <td className="td py-3 text-emerald-600 font-bold">Yes</td>
-                    <td className="td py-3 text-rose-600 font-bold">No</td>
-                    <td className="td py-3 text-rose-600 font-bold">No</td>
-                    <td className="td py-3 text-rose-600 font-bold">No</td>
-                  </tr>
-                  <tr>
-                    <td className="td py-3 font-medium text-ink">
-                      System Configuration & Security Overrides
-                    </td>
-                    <td className="td py-3 text-purple-700 font-bold">Complete</td>
-                    <td className="td py-3 text-rose-600 font-bold">No</td>
-                    <td className="td py-3 text-rose-600 font-bold">No</td>
-                    <td className="td py-3 text-rose-600 font-bold">No</td>
-                    <td className="td py-3 text-rose-600 font-bold">No</td>
-                  </tr>
+                  {PERMISSION_MATRIX.map((row) => (
+                    <tr key={row.capability} className="tr-hover">
+                      <td className="td py-3 font-medium text-ink">{row.capability}</td>
+                      {row.access.map((cell, i) => (
+                        <td key={PERMISSION_ROLES[i]} className={`td py-3 ${ACCESS_TONE[cell.tone]}`}>{cell.label}</td>
+                      ))}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

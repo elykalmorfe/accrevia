@@ -285,7 +285,7 @@ export function Dashboard() {
         {/* Card 1: Program Accreditation */}
         <Link
           to="/frameworks/pa"
-          className="panel group p-5 bg-white border border-slate-200/90 hover:border-brand-300 hover:shadow-soft transition-all"
+          className="panel group p-5 border border-slate-200/90 hover:border-brand-300 hover:shadow-soft transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink-muted">AACCUP Programs</span>
@@ -310,7 +310,7 @@ export function Dashboard() {
         {/* Card 2: CHED COPC Compliance */}
         <Link
           to="/frameworks/copc"
-          className="panel group p-5 bg-white border border-slate-200/90 hover:border-emerald-300 hover:shadow-soft transition-all"
+          className="panel group p-5 border border-slate-200/90 hover:border-emerald-300 hover:shadow-soft transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink-muted">CHED COPC</span>
@@ -332,7 +332,7 @@ export function Dashboard() {
         {/* Card 3: Evidence Repository */}
         <Link
           to="/evidence"
-          className="panel group p-5 bg-white border border-slate-200/90 hover:border-amber-300 hover:shadow-soft transition-all"
+          className="panel group p-5 border border-slate-200/90 hover:border-amber-300 hover:shadow-soft transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink-muted">Evidence Files</span>
@@ -356,7 +356,7 @@ export function Dashboard() {
         {/* Card 4: ISO 9001 & PQA Standard */}
         <Link
           to="/frameworks/iso"
-          className="panel group p-5 bg-white border border-slate-200/90 hover:border-indigo-300 hover:shadow-soft transition-all"
+          className="panel group p-5 border border-slate-200/90 hover:border-indigo-300 hover:shadow-soft transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink-muted">ISO 9001 & PQA</span>
@@ -383,9 +383,9 @@ export function Dashboard() {
           ───────────────────────────────────────────────────────────────── */}
       <section className="grid gap-5 lg:grid-cols-12">
         {/* LEFT (7 Cols): CLEAN ATTAINMENT TREND BAR CHART */}
-        <div className="panel p-5 bg-white shadow-soft lg:col-span-7 flex flex-col justify-between">
+        <div className="panel p-5 shadow-soft lg:col-span-7 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
               <div>
                 <h2 className="text-sm font-bold text-ink">Accreditation Attainment</h2>
                 <p className="text-xs text-ink-muted">
@@ -394,7 +394,7 @@ export function Dashboard() {
               </div>
 
               {/* Legend Toggles */}
-              <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 <button
                   type="button"
                   onClick={() => setActiveLegendBar(activeLegendBar === 'inst' ? 'all' : 'inst')}
@@ -496,7 +496,7 @@ export function Dashboard() {
         </div>
 
         {/* RIGHT (5 Cols): CORE QUALITY FRAMEWORKS LIST */}
-        <div className="panel p-5 bg-white shadow-soft lg:col-span-5 flex flex-col justify-between">
+        <div className="panel p-5 shadow-soft lg:col-span-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h2 className="text-sm font-bold text-ink">Framework Readiness</h2>
@@ -620,7 +620,7 @@ export function Dashboard() {
           ───────────────────────────────────────────────────────────────── */}
       <section className="grid gap-5 lg:grid-cols-12">
         {/* RECENT EVIDENCE TABLE (8 Cols) */}
-        <div className="panel bg-white shadow-soft lg:col-span-8 flex flex-col justify-between overflow-hidden">
+        <div className="panel shadow-soft lg:col-span-8 flex flex-col justify-between overflow-hidden">
           <div>
             <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
@@ -634,14 +634,14 @@ export function Dashboard() {
 
               {/* Search & Framework Filter */}
               <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
+                <div className="relative w-full xs:w-auto">
                   <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-subtle" />
                   <input
                     type="text"
                     value={docSearchQuery}
                     onChange={(e) => setDocSearchQuery(e.target.value)}
                     placeholder="Search documents..."
-                    className="h-8 w-36 sm:w-44 rounded-lg border border-slate-200 bg-white pl-8 pr-2 text-xs text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none"
+                    className="h-8 w-full xs:w-44 rounded-lg border border-slate-200 bg-surface pl-8 pr-2 text-xs text-ink placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none"
                   />
                 </div>
 
@@ -658,7 +658,7 @@ export function Dashboard() {
                       onClick={() => setFrameworkFilter(val)}
                       className={`px-2 py-0.5 rounded text-[11px] transition-all ${
                         frameworkFilter === val
-                          ? 'bg-white text-ink shadow-2xs font-semibold'
+                          ? 'bg-surface text-ink shadow-2xs font-semibold'
                           : 'text-ink-muted hover:text-ink'
                       }`}
                     >
@@ -669,9 +669,35 @@ export function Dashboard() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <ul className="divide-y divide-line-subtle md:hidden">
+              {recent.length === 0 && (
+                <li className="px-4 py-10 text-center text-xs text-ink-muted">
+                  {documents.length === 0 ? 'No documents uploaded yet.' : 'No documents match your filters.'}
+                </li>
+              )}
+              {recent.map((d) => (
+                <li key={d.id}>
+                  <Link to={`/documents/${d.id}`} className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-canvas">
+                    <span className="mt-0.5 shrink-0">{getFileIcon(d.title)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-semibold text-ink">{d.title}</span>
+                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-muted">
+                        <FrameworkTag frameworkId={d.frameworkId} />
+                        <span>{lookup.area(d.areaId)?.shortName || 'General'}</span>
+                        <span>· {formatDate(d.dateAdded)}</span>
+                      </span>
+                    </span>
+                    <span className="shrink-0">
+                      <StatusBadge status={d.status} />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50/70 border-b border-slate-100 text-ink-muted">
+                <thead className="bg-canvas border-b border-line-subtle text-ink-muted">
                   <tr>
                     <th className="th py-2.5">Document Title</th>
                     <th className="th py-2.5">Framework</th>
@@ -693,7 +719,7 @@ export function Dashboard() {
                     <tr
                       key={d.id}
                       onClick={() => navigate(`/documents/${d.id}`)}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                      className="tr-hover cursor-pointer group"
                     >
                       <td className="td py-2.5 max-w-[220px]">
                         <div className="flex items-center gap-2">
@@ -758,7 +784,7 @@ export function Dashboard() {
         {/* RIGHT (4 Cols): ACTION CENTER & ACCESS REQUESTS */}
         <div className="space-y-4 lg:col-span-4 flex flex-col">
           {/* ACCESS REQUESTS */}
-          <div className="panel p-4 bg-white shadow-soft border-l-4 border-l-amber-500 flex flex-col justify-between">
+          <div className="panel p-4 shadow-soft border-l-4 border-l-amber-500 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
                 <div className="flex items-center gap-2">
@@ -811,7 +837,7 @@ export function Dashboard() {
           </div>
 
           {/* QUICK SHORTCUTS CARD */}
-          <div className="panel p-4 bg-white shadow-soft flex-1 flex flex-col justify-between">
+          <div className="panel p-4 shadow-soft flex-1 flex flex-col justify-between">
             <div>
               <h3 className="text-xs font-bold text-ink pb-2.5 border-b border-slate-100">
                 Quick Shortcuts
