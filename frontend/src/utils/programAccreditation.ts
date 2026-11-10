@@ -91,12 +91,34 @@ export function isAccreditedLevel(level?: AccreditationLevel | null): boolean {
   return rank !== null && rank >= 1;
 }
 
-/** `Level 2` → `Level II`; non-level statuses are returned unchanged. */
+/** Levels that get their own certificate folder, in display order. */
+export const CERTIFICATE_LEVELS: AccreditationLevel[] = ['Candidate', 'Level 1', 'Level 2', 'Level 3', 'Level 4'];
+
+/** `areaId` shared by a program's certificate folders and documents. */
+export function certificateAreaKey(programId: string): string {
+  return `cert-${programId}`;
+}
+
+/** `areaId` shared by a campus's institutional (IA) certificate folders and documents. */
+export function institutionalCertificateAreaKey(campusId: string): string {
+  return `cert-ia-${campusId}`;
+}
+
+export function isCertificateArea(areaId?: string | null): boolean {
+  return !!areaId && areaId.startsWith('cert-');
+}
+
+/** Display name for a stored status; `Not Accreditable` is shown as `New Program`. */
+export function statusLabel(level: string): string {
+  return level === 'Not Accreditable' ? 'New Program' : level;
+}
+
+/** `Level 2` → `Level II`; non-level statuses are returned as their display label. */
 export function formatLevel(level?: AccreditationLevel | null): string {
   if (!level) return 'No recorded level';
   const rank = levelRank(level);
   if (rank && rank >= 1) return `Level ${ROMAN[rank]}`;
-  return level;
+  return statusLabel(level);
 }
 
 // ================= Expiry =================
