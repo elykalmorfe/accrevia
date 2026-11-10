@@ -59,11 +59,11 @@ export function RowActionsMenu({
       top: position.top,
       left: position.left,
       width: MENU_WIDTH
-    }} className="fixed z-50 rounded-md border border-line bg-white py-1 shadow-lg">
+    }} className="fixed z-50 animate-[menu-in_120ms_ease-out] overflow-hidden rounded-xl border border-line bg-surface-raised p-1 shadow-soft-lg">
             {actions.map((action) => <button key={action.label} type="button" role="menuitem" onClick={() => {
         close();
         action.onSelect();
-      }} className={`flex h-9 w-full items-center gap-2.5 px-3 text-left text-[13px] hover:bg-canvas ${action.tone === 'danger' ? 'text-danger-700' : 'text-ink'}`}>
+      }} className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors ${action.tone === 'danger' ? 'text-danger-700 hover:bg-danger-50' : 'text-ink hover:bg-canvas'}`}>
                 <action.icon className="h-4 w-4 opacity-70" aria-hidden="true" />
                 {action.label}
               </button>)}

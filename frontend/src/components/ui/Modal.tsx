@@ -48,7 +48,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
       {open && (
         <div className={`fixed inset-0 ${zIndex} flex items-end justify-center overflow-y-auto p-0 sm:items-center sm:p-4`}>
           <motion.div
-            className="fixed inset-0 bg-ink/50 backdrop-blur-xs"
+            className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -61,7 +61,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className={`relative flex max-h-[92vh] sm:max-h-[calc(100vh-4rem)] w-full min-h-0 flex-col overflow-hidden rounded-t-3xl sm:rounded-2xl border border-line bg-white shadow-2xl pb-safe sm:pb-0 ${sizes[size]}`}
+            className={`relative flex max-h-[92dvh] sm:max-h-[calc(100dvh-4rem)] w-full min-h-0 flex-col overflow-hidden rounded-t-3xl sm:rounded-2xl border border-line bg-surface-raised shadow-2xl pb-safe sm:pb-0 ${sizes[size]}`}
             initial={{ opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.98 }}
@@ -69,7 +69,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
           >
             {/* Mobile Sheet Pull Bar */}
             <div className="flex sm:hidden justify-center pt-2.5 pb-1">
-              <div className="h-1.5 w-12 rounded-full bg-slate-300/80" />
+              <div className="h-1.5 w-12 rounded-full bg-line-strong" />
             </div>
 
             {(title || description) ? (
@@ -105,7 +105,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
             )}
             <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 overscroll-contain">{children}</div>
             {footer && (
-              <div className="flex flex-col-reverse sm:flex-row flex-wrap sm:justify-end gap-2 border-t border-line px-4 py-3 sm:px-6 sm:py-4 bg-slate-50/60 sm:bg-transparent">
+              <div className="flex flex-col-reverse sm:flex-row flex-wrap sm:justify-end gap-2 border-t border-line px-4 py-3 sm:px-6 sm:py-4 bg-canvas/60">
                 {footer}
               </div>
             )}
