@@ -1,7 +1,7 @@
-﻿import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { logoSrc, usePortalSettings } from '../../settings/portalSettings';
 
-export function Brand({ showSubtitle = true }: { showSubtitle?: boolean }) {
+export function Brand({ showSubtitle = true, compact = false }: { showSubtitle?: boolean; compact?: boolean }) {
   const settings = usePortalSettings();
   const { systemName, institution } = settings.general;
 
@@ -18,7 +18,7 @@ export function Brand({ showSubtitle = true }: { showSubtitle?: boolean }) {
           className="h-full w-full object-cover rounded-full select-none"
         />
       </div>
-      <div className="leading-tight">
+      <div className={`leading-tight ${compact ? 'sr-only' : ''}`}>
         <div className="flex items-center gap-1.5">
           <span className="block font-sans text-base sm:text-[17px] font-extrabold tracking-tight text-ink group-hover:text-brand-600 transition-colors">
             {systemName || 'Accrevia'}

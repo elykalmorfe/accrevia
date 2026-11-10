@@ -23,7 +23,10 @@ const placeholders = [
 ];
 
 
-export function GlobalSearch() {
+/** `overlay` is the full-width phone search: it focuses on mount and calls `onDone` after a search or Escape. */
+export function GlobalSearch({ variant = 'inline', onDone }: { variant?: 'inline' | 'overlay'; onDone?: () => void } = {}) {
+  const overlay = variant === 'overlay';
+  const inputId = useId();
   const navigate = useNavigate();
   const location = useLocation();
   const { recentSearches, addRecentSearch } = usePortal();
@@ -47,6 +50,13 @@ export function GlobalSearch() {
   }, [location.pathname, location.search]);
 
   useEffect(() => {
+    if (!overlay) return;
+    inputRef.current?.focus();
+    setOpen(true);
+  }, [overlay]);
+
+  useEffect(() => {
+    if (overlay) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -57,7 +67,7 @@ export function GlobalSearch() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [overlay]);
 
   useEffect(() => {
     if (focused || query) return;
@@ -100,6 +110,7 @@ export function GlobalSearch() {
     close();
     inputRef.current?.blur();
     navigate(`/search?q=${encodeURIComponent(q)}`);
+    onDone?.();
   };
 
   const select = (item: SuggestionItem) => {
@@ -108,6 +119,7 @@ export function GlobalSearch() {
       close();
       inputRef.current?.blur();
       navigate(`/documents/${item.id}?q=${encodeURIComponent(trimmed)}`);
+      onDone?.();
       return;
     }
     runSearch(item.label);
@@ -128,6 +140,7 @@ export function GlobalSearch() {
     } else if (e.key === 'Escape') {
       close();
       inputRef.current?.blur();
+      onDone?.();
     }
   };
 
@@ -189,13 +202,13 @@ export function GlobalSearch() {
           runSearch(query);
         }}>
         
-        <label htmlFor="global-search" className="sr-only">
+        <label htmlFor={inputId} className="sr-only">
           Search accreditation evidence
         </label>
         <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-ink-subtle" aria-hidden="true" />
         <input
           ref={inputRef}
-          id="global-search"
+          id={inputId}
           type="text"
           role="combobox"
           aria-expanded={open}
@@ -215,7 +228,7 @@ export function GlobalSearch() {
           }}
           onBlur={() => setFocused(false)}
           onKeyDown={onKeyDown}
-          className="h-10 w-full rounded-2xl border border-slate-200/80 bg-slate-50/70 pl-9 sm:pl-10 pr-9 sm:pr-20 text-[13px] sm:text-[14px] text-ink placeholder:text-ink-subtle transition-all duration-200 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 shadow-none hover:bg-slate-100/60" />
+          className="h-10 w-full rounded-xl border border-line bg-canvas/70 pl-10 pr-9 text-[16px] text-ink shadow-none transition-all duration-200 placeholder:text-ink-subtle hover:border-line-strong hover:bg-canvas focus:border-brand-500 focus:bg-surface focus:outline-none focus:ring-4 focus:ring-brand-500/15 sm:pr-20 sm:text-[14px]" />
         
         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
           {query ?
@@ -225,7 +238,7 @@ export function GlobalSearch() {
               setQuery('');
               inputRef.current?.focus();
             }}
-            className="grid h-7 w-7 place-items-center rounded text-ink-subtle hover:bg-line hover:text-ink"
+            className="grid h-7 w-7 place-items-center rounded-lg text-ink-subtle hover:bg-line hover:text-ink"
             aria-label="Clear search">
             
               <XIcon className="h-4 w-4" />
@@ -243,7 +256,7 @@ export function GlobalSearch() {
         {open &&
         <motion.div
           {...popoverMotion}
-          className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-0 sm:right-0 top-full z-40 mt-2 w-[calc(100vw-1.5rem)] max-w-lg sm:w-full overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
+          className={`absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-line bg-surface-raised shadow-soft-lg ${overlay ? 'w-full' : 'max-w-lg'}`}>
           
             <ul id={listId} role="listbox" aria-label="Search suggestions" className="max-h-[60vh] overflow-y-auto py-1.5">
               {trimmed ?

@@ -1,4 +1,4 @@
-﻿import { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BellIcon, XIcon } from 'lucide-react';
@@ -8,8 +8,11 @@ import { popoverMotion } from '../../utils/motion';
 import { useReminders } from '../../hooks/useReminders';
 
 export function NotificationsMenu() {
-  const { notifications: portalNotifications, dismissNotification: dismissPortalNotification } = usePortal();
+  const { notifications: allPortalNotifications, dismissNotification: dismissPortalNotification, isAdmin, currentUser } = usePortal();
   const { reminders, dismissReminder } = useReminders();
+  const portalNotifications = allPortalNotifications.filter(
+    (n) => !n.audience || (n.audience === 'admins' ? isAdmin : n.audience === currentUser.id)
+  );
   const notifications = [...reminders, ...portalNotifications];
   const dismissNotification = (id: string) => (id.startsWith('rem-') ? dismissReminder(id) : dismissPortalNotification(id));
   const [open, setOpen] = useState(false);
@@ -24,11 +27,11 @@ export function NotificationsMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Notifications, ${notifications.length} new`}
-        className="btn btn-ghost btn-icon relative h-9 w-9">
+        className="btn btn-ghost btn-icon relative h-9 w-9 min-h-0 min-w-0 text-ink-muted hover:text-ink">
         
         <BellIcon className="h-[18px] w-[18px]" />
         {notifications.length > 0 && (
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger-600 ring-2 ring-white" aria-hidden="true" />
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger-600 ring-2 ring-surface" aria-hidden="true" />
         )}
       </button>
       <AnimatePresence>
@@ -36,7 +39,7 @@ export function NotificationsMenu() {
         <motion.div
           {...popoverMotion}
           role="menu"
-          className="absolute right-0 top-full z-40 mt-2 w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-line bg-white shadow-lg">
+          className="fixed inset-x-3 top-[4.25rem] z-40 overflow-hidden rounded-xl border border-line bg-surface-raised shadow-soft-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[24rem]">
           
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <span className="text-sm font-semibold text-ink">Notifications ({notifications.length})</span>
