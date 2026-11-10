@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { DownloadIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,13 +15,15 @@ interface DocumentPreviewModalProps {
   onClose: () => void;
   terms?: string[];
   query?: string;
+  /** Lets everyone who can open the surrounding screen view and download, regardless of shares. */
+  grantAccess?: boolean;
 }
 
-export function DocumentPreviewModal({ doc, onClose, terms = [], query }: DocumentPreviewModalProps) {
+export function DocumentPreviewModal({ doc, onClose, terms = [], query, grantAccess = false }: DocumentPreviewModalProps) {
   const lookup = useLookup();
   const { logAccess } = usePortal();
   const { rightsFor } = useAccess();
-  const rights = doc ? rightsFor(doc.id) : { canView: false, canDownload: false };
+  const rights = !doc ? { canView: false, canDownload: false } : grantAccess ? { canView: true, canDownload: true } : rightsFor(doc.id);
   const meta = doc ?
   [lookup.framework(doc.frameworkId)?.shortName, lookup.criterion(doc.criterionId)?.code, doc.docType, `${doc.pages} pages`].filter(Boolean).join(' · ') :
   '';
