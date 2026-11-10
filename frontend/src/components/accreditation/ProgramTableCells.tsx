@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { ArrowUpRightIcon, ChevronDownIcon } from 'lucide-react';
 import { AccreditationLevel, ProgramAccreditation } from '../../types/accreditation';
-import { formatReportDate, getExpiryInfo, levelRank, parseAccreditationDate } from '../../utils/programAccreditation';
+import { formatReportDate, getExpiryInfo, levelRank, parseAccreditationDate, statusLabel } from '../../utils/programAccreditation';
 
 const LEVEL_STYLES: Record<string, { pill: string; bar: string }> = {
   Candidate: { pill: 'bg-amber-50 text-amber-800 ring-amber-200', bar: 'bg-amber-400' },
@@ -22,7 +22,7 @@ export function LevelPill({ level }: { level: AccreditationLevel }) {
       <span
         className={`inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ring-1 ring-inset ${style.pill}`}
       >
-        {level}
+        {statusLabel(level)}
       </span>
       {rank !== null && (
         <span className="flex gap-0.5" aria-hidden title={rank === 0 ? 'Candidate status' : `Level ${rank} of 4`}>

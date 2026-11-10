@@ -3,7 +3,7 @@ import { usePortal } from '../../contexts/PortalContext';
 import { Modal } from '../ui/Modal';
 import { PrinterIcon, DownloadIcon } from 'lucide-react';
 import { Badge } from '../ui/Badge';
-import { isUrl } from '../../utils/programAccreditation';
+import { isUrl, statusLabel } from '../../utils/programAccreditation';
 import { getReportInstitution, loadSignatories } from '../../data/reportTemplates';
 import { usePortalSettings } from '../../settings/portalSettings';
 
@@ -58,7 +58,7 @@ export function AccreditationReportModal({ open, onClose }: AccreditationReportM
       `"${p.degreeLevel}"`,
       `"${p.programName.replace(/"/g, '""')}"`,
       `"${p.yearOfInitialOperation}"`,
-      `"${p.status}"`,
+      `"${statusLabel(p.status)}"`,
       `"${p.validityStart}"`,
       `"${p.validityEnd}"`,
       `"${p.certificationFile || ''}"`,
@@ -276,7 +276,7 @@ export function AccreditationReportModal({ open, onClose }: AccreditationReportM
                             : 'warning'
                         }
                       >
-                        {prog.status}
+                        {statusLabel(prog.status)}
                       </Badge>
                     </td>
                     <td className="td py-2 whitespace-nowrap text-ink-muted">

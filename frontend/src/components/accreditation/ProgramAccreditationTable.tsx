@@ -26,7 +26,8 @@ import {
   expiringWindowMonths,
   isUrl,
   levelRank,
-  parseAccreditationDate
+  parseAccreditationDate,
+  statusLabel
 } from '../../utils/programAccreditation';
 
 type IconType = ComponentType<{ className?: string }>;
@@ -321,7 +322,7 @@ export function ProgramAccreditationTable({
           {LEGEND.map((level) => (
             <span key={level} className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink-muted">
               <span className={`h-2.5 w-2.5 rounded-full ${levelStyle(level).accent}`} />
-              {level}
+              {statusLabel(level)}
             </span>
           ))}
         </div>

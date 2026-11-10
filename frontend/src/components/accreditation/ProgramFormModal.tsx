@@ -13,7 +13,7 @@ import { Modal } from '../ui/Modal';
 import { TextField } from '../ui/TextField';
 import { SelectField } from '../ui/SelectField';
 import { Badge } from '../ui/Badge';
-import { RESULT_OPTIONS, createHistoryEntry, formatLevel, getLevelHistory, suggestValidityEnd } from '../../utils/programAccreditation';
+import { RESULT_OPTIONS, createHistoryEntry, formatLevel, getLevelHistory, statusLabel, suggestValidityEnd } from '../../utils/programAccreditation';
 import { getSettings, ValidityLevel } from '../../settings/portalSettings';
 
 const HISTORY_LEVEL_OPTIONS: AccreditationLevel[] = ['Candidate', 'Level 1', 'Level 2', 'Level 3', 'Level 4'];
@@ -243,8 +243,8 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
             value={status}
             onChange={(val) => setStatus(val as AccreditationLevel)}
             options={[
-              ...STATUS_OPTIONS,
-              ...(STATUS_OPTIONS.includes(status) ? [] : [{ value: status, label: `${status} (current)` }])
+              ...STATUS_OPTIONS.map((s) => ({ value: s, label: statusLabel(s) })),
+              ...(STATUS_OPTIONS.includes(status) ? [] : [{ value: status, label: `${statusLabel(status)} (current)` }])
             ]}
             required
           />
@@ -299,10 +299,11 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
 
             <div className="space-y-3">
               <TextField
-                label="Accreditation Certificate File"
+                label="Certificate link (optional, legacy)"
                 value={certificationFile}
                 onChange={(val) => setCertificationFile(val)}
-                placeholder="e.g. AACCUP Certification 2022.pdf"
+                placeholder="e.g. https://drive.google.com/…"
+                hint="Upload certificate files from the AACCUP Certification column; each level has its own folder."
               />
 
               <div className="grid gap-3 sm:grid-cols-3">

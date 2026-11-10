@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   Building2Icon,
@@ -14,8 +14,6 @@ import {
   FolderOpenIcon,
   ArrowUpDownIcon,
   ChevronRightIcon,
-  FileSpreadsheetIcon,
-  FileIcon,
   EyeIcon,
   DownloadIcon,
   ArrowLeftIcon,
@@ -33,15 +31,20 @@ import {
 import { usePortal } from '../../contexts/PortalContext';
 import { EvidenceFolder, EvidenceDocument } from '../../types/evidence';
 import { CampusId, IARequirementItem } from '../../types/accreditation';
-import { Badge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
 import { FolderFormModal } from '../folders/FolderFormModal';
 import { FolderAction, FolderCard, FolderStatus } from '../folders/FolderCard';
 import { pluralize } from '../../utils/format';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
-import { persistUpload } from '../../utils/fileStore';
+import { downloadStoredFile, persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
-import { applyNamingPattern, filterAllowedUploads, uploadAcceptAttribute } from '../../utils/uploadRules';
+import { applyNamingPattern, filterAllowedUploads } from '../../utils/uploadRules';
+import type { PendingUpload } from '../../utils/dropFiles';
+import { UploadDropzone } from '../upload/UploadDropzone';
+import { StagedFileList } from '../upload/StagedFileList';
+import { FileList, FileRow, FileRowAction, FileStatusPill } from '../upload/FileRow';
+import { formatSize } from '../upload/fileTypeStyle';
+import { isCertificateArea } from '../../utils/programAccreditation';
 import { usePortalSettings } from '../../settings/portalSettings';
 
 interface IAFolderManagerProps {
@@ -132,7 +135,6 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   const [uploadMode, setUploadMode] = useState<'files' | 'folder' | 'from-custom'>('files');
   const [selectedCustomFolderToUpload, setSelectedCustomFolderToUpload] = useState<string>('');
   const [selectedTargetFolder, setSelectedTargetFolder] = useState<string>('');
-  const [isDragging, setIsDragging] = useState(false);
   const [uploadedFileList, setUploadedFileList] = useState<Array<{ name: string; size: number; path?: string; file?: File }>>([]);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
 
@@ -140,10 +142,6 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   const [isTopUploadSource, setIsTopUploadSource] = useState(false);
   const [topUploadTargetAreaCode, setTopUploadTargetAreaCode] = useState<string>('AREA-I');
   const [topUploadTargetFolderId, setTopUploadTargetFolderId] = useState<string>('');
-
-  // Hidden File and Folder Inputs
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Reset folder and area selection whenever switching campuses
   useEffect(() => {
@@ -157,6 +155,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   // Each campus (Tandag, Cantilan, San Miguel, etc.) has its own isolated folders for Areas 1–9.
   const iaFolders = useMemo(() => {
     return folders.filter((f) => {
+      if (f.frameworkId === 'pa' || isCertificateArea(f.areaId)) return false;
       const isIA =
         f.frameworkId === 'ia' ||
         f.category === 'Accreditation' ||
@@ -184,7 +183,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   // Documents mapped strictly to this campus and IA framework
   const campusIADocs = useMemo(() => {
     return documents.filter((d) => {
-      const isIA = d.frameworkId === 'ia';
+      const isIA = d.frameworkId === 'ia' && !isCertificateArea(d.areaId);
       if (!isIA) return false;
 
       // Match document strictly by campus:
@@ -707,105 +706,17 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
     }
   };
 
-  // Handle Folder Upload from input
-  const handleFolderInputSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const list: Array<{ name: string; size: number; path?: string; file?: File }> = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      list.push({
+  // Stage files picked or dropped in the upload modal
+  const handleStageUploads = (uploads: PendingUpload[]) => {
+    const list = uploads.map(({ file, path }) => ({
         name: file.name,
         size: file.size,
-        path: file.webkitRelativePath || file.name,
+      path: path !== file.name ? path : undefined,
         file
-      });
-    }
+    }));
     const allowed = filterAllowedUploads(list, (f) => f);
-    e.target.value = '';
     if (allowed.length === 0) return;
-    setUploadedFileList(allowed);
-    toast.success(`Selected folder with ${allowed.length} file(s)`);
-  };
-
-  // Handle Files Upload from input
-  const handleFilesInputSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const list: Array<{ name: string; size: number; file?: File }> = [];
-    for (let i = 0; i < files.length; i++) {
-      list.push({
-        name: files[i].name,
-        size: files[i].size,
-        file: files[i]
-      });
-    }
-    const allowed = filterAllowedUploads(list, (f) => f);
-    e.target.value = '';
-    if (allowed.length === 0) return;
-    setUploadedFileList(allowed);
-    toast.success(`Selected ${allowed.length} file(s) for upload`);
-  };
-
-  // Drag and Drop Recursive Folder Handler
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const items = e.dataTransfer.items;
-    if (!items || items.length === 0) return;
-
-    const collected: Array<{ name: string; size: number; path?: string; file?: File }> = [];
-
-    interface FileSystemEntryLike {
-      name: string;
-      isFile: boolean;
-      isDirectory: boolean;
-      file?: (callback: (file: File) => void) => void;
-      createReader?: () => { readEntries: (callback: (entries: FileSystemEntryLike[]) => void) => void };
-    }
-
-    const traverseFileTree = async (item: FileSystemEntryLike, path = '') => {
-      if (item.isFile && item.file) {
-        const getFile = item.file;
-        await new Promise<void>((resolve) => {
-          getFile((file: File) => {
-            collected.push({
-              name: file.name,
-              size: file.size,
-              path: path + file.name,
-              file
-            });
-            resolve();
-          });
-        });
-      } else if (item.isDirectory && item.createReader) {
-        const dirReader = item.createReader();
-        await new Promise<void>((resolve) => {
-          dirReader.readEntries(async (entries: FileSystemEntryLike[]) => {
-            for (const entry of entries) {
-              await traverseFileTree(entry, path + item.name + '/');
-            }
-            resolve();
-          });
-        });
-      }
-    };
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i].webkitGetAsEntry?.();
-      if (item) {
-        await traverseFileTree(item);
-      }
-    }
-
-    const allowed = filterAllowedUploads(collected, (f) => f);
-    if (allowed.length > 0) {
-      setUploadedFileList(allowed);
-      toast.success(`Prepared ${allowed.length} file(s) from folder drop`);
-    }
+    setUploadedFileList((prev) => (uploadMode === 'folder' ? allowed : [...prev, ...allowed]));
   };
 
   // Execute Upload Commit
@@ -1017,35 +928,18 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
     }, 600);
   };
 
-  // Helper for rendering file type icons
-  const renderFileIcon = (fileType?: string) => {
-    const ft = (fileType || '').toUpperCase();
-    if (ft === 'PDF') {
-      return (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 border border-red-200/80 shadow-2xs">
-          <FileTextIcon className="h-4 w-4" />
-        </div>
-      );
-    }
-    if (ft === 'XLSX' || ft === 'CSV') {
-      return (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 shadow-2xs">
-          <FileSpreadsheetIcon className="h-4 w-4" />
-        </div>
-      );
-    }
-    if (ft === 'DOCX' || ft === 'DOC') {
-      return (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 shadow-2xs">
-          <FileTextIcon className="h-4 w-4" />
-        </div>
-      );
-    }
-    return (
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 border border-slate-200 shadow-2xs">
-        <FileIcon className="h-4 w-4" />
-      </div>
-    );
+  const fileMeta = (doc: EvidenceDocument) =>
+    [doc.fileType, doc.sizeMb ? formatSize(doc.sizeMb) : null, doc.documentDate, doc.academicYear].filter(Boolean).join(' · ');
+
+  const handleDownloadDoc = async (doc: EvidenceDocument) => {
+    const ok = await downloadStoredFile(doc.id, doc.title);
+    if (!ok) toast.error(`"${doc.title}" has no stored file to download.`);
+  };
+
+  const handleRemoveDoc = (doc: EvidenceDocument) => {
+    if (!window.confirm(`Are you sure you want to remove "${doc.title}"?`)) return;
+    deleteDocument(doc.id);
+    toast.success(`Removed "${doc.title}"`);
   };
 
   // PROFESSIONAL FOLDER HEADER COMPONENT (Redesigned from the user's provided image)
@@ -1232,9 +1126,6 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   {campusName}
                 </span>
               </div>
-              <p className="mt-1 max-w-xl text-[12.5px] text-ink-muted">
-                Official institutional evidence portfolios for Areas 1–9 — organize folders, upload evidence, and track review progress.
-              </p>
             </div>
           </div>
 
@@ -1922,93 +1813,23 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   </div>
 
                   {insideFiles.length > 0 ? (
-                    <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-xs">
-                      <div className="divide-y divide-line">
+                    <FileList>
                       {insideFiles.map((doc) => {
                         const isOfficialArea = !isCustomFolder && !!currentActiveFolder?.areaId;
                         const isApproved = doc.approvalStatus === 'Approved';
                         const isNeedsRevision = doc.approvalStatus === 'Needs Revision';
 
                         return (
-                          <div
+                          <FileRow
                             key={doc.id}
-                            className="flex flex-col gap-2.5 p-3.5 text-xs transition-colors hover:bg-brand-50/40 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="flex items-start gap-3 min-w-0 flex-1">
-                              <div className="mt-0.5 shrink-0">{renderFileIcon(doc.fileType)}</div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewDoc(doc)}
-                                    className="text-left font-bold text-ink hover:text-brand-600 hover:underline truncate block max-w-[340px] sm:max-w-[480px]"
-                                    title={doc.title}
-                                  >
-                                    {doc.title}
-                                  </button>
-
-                                  {/* Approval Status Badge for official Area folders */}
-                                  {isOfficialArea && (
-                                    <>
-                                      {isApproved ? (
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full shadow-2xs">
-                                          <CheckCircle2Icon className="h-3 w-3 text-emerald-600" />
-                                          <span>Approved</span>
-                                        </span>
-                                      ) : isNeedsRevision ? (
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full shadow-2xs">
-                                          <AlertTriangleIcon className="h-3 w-3 text-amber-600" />
-                                          <span>Needs Revision</span>
-                                        </span>
-                                      ) : (
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full shadow-2xs">
-                                          <ClockIcon className="h-3 w-3 text-brand-600" />
-                                          <span>Pending Review</span>
-                                        </span>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-
-                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-subtle">
-                                  <span>{doc.fileType || 'PDF'}</span>
-                                  <span>·</span>
-                                  <span>{doc.sizeMb || 1.2} MB</span>
-                                  <span>·</span>
-                                  <span>{doc.documentDate || '2025-01-15'}</span>
-                                  {doc.academicYear && (
-                                    <>
-                                      <span>·</span>
-                                      <span>{doc.academicYear}</span>
-                                    </>
-                                  )}
-                                </div>
-
-                                {/* Revision Remarks Callout Box */}
-                                {isOfficialArea && isNeedsRevision && doc.revisionNotes && (
-                                  <div className="mt-2 flex items-start gap-2.5 rounded-r-lg border-l-4 border-amber-500 bg-amber-50/70 p-2.5 text-xs text-amber-900 shadow-2xs">
-                                    <AlertCircleIcon className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                                    <div className="min-w-0">
-                                      <span className="font-bold text-amber-950">Revision Feedback: </span>
-                                      <span className="text-amber-900">{doc.revisionNotes}</span>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Action Buttons: View, Review Decisions, Download, Delete */}
-                            <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0 flex-wrap">
-                              {/* 1. View Button (Clean Primary Discovery Action) */}
-                              <button
-                                type="button"
-                                onClick={() => setPreviewDoc(doc)}
-                                className="btn btn-secondary btn-xs h-7.5 px-3 text-xs font-semibold gap-1.5 shadow-2xs hover:bg-slate-100 text-slate-700 border-slate-300"
-                                title="Preview document"
-                              >
-                                <EyeIcon className="h-3.5 w-3.5 text-slate-500" />
-                                <span>View</span>
-                              </button>
+                            name={doc.title}
+                            fileType={doc.fileType}
+                            onOpen={() => setPreviewDoc(doc)}
+                            meta={fileMeta(doc)}
+                            status={isOfficialArea ? <FileStatusPill status={doc.approvalStatus} /> : undefined}
+                            actions={
+                              <>
+                              <FileRowAction icon={EyeIcon} label={`Preview ${doc.title}`} onClick={() => setPreviewDoc(doc)} />
 
                               {/* 2. Review Decision CTAs */}
                               {isOfficialArea && canReview && (
@@ -2072,38 +1893,25 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                                 </>
                               )}
 
-                              {/* Subtle Vertical Divider */}
-                              <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
-
-                              {/* 3. Utility Icons: Download & Delete */}
-                              <button
-                                type="button"
-                                onClick={() => toast.success('Downloading "' + doc.title + '"')}
-                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                                title="Download document"
-                              >
-                                <DownloadIcon className="h-3.5 w-3.5" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (window.confirm('Are you sure you want to remove "' + doc.title + '"?')) {
-                                    deleteDocument(doc.id);
-                                    toast.success('Removed "' + doc.title + '"');
-                                  }
-                                }}
-                                className="p-1.5 text-slate-400 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
-                                title="Delete file"
-                              >
-                                <Trash2Icon className="h-3.5 w-3.5" />
-                              </button>
+                              <span className="mx-1 hidden h-4 w-px bg-line sm:block" />
+                              <FileRowAction icon={DownloadIcon} label={`Download ${doc.title}`} onClick={() => handleDownloadDoc(doc)} />
+                              <FileRowAction icon={Trash2Icon} label={`Delete ${doc.title}`} danger onClick={() => handleRemoveDoc(doc)} />
+                              </>
+                            }
+                          >
+                            {isOfficialArea && isNeedsRevision && doc.revisionNotes && (
+                              <div className="flex items-start gap-2.5 rounded-r-lg border-l-4 border-amber-500 bg-amber-50/70 p-2.5 text-xs text-amber-900">
+                                <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                                <div className="min-w-0">
+                                  <span className="font-bold text-amber-950">Revision Feedback: </span>
+                                  <span className="text-amber-900">{doc.revisionNotes}</span>
                             </div>
                           </div>
+                            )}
+                          </FileRow>
                         );
                       })}
-                    </div>
-                  </div>
+                    </FileList>
                   ) : (
                     <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center space-y-2 shadow-2xs">
                       <p className="text-xs font-bold text-slate-800">
@@ -2404,81 +2212,24 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     </span>
                   </div>
 
-                  <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-xs">
-                    <div className="divide-y divide-line">
+                  <FileList>
                       {insideFiles.map((doc) => (
-                        <div
+                      <FileRow
                           key={doc.id}
-                          className="flex flex-col gap-2 p-3 text-xs transition-colors hover:bg-brand-50/40 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="flex items-start gap-2.5 min-w-0">
-                            <div className="mt-0.5">{renderFileIcon(doc.fileType)}</div>
-                            <div className="min-w-0">
-                              <button
-                                type="button"
-                                onClick={() => setPreviewDoc(doc)}
-                                className="text-left font-bold text-ink hover:text-brand-600 hover:underline truncate block max-w-[340px] sm:max-w-[480px]"
-                                title={doc.title}
-                              >
-                                {doc.title}
-                              </button>
-                              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-subtle">
-                                <span>{doc.fileType || 'PDF'}</span>
-                                <span>·</span>
-                                <span>{doc.sizeMb || 1.2} MB</span>
-                                <span>·</span>
-                                <span>{doc.documentDate || '2025-01-15'}</span>
-                                {doc.academicYear && (
-                                  <>
-                                    <span>·</span>
-                                    <span>{doc.academicYear}</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                            <Badge tone={doc.status === 'Indexed' || doc.approvalStatus === 'Approved' ? 'success' : 'brand'} dot>
-                              {doc.status || 'Indexed'}
-                            </Badge>
-
-                            <button
-                              type="button"
-                              onClick={() => setPreviewDoc(doc)}
-                              className="btn btn-secondary btn-xs h-7 px-2 text-[11px] gap-1"
-                              title="Preview document"
-                            >
-                              <EyeIcon className="h-3 w-3" /> Preview
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => toast.success(`Downloading "${doc.title}"`)}
-                              className="btn btn-ghost btn-xs h-7 px-2 text-[11px] text-ink-muted hover:text-ink"
-                              title="Download document"
-                            >
-                              <DownloadIcon className="h-3 w-3" />
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm(`Are you sure you want to remove "${doc.title}"?`)) {
-                                  deleteDocument(doc.id);
-                                  toast.success(`Removed "${doc.title}"`);
-                                }
-                              }}
-                              className="btn btn-ghost btn-xs h-7 px-2 text-[11px] text-ink-subtle hover:text-danger-600"
-                              title="Delete file"
-                            >
-                              <Trash2Icon className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                        name={doc.title}
+                        fileType={doc.fileType}
+                        onOpen={() => setPreviewDoc(doc)}
+                        meta={fileMeta(doc)}
+                        actions={
+                          <>
+                            <FileRowAction icon={EyeIcon} label={`Preview ${doc.title}`} onClick={() => setPreviewDoc(doc)} />
+                            <FileRowAction icon={DownloadIcon} label={`Download ${doc.title}`} onClick={() => handleDownloadDoc(doc)} />
+                            <FileRowAction icon={Trash2Icon} label={`Delete ${doc.title}`} danger onClick={() => handleRemoveDoc(doc)} />
+                          </>
+                        }
+                      />
+                    ))}
+                  </FileList>
                 </div>
               )}
             </div>
@@ -2892,25 +2643,6 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
             {/* TAB 1 & 2: INDIVIDUAL FILES & ENTIRE FOLDER VIEW */}
             {uploadMode !== 'from-custom' ? (
               <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept={uploadAcceptAttribute()}
-                  className="hidden"
-                  onChange={handleFilesInputSelection}
-                />
-                <input
-                  ref={folderInputRef}
-                  type="file"
-                  // @ts-expect-error webkitdirectory is standard for folder inputs
-                  webkitdirectory=""
-                  directory=""
-                  multiple
-                  className="hidden"
-                  onChange={handleFolderInputSelection}
-                />
-
                 {/* Optional folder selector when at Area root with multiple folders (contextual modal) */}
                 {!isTopUploadSource && selectedAreaCode && !modalTargetFolder && areaFolders.length > 0 && uploadMode === 'files' && (
                   <div className="space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
@@ -2932,89 +2664,24 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   </div>
                 )}
 
-                {/* INTERACTIVE DROPZONE */}
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragging(true);
-                  }}
-                  onDragLeave={() => setIsDragging(false)}
-                  onDrop={handleDrop}
-                  onClick={() => {
-                    if (uploadMode === 'folder') {
-                      folderInputRef.current?.click();
-                    } else {
-                      fileInputRef.current?.click();
-                    }
-                  }}
-                  className={'group border-2 border-dashed rounded-xl p-6 sm:p-7 text-center cursor-pointer transition-all duration-200 ' + (
-                    isDragging
-                      ? 'border-brand-500 bg-brand-50/70 ring-2 ring-brand-400/30'
-                      : 'border-slate-300 hover:border-brand-400 bg-slate-50/40 hover:bg-brand-50/20'
-                  )}
-                >
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white border border-slate-200 shadow-2xs group-hover:scale-105 group-hover:border-brand-200 transition-all duration-200 mb-2.5">
-                    {uploadMode === 'folder' ? (
-                      <FolderArchiveIcon className="h-6 w-6 text-amber-600" />
-                    ) : (
-                      <UploadIcon className="h-6 w-6 text-brand-600" />
-                    )}
-                  </div>
-                  <p className="text-sm font-semibold text-slate-800">
-                    {uploadMode === 'folder' ? (
-                      <>
-                        <span className="text-brand-600 group-hover:underline">Choose a folder</span> or drag directory here
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-brand-600 group-hover:underline">Choose files</span> or drag and drop here
-                      </>
-                    )}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                    {uploadMode === 'folder'
-                      ? 'Imports directory hierarchy and indexes all nested evidence documents.'
-                      : 'Supports PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), and images.'}
-                  </p>
-                </div>
+                <UploadDropzone
+                  key={uploadMode}
+                  onFiles={handleStageUploads}
+                  selectFolder={uploadMode === 'folder'}
+                  allowFolders
+                  title={uploadMode === 'folder' ? 'Drag a folder here' : 'Drag & drop files here'}
+                  hint={
+                    uploadMode === 'folder'
+                      ? 'Keeps the folder structure and indexes every document inside it.'
+                      : undefined
+                  }
+                />
 
-                {/* SELECTED ITEMS PREVIEW LIST */}
-                {uploadedFileList.length > 0 && (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 max-h-44 overflow-y-auto space-y-1.5 text-xs shadow-2xs">
-                    <div className="flex items-center justify-between font-semibold text-slate-800 pb-1.5 border-b border-slate-200">
-                      <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        <span>Ready for upload ({uploadedFileList.length} items)</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setUploadedFileList([])}
-                        className="text-danger-600 hover:underline text-[11px] font-semibold"
-                      >
-                        Clear All
-                      </button>
-                    </div>
-                    <div className="space-y-1 pr-1">
-                      {uploadedFileList.map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-[11px] bg-white border border-slate-200/80 rounded-lg px-2.5 py-1.5 shadow-2xs">
-                          <div className="flex items-center gap-2 truncate max-w-[420px]">
-                            {item.name.endsWith('.xlsx') || item.name.endsWith('.csv') ? (
-                              <FileSpreadsheetIcon className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                            ) : item.name.endsWith('.docx') ? (
-                              <FileTextIcon className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                            ) : (
-                              <FileTextIcon className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                            )}
-                            <span className="truncate font-medium text-slate-800">{item.path || item.name}</span>
-                          </div>
-                          <span className="text-slate-400 font-mono text-[10px] shrink-0 ml-2">
-                            {(item.size / 1024).toFixed(1)} KB
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <StagedFileList
+                  items={uploadedFileList}
+                  onRemove={(idx) => setUploadedFileList((prev) => prev.filter((_, i) => i !== idx))}
+                  onClear={() => setUploadedFileList([])}
+                />
               </>
             ) : (
               /* TAB 3: CUSTOM FOLDER SELECTION VIEW */
