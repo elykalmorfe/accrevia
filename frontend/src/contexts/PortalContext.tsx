@@ -41,6 +41,8 @@ import {
 } from '../types/accreditation';
 import { PortalUser, PortalViewRole, UserStatus } from '../types/user';
 import { AccessAction, AccessLogEntry, AccessRequest, DocumentShare, ShareRecipientInput } from '../types/sharing';
+import { DocumentRequest, NewDocumentRequestInput, RequestAttachment, RequestStatus } from '../types/request';
+import { initialDocumentRequests } from '../data/documentRequests';
 import { metadataToPatch } from '../utils/metadata';
 import { isAdminRole, isRecipientRole, nowIso, permissionLabel, shareStatus } from '../utils/sharing';
 import { formatDate } from '../utils/format';
@@ -51,6 +53,16 @@ import { purgeLegacySampleData } from '../utils/samplePurge';
 import { getSettings } from '../settings/portalSettings';
 
 purgeLegacySampleData();
+
+export interface PortalNotification {
+  id: string;
+  title: string;
+  detail: string;
+  to: string;
+  time: string;
+  /** `'admins'` for administrators/QA, a user id for one person; omitted means everyone. */
+  audience?: 'admins' | string;
+}
 
 interface PortalContextValue {
   currentUser: PortalUser;
@@ -98,8 +110,14 @@ interface PortalContextValue {
   accessRequests: AccessRequest[];
   submitAccessRequest: (documentId: string, reason: string, requestedPermission?: 'View only' | 'View and Download') => void;
   reviewAccessRequest: (requestId: string, decision: 'Approved' | 'Rejected', reviewNotes?: string, expiresAt?: string | null) => void;
-  notifications: Array<{ id: string; title: string; detail: string; to: string; time: string }>;
+  notifications: PortalNotification[];
   dismissNotification: (id: string) => void;
+  documentRequests: DocumentRequest[];
+  createDocumentRequest: (input: NewDocumentRequestInput) => string;
+  replyToDocumentRequest: (id: string, body: string, attachments: RequestAttachment[], nextStatus?: RequestStatus) => void;
+  setDocumentRequestStatus: (id: string, status: RequestStatus) => void;
+  markDocumentRequestRead: (id: string) => void;
+  toggleDocumentRequestStar: (id: string) => void;
   accessLog: AccessLogEntry[];
   logAccess: (action: AccessAction, documentId: string, detail?: string) => void;
   recentSearches: string[];
@@ -198,8 +216,9 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>(() =>
     loadStorage<AccessRequest[]>('accessRequests', [])
   );
-  const [notifications, setNotifications] = useState<Array<{ id: string; title: string; detail: string; to: string; time: string }>>(() =>
-    loadStorage('notifications', [])
+  const [notifications, setNotifications] = useState<PortalNotification[]>(() => loadStorage('notifications', []));
+  const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>(() =>
+    loadStorage<DocumentRequest[]>('document_requests', initialDocumentRequests)
   );
   const [accessLog, setAccessLog] = useState<AccessLogEntry[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -511,12 +530,13 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       });
 
       // Real-time / In-app notification for QA dashboard
-      const newNotif = {
+      const newNotif: PortalNotification = {
         id: `notif-${Date.now()}`,
         title: `Access Request: ${docTitle}`,
         detail: `${currentUser.name} (${currentUser.role}) requested ${requestedPermission}. Purpose: "${reason.slice(0, 50)}${reason.length > 50 ? '...' : ''}"`,
         to: '/evidence/shared?tab=requests',
-        time: 'Just now'
+        time: 'Just now',
+        audience: 'admins'
       };
       setNotifications((prev) => {
         const next = [newNotif, ...prev];
@@ -581,6 +601,186 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       return next;
     });
   }, []);
+
+  const pushNotification = useCallback((n: Omit<PortalNotification, 'id' | 'time'>) => {
+    setNotifications((prev) => {
+      const next = [{ id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, time: 'Just now', ...n }, ...prev];
+      saveStorage('notifications', next);
+      return next;
+    });
+  }, []);
+
+  const updateDocumentRequests = useCallback((update: (prev: DocumentRequest[]) => DocumentRequest[]) => {
+    setDocumentRequests((prev) => {
+      const next = update(prev);
+      saveStorage('document_requests', next);
+      return next;
+    });
+  }, []);
+
+  const createDocumentRequest = useCallback(
+    (input: NewDocumentRequestInput) => {
+      const at = nowIso();
+      const id = `dreq-${Date.now()}`;
+      const request: DocumentRequest = {
+        id,
+        subject: input.subject,
+        category: input.category,
+        priority: input.priority,
+        reference: input.reference || undefined,
+        requesterId: currentUser.id,
+        requesterName: currentUser.name,
+        requesterRole: currentUser.role,
+        requesterEmail: currentUser.email,
+        requesterOffice: currentUser.office,
+        status: 'Open',
+        messages: [
+          {
+            id: `dmsg-${Date.now()}`,
+            authorId: currentUser.id,
+            authorName: currentUser.name,
+            authorRole: currentUser.role,
+            body: input.body,
+            attachments: input.attachments,
+            sentAt: at
+          }
+        ],
+        createdAt: at,
+        updatedAt: at,
+        unreadByAdmin: true,
+        unreadByRequester: false
+      };
+      updateDocumentRequests((prev) => [request, ...prev]);
+      pushNotification({
+        title: `New request: ${input.subject}`,
+        detail: `${currentUser.name} (${currentUser.role}) requested ${input.category.toLowerCase()}${input.priority === 'Urgent' ? ' · Urgent' : ''}.`,
+        to: `/requests/${id}`,
+        audience: 'admins'
+      });
+      return id;
+    },
+    [currentUser, updateDocumentRequests, pushNotification]
+  );
+
+  const replyToDocumentRequest = useCallback(
+    (id: string, body: string, attachments: RequestAttachment[], nextStatus?: RequestStatus) => {
+      const req = documentRequests.find((r) => r.id === id);
+      if (!req) return;
+      const byAdmin = isAdmin && currentUser.id !== req.requesterId;
+      const at = nowIso();
+      const status: RequestStatus =
+        nextStatus ??
+        (byAdmin
+          ? req.status === 'Open'
+            ? 'In Progress'
+            : req.status
+          : req.status === 'Fulfilled' || req.status === 'Closed'
+          ? 'Open'
+          : req.status);
+
+      updateDocumentRequests((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                status,
+                updatedAt: at,
+                unreadByAdmin: byAdmin ? r.unreadByAdmin : true,
+                unreadByRequester: byAdmin ? true : r.unreadByRequester,
+                messages: [
+                  ...r.messages,
+                  {
+                    id: `dmsg-${Date.now()}`,
+                    authorId: currentUser.id,
+                    authorName: currentUser.name,
+                    authorRole: currentUser.role,
+                    body,
+                    attachments,
+                    sentAt: at
+                  }
+                ]
+              }
+            : r
+        )
+      );
+
+      if (byAdmin) {
+        attachments
+          .filter((a) => a.kind === 'document' && a.documentId)
+          .forEach((a) =>
+            shareDocument(
+              a.documentId as string,
+              [
+                {
+                  recipientType: 'user',
+                  recipientId: req.requesterId,
+                  recipientName: req.requesterName,
+                  recipientRole: isRecipientRole(req.requesterRole) ? req.requesterRole : 'Faculty',
+                  canView: true,
+                  canDownload: true
+                }
+              ],
+              null
+            )
+          );
+      }
+
+      const fileNote = attachments.length > 0 ? ` · ${attachments.length} attachment${attachments.length === 1 ? '' : 's'}` : '';
+      pushNotification({
+        title: `${status === 'Fulfilled' ? 'Request fulfilled' : 'New reply'}: ${req.subject}`,
+        detail: `${currentUser.name}: "${body.slice(0, 60)}${body.length > 60 ? '...' : ''}"${fileNote}`,
+        to: `/requests/${id}`,
+        audience: byAdmin ? req.requesterId : 'admins'
+      });
+    },
+    [documentRequests, isAdmin, currentUser, updateDocumentRequests, shareDocument, pushNotification]
+  );
+
+  const setDocumentRequestStatus = useCallback(
+    (id: string, status: RequestStatus) => {
+      const req = documentRequests.find((r) => r.id === id);
+      if (!req || req.status === status) return;
+      const byAdmin = isAdmin && currentUser.id !== req.requesterId;
+      updateDocumentRequests((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                status,
+                updatedAt: nowIso(),
+                unreadByAdmin: byAdmin ? r.unreadByAdmin : true,
+                unreadByRequester: byAdmin ? true : r.unreadByRequester
+              }
+            : r
+        )
+      );
+      pushNotification({
+        title: `Request ${status === 'Open' ? 'reopened' : `marked ${status.toLowerCase()}`}: ${req.subject}`,
+        detail: `Updated by ${currentUser.name}.`,
+        to: `/requests/${id}`,
+        audience: byAdmin ? req.requesterId : 'admins'
+      });
+    },
+    [documentRequests, isAdmin, currentUser, updateDocumentRequests, pushNotification]
+  );
+
+  const markDocumentRequestRead = useCallback(
+    (id: string) => {
+      const req = documentRequests.find((r) => r.id === id);
+      if (!req) return;
+      const asAdmin = isAdmin && currentUser.id !== req.requesterId;
+      if (asAdmin ? !req.unreadByAdmin : !req.unreadByRequester) return;
+      updateDocumentRequests((prev) =>
+        prev.map((r) => (r.id === id ? (asAdmin ? { ...r, unreadByAdmin: false } : { ...r, unreadByRequester: false }) : r))
+      );
+    },
+    [documentRequests, isAdmin, currentUser, updateDocumentRequests]
+  );
+
+  const toggleDocumentRequestStar = useCallback(
+    (id: string) => updateDocumentRequests((prev) => prev.map((r) => (r.id === id ? { ...r, starred: !r.starred } : r))),
+    [updateDocumentRequests]
+  );
 
   const addRecentSearch = useCallback((query: string) => {
     setRecentSearches((prev) => [query, ...prev.filter((q) => q.toLowerCase() !== query.toLowerCase())].slice(0, 8));
@@ -766,6 +966,12 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       reviewAccessRequest,
       notifications,
       dismissNotification,
+      documentRequests,
+      createDocumentRequest,
+      replyToDocumentRequest,
+      setDocumentRequestStatus,
+      markDocumentRequestRead,
+      toggleDocumentRequestStar,
       accessLog,
       logAccess,
       recentSearches,
@@ -854,6 +1060,12 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       reviewAccessRequest,
       notifications,
       dismissNotification,
+      documentRequests,
+      createDocumentRequest,
+      replyToDocumentRequest,
+      setDocumentRequestStatus,
+      markDocumentRequestRead,
+      toggleDocumentRequestStar,
       accessLog,
       logAccess,
       recentSearches,
