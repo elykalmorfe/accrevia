@@ -4,6 +4,7 @@ import { usePortal } from '../../contexts/PortalContext';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Tabs } from '../../components/ui/Tabs';
 import { Badge } from '../../components/ui/Badge';
+import { CardField } from '../../components/ui/ResponsiveTable';
 import { AccreditationReportModal } from '../../components/accreditation/AccreditationReportModal';
 import { ProgramFormModal } from '../../components/accreditation/ProgramFormModal';
 import {
@@ -92,7 +93,7 @@ export function AccreditationDashboard() {
         title="Accreditation & Frameworks Hub"
         description="Centralized accreditation and quality assurance portal managing campus-level certifications (IA, PQA, ISO) and academic program compliance (AACCUP, COPC)."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 [&>*]:flex-1 sm:w-auto sm:[&>*]:flex-none">
             <button
               type="button"
               onClick={() => setAddProgramModalOpen(true)}
@@ -344,7 +345,35 @@ export function AccreditationDashboard() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <ul className="divide-y divide-line-subtle md:hidden">
+            {displayCampuses.map((c) => {
+              const ia = iaRecords.find((i) => i.campusId === c.id);
+              const pqa = pqaRecords.find((p) => p.campusId === c.id);
+              const iso = isoRecords.find((i) => i.campusId === c.id);
+              return (
+                <li key={c.id} className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink">
+                        {c.name}
+                        {c.isMain && <span className="ml-1 text-[10px] font-bold text-brand-700">(Main)</span>}
+                      </p>
+                      <p className="text-xs text-ink-muted">{c.director}</p>
+                    </div>
+                    <Link to="/frameworks/ia" className="btn btn-secondary btn-sm h-7 shrink-0 text-xs">Manage</Link>
+                  </div>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                    <CardField label="IA"><Badge tone="brand">{ia?.status || 'Candidate'}</Badge></CardField>
+                    <CardField label="ISO"><Badge tone="success">{iso?.complianceStatus || 'Compliant'}</Badge></CardField>
+                    <CardField label="IA Validity">{ia?.validityStart} – {ia?.validityEnd}</CardField>
+                    <CardField label="PQA">{pqa?.recognitionLevel.split(':')[0]} · {pqa?.overallScore}/1000</CardField>
+                  </dl>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-xs">
               <thead className="bg-canvas border-b border-line text-ink-muted">
                 <tr>
@@ -408,7 +437,7 @@ export function AccreditationDashboard() {
               Distribution of degree programs across AACCUP survey levels and Candidate status.
             </p>
 
-            <div className="grid gap-3 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <div className="rounded-lg border border-gold-200 bg-gold-50/50 p-3">
                 <span className="text-xs font-semibold text-gold-900">Level 4 Accredited</span>
                 <p className="text-2xl font-bold text-gold-900 mt-1">{level4Count}</p>
@@ -440,7 +469,7 @@ export function AccreditationDashboard() {
               </div>
             </div>
 
-            <div className="mt-5 border-t border-line pt-4 flex justify-between items-center">
+            <div className="mt-5 border-t border-line pt-4 flex flex-wrap justify-between items-center gap-3">
               <span className="text-xs text-ink-muted">
                 Track full roster of programs, Drive links, and certificates:
               </span>
@@ -464,7 +493,32 @@ export function AccreditationDashboard() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <ul className="divide-y divide-line-subtle md:hidden">
+            {scheduledPrograms.map((p) => (
+              <li key={p.id} className="space-y-2.5 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink">{p.programName}</p>
+                    <p className="text-xs text-ink-muted">{p.campusName}</p>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded border border-brand-100 bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">
+                    <CalendarIcon className="h-3 w-3" />
+                    {p.scheduleForAccreditation}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <Badge tone="brand">{p.status}</Badge>
+                  <span className="text-ink-muted">Valid to {p.validityEnd || '—'}</span>
+                  <span className={p.copcStatus === 'Compliant' ? 'font-medium text-success-700' : 'font-medium text-warning-700'}>
+                    COPC {p.copcStatus === 'Compliant' ? 'Compliant' : 'Pending'}
+                  </span>
+                  <Link to="/frameworks/pa" className="btn btn-secondary btn-sm ml-auto h-7 text-xs">View Dossier</Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-xs">
               <thead className="bg-canvas border-b border-line text-ink-muted">
                 <tr>

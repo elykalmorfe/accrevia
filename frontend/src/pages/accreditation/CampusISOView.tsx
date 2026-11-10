@@ -320,7 +320,7 @@ export function CampusISOView() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
             <div>
               <span className="text-xs text-ink-muted">ISO Standard</span>
               <p className="text-xs font-semibold text-ink mt-0.5">
@@ -357,7 +357,7 @@ export function CampusISOView() {
               Surveillance Findings Distribution
             </h3>
 
-            <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+            <div className="mt-4 grid grid-cols-1 gap-2 text-xs xs:grid-cols-2">
               <div className="rounded border border-success-200 bg-success-50/50 p-2.5">
                 <span className="text-success-800 font-medium">Conformances</span>
                 <p className="font-bold text-success-900 text-lg mt-0.5">

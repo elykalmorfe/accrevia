@@ -1,18 +1,12 @@
 import { useState, useEffect } from 'react';
-import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
-import { CampusId, PQACategoryScore } from '../../types/accreditation';
+import { CampusId } from '../../types/accreditation';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
-import { Modal } from '../../components/ui/Modal';
-import { TextField } from '../../components/ui/TextField';
-import {
-  AwardIcon,
-  PencilIcon
-} from 'lucide-react';
+import { AwardIcon } from 'lucide-react';
 
 export function CampusPQAView() {
-  const { campuses, pqaRecords, updateCampusPQA, selectedCampus, setSelectedCampus } = usePortal();
+  const { campuses, pqaRecords, selectedCampus, setSelectedCampus } = usePortal();
   const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
     return selectedCampus !== 'all' ? selectedCampus : 'tandag';
   });
@@ -26,12 +20,6 @@ export function CampusPQAView() {
   const campus = campuses.find((c) => c.id === selectedCampusId) || campuses[0];
   const pqaRecord = pqaRecords.find((r) => r.campusId === selectedCampusId);
 
-  // Edit category modal state
-  const [activeCategory, setActiveCategory] = useState<PQACategoryScore | null>(null);
-  const [editScore, setEditScore] = useState<number>(0);
-  const [editNarrative, setEditNarrative] = useState('');
-  const [editStatus, setEditStatus] = useState<'Met' | 'Partially Met' | 'Deficient'>('Met');
-
   if (!pqaRecord) {
     return (
       <div className="panel p-8 text-center">
@@ -40,52 +28,6 @@ export function CampusPQAView() {
       </div>
     );
   }
-
-  const handleOpenEditCategory = (cat: PQACategoryScore) => {
-    setActiveCategory(cat);
-    setEditScore(cat.awardedScore);
-    setEditNarrative(cat.narrativeSummary);
-    setEditStatus(cat.status);
-  };
-
-  const handleSaveCategory = () => {
-    if (!activeCategory) return;
-    const updatedCategories = pqaRecord.categories.map((c) =>
-      c.categoryId === activeCategory.categoryId
-        ? {
-            ...c,
-            awardedScore: Number(editScore),
-            narrativeSummary: editNarrative,
-            status: editStatus
-          }
-        : c
-    );
-
-    const totalScore = updatedCategories.reduce((acc, curr) => acc + curr.awardedScore, 0);
-
-    // Determine recognition level based on score
-    let recognitionLevel = pqaRecord.recognitionLevel;
-    if (totalScore >= 700) {
-      recognitionLevel = 'Level 4: Philippine Quality Award for Performance Excellence';
-    } else if (totalScore >= 550) {
-      recognitionLevel = 'Level 3: Mastery in Quality Management';
-    } else if (totalScore >= 450) {
-      recognitionLevel = 'Level 2: Proficiency in Quality Management';
-    } else if (totalScore >= 350) {
-      recognitionLevel = 'Level 1: Commitment to Quality Management';
-    } else {
-      recognitionLevel = 'Candidate';
-    }
-
-    updateCampusPQA(selectedCampusId, {
-      categories: updatedCategories,
-      overallScore: totalScore,
-      recognitionLevel
-    });
-
-    toast.success(`Category "${activeCategory.categoryName}" evaluated and saved`);
-    setActiveCategory(null);
-  };
 
   const percentage = Math.round((pqaRecord.overallScore / 1000) * 100);
 
@@ -262,95 +204,12 @@ export function CampusPQAView() {
                       </span>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="hidden sm:block w-32">
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-line">
-                        <div
-                          className="h-full bg-brand-600"
-                          style={{ width: `${catPercent}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditCategory(cat)}
-                      className="btn btn-secondary btn-sm text-xs"
-                    >
-                      <PencilIcon className="h-3.5 w-3.5" /> Evaluate
-                    </button>
-                  </div>
                 </div>
               </div>
             );
           })}
         </div>
       </div>
-
-      {/* Edit Category Modal */}
-      {activeCategory && (
-        <Modal
-          open={!!activeCategory}
-          onClose={() => setActiveCategory(null)}
-          title={`Evaluate Category ${activeCategory.categoryNumber}: ${activeCategory.categoryName}`}
-          description={`Assess evidence portfolio, assign score (Max: ${activeCategory.maxScore} pts), and formulate recommendations.`}
-          size="lg"
-          footer={
-            <div className="flex gap-2 justify-end w-full">
-              <button
-                type="button"
-                onClick={() => setActiveCategory(null)}
-                className="btn btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveCategory}
-                className="btn btn-primary"
-              >
-                Save Evaluation
-              </button>
-            </div>
-          }
-        >
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <TextField
-                label={`Awarded Score (Max: ${activeCategory.maxScore} pts)`}
-                type="number"
-                value={editScore.toString()}
-                onChange={(val) => setEditScore(Math.min(activeCategory.maxScore, Math.max(0, Number(val))))}
-                required
-              />
-
-              <div>
-                <label className="label">Evaluation Determination</label>
-                <select
-                  value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value as 'Met' | 'Partially Met' | 'Deficient')}
-                  className="input text-xs"
-                >
-                  <option value="Met">Met (Substantial Conformance)</option>
-                  <option value="Partially Met">Partially Met (Continuous Improvement)</option>
-                  <option value="Deficient">Deficient (Action Plan Required)</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="label">Category Narrative & Findings Summary</label>
-              <textarea
-                value={editNarrative}
-                onChange={(e) => setEditNarrative(e.target.value)}
-                className="textarea h-24 text-[13px]"
-                placeholder="Detail the campus accomplishments, feedback, and key institutional strengths in this dimension..."
-              />
-            </div>
-          </div>
-        </Modal>
-      )}
     </>
   );
 }

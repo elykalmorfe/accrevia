@@ -3,14 +3,26 @@ import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import { ProgramAccreditation } from '../../types/accreditation';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { Badge } from '../../components/ui/Badge';
+import { Badge, type BadgeTone } from '../../components/ui/Badge';
 import { ProgramFormModal } from '../../components/accreditation/ProgramFormModal';
 import { ProgramAreaRepositoryModal } from '../../components/accreditation/ProgramAreaRepositoryModal';
+import { ProgramCertificatesModal } from '../../components/accreditation/ProgramCertificatesModal';
+import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
+import { EvidenceDocument } from '../../types/evidence';
 import { ExpiryIndicator } from '../../components/accreditation/ExpiryIndicator';
 import { ProgramReportPrintModal, ProgramReportType } from '../../components/accreditation/reports/ProgramReportPrintModal';
 import { FindingsPrintModal } from '../../components/accreditation/reports/FindingsPrintModal';
 import { Modal } from '../../components/ui/Modal';
-import { compareYears, formatLevel, getExpiryInfo, getLevelHistory, isUrl, levelAsOf } from '../../utils/programAccreditation';
+import {
+  certificateAreaKey,
+  compareYears,
+  formatLevel,
+  getExpiryInfo,
+  getLevelHistory,
+  isUrl,
+  levelAsOf,
+  statusLabel
+} from '../../utils/programAccreditation';
 
 type HigherLevelFilter = 'all' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'improved';
 
@@ -103,8 +115,20 @@ import {
   XIcon,
   ShieldCheckIcon,
   FilterIcon,
-  LayersIcon
+  LayersIcon,
+  SlidersHorizontalIcon,
+  ChevronDownIcon
 } from 'lucide-react';
+import { CardField, MobileCard } from '../../components/ui/ResponsiveTable';
+
+function programBadgeTone(status: string): BadgeTone {
+  if (status.includes('Level 4')) return 'gold';
+  if (status.includes('Level 3')) return 'success';
+  if (status.includes('Level 2')) return 'brand';
+  if (status.includes('Level 1')) return 'gold';
+  if (status === 'Not Accreditable') return 'danger';
+  return 'warning';
+}
 
 export function ProgramAccreditationView() {
   const {
@@ -124,6 +148,14 @@ export function ProgramAccreditationView() {
   const [selectedDegree, setSelectedDegree] = useState<string>('all');
   const [validityFilter, setValidityFilter] = useState<'all' | 'expiring' | 'active' | 'expired'>('all');
   const [higherLevelFilter, setHigherLevelFilter] = useState<HigherLevelFilter>('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeSelectFilters = [
+    selectedCampus !== 'all',
+    selectedStatus !== 'all' || ['level-1', 'level-2', 'level-3', 'level-4', 'candidate'].includes(overviewFilter),
+    selectedDegree !== 'all',
+    validityFilter !== 'all',
+    higherLevelFilter !== 'all',
+  ].filter(Boolean).length;
 
   // Modal states
   const [formModalOpen, setFormModalOpen] = useState(false);
@@ -149,6 +181,41 @@ export function ProgramAccreditationView() {
     folders.forEach((f) => f.frameworkId === 'pa' && bump(f.areaId, 'folders'));
     return stats;
   }, [detailsModalProgram?.requirements, documents, folders]);
+
+  // AACCUP certificates (per-program level folders)
+  const [certificateProgramId, setCertificateProgramId] = useState<string | null>(null);
+  const certificateProgram = programAccreditations.find((p) => p.id === certificateProgramId) ?? null;
+  const [previewCertificate, setPreviewCertificate] = useState<EvidenceDocument | null>(null);
+
+  const certificateCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    documents.forEach((d) => {
+      if (d.frameworkId === 'pa' && d.areaId?.startsWith('cert-')) counts[d.areaId] = (counts[d.areaId] ?? 0) + 1;
+    });
+    return counts;
+  }, [documents]);
+
+  /** Latest certificate in each level folder of the program open in the details modal. */
+  const detailsCertificates = useMemo(() => {
+    if (!detailsModalProgram) return [];
+    const key = certificateAreaKey(detailsModalProgram.id);
+    const certFolders = folders.filter((f) => f.frameworkId === 'pa' && f.areaId === key);
+    const levelFolderOf = (folderId?: string) => {
+      let cursor = certFolders.find((f) => f.id === folderId);
+      while (cursor && !cursor.isSystem) cursor = certFolders.find((f) => f.id === cursor?.parentId);
+      return cursor;
+    };
+    const latest = new Map<string, { level: string; doc: EvidenceDocument }>();
+    documents
+      .filter((d) => d.frameworkId === 'pa' && d.areaId === key)
+      .forEach((doc) => {
+        const level = levelFolderOf(doc.folderId);
+        const id = level?.id ?? 'other';
+        const prev = latest.get(id);
+        if (!prev || doc.dateAdded >= prev.doc.dateAdded) latest.set(id, { level: level?.name ?? 'Other', doc });
+      });
+    return Array.from(latest.values()).sort((a, b) => a.level.localeCompare(b.level));
+  }, [detailsModalProgram, documents, folders]);
 
   // Print / report modals
   const [reportModal, setReportModal] = useState<{
@@ -374,8 +441,8 @@ export function ProgramAccreditationView() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto py-1 no-scrollbar">
             {/* All Campuses Button (Default) */}
-            <button
-              type="button"
+          <button
+            type="button"
               onClick={() => setSelectedCampus('all')}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 selectedCampus === 'all'
@@ -392,16 +459,16 @@ export function ProgramAccreditationView() {
               >
                 {totalInstitutionalPrograms}
               </span>
-            </button>
+          </button>
 
             {/* Individual Campus Buttons */}
             {campuses.map((c) => {
               const isSelected = selectedCampus === c.id;
               const count = campusProgramCounts[c.id] || 0;
               return (
-                <button
+          <button
                   key={c.id}
-                  type="button"
+            type="button"
                   onClick={() => setSelectedCampus(c.id)}
                   className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                     isSelected
@@ -417,14 +484,14 @@ export function ProgramAccreditationView() {
                   >
                     {count}
                   </span>
-                </button>
+          </button>
               );
             })}
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <button
-              type="button"
+          <button
+            type="button"
               onClick={() => setReportModal({ open: true, type: 'summary' })}
               className="btn btn-secondary btn-sm"
             >
@@ -439,13 +506,13 @@ export function ProgramAccreditationView() {
               className="btn btn-primary btn-sm"
             >
               <PlusIcon className="h-4 w-4" /> Add Academic Program
-            </button>
+          </button>
           </div>
         </div>
 
         {/* Active Filter Notification Banner */}
         {overviewFilter !== 'none' && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gradient-to-r from-brand-50 via-amber-50/40 to-white border border-brand-200/90 p-3 text-xs text-brand-950 shadow-2xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gradient-to-r from-brand-50 via-amber-50/40 to-surface border border-brand-200/90 p-3 text-xs text-brand-950 shadow-2xs">
             <div className="flex items-center gap-2">
               <span className="inline-flex h-2 w-2 rounded-full bg-brand-600 animate-pulse" />
               <span>
@@ -456,12 +523,12 @@ export function ProgramAccreditationView() {
                 {' · '}
                 Displaying <strong>{filtered.length}</strong> matching programs
                 {selectedCampus !== 'all' ? ` in ${selectedCampusObj?.shortName}` : ' across all campuses'}.
-              </span>
-            </div>
+        </span>
+      </div>
             <button
               type="button"
               onClick={() => setOverviewFilter('none')}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-brand-300 px-3 py-1 text-xs font-bold text-brand-900 hover:bg-brand-100 hover:border-brand-400 transition-all shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-surface border border-brand-300 px-3 py-1 text-xs font-bold text-brand-900 hover:bg-brand-100 hover:border-brand-400 transition-all shadow-2xs cursor-pointer"
             >
               <XIcon className="h-3.5 w-3.5" /> Clear Filter
             </button>
@@ -487,7 +554,7 @@ export function ProgramAccreditationView() {
                 </span>
                 <span className="rounded-full bg-slate-100 text-ink-subtle px-2 py-0.5 text-[9.5px] font-bold">
                   {selectedCampus === 'all' ? 'All Campuses' : selectedCampusObj?.shortName}
-                </span>
+                  </span>
               </div>
               <p className="mt-1.5 text-3xl font-black text-ink">{totalProgramsScoped}</p>
               <p className="text-[11px] text-ink-subtle mt-0.5 line-clamp-1">
@@ -548,7 +615,7 @@ export function ProgramAccreditationView() {
                 <span>{newProgramsCount} New</span>
               </button>
             </div>
-          </div>
+            </div>
 
           {/* Card 2: Accreditation Rate & Certified Ratio */}
           <div
@@ -556,7 +623,7 @@ export function ProgramAccreditationView() {
             className={`panel p-4 text-left transition-all cursor-pointer relative overflow-hidden group hover:shadow-soft flex flex-col justify-between ${
               overviewFilter === 'accredited'
                 ? 'bg-brand-50/90 border-brand-500 ring-2 ring-brand-400/40 shadow-sm'
-                : 'bg-gradient-to-br from-brand-50/40 via-white to-white hover:border-brand-300 shadow-2xs'
+                : 'bg-gradient-to-br from-brand-50/40 via-surface to-surface hover:border-brand-300 shadow-2xs'
             }`}
             title="Click to view all accredited programs (Levels 1–4)"
           >
@@ -570,13 +637,13 @@ export function ProgramAccreditationView() {
                 <span className="rounded-full bg-brand-100 text-brand-800 border border-brand-200 px-2 py-0.5 text-[9.5px] font-bold">
                   {selectedCampus === 'all' ? 'Institutional' : 'Campus Scope'}
                 </span>
-              </div>
+            </div>
               <div className="mt-1.5 flex items-baseline gap-2">
                 <p className="text-3xl font-black text-brand-700">{accreditationRate}%</p>
                 <span className="text-xs font-semibold text-ink-muted">
                   ({accreditedCount} / {totalProgramsScoped})
                 </span>
-              </div>
+            </div>
               <p className="text-[11px] text-ink-subtle mt-0.5 line-clamp-1">
                 {accreditedCount} of {totalProgramsScoped} degree offerings certified
               </p>
@@ -584,13 +651,13 @@ export function ProgramAccreditationView() {
 
             {/* Visual Progress Bar & Filter Pills */}
             <div className="mt-3.5 space-y-2 pt-2.5 border-t border-line/70">
-              <div>
+            <div>
                 <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
                   <div
                     className="bg-brand-600 transition-all duration-500 rounded-full"
                     style={{ width: `${Math.min(100, Math.max(0, parseFloat(accreditationRate)))}%` }}
                   />
-                </div>
+            </div>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -641,7 +708,7 @@ export function ProgramAccreditationView() {
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
                   Accreditation Levels
-                </span>
+              </span>
                 <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[9.5px] font-black uppercase">
                   Levels 1–4
                 </span>
@@ -659,8 +726,8 @@ export function ProgramAccreditationView() {
 
             {/* 2x2 Grid of Clean Clickable Level Buttons */}
             <div className="mt-3.5 grid grid-cols-2 gap-1.5 pt-2.5 border-t border-line/70">
-              <button
-                type="button"
+                  <button
+                    type="button"
                 onClick={() => handleOverviewFilterClick('level-1')}
                 className={`flex items-center justify-between px-2 py-1 rounded-md text-xs transition-all cursor-pointer ${
                   overviewFilter === 'level-1'
@@ -689,9 +756,9 @@ export function ProgramAccreditationView() {
                 <span className="flex items-center gap-1 font-semibold text-[11px]">
                   <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
                   Level 2
-                </span>
+                    </span>
                 <span className="font-black text-xs">{level2Count}</span>
-              </button>
+                  </button>
 
               <button
                 type="button"
@@ -710,8 +777,8 @@ export function ProgramAccreditationView() {
                 <span className="font-black text-xs">{level3Count}</span>
               </button>
 
-              <button
-                type="button"
+                <button
+                  type="button"
                 onClick={() => handleOverviewFilterClick('level-4')}
                 className={`flex items-center justify-between px-2 py-1 rounded-md text-xs transition-all cursor-pointer ${
                   overviewFilter === 'level-4'
@@ -723,10 +790,10 @@ export function ProgramAccreditationView() {
                 <span className="flex items-center gap-1 font-semibold text-[11px]">
                   <span className="h-1.5 w-1.5 rounded-full bg-purple-500 shrink-0" />
                   Level 4
-                </span>
+                    </span>
                 <span className="font-black text-xs">{level4Count}</span>
               </button>
-            </div>
+                  </div>
           </div>
 
           {/* Card 4: For Accreditation This Year (Annual Action Roster) */}
@@ -735,7 +802,7 @@ export function ProgramAccreditationView() {
             className={`panel p-4 text-left transition-all cursor-pointer relative overflow-hidden group hover:shadow-soft flex flex-col justify-between ${
               overviewFilter === 'due-this-year'
                 ? 'bg-amber-100/90 border-amber-500 ring-2 ring-amber-400/40 shadow-sm'
-                : 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-white border-amber-300/80 hover:border-amber-400 shadow-2xs'
+                : 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-surface border-amber-300/80 hover:border-amber-400 shadow-2xs'
             }`}
             title={`Click to filter programs due or scheduled for accreditation in ${CURRENT_YEAR}`}
           >
@@ -744,11 +811,11 @@ export function ProgramAccreditationView() {
                 <span className="text-[11px] font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
                   <ClockIcon className="h-3.5 w-3.5 text-amber-700 shrink-0" />
                   Due This Year
-                </span>
+                      </span>
                 <span className="rounded-full bg-amber-200/90 text-amber-900 border border-amber-300 px-2 py-0.5 text-[9.5px] font-black uppercase tracking-wide">
                   {CURRENT_YEAR} Action
-                </span>
-              </div>
+                      </span>
+                  </div>
               <p className="mt-1.5 text-3xl font-black text-amber-950">{dueThisYearCount}</p>
               <p className="text-[11px] text-amber-900/90 font-medium mt-0.5 line-clamp-1">
                 {dueThisYearCount > 0
@@ -771,9 +838,9 @@ export function ProgramAccreditationView() {
                   <span>{overviewFilter === 'due-this-year' ? `Active: Due in ${CURRENT_YEAR}` : `View ${CURRENT_YEAR} Action Roster`}</span>
                 </span>
                 <span className="font-extrabold text-sm ml-1 shrink-0">→</span>
-              </div>
-            </div>
-          </div>
+                  </div>
+        </div>
+      </div>
         </div>
       </section>
 
@@ -791,7 +858,25 @@ export function ProgramAccreditationView() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            className="btn btn-secondary btn-sm w-full justify-between md:hidden"
+          >
+            <span className="inline-flex items-center gap-2">
+              <SlidersHorizontalIcon className="h-4 w-4" />
+              Filters
+              {activeSelectFilters > 0 && (
+                <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-brand-600 px-1.5 text-[10.5px] font-bold text-white">
+                  {activeSelectFilters}
+                </span>
+              )}
+            </span>
+            <ChevronDownIcon className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          <div className={`${filtersOpen ? 'grid' : 'hidden'} grid-cols-1 gap-2 xs:grid-cols-2 md:flex md:flex-wrap md:items-center [&>select]:w-full md:[&>select]:w-auto`}>
             <select
               value={selectedCampus}
               onChange={(e) => setSelectedCampus(e.target.value)}
@@ -828,12 +913,12 @@ export function ProgramAccreditationView() {
               className="input h-9 text-xs py-0 w-auto"
             >
               <option value="all">All Levels</option>
+              <option value="Not Accreditable">New Program</option>
               <option value="Candidate">Candidate</option>
               <option value="Level 1">Level 1</option>
               <option value="Level 2">Level 2</option>
               <option value="Level 3">Level 3</option>
               <option value="Level 4">Level 4</option>
-              <option value="Not Accreditable">Not Accreditable</option>
             </select>
             <select
               value={selectedDegree}
@@ -891,27 +976,109 @@ export function ProgramAccreditationView() {
             )}
           </div>
           {(overviewFilter !== 'none' || selectedCampus !== 'all' || selectedStatus !== 'all' || selectedDegree !== 'all' || search.trim() || validityFilter !== 'all' || higherLevelFilter !== 'all') && (
-            <button
-              type="button"
-              onClick={() => {
+              <button
+                type="button"
+                onClick={() => {
                 setOverviewFilter('none');
-                setSelectedCampus('all');
-                setSelectedStatus('all');
+                  setSelectedCampus('all');
+                  setSelectedStatus('all');
                 setSelectedDegree('all');
-                setSearch('');
+                  setSearch('');
                 setValidityFilter('all');
                 setHigherLevelFilter('all');
-              }}
+                }}
               className="text-xs text-brand-700 hover:text-brand-900 font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
-            >
+              >
               <RotateCcwIcon className="h-3 w-3" /> Reset all filters
-            </button>
-          )}
+              </button>
+            )}
         </div>
       </div>
 
+      {/* Phones and tablets: one card per program */}
+      <div className="lg:hidden">
+        {filtered.length === 0 ? (
+          <div className="panel p-8 text-center text-sm text-ink-muted">No programs matched the selected search criteria.</div>
+        ) : (
+          <ul className="space-y-2.5">
+            {filtered.map((prog) => {
+              const certCount = certificateCounts[certificateAreaKey(prog.id)] ?? 0;
+              return (
+                <li key={prog.id}>
+                  <MobileCard>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold leading-snug text-ink">{prog.programName}</p>
+                        <p className="mt-0.5 text-xs text-ink-muted">
+                          {prog.campusName.replace(' Campus', '')} · {prog.degreeLevel}
+                        </p>
+                      </div>
+                      <Badge tone={programBadgeTone(prog.status)} dot className="shrink-0">
+                        {statusLabel(prog.status)}
+                      </Badge>
+                    </div>
+
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-line-subtle pt-3">
+                      <CardField label="Validity">
+                        {prog.validityStart && prog.validityEnd ? `${prog.validityStart} – ${prog.validityEnd}` : '—'}
+                      </CardField>
+                      <CardField label="Initial Operation">{prog.yearOfInitialOperation || '—'}</CardField>
+                      {prog.scheduleForAccreditation && (
+                        <CardField label="Survey" className="col-span-2">{prog.scheduleForAccreditation}</CardField>
+                      )}
+                    </dl>
+                    <div className="mt-2">
+                      <ExpiryIndicator program={prog} />
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line-subtle pt-3">
+                      <button type="button" onClick={() => setDetailsModalProgram(prog)} className="btn btn-secondary btn-sm h-8 flex-1 text-xs">
+                        <LayersIcon className="h-3.5 w-3.5" />
+                        Areas ({prog.requirements?.length || 10})
+                      </button>
+                      {(certCount > 0 || isAdmin) && (
+                        <button type="button" onClick={() => setCertificateProgramId(prog.id)} className="btn btn-secondary btn-sm h-8 flex-1 text-xs">
+                          {certCount > 0 ? <FileCheckIcon className="h-3.5 w-3.5 text-success-600" /> : <UploadIcon className="h-3.5 w-3.5" />}
+                          {certCount > 0 ? `Certificates (${certCount})` : 'Upload certificate'}
+                        </button>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => setFindingsProgramId(prog.id)} className="btn btn-ghost btn-icon h-8 w-8 min-h-0 min-w-0" aria-label="Summary of findings">
+                          <PrinterIcon className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingProgram(prog);
+                            setFormModalOpen(true);
+                          }}
+                          className="btn btn-ghost btn-icon h-8 w-8 min-h-0 min-w-0"
+                          aria-label="Edit program"
+                        >
+                          <PencilIcon className="h-3.5 w-3.5" />
+                        </button>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(prog.id, prog.programName)}
+                            className="btn btn-ghost btn-icon h-8 w-8 min-h-0 min-w-0 text-danger-600 hover:bg-danger-50"
+                            aria-label="Delete program"
+                          >
+                            <Trash2Icon className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </MobileCard>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
       {/* Primary Accreditation Status Table (matching PDF Structure) */}
-      <div className="panel overflow-hidden">
+      <div className="panel hidden overflow-hidden lg:block">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[12.5px]">
             <thead className="bg-canvas border-b border-line text-ink-muted">
@@ -948,7 +1115,7 @@ export function ProgramAccreditationView() {
                 filtered.map((prog) => {
                   const hasFindingsText = !!(prog.findingsSummary || prog.recommendations);
                   return (
-                    <tr key={prog.id} className="hover:bg-canvas/50 transition-colors">
+                    <tr key={prog.id} className="tr-hover">
                       <td className="td py-3">
                         <div className="font-semibold text-ink leading-snug">{prog.programName}</div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-ink-muted">
@@ -975,23 +1142,8 @@ export function ProgramAccreditationView() {
                       </td>
 
                       <td className="td py-3 whitespace-nowrap">
-                        <Badge
-                          tone={
-                            prog.status.includes('Level 4')
-                              ? 'gold'
-                              : prog.status.includes('Level 3')
-                              ? 'success'
-                              : prog.status.includes('Level 2')
-                              ? 'brand'
-                              : prog.status.includes('Level 1')
-                              ? 'gold'
-                              : prog.status === 'Not Accreditable'
-                              ? 'danger'
-                              : 'warning'
-                          }
-                          dot
-                        >
-                          {prog.status}
+                        <Badge tone={programBadgeTone(prog.status)} dot>
+                          {statusLabel(prog.status)}
                         </Badge>
                       </td>
 
@@ -1015,36 +1167,55 @@ export function ProgramAccreditationView() {
                       </td>
 
                       <td className="td py-3 text-xs">
-                        {prog.certificationFile && isUrl(prog.certificationFile) ? (
-                          <a
-                            href={prog.certificationFile}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 rounded bg-success-50 px-2 py-0.5 font-medium text-success-700 text-[11.5px] border border-success-100 hover:border-success-300 whitespace-nowrap"
-                            title="Open AACCUP certificate"
-                          >
-                            <FileCheckIcon className="h-3 w-3 shrink-0" />
-                            View Certificate
-                          </a>
-                        ) : prog.certificationFile ? (
-                          <span
-                            className="inline-flex items-center gap-1 rounded bg-success-50 px-2 py-0.5 font-medium text-success-700 text-[11.5px] border border-success-100"
-                            title={prog.certificationFile}
-                          >
-                            <FileCheckIcon className="h-3 w-3 shrink-0" />
-                            <span className="truncate max-w-[110px]">{prog.certificationFile}</span>
-                          </span>
-                        ) : (
-                          <span className="text-ink-subtle">—</span>
-                        )}
+                        {(() => {
+                          const count = certificateCounts[certificateAreaKey(prog.id)] ?? 0;
+                          return (
+                            <div className="flex flex-col items-start gap-1">
+                              {count > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setCertificateProgramId(prog.id)}
+                                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-success-100 bg-success-50 px-2 py-0.5 text-[11.5px] font-semibold text-success-700 transition hover:border-success-600"
+                                  title="View AACCUP certificates"
+                                >
+                                  <FileCheckIcon className="h-3 w-3 shrink-0" />
+                                  View ({count})
+                                </button>
+                              ) : isAdmin ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setCertificateProgramId(prog.id)}
+                                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-line bg-surface px-2 py-0.5 text-[11.5px] font-semibold text-ink-muted transition hover:border-brand-300 hover:text-brand-700"
+                                  title="Upload AACCUP certificate"
+                                >
+                                  <UploadIcon className="h-3 w-3 shrink-0" />
+                                  Upload
+                                </button>
+                              ) : !isUrl(prog.certificationFile) ? (
+                                <span className="text-ink-subtle">—</span>
+                              ) : null}
+                              {prog.certificationFile && isUrl(prog.certificationFile) && (
+                                <a
+                                  href={prog.certificationFile}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10.5px] font-medium text-ink-subtle hover:text-brand-700"
+                                  title="Open linked certificate"
+                                >
+                                  <ExternalLinkIcon className="h-2.5 w-2.5" /> Linked file
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       <td className="td py-3 text-xs whitespace-nowrap">
                         {prog.technicalReviewLink ? (
-                          <a
+                            <a
                             href={prog.technicalReviewLink}
-                            target="_blank"
-                            rel="noreferrer"
+                              target="_blank"
+                              rel="noreferrer"
                             className="inline-flex items-center gap-1 rounded border border-line bg-canvas px-2 py-0.5 font-medium text-brand-700 hover:border-brand-300"
                             title="Open AACCUP Technical Review"
                           >
@@ -1063,10 +1234,10 @@ export function ProgramAccreditationView() {
 
                       <td className="td py-3 text-xs whitespace-nowrap">
                         {prog.findingsLink ? (
-                          <a
-                            href={prog.findingsLink}
-                            target="_blank"
-                            rel="noreferrer"
+                            <a
+                              href={prog.findingsLink}
+                              target="_blank"
+                              rel="noreferrer"
                             className="inline-flex items-center gap-1 rounded border border-line bg-canvas px-2 py-0.5 font-medium text-brand-700 hover:border-brand-300"
                             title="Open Summary of Findings & Recommendation"
                           >
@@ -1167,21 +1338,44 @@ export function ProgramAccreditationView() {
                 </p>
               </div>
               <div>
-                <span className="text-ink-muted">Accreditation Certificate</span>
-                <p className="font-semibold text-ink truncate">
-                  {detailsModalProgram.certificationFile && isUrl(detailsModalProgram.certificationFile) ? (
-                    <a
-                      href={detailsModalProgram.certificationFile}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-brand-700 hover:underline"
-                    >
-                      View Certificate
-                    </a>
-                  ) : (
-                    detailsModalProgram.certificationFile || 'No file registered'
-                  )}
-                </p>
+                <span className="text-ink-muted">Accreditation Certificates</span>
+                {detailsCertificates.length > 0 ? (
+                  <ul className="mt-0.5 space-y-0.5">
+                    {detailsCertificates.map(({ level, doc }) => (
+                      <li key={doc.id} className="flex items-center gap-1.5">
+                        <span className="shrink-0 font-semibold text-ink">{level}:</span>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewCertificate(doc)}
+                          className="truncate font-medium text-brand-700 hover:underline"
+                          title={`Preview ${doc.title}`}
+                        >
+                          {doc.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : detailsModalProgram.certificationFile && isUrl(detailsModalProgram.certificationFile) ? (
+                  <a
+                    href={detailsModalProgram.certificationFile}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block font-semibold text-brand-700 hover:underline"
+                  >
+                    View linked certificate
+                  </a>
+                ) : (
+                  <p className="font-semibold text-ink-subtle">No certificate uploaded</p>
+                )}
+                {(isAdmin || detailsCertificates.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => setCertificateProgramId(detailsModalProgram.id)}
+                    className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:underline"
+                  >
+                    <FolderOpenIcon className="h-3 w-3" /> {isAdmin ? 'Manage certificates' : 'Browse certificates'}
+                  </button>
+                )}
               </div>
               <div>
                 <span className="text-ink-muted">COPC Certificate</span>
@@ -1313,6 +1507,13 @@ export function ProgramAccreditationView() {
         requirement={repositoryRequirement}
         onClose={() => setRepositoryReqId(null)}
       />
+
+      <ProgramCertificatesModal
+        open={!!certificateProgram}
+        program={certificateProgram}
+        onClose={() => setCertificateProgramId(null)}
+      />
+      <DocumentPreviewModal doc={previewCertificate} onClose={() => setPreviewCertificate(null)} grantAccess />
     </>
   );
 }

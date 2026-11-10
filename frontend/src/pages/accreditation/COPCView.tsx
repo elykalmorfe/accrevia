@@ -12,7 +12,6 @@ import {
   EyeIcon,
   UploadIcon,
   PencilIcon,
-  UploadCloudIcon,
   AwardIcon,
   PrinterIcon,
   DownloadIcon,
@@ -23,6 +22,14 @@ import {
   ChevronRightIcon
 } from 'lucide-react';
 import { getStoredFile, persistUpload } from '../../utils/fileStore';
+import { UploadDropzone } from '../../components/upload/UploadDropzone';
+import { FileList, FileRow, FileRowAction } from '../../components/upload/FileRow';
+
+/** Starting zoom so the 640px-wide paper preview fits narrow screens. */
+function fitPaperZoom(): number {
+  const available = window.innerWidth - 72;
+  return available >= 640 ? 100 : Math.max(40, Math.floor((available / 640) * 100));
+}
 
 export function COPCView() {
   const {
@@ -56,7 +63,7 @@ export function COPCView() {
     blobUrl?: string;
   } | null>(null);
   const [uploadedBlobMap, setUploadedBlobMap] = useState<Record<string, string>>({});
-  const [pdfZoom, setPdfZoom] = useState<number>(100);
+  const [pdfZoom, setPdfZoom] = useState<number>(fitPaperZoom);
 
   const openPdfViewer = async (copc: COPCRecord, req: COPCRequirementItem, reqIdx: number) => {
     const key = `${copc.id}-${req.code}`;
@@ -79,7 +86,7 @@ export function COPCView() {
       reqIdx,
       blobUrl
     });
-    setPdfZoom(100);
+    setPdfZoom(fitPaperZoom());
   };
 
   const handleSwitchPdfReq = (delta: number) => {
@@ -132,10 +139,6 @@ export function COPCView() {
   const [uploadNotes, setUploadNotes] = useState<string>('');
   const [simulatedUploading, setSimulatedUploading] = useState<boolean>(false);
   const [showDropzone, setShowDropzone] = useState<boolean>(false);
-  const [dragOverCode, setDragOverCode] = useState<string | null>(null);
-  const certFileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const reqFileInputRef = React.useRef<HTMLInputElement | null>(null);
-
   // Guarantee window and body scrolling is smoothly unlocked whenever no modals are active
   useEffect(() => {
     const hasAnyModal = Boolean(
@@ -313,12 +316,10 @@ export function COPCView() {
     }, 350);
   };
 
-  const handleSimulatedFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      attachFileToUploadCopc(file);
-    }
-    e.target.value = '';
+  const openRequirementFile = (req: COPCRequirementItem) => {
+    if (!uploadCopc) return;
+    const rIdx = uploadCopc.requirements.findIndex((r) => r.code === req.code);
+    openPdfViewer(uploadCopc, { ...req, documentName: uploadDocName || req.documentName }, rIdx >= 0 ? rIdx : 0);
   };
 
   const handleSaveUploadRequirement = () => {
@@ -793,7 +794,7 @@ export function COPCView() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 [&>select]:flex-1 sm:[&>select]:flex-none">
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
@@ -1539,7 +1540,7 @@ export function COPCView() {
               <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-1">
                 <button
                   type="button"
-                  onClick={() => setPdfZoom((z) => Math.max(75, z - 15))}
+                  onClick={() => setPdfZoom((z) => Math.max(40, z - 15))}
                   className="p-1 rounded text-slate-300 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
                   title="Zoom Out"
                 >
@@ -1560,7 +1561,7 @@ export function COPCView() {
             </div>
 
             {/* Dark Reader Viewport */}
-            <div className="rounded-xl bg-[#525659] p-3 sm:p-6 overflow-y-auto max-h-[72vh] flex justify-center shadow-inner">
+            <div className="rounded-xl bg-[#525659] p-3 sm:p-6 overflow-auto max-h-[72dvh] flex justify-center shadow-inner">
               {activePdfDoc.blobUrl ? (
                 <iframe
                   src={activePdfDoc.blobUrl}
@@ -1570,8 +1571,8 @@ export function COPCView() {
               ) : (
                 /* Authentic A4 CHED Compliance PDF Sheet */
                 <div
-                  style={{ transform: `scale(${pdfZoom / 100})`, transformOrigin: 'top center' }}
-                  className="transition-transform duration-150 w-full max-w-[780px] bg-white text-slate-900 shadow-2xl rounded-sm p-6 sm:p-10 font-serif relative border border-slate-300 min-h-[960px] select-text"
+                  style={{ zoom: pdfZoom / 100 }}
+                  className="light-island w-full min-w-[640px] max-w-[780px] shrink-0 bg-white text-slate-900 shadow-2xl rounded-sm p-10 font-serif relative border border-slate-300 min-h-[960px] select-text"
                 >
                   {/* Subtle diagonal official watermark */}
                   <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] pointer-events-none select-none rotate-[-30deg]">
@@ -2087,103 +2088,57 @@ export function COPCView() {
 
                 {/* Certificate Upload: Pure File Upload Only */}
                 {uploadDocName && !showDropzone ? (
-                  <div className="rounded-xl border border-line bg-canvas/60 p-3.5 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-800 shrink-0">
-                        <AwardIcon className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-ink truncate">{uploadDocName}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <Badge tone={uploadCopc.copcStatus === 'Compliant' ? 'success' : 'warning'} dot>
-                            {uploadCopc.copcStatus === 'Compliant' ? 'Active' : 'Pending'}
-                          </Badge>
-                          <span className="text-[11px] text-ink-subtle">Official Certificate Attached</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setViewingCertificateCopc(uploadCopc);
-                          setViewModalTab('certificate');
-                        }}
-                        className="btn btn-primary btn-sm inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-2xs"
-                      >
-                        <EyeIcon className="h-3.5 w-3.5" />
-                        <span>View Certificate</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowDropzone(true)}
-                        className="btn btn-secondary btn-sm inline-flex items-center gap-1.5 shrink-0 text-xs text-ink-muted hover:text-brand-700 cursor-pointer"
-                      >
-                        <PencilIcon className="h-3.5 w-3.5" />
-                        <span>Edit / Replace File</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragOverCode('COPC-CERT');
-                    }}
-                    onDragLeave={() => setDragOverCode(null)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragOverCode(null);
-                      const file = e.dataTransfer.files?.[0];
-                      if (file) attachFileToUploadCopc(file);
-                    }}
-                    onClick={() => certFileInputRef.current?.click()}
-                    className={`rounded-xl border-2 border-dashed p-6 text-center transition-all cursor-pointer ${
-                      dragOverCode === 'COPC-CERT'
-                        ? 'border-brand-500 bg-brand-50/60 ring-2 ring-brand-400/30'
-                        : 'border-line-strong hover:bg-canvas/50 hover:border-brand-400'
-                    }`}
-                  >
-                    <input
-                      ref={certFileInputRef}
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.png,.jpg,.jpeg"
-                      onChange={handleSimulatedFileUpload}
-                      disabled={simulatedUploading}
+                  <FileList>
+                    <FileRow
+                      name={uploadDocName}
+                      fileType={uploadDocName}
+                      meta="Official certificate attached"
+                      onOpen={() => {
+                        setViewingCertificateCopc(uploadCopc);
+                        setViewModalTab('certificate');
+                      }}
+                      status={
+                        <Badge tone={uploadCopc.copcStatus === 'Compliant' ? 'success' : 'warning'} dot>
+                          {uploadCopc.copcStatus === 'Compliant' ? 'Active' : 'Pending'}
+                        </Badge>
+                      }
+                      actions={
+                        <>
+                          <FileRowAction
+                            icon={EyeIcon}
+                            label="View certificate"
+                            onClick={() => {
+                              setViewingCertificateCopc(uploadCopc);
+                              setViewModalTab('certificate');
+                            }}
+                          />
+                          <FileRowAction icon={PencilIcon} label="Replace file" onClick={() => setShowDropzone(true)} />
+                        </>
+                      }
                     />
-                    <UploadCloudIcon className={`mx-auto h-8 w-8 transition-colors ${dragOverCode === 'COPC-CERT' ? 'text-brand-700' : 'text-brand-600'}`} />
-                    <p className="mt-2 text-xs font-bold text-ink">
-                      Upload official issued COPC certificate
-                    </p>
-                    <p className="text-[11px] text-ink-muted mt-0.5">Drag & drop or click to browse · PDF, PNG, JPG up to 50MB</p>
-                    <div className="mt-3 flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          certFileInputRef.current?.click();
-                        }}
-                        disabled={simulatedUploading}
-                        className="btn btn-primary btn-sm min-h-[34px] px-3.5 text-xs inline-flex items-center gap-1.5 shadow-2xs font-semibold cursor-pointer"
-                      >
-                        <UploadIcon className="h-3.5 w-3.5" />
-                        <span>{simulatedUploading ? 'Attaching file...' : 'Choose certificate file'}</span>
-                      </button>
-                      {uploadDocName && (
+                  </FileList>
+                ) : (
+                  <div className="space-y-2">
+                    <UploadDropzone
+                      onFiles={(uploads) => attachFileToUploadCopc(uploads[0].file)}
+                      multiple={false}
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      disabled={simulatedUploading}
+                      title={simulatedUploading ? 'Attaching file…' : 'Upload the official COPC certificate'}
+                      hint="PDF, PNG or JPG · one file"
+                      browseLabel="Choose certificate file"
+                    />
+                    {uploadDocName && (
+                      <div className="flex justify-end">
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowDropzone(false);
-                          }}
-                          className="btn btn-ghost btn-sm h-8 px-2.5 text-xs text-ink-muted hover:text-ink cursor-pointer"
+                          onClick={() => setShowDropzone(false)}
+                          className="btn btn-ghost btn-sm h-8 px-2.5 text-xs text-ink-muted hover:text-ink"
                         >
                           Cancel
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2211,105 +2166,47 @@ export function COPCView() {
 
                     {/* If already uploaded, show clean attached file card; show dropzone only on edit/replace */}
                     {hasExistingFile && !showDropzone ? (
-                      <div className="rounded-xl border border-line bg-canvas/60 p-3.5 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700 shrink-0">
-                            <FileTextIcon className="h-5 w-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-ink truncate">
-                              {uploadDocName || currentReq.documentName}
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <Badge tone={uploadStatus === 'Approved' ? 'success' : 'warning'} dot>
-                                {uploadStatus}
-                              </Badge>
-                              <span className="text-[11px] text-ink-subtle">Attached Evidence File</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const rIdx = uploadCopc.requirements.findIndex((r) => r.code === currentReq.code);
-                              openPdfViewer(uploadCopc, { ...currentReq, documentName: uploadDocName || currentReq.documentName }, rIdx >= 0 ? rIdx : 0);
-                            }}
-                            className="btn btn-primary btn-sm inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-2xs"
-                          >
-                            <FileTextIcon className="h-3.5 w-3.5" />
-                            <span>View PDF</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowDropzone(true)}
-                            className="btn btn-secondary btn-sm inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-brand-700 cursor-pointer"
-                          >
-                            <PencilIcon className="h-3.5 w-3.5" />
-                            <span>Edit / Replace File</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          setDragOverCode(selectedReqCode);
-                        }}
-                        onDragLeave={() => setDragOverCode(null)}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          setDragOverCode(null);
-                          const file = e.dataTransfer.files?.[0];
-                          if (file) attachFileToUploadCopc(file);
-                        }}
-                        onClick={() => reqFileInputRef.current?.click()}
-                        className={`rounded-xl border-2 border-dashed p-5 text-center transition-all cursor-pointer ${
-                          dragOverCode === selectedReqCode
-                            ? 'border-brand-500 bg-brand-50/60 ring-2 ring-brand-400/30'
-                            : 'border-line-strong hover:bg-canvas/50 hover:border-brand-400'
-                        }`}
-                      >
-                        <input
-                          ref={reqFileInputRef}
-                          type="file"
-                          className="hidden"
-                          accept=".pdf,.doc,.docx,.xlsx,.png,.jpg"
-                          onChange={handleSimulatedFileUpload}
-                          disabled={simulatedUploading}
+                      <FileList>
+                        <FileRow
+                          name={uploadDocName || currentReq.documentName}
+                          fileType={uploadDocName || currentReq.documentName || 'PDF'}
+                          meta="Attached evidence file"
+                          onOpen={() => openRequirementFile(currentReq)}
+                          status={
+                            <Badge tone={uploadStatus === 'Approved' ? 'success' : 'warning'} dot>
+                              {uploadStatus}
+                            </Badge>
+                          }
+                          actions={
+                            <>
+                              <FileRowAction icon={EyeIcon} label="View file" onClick={() => openRequirementFile(currentReq)} />
+                              <FileRowAction icon={PencilIcon} label="Replace file" onClick={() => setShowDropzone(true)} />
+                            </>
+                          }
                         />
-                        <UploadCloudIcon className={`mx-auto h-7 w-7 transition-colors ${dragOverCode === selectedReqCode ? 'text-brand-700' : 'text-brand-600'}`} />
-                        <p className="mt-1.5 text-xs font-semibold text-ink">
-                          Upload requirement evidence document
-                        </p>
-                        <p className="text-[11px] text-ink-muted">Drag & drop or click to browse · PDF, DOCX, XLSX, PNG up to 50MB</p>
-                        <div className="mt-2.5 flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              reqFileInputRef.current?.click();
-                            }}
-                            disabled={simulatedUploading}
-                            className="btn btn-secondary btn-sm min-h-[34px] px-3 text-xs inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                          >
-                            <UploadIcon className="h-3.5 w-3.5" />
-                            <span>{simulatedUploading ? 'Attaching file...' : 'Choose file to attach'}</span>
-                          </button>
-                          {hasExistingFile && (
+                      </FileList>
+                    ) : (
+                      <div className="space-y-2">
+                        <UploadDropzone
+                          onFiles={(uploads) => attachFileToUploadCopc(uploads[0].file)}
+                          multiple={false}
+                          accept=".pdf,.doc,.docx,.xlsx,.png,.jpg"
+                          disabled={simulatedUploading}
+                          title={simulatedUploading ? 'Attaching file…' : 'Upload the requirement evidence'}
+                          hint="PDF, DOCX, XLSX or image · one file"
+                          browseLabel="Choose file"
+                        />
+                        {hasExistingFile && (
+                          <div className="flex justify-end">
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowDropzone(false);
-                              }}
-                              className="btn btn-ghost btn-sm h-8 px-2.5 text-xs text-ink-muted hover:text-ink cursor-pointer"
+                              onClick={() => setShowDropzone(false)}
+                              className="btn btn-ghost btn-sm h-8 px-2.5 text-xs text-ink-muted hover:text-ink"
                             >
                               Cancel
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
