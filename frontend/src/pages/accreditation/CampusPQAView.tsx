@@ -66,6 +66,27 @@ export function CampusPQAView() {
     );
   }
 
+  const totalCategories = pqaRecord.categories.length;
+  const metCount = pqaRecord.categories.filter((c) => c.status === 'Met').length;
+  const partialCount = pqaRecord.categories.filter((c) => c.status === 'Partially Met').length;
+  const deficientCount = pqaRecord.categories.filter((c) => c.status === 'Deficient').length;
+  const compliancePercentage = totalCategories ? Math.round((metCount / totalCategories) * 100) : 0;
+
+  const recommendedLevel: PQARecognitionLevel =
+    compliancePercentage === 100
+      ? 'Level 4: Philippine Quality Award for Performance Excellence'
+      : compliancePercentage >= 75
+      ? 'Level 3: Mastery in Quality Management'
+      : compliancePercentage >= 50
+      ? 'Level 2: Proficiency in Quality Management'
+      : 'Level 1: Commitment to Quality Management';
+
+  const statusBreakdown = [
+    { label: 'Met', count: metCount, dot: 'bg-success-600', text: 'text-success-700' },
+    { label: 'Partially Met', count: partialCount, dot: 'bg-brand-500', text: 'text-brand-700' },
+    { label: 'Deficient', count: deficientCount, dot: 'bg-danger-600', text: 'text-danger-700' }
+  ];
+
   return (
     <>
       <PageHeader
@@ -79,8 +100,8 @@ export function CampusPQAView() {
       />
 
       {/* Campus PQA Status Card */}
-      <div className="mb-6">
-        <div className="panel p-5">
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+        <div className="panel col-span-2 p-5">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
@@ -149,6 +170,67 @@ export function CampusPQAView() {
           />
         </div>
 
+        {/* Compliance Card */}
+        <div className="panel flex flex-col justify-between p-5">
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-subtle">Compliance</h3>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-4xl font-extrabold tracking-tight text-ink">{compliancePercentage}%</span>
+              <span className="text-xs font-medium text-ink-muted">
+                {metCount} of {totalCategories} categories met
+              </span>
+            </div>
+
+            <div
+              className="mt-3 flex h-2.5 w-full overflow-hidden rounded-full bg-line"
+              role="img"
+              aria-label={statusBreakdown.map((s) => `${s.label}: ${s.count}`).join(', ')}
+            >
+              {statusBreakdown.map((s) =>
+                s.count > 0 ? (
+                  <div
+                    key={s.label}
+                    className={`h-full transition-all duration-300 ${s.dot}`}
+                    style={{ width: `${(s.count / totalCategories) * 100}%` }}
+                  />
+                ) : null
+              )}
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-2 xs:grid-cols-2">
+              {statusBreakdown.map((s) => (
+                <div key={s.label} className="rounded-xl border border-line bg-canvas/50 px-3 py-2.5">
+                  <p className="flex items-center gap-1.5 text-[11.5px] font-medium text-ink-muted">
+                    <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+                    {s.label}
+                  </p>
+                  <p className={`mt-0.5 text-xl font-bold leading-tight ${s.text}`}>{s.count}</p>
+                </div>
+              ))}
+              <div className="rounded-xl border border-line bg-canvas/50 px-3 py-2.5">
+                <p className="flex items-center gap-1.5 text-[11.5px] font-medium text-ink-muted">
+                  <span className="h-2 w-2 rounded-full bg-gold-500" />
+                  Overall Score
+                </p>
+                <p className="mt-0.5 text-xl font-bold leading-tight text-ink">
+                  {pqaRecord.overallScore}
+                  <span className="text-xs font-medium text-ink-subtle"> / 1,000</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 border-t border-line pt-3">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-ink-subtle">Recommended level</p>
+            <p className="mt-1 flex items-start gap-2 text-[13.5px] font-bold leading-snug text-ink">
+              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-gold-500" />
+              {recommendedLevel}
+            </p>
+            <p className="mt-0.5 text-[11.5px] text-ink-subtle">
+              {metCount === 0 ? 'No categories met yet' : `Based on ${metCount} met ${metCount === 1 ? 'category' : 'categories'}`}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* PQA Document & Folder Management (7 category folders) */}

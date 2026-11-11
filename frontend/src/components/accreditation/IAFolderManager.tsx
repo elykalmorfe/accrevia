@@ -1136,9 +1136,11 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                   {campusName}
                 </span>
               </div>
-              <p className="mt-1 max-w-xl text-[12.5px] text-ink-muted">
-                {framework.description}
-              </p>
+              {framework.description && (
+                <p className="mt-1 max-w-xl text-[12.5px] text-ink-muted">
+                  {framework.description}
+                </p>
+              )}
             </div>
           </div>
 

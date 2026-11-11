@@ -13,7 +13,7 @@ export interface FolderFramework {
   areasTabLabel: string;
   areasHeading: string;
   title: string;
-  description: string;
+  description?: string;
   cycle: string;
   /** Shows the Custom Folders tab and the "move custom folder into an area" upload mode. */
   customFolders: boolean;
@@ -60,7 +60,6 @@ export const PQA_FOLDER_FRAMEWORK: FolderFramework = {
   areasTabLabel: 'PQA Categories',
   areasHeading: 'PQA Criteria for Performance Excellence (7 Categories)',
   title: 'PQA Document & Folder Management',
-  description: 'Evidence portfolios for PQA Categories 1–7 (Leadership to Results) — organize folders, upload evidence, and track review progress.',
   cycle: 'PQA Application Cycle',
   customFolders: false,
   areas: PQA_CATEGORY_AREAS,
