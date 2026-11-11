@@ -38,19 +38,22 @@ import { pluralize } from '../../utils/format';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
 import { downloadStoredFile, persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
-import { applyNamingPattern, filterAllowedUploads } from '../../utils/uploadRules';
+import { applyNamingPattern, filterAllowedUploads, uploadAcceptAttribute } from '../../utils/uploadRules';
 import type { PendingUpload } from '../../utils/dropFiles';
 import { UploadDropzone } from '../upload/UploadDropzone';
 import { StagedFileList } from '../upload/StagedFileList';
 import { FileList, FileRow, FileRowAction, FileStatusPill } from '../upload/FileRow';
 import { formatSize } from '../upload/fileTypeStyle';
 import { isCertificateArea } from '../../utils/programAccreditation';
-import { usePortalSettings } from '../../settings/portalSettings';
+import { IAAreaTemplate, usePortalSettings } from '../../settings/portalSettings';
+import { FolderFramework, iaFolderFramework } from './folderFrameworks';
 
 interface IAFolderManagerProps {
   campusId: CampusId;
   campusName: string;
-  iaRequirements: IARequirementItem[];
+  /** Defaults to Institutional Accreditation with the areas from Settings. */
+  framework?: FolderFramework;
+  iaRequirements?: IARequirementItem[];
   onRequirementUpdated?: (reqId: string, docName: string, docUrl: string) => void;
 }
 
@@ -85,11 +88,16 @@ function folderDeadlineText(folder: EvidenceFolder): string {
   return `Created ${folder.createdAt}`;
 }
 
-export function IAFolderManager({ campusId, campusName, iaRequirements, onRequirementUpdated }: IAFolderManagerProps) {
+export function IAFolderManager({ campusId, campusName, framework: frameworkProp, iaRequirements = [], onRequirementUpdated }: IAFolderManagerProps) {
   const { folders, saveFolder, deleteFolder, documents, addDocument, deleteDocument, updateDocument, updateIARequirement, currentUser } = usePortal();
   const settings = usePortalSettings();
-  // 9 official AACCUP Institutional Accreditation areas (names editable in Settings → Accreditation Setup)
-  const OFFICIAL_IA_AREAS = settings.accreditation.iaAreas;
+  // IA area names are editable in Settings → Accreditation Setup
+  const framework = frameworkProp ?? iaFolderFramework(settings.accreditation.iaAreas);
+  const OFFICIAL_IA_AREAS = framework.areas;
+  const FIRST_AREA_CODE = OFFICIAL_IA_AREAS[0]?.code ?? '';
+  const ROOT_FOLDER_ID = 'folder-' + framework.id;
+  const areaLabel = (area: IAAreaTemplate) => framework.areaNoun + ' ' + area.number;
+  const areaRangeLabel = framework.areaNounPlural + ' 1–' + OFFICIAL_IA_AREAS.length;
   const { approverRoles, requireRevisionNote, autoVerifyArea } = settings.workflow;
   const canReview = approverRoles.includes(currentUser.role);
   const uploadSettings = { defaultYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
@@ -120,7 +128,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
   // Modal to upload / transfer a Custom Folder to a Specific Area
   const [uploadingCustomFolder, setUploadingCustomFolder] = useState<EvidenceFolder | null>(null);
-  const [targetAreaForCustomFolder, setTargetAreaForCustomFolder] = useState<string>('AREA-I');
+  const [targetAreaForCustomFolder, setTargetAreaForCustomFolder] = useState<string>(FIRST_AREA_CODE);
 
   // Folder Form Modal States
   const [folderFormOpen, setFolderFormOpen] = useState(false);
@@ -140,7 +148,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
   // States for Top Upload Button (beside search bar)
   const [isTopUploadSource, setIsTopUploadSource] = useState(false);
-  const [topUploadTargetAreaCode, setTopUploadTargetAreaCode] = useState<string>('AREA-I');
+  const [topUploadTargetAreaCode, setTopUploadTargetAreaCode] = useState<string>(FIRST_AREA_CODE);
   const [topUploadTargetFolderId, setTopUploadTargetFolderId] = useState<string>('');
 
   // Reset folder and area selection whenever switching campuses
@@ -156,12 +164,14 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   const iaFolders = useMemo(() => {
     return folders.filter((f) => {
       if (f.frameworkId === 'pa' || isCertificateArea(f.areaId)) return false;
-      const isIA =
-        f.frameworkId === 'ia' ||
-        f.category === 'Accreditation' ||
-        f.category === 'General / Custom' ||
-        f.id.startsWith('folder-ia');
-      if (!isIA) return false;
+      const inFramework =
+        framework.id === 'ia'
+          ? f.frameworkId === 'ia' ||
+            f.category === 'Accreditation' ||
+            (f.category === 'General / Custom' && !f.frameworkId) ||
+            f.id.startsWith('folder-ia')
+          : f.frameworkId === framework.id;
+      if (!inFramework) return false;
 
       // Match folder strictly by campus:
       if (f.campusId) {
@@ -175,16 +185,15 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
         }
         return cNorm.includes(idNorm) || f.campus === campusName;
       }
-      // ONLY associate initial untagged mock folder-ia with default 'tandag'
-      return f.id === 'folder-ia' && campusId === 'tandag';
+      // ONLY associate the initial untagged framework root folder with default 'tandag'
+      return f.id === ROOT_FOLDER_ID && campusId === 'tandag';
     });
-  }, [folders, campusId, campusName]);
+  }, [folders, campusId, campusName, framework.id, ROOT_FOLDER_ID]);
 
-  // Documents mapped strictly to this campus and IA framework
+  // Documents mapped strictly to this campus and framework
   const campusIADocs = useMemo(() => {
     return documents.filter((d) => {
-      const isIA = d.frameworkId === 'ia' && !isCertificateArea(d.areaId);
-      if (!isIA) return false;
+      if (d.frameworkId !== framework.id || isCertificateArea(d.areaId)) return false;
 
       // Match document strictly by campus:
       if (d.campusId) {
@@ -200,7 +209,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
       }
       return campusId === 'tandag';
     });
-  }, [documents, campusId, campusName]);
+  }, [documents, campusId, campusName, framework.id]);
 
   // Target folder for upload modal (prioritizes active drilled-down folder, or selected card target)
   const modalTargetFolder = useMemo(() => {
@@ -249,10 +258,10 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   }, [currentActiveFolder]);
 
   // STRICT FILE ISOLATION: A document belongs to a folder IF AND ONLY IF doc.folderId === folder.id
-  // (or if unassigned initial doc in the default system folder-ia)
+  // (or if unassigned initial doc in the framework's default system folder)
   const isDocInFolder = (doc: EvidenceDocument, folder: EvidenceFolder) => {
     if (doc.folderId === folder.id) return true;
-    if (!doc.folderId && folder.id === 'folder-ia') return true;
+    if (!doc.folderId && folder.id === ROOT_FOLDER_ID) return true;
     return false;
   };
 
@@ -597,7 +606,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
       setEditingFolder(null);
       setFolderFormParentId(undefined);
       setFolderFormAreaId(areaCode.toLowerCase());
-      setFolderFormInitialName(area ? `${area.name} Evidence Portfolio` : `Area ${areaCode} Portfolio`);
+      setFolderFormInitialName(area ? `${area.name} Evidence Portfolio` : `${framework.areaNoun} ${areaCode} Portfolio`);
       setFolderFormInitialCode(areaCode);
       setFolderFormOpen(true);
     }
@@ -668,7 +677,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           saveFolder({
             ...f,
             areaId: targetAreaId,
-            category: 'Accreditation',
+            category: framework.category,
             parentId: targetParentFolderId ? targetParentFolderId : undefined,
             campusId: campusId,
             campus: campusName
@@ -677,7 +686,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           saveFolder({
             ...f,
             areaId: targetAreaId,
-            category: 'Accreditation',
+            category: framework.category,
             campusId: campusId,
             campus: campusName
           });
@@ -694,8 +703,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
     const targetParentFolder = targetParentFolderId ? iaFolders.find((f) => f.id === targetParentFolderId) : null;
     const destinationName = targetParentFolder
-      ? '"' + targetParentFolder.name + '" in Area ' + targetAreaObj.number
-      : 'Area ' + targetAreaObj.number + ': ' + targetAreaObj.name;
+      ? '"' + targetParentFolder.name + '" in ' + areaLabel(targetAreaObj)
+      : areaLabel(targetAreaObj) + ': ' + targetAreaObj.name;
 
     toast.success(`Folder "${folderToUpload.name}" successfully uploaded into ${destinationName}!`);
     setUploadingCustomFolder(null);
@@ -730,7 +739,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
       const customFolder = rootCustomFolders.find((f) => f.id === selectedCustomFolderToUpload);
       if (!customFolder) return;
 
-      const targetAreaCode = isTopUploadSource ? topUploadTargetAreaCode : (selectedAreaCode || 'AREA-I');
+      const targetAreaCode = isTopUploadSource ? topUploadTargetAreaCode : (selectedAreaCode || FIRST_AREA_CODE);
       const targetParentFolderId = isTopUploadSource
         ? (topUploadTargetFolderId || undefined)
         : (activeFolderId || undefined);
@@ -752,7 +761,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
       // Determine target Area and Area ID
       const targetAreaCode = isTopUploadSource
         ? topUploadTargetAreaCode
-        : (selectedAreaCode || currentActiveFolder?.areaId?.toUpperCase() || 'AREA-I');
+        : (selectedAreaCode || currentActiveFolder?.areaId?.toUpperCase() || FIRST_AREA_CODE);
       const targetAreaId = targetAreaCode.toLowerCase();
       const targetAreaObj = OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaCode) || OFFICIAL_IA_AREAS[0];
 
@@ -791,8 +800,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               id: newSubId,
               name: rootFolderName,
               code: rootFolderName.slice(0, 4).toUpperCase(),
-              frameworkId: 'ia',
-              category: 'Accreditation',
+              frameworkId: framework.id,
+              category: framework.category,
               description: 'Uploaded directory containing ' + uploadedFileList.length + ' file(s).',
               color: 'amber',
               createdAt: new Date().toISOString().slice(0, 10),
@@ -822,13 +831,13 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               destinationFolderId = targetFolder.id;
             } else {
               // Auto-create initial portfolio folder for this Area
-              const newAreaFolderId = 'folder-ia-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+              const newAreaFolderId = ROOT_FOLDER_ID + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
               const initialAreaFolder: EvidenceFolder = {
                 id: newAreaFolderId,
                 name: targetAreaObj.name + ' Evidence Portfolio',
                 code: targetAreaCode,
-                frameworkId: 'ia',
-                category: 'Accreditation',
+                frameworkId: framework.id,
+                category: framework.category,
                 description: 'Official evidence portfolio for ' + targetAreaObj.name + '.',
                 color: 'blue',
                 createdAt: new Date().toISOString().slice(0, 10),
@@ -846,13 +855,13 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
         } else {
           // Standard in-area / in-folder upload
           if (!effectiveFolderId && selectedAreaCode && areaFolders.length === 0) {
-            const newAreaFolderId = 'folder-ia-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+            const newAreaFolderId = ROOT_FOLDER_ID + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
             const initialAreaFolder: EvidenceFolder = {
               id: newAreaFolderId,
-              name: currentArea ? currentArea.name + ' Portfolio' : 'Area ' + selectedAreaCode + ' Evidence Portfolio',
+              name: currentArea ? currentArea.name + ' Portfolio' : framework.areaNoun + ' ' + selectedAreaCode + ' Evidence Portfolio',
               code: selectedAreaCode,
-              frameworkId: 'ia',
-              category: 'Accreditation',
+              frameworkId: framework.id,
+              category: framework.category,
               description: 'Official evidence portfolio for ' + (currentArea?.name || selectedAreaCode) + '.',
               color: 'blue',
               createdAt: new Date().toISOString().slice(0, 10),
@@ -867,28 +876,29 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
             targetFolder = initialAreaFolder;
           } else if (!targetFolder) {
             targetFolder = iaFolders.find((f) => f.id === effectiveFolderId) || iaFolders[0];
-            destinationFolderId = targetFolder?.id || 'folder-ia';
+            destinationFolderId = targetFolder?.id || ROOT_FOLDER_ID;
           }
         }
       }
 
+      const { criterionId, indicatorId } = framework.criterionFor(targetAreaObj);
       uploadedFileList.forEach((file, idx) => {
         const newDoc: EvidenceDocument = {
-          id: 'doc-ia-' + Date.now() + '-' + idx,
+          id: 'doc-' + framework.id + '-' + Date.now() + '-' + idx,
           title: applyNamingPattern(file.path ? file.path.split('/')[0] + ': ' + file.name : file.name, {
             campus: campusName,
-            area: 'Area ' + targetAreaObj.number,
+            area: areaLabel(targetAreaObj),
             year: uploadSettings.defaultYear
           }),
-          description: 'Uploaded evidence document for Institutional Accreditation (' + (targetFolder?.name || targetAreaObj.name) + ').',
-          keywords: ['IA Evidence', targetFolder?.name || targetAreaObj.name, campusName],
-          frameworkId: 'ia',
+          description: 'Uploaded evidence document for ' + framework.fullName + ' (' + (targetFolder?.name || targetAreaObj.name) + ').',
+          keywords: [framework.label + ' Evidence', targetFolder?.name || targetAreaObj.name, campusName],
+          frameworkId: framework.id,
           areaId: targetFolder?.areaId || targetAreaId,
-          criterionId: 'c-ia-1',
-          indicatorId: 'i-1-1',
+          criterionId,
+          indicatorId,
           docType: file.name.endsWith('.xlsx') ? 'Statistical Report' : 'Report',
           academicYear: uploadSettings.defaultYear,
-          cycle: '2025 Institutional Accreditation',
+          cycle: framework.cycle,
           program: 'Institution-wide',
           college: 'University-wide',
           department: '—',
@@ -917,8 +927,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
       setUploadedFileList([]);
 
       const destinationTitle = targetFolder
-        ? '"' + targetFolder.name + '" in Area ' + targetAreaObj.number
-        : 'Area ' + targetAreaObj.number + ': ' + targetAreaObj.name;
+        ? '"' + targetFolder.name + '" in ' + areaLabel(targetAreaObj)
+        : areaLabel(targetAreaObj) + ': ' + targetAreaObj.name;
 
       toast.success(
         uploadMode === 'folder'
@@ -949,7 +959,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
     const backLabel = currentActiveFolder.parentId && parentFolder
       ? parentFolder.name
       : selectedAreaCode && currentArea
-      ? `Area ${currentArea.number}: ${currentArea.name}`
+      ? `${areaLabel(currentArea)}: ${currentArea.name}`
       : 'Custom Folders Repository';
 
     return (
@@ -980,15 +990,15 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           </div>
 
           {/* If inside a Custom Folder, provide direct action to upload/move it to a Specific Area */}
-          {!currentActiveFolder.areaId && (
+          {framework.customFolders && !currentActiveFolder.areaId && (
             <button
               type="button"
               onClick={() => setUploadingCustomFolder(currentActiveFolder)}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-md transition-colors shadow-2xs"
-              title="Upload and transfer this custom folder to an official Area"
+              title={`Upload and transfer this custom folder to an official ${framework.areaNoun}`}
             >
               <Share2Icon className="h-3.5 w-3.5" />
-              <span>Upload to Area 1–9 →</span>
+              <span>Upload to {areaRangeLabel} →</span>
             </button>
           )}
         </div>
@@ -1084,7 +1094,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
   const areaStatuses = OFFICIAL_IA_AREAS.map((a) => getAreaApprovalStatus(a.code));
   const overviewStats = [
     {
-      label: 'Areas Approved',
+      label: `${framework.areaNounPlural} Approved`,
       value: `${areaStatuses.filter((s) => s.status === 'approved').length}/${OFFICIAL_IA_AREAS.length}`,
       icon: CheckCircle2Icon,
       tile: 'bg-emerald-50 text-emerald-600'
@@ -1120,12 +1130,15 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           <div className="flex items-start">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-[17px] font-bold tracking-tight text-ink">IA Document & Folder Management</h3>
+                <h3 className="text-[17px] font-bold tracking-tight text-ink">{framework.title}</h3>
                 <span className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-white/80 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700 backdrop-blur">
                   <Building2Icon className="h-3 w-3" />
                   {campusName}
                 </span>
               </div>
+              <p className="mt-1 max-w-xl text-[12.5px] text-ink-muted">
+                {framework.description}
+              </p>
             </div>
           </div>
 
@@ -1166,7 +1179,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
             }`}
           >
             <LayersIcon className="h-3.5 w-3.5" />
-            <span>IA Areas</span>
+            <span>{framework.areasTabLabel}</span>
             <span
               className={`rounded-full px-1.5 text-[10px] font-bold ${
                 activeTab === 'areas' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200/80 text-ink-muted'
@@ -1176,29 +1189,31 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('folders');
-              setSelectedAreaCode(null);
-              setActiveFolderId(null);
-            }}
-            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
-              activeTab === 'folders'
-                ? 'bg-white text-brand-700 shadow-sm ring-1 ring-line'
-                : 'text-ink-muted hover:text-ink'
-            }`}
-          >
-            <FolderIcon className="h-3.5 w-3.5 text-amber-500" />
-            <span>Custom Folders</span>
-            <span
-              className={`rounded-full px-1.5 text-[10px] font-bold ${
-                activeTab === 'folders' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200/80 text-ink-muted'
+          {framework.customFolders && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('folders');
+                setSelectedAreaCode(null);
+                setActiveFolderId(null);
+              }}
+              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                activeTab === 'folders'
+                  ? 'bg-white text-brand-700 shadow-sm ring-1 ring-line'
+                  : 'text-ink-muted hover:text-ink'
               }`}
             >
-              {rootCustomFolders.length}
-            </span>
-          </button>
+              <FolderIcon className="h-3.5 w-3.5 text-amber-500" />
+              <span>Custom Folders</span>
+              <span
+                className={`rounded-full px-1.5 text-[10px] font-bold ${
+                  activeTab === 'folders' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200/80 text-ink-muted'
+                }`}
+              >
+                {rootCustomFolders.length}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Search Bar + Upload Files/Folder Button on the same row */}
@@ -1215,7 +1230,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   : selectedAreaCode && currentArea
                   ? `Search inside ${currentArea.name}...`
                   : activeTab === 'areas'
-                  ? 'Search areas 1–9...'
+                  ? `Search ${areaRangeLabel.toLowerCase()}...`
                   : 'Search folders...'
               }
               className="h-9 w-full rounded-xl border border-line bg-canvas pl-8 pr-7 text-xs outline-none transition focus:border-brand-300 focus:bg-white focus:ring-2 focus:ring-brand-100"
@@ -1239,7 +1254,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               type="button"
               onClick={() => {
                 setIsTopUploadSource(true);
-                const initialArea = selectedAreaCode || 'AREA-I';
+                const initialArea = selectedAreaCode || FIRST_AREA_CODE;
                 setTopUploadTargetAreaCode(initialArea);
                 const foldersInInitArea = iaFolders.filter(
                   (f) => (f.areaId || '').toLowerCase() === initialArea.toLowerCase()
@@ -1274,10 +1289,10 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-                  Official AACCUP Institutional Accreditation Areas
+                  {framework.areasHeading}
                 </span>
                 <span className="text-[11.5px] text-ink-subtle">
-                  Open an area to manage its evidence folders, timelines & deadlines
+                  Open {framework.areaNoun === 'Area' ? 'an area' : 'a ' + framework.areaNoun.toLowerCase()} to manage its evidence folders, timelines & deadlines
                 </span>
               </div>
 
@@ -1288,8 +1303,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     <FolderCard
                       key={area.code}
                       onOpen={() => handleSelectArea(area.code)}
-                      title={`Open Area ${area.number}: ${area.name}`}
-                      eyebrow={`Area ${area.number}`}
+                      title={`Open ${areaLabel(area)}: ${area.name}`}
+                      eyebrow={areaLabel(area)}
                       name={area.name}
                       meta={`${pluralize(areaStatus.folderCount, 'folder')} · ${pluralize(areaStatus.fileCount, 'file')}`}
                       status={AREA_STATUS[areaStatus.status] ?? AREA_STATUS.needs_evidence}
@@ -1313,7 +1328,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       setSearchQuery('');
                     }}
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-white text-ink-muted transition hover:border-brand-300 hover:text-brand-700"
-                    title="Back to IA Areas"
+                    title={`Back to ${framework.areasTabLabel}`}
                   >
                     <ArrowLeftIcon className="h-4 w-4" />
                   </button>
@@ -1334,10 +1349,10 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                         }}
                         className="hover:text-brand-700"
                       >
-                        IA Areas
+                        {framework.areasTabLabel}
                       </button>
                       <ChevronRightIcon className="h-3 w-3" />
-                      <span>Area {currentArea.number}</span>
+                      <span>{areaLabel(currentArea)}</span>
                     </div>
                     <h4 className="truncate text-[15px] font-bold text-ink">{currentArea.name}</h4>
                   </div>
@@ -1352,7 +1367,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       setUploadModalOpen(true);
                     }}
                     className="btn btn-primary btn-sm text-xs gap-1.5 shadow-xs"
-                    title="Upload individual files, an entire folder, or a custom folder into this Area"
+                    title={`Upload individual files, an entire folder, or a custom folder into this ${framework.areaNoun}`}
                   >
                     <UploadIcon className="h-3.5 w-3.5" />
                     <span>Upload Files / Folder</span>
@@ -1383,9 +1398,9 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/90 p-3.5 text-xs text-emerald-900 shadow-2xs">
                       <CheckCircle2Icon className="h-4 w-4 text-emerald-600 shrink-0" />
                       <div className="flex-1">
-                        <span className="font-bold text-emerald-950">All Area Evidence Approved: </span>
+                        <span className="font-bold text-emerald-950">All {framework.areaNoun} Evidence Approved: </span>
                         <span>
-                          All {areaStatus.fileCount} evidence file(s) across {areaStatus.folderCount} folder(s) in Area {currentArea.number} ({currentArea.name}) are officially approved for {campusName}.
+                          All {areaStatus.fileCount} evidence file(s) across {areaStatus.folderCount} folder(s) in {areaLabel(currentArea)} ({currentArea.name}) are officially approved for {campusName}.
                         </span>
                       </div>
                     </div>
@@ -1398,7 +1413,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       <div className="flex-1">
                         <span className="font-bold text-amber-950">Action Required — Revisions Pending: </span>
                         <span>
-                          {areaStatus.revisionCount} file(s) in this Area have been returned for revision. Please review feedback remarks and update evidence portfolios.
+                          {areaStatus.revisionCount} file(s) in this {framework.areaNoun} have been returned for revision. Please review feedback remarks and update evidence portfolios.
                         </span>
                       </div>
                     </div>
@@ -1409,9 +1424,9 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     <div className="flex items-center gap-2.5 rounded-xl border border-blue-200 bg-blue-50/90 p-3.5 text-xs text-blue-900 shadow-2xs">
                       <ClockIcon className="h-4 w-4 text-brand-600 shrink-0" />
                       <div className="flex-1">
-                        <span className="font-bold text-brand-950">Accreditation Review in Progress: </span>
+                        <span className="font-bold text-brand-950">{framework.label} Review in Progress: </span>
                         <span>
-                          {areaStatus.pendingCount} file(s) in Area {currentArea.number} are awaiting review and sign-off ({areaStatus.approvedCount} of {areaStatus.fileCount} approved).
+                          {areaStatus.pendingCount} file(s) in {areaLabel(currentArea)} are awaiting review and sign-off ({areaStatus.approvedCount} of {areaStatus.fileCount} approved).
                         </span>
                       </div>
                     </div>
@@ -1421,9 +1436,9 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/90 p-3.5 text-xs text-slate-700 shadow-2xs">
                     <InfoIcon className="h-4 w-4 text-slate-500 shrink-0" />
                     <div className="flex-1">
-                      <span className="font-bold text-slate-900">Area Repository Ready: </span>
+                      <span className="font-bold text-slate-900">{framework.areaNoun} Repository Ready: </span>
                       <span>
-                        Upload official accreditation evidence files or create structured subfolders for Area {currentArea.number} ({currentArea.name}) at {campusName}.
+                        Upload official {framework.label} evidence files or create structured subfolders for {areaLabel(currentArea)} ({currentArea.name}) at {campusName}.
                       </span>
                     </div>
                   </div>
@@ -1439,7 +1454,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-ink">
-                      No Folder Created for Area {currentArea.number} Yet
+                      No Folder Created for {areaLabel(currentArea)} Yet
                     </h4>
                     <p className="text-xs text-ink-muted mt-1 max-w-md mx-auto">
                       Create an evidence folder with a start date and optional deadline (or set to no deadline) to organize portfolios for {currentArea.name}.
@@ -1480,7 +1495,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                      Area {currentArea.number} Evidence Folders ({areaFolders.length})
+                      {areaLabel(currentArea)} Evidence Folders ({areaFolders.length})
                     </span>
                     <span className="text-[11px] text-ink-subtle">Click a folder to view and upload files</span>
                   </div>
@@ -1950,7 +1965,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                      IA Evidence Folders Repository (Custom)
+                      {framework.label} Evidence Folders Repository (Custom)
                     </span>
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
                       <Building2Icon className="h-3 w-3 text-brand-600" />
@@ -1958,7 +1973,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     </span>
                   </div>
                   <p className="text-[11px] text-ink-subtle mt-0.5">
-                    Custom evidence folders and portfolios strictly isolated to {campusName}. Folders can be uploaded directly to specific IA Areas 1–9.
+                    Custom evidence folders and portfolios strictly isolated to {campusName}. Folders can be uploaded directly to specific {framework.label} {areaRangeLabel}.
                   </p>
                 </div>
                 <button
@@ -2010,7 +2025,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                         <>
                           <FolderAction
                             icon={Share2Icon}
-                            label="Move into an official IA Area"
+                            label={`Move into an official ${framework.label} ${framework.areaNoun}`}
                             onClick={() => setUploadingCustomFolder(folder)}
                           />
                           <FolderAction
@@ -2242,8 +2257,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
         <Modal
           open={!!uploadingCustomFolder}
           onClose={() => setUploadingCustomFolder(null)}
-          title="Transfer Custom Folder to Area"
-          description={"Transfer folder and attached documents to an official Institutional Accreditation Area in " + campusName + "."}
+          title={"Transfer Custom Folder to " + framework.areaNoun}
+          description={"Transfer folder and attached documents to an official " + framework.fullName + " " + framework.areaNoun + " in " + campusName + "."}
           size="lg"
           footer={
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
@@ -2261,7 +2276,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               >
                 <Share2Icon className="h-3.5 w-3.5" />
                 <span>
-                  Confirm Transfer to Area {OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaForCustomFolder)?.number || 1}
+                  Confirm Transfer to {framework.areaNoun} {OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaForCustomFolder)?.number || 1}
                 </span>
               </button>
             </div>
@@ -2298,10 +2313,10 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Select Target Accreditation Area (Areas 1–9)
+                  Select Target {framework.label} {framework.areaNoun} ({areaRangeLabel})
                 </label>
                 <span className="text-[10px] text-slate-400 font-normal">
-                  Folder will move into this Area
+                  Folder will move into this {framework.areaNoun}
                 </span>
               </div>
 
@@ -2328,7 +2343,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-[10px] font-bold text-brand-700 bg-brand-100 px-1.5 py-0.2 rounded">
-                            Area {a.number}
+                            {areaLabel(a)}
                           </span>
                           <span className="text-xs font-bold text-slate-900">{a.name}</span>
                         </div>
@@ -2347,7 +2362,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                 <span className="text-slate-600">{campusName}</span>
                 <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
                 <span className="font-semibold text-brand-700">
-                  Area {OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaForCustomFolder)?.number}: {OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaForCustomFolder)?.name}
+                  {framework.areaNoun} {OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaForCustomFolder)?.number}: {OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaForCustomFolder)?.name}
                 </span>
                 <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
                 <span className="font-semibold text-amber-700">{uploadingCustomFolder.name}</span>
@@ -2375,7 +2390,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               : modalTargetFolder
               ? 'Upload into "' + modalTargetFolder.name + '"'
               : currentArea
-              ? 'Upload into Area ' + currentArea.number + ': ' + currentArea.name
+              ? 'Upload into ' + areaLabel(currentArea) + ': ' + currentArea.name
               : 'Upload Evidence Files & Folders'
           }
           description={
@@ -2419,7 +2434,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     <FolderIcon className="h-3.5 w-3.5" />
                     <span>
                       {isTopUploadSource
-                        ? 'Upload to Area ' + topUploadTargetAreaObj.number + (topUploadTargetFolderObj ? ' / ' + topUploadTargetFolderObj.name : '')
+                        ? 'Upload to ' + areaLabel(topUploadTargetAreaObj) + (topUploadTargetFolderObj ? ' / ' + topUploadTargetFolderObj.name : '')
                         : 'Upload Custom Folder'}
                     </span>
                   </>
@@ -2466,7 +2481,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   {/* Target Area */}
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                      Accreditation Area
+                      {framework.label} {framework.areaNoun}
                     </label>
                     <select
                       value={topUploadTargetAreaCode}
@@ -2484,7 +2499,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                         const count = iaFolders.filter((f) => (f.areaId || '').toLowerCase() === a.code.toLowerCase()).length;
                         return (
                           <option key={a.code} value={a.code}>
-                            Area {a.number}: {a.name} ({count} {count === 1 ? 'folder' : 'folders'})
+                            {areaLabel(a)}: {a.name} ({count} {count === 1 ? 'folder' : 'folders'})
                           </option>
                         );
                       })}
@@ -2495,7 +2510,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        Folder in Area {topUploadTargetAreaObj.number}
+                        Folder in {areaLabel(topUploadTargetAreaObj)}
                       </label>
                       <span className="text-[10px] text-slate-400 font-normal">Optional hierarchy</span>
                     </div>
@@ -2506,8 +2521,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     >
                       <option value="">
                         {foldersInTopUploadArea.length === 0
-                          ? '📁 Area Root (Default Portfolio)'
-                          : '📁 Area Root (Directly in Area)'}
+                          ? '📁 ' + framework.areaNoun + ' Root (Default Portfolio)'
+                          : '📁 ' + framework.areaNoun + ' Root (Directly in ' + framework.areaNoun + ')'}
                       </option>
                       {foldersInTopUploadArea.map((f) => {
                         const parent = f.parentId ? iaFolders.find((p) => p.id === f.parentId) : null;
@@ -2529,7 +2544,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     <span className="text-slate-600">{campusName}</span>
                     <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
                     <span className="font-semibold text-brand-700">
-                      Area {topUploadTargetAreaObj.number}: {topUploadTargetAreaObj.name}
+                      {areaLabel(topUploadTargetAreaObj)}: {topUploadTargetAreaObj.name}
                     </span>
                     {topUploadTargetFolderObj && (
                       <>
@@ -2560,7 +2575,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                   <div>
                     <span className="text-slate-500 font-medium">Destination Folder: </span>
                     <strong className="font-bold text-slate-900">{modalTargetFolder.name}</strong>
-                    {currentArea && <span className="text-brand-700 font-normal"> (Area {currentArea.number})</span>}
+                    {currentArea && <span className="text-brand-700 font-normal"> ({areaLabel(currentArea)})</span>}
                   </div>
                 </div>
                 <span className="text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-full shadow-2xs">
@@ -2575,8 +2590,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     <FolderOpenIcon className="h-3.5 w-3.5" />
                   </div>
                   <div>
-                    <span className="text-slate-500 font-medium">Destination Area: </span>
-                    <strong className="font-bold text-slate-900">Area {currentArea.number}: {currentArea.name}</strong>
+                    <span className="text-slate-500 font-medium">Destination {framework.areaNoun}: </span>
+                    <strong className="font-bold text-slate-900">{areaLabel(currentArea)}: {currentArea.name}</strong>
                   </div>
                 </div>
                 <span className="text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-full shadow-2xs">
@@ -2587,7 +2602,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
 
             {/* MODERN SEGMENTED CONTROL: 3 MODES */}
             <div className={'rounded-xl border border-slate-200 bg-slate-100/90 p-1 grid gap-1 text-xs ' + (
-              isTopUploadSource || selectedAreaCode ? 'grid-cols-3' : 'grid-cols-2'
+              framework.customFolders && (isTopUploadSource || selectedAreaCode) ? 'grid-cols-3' : 'grid-cols-2'
             )}>
               <button
                 type="button"
@@ -2621,7 +2636,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
               </button>
 
               {/* In Area mode or Top Upload mode: option to upload a folder from Custom Folders */}
-              {(isTopUploadSource || selectedAreaCode) && (
+              {framework.customFolders && (isTopUploadSource || selectedAreaCode) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -2647,7 +2662,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                 {!isTopUploadSource && selectedAreaCode && !modalTargetFolder && areaFolders.length > 0 && uploadMode === 'files' && (
                   <div className="space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
                     <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-                      <span>Target Evidence Folder in Area {currentArea?.number}:</span>
+                      <span>Target Evidence Folder in {framework.areaNoun} {currentArea?.number}:</span>
                       <span className="text-[10px] text-slate-400 font-normal">Choose destination</span>
                     </label>
                     <select
@@ -2694,13 +2709,13 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
                     <span className="text-[11px] text-slate-500">
                       Destination: {isTopUploadSource
                         ? topUploadTargetFolderObj
-                          ? '"' + topUploadTargetFolderObj.name + '" in Area ' + topUploadTargetAreaObj.number
-                          : 'Area ' + topUploadTargetAreaObj.number + ': ' + topUploadTargetAreaObj.name
+                          ? '"' + topUploadTargetFolderObj.name + '" in ' + areaLabel(topUploadTargetAreaObj)
+                          : areaLabel(topUploadTargetAreaObj) + ': ' + topUploadTargetAreaObj.name
                         : currentActiveFolder
                         ? '"' + currentActiveFolder.name + '"'
                         : currentArea
-                        ? 'Area ' + currentArea.number
-                        : 'this Area'}
+                        ? areaLabel(currentArea)
+                        : 'this ' + framework.areaNoun}
                     </span>
                   </div>
                   <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
@@ -2785,6 +2800,7 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
         initialAreaId={folderFormAreaId}
         initialName={folderFormInitialName}
         initialCode={folderFormInitialCode}
+        frameworkId={framework.id}
         onClose={() => {
           setFolderFormOpen(false);
           setEditingFolder(null);
@@ -2797,8 +2813,8 @@ export function IAFolderManager({ campusId, campusName, iaRequirements, onRequir
           const assignedAreaId = f.areaId || folderFormAreaId || undefined;
           const finalFolder: EvidenceFolder = {
             ...f,
-            frameworkId: 'ia',
-            category: assignedAreaId ? 'Accreditation' : 'General / Custom',
+            frameworkId: framework.id,
+            category: assignedAreaId ? framework.category : 'General / Custom',
             areaId: assignedAreaId,
             campusId: editingFolder?.campusId || campusId,
             campus: editingFolder?.campus || campusName
