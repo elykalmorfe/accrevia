@@ -8,7 +8,7 @@ import { PQA_FOLDER_FRAMEWORK } from '../../components/accreditation/folderFrame
 import { AwardIcon } from 'lucide-react';
 
 export function CampusPQAView() {
-  const { campuses, pqaRecords, selectedCampus, setSelectedCampus } = usePortal();
+  const { campuses, pqaRecords, selectedCampus } = usePortal();
   const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
     return selectedCampus !== 'all' ? selectedCampus : 'tandag';
   });
@@ -30,8 +30,6 @@ export function CampusPQAView() {
       </div>
     );
   }
-
-  const percentage = Math.round((pqaRecord.overallScore / 1000) * 100);
 
   return (
     <>
@@ -91,62 +89,12 @@ export function CampusPQAView() {
 
       </div>
 
-      {/* 7 Categories Evaluation Matrix */}
-      <div>
-        <h3 className="mb-3 text-sm font-bold text-ink">PQA Criteria for Performance Excellence (7 Categories)</h3>
-
-        <div className="space-y-3">
-          {pqaRecord.categories.map((cat) => {
-            const catPercent = Math.round((cat.awardedScore / cat.maxScore) * 100);
-            return (
-              <div key={cat.categoryId} className="panel p-4 hover:border-brand-300 transition-all">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-50 text-[11px] font-bold text-brand-700">
-                        {cat.categoryNumber}
-                      </span>
-                      <h4 className="text-sm font-bold text-ink">{cat.categoryName}</h4>
-                      <Badge
-                        tone={cat.status === 'Met' ? 'success' : cat.status === 'Partially Met' ? 'brand' : 'warning'}
-                        dot
-                      >
-                        {cat.status}
-                      </Badge>
-                    </div>
-
-                    <p className="mt-1 text-xs text-ink-muted">{cat.narrativeSummary}</p>
-
-                    <div className="mt-2 flex items-center gap-4 text-xs text-ink-subtle">
-                      <span>
-                        Evidence submitted:{' '}
-                        <strong className="text-ink">
-                          {cat.evidenceSubmittedCount} / {cat.evidenceRequiredCount}
-                        </strong>
-                      </span>
-                      <span>
-                        Score achieved:{' '}
-                        <strong className="text-brand-700 font-bold">
-                          {cat.awardedScore} / {cat.maxScore} pts ({catPercent}%)
-                        </strong>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* PQA Document & Folder Management (7 category folders) */}
-      <div className="mt-6">
-        <IAFolderManager
-          campusId={selectedCampusId}
-          campusName={campus.name}
-          framework={PQA_FOLDER_FRAMEWORK}
-        />
-      </div>
+      <IAFolderManager
+        campusId={selectedCampusId}
+        campusName={campus.name}
+        framework={PQA_FOLDER_FRAMEWORK}
+      />
     </>
   );
 }
