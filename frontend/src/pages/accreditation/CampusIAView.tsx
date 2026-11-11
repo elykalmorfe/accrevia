@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import { CampusId, IALevel, IA_LEVEL_OPTIONS } from '../../types/accreditation';
@@ -8,20 +8,11 @@ import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { IAFolderManager } from '../../components/accreditation/IAFolderManager';
 import { CertificateFoldersModal, CertificateLevel } from '../../components/accreditation/CertificateFoldersModal';
+import { OfficialCertificatesStrip, useCampusCertificates } from '../../components/accreditation/OfficialCertificatesStrip';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
 import { institutionalCertificateAreaKey } from '../../utils/programAccreditation';
 import { formatDate, pluralize } from '../../utils/format';
-import {
-  Building2Icon,
-  CalendarCheckIcon,
-  CalendarClockIcon,
-  ExternalLinkIcon,
-  FileCheck2Icon,
-  FileCheckIcon,
-  PencilIcon,
-  ShieldCheckIcon,
-  UploadIcon
-} from 'lucide-react';
+import { Building2Icon, CalendarCheckIcon, CalendarClockIcon, PencilIcon, ShieldCheckIcon } from 'lucide-react';
 
 const IA_CERTIFICATE_LEVELS: CertificateLevel[] = IA_LEVEL_OPTIONS.map((opt) => ({
   code: opt.value,
@@ -71,7 +62,7 @@ function validityState(end?: string): { label: string; className: string } | nul
 }
 
 export function CampusIAView() {
-  const { campuses, iaRecords, documents, folders, isAdmin, updateCampusIA, updateIARequirement, selectedCampus, setSelectedCampus } = usePortal();
+  const { campuses, iaRecords, isAdmin, updateCampusIA, updateIARequirement, selectedCampus, setSelectedCampus } = usePortal();
   const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
     return selectedCampus !== 'all' ? selectedCampus : 'tandag';
   });
@@ -81,22 +72,7 @@ export function CampusIAView() {
   const [previewCertificate, setPreviewCertificate] = useState<EvidenceDocument | null>(null);
 
   const certAreaKey = institutionalCertificateAreaKey(selectedCampusId);
-  const certificates = useMemo(
-    () =>
-      documents
-        .filter((d) => d.frameworkId === 'ia' && d.areaId === certAreaKey)
-        .sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || '') || b.id.localeCompare(a.id)),
-    [documents, certAreaKey]
-  );
-  const certificateLevelCount = useMemo(() => {
-    const levelFolders = folders.filter((f) => f.areaId === certAreaKey && f.isSystem);
-    const levelOf = (folderId?: string): string | undefined => {
-      let cursor = folders.find((f) => f.id === folderId);
-      while (cursor && !cursor.isSystem) cursor = folders.find((f) => f.id === cursor?.parentId);
-      return cursor?.id;
-    };
-    return levelFolders.filter((lf) => certificates.some((d) => levelOf(d.folderId) === lf.id)).length;
-  }, [folders, certificates, certAreaKey]);
+  const { certificates, activeCertificate, activeLevel, levelCount } = useCampusCertificates('ia', certAreaKey);
 
   useEffect(() => {
     if (selectedCampus !== 'all' && selectedCampus !== selectedCampusId) {
@@ -262,72 +238,16 @@ export function CampusIAView() {
             </div>
           )}
 
-          <div
-            className={`mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-xs ${
-              certificates.length > 0 ? 'border-success-100 bg-success-50' : 'border-line bg-canvas'
-            }`}
-          >
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ${
-                  certificates.length > 0 ? 'text-success-700 ring-success-100' : 'text-ink-subtle ring-line'
-                }`}
-              >
-                <FileCheck2Icon className="h-4 w-4" />
-              </span>
-              <div className="min-w-0">
-                <p className={`font-semibold ${certificates.length > 0 ? 'text-success-700' : 'text-ink'}`}>Official Certificates</p>
-                <p className="truncate text-[11.5px] text-ink-muted">
-                  {certificates.length > 0 ? (
-                    <>
-                      {pluralize(certificates.length, 'certificate')} · {pluralize(certificateLevelCount, 'level')} · Latest:{' '}
-                      <button
-                        type="button"
-                        onClick={() => setPreviewCertificate(certificates[0])}
-                        className="font-semibold text-ink hover:text-brand-700 hover:underline"
-                      >
-                        {certificates[0].title}
-                      </button>
-                    </>
-                  ) : (
-                    'No certificate uploaded yet.'
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              {certificates.length === 0 && iaRecord.certificateUrl && (
-                <a
-                  href={iaRecord.certificateUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-ink-muted hover:text-brand-700 hover:underline"
-                >
-                  Linked file <ExternalLinkIcon className="h-3 w-3" />
-                </a>
-              )}
-              {certificates.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setCertificatesOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-success-100 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-success-700 transition hover:border-success-600"
-                >
-                  <FileCheckIcon className="h-3.5 w-3.5" />
-                  View Certificates ({certificates.length})
-                </button>
-              ) : isAdmin ? (
-                <button
-                  type="button"
-                  onClick={() => setCertificatesOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-1.5 text-[12px] font-semibold text-ink-muted transition hover:border-brand-300 hover:text-brand-700"
-                >
-                  <UploadIcon className="h-3.5 w-3.5" />
-                  Upload Certificate
-                </button>
-              ) : null}
-            </div>
-          </div>
+          <OfficialCertificatesStrip
+            certificates={certificates}
+            activeCertificate={activeCertificate}
+            activeLevel={activeLevel}
+            levelCount={levelCount}
+            isAdmin={isAdmin}
+            onOpen={() => setCertificatesOpen(true)}
+            onPreview={setPreviewCertificate}
+            fallbackUrl={iaRecord.certificateUrl}
+          />
         </div>
 
         {/* Compliance Card */}
@@ -416,6 +336,10 @@ export function CampusIAView() {
           { label: 'Current level', value: iaRecord.status },
           { label: 'Validity', value: `${iaRecord.validityStart} – ${iaRecord.validityEnd}` }
         ]}
+        onActivate={(doc, code) => {
+          if (code) updateCampusIA(selectedCampusId, { status: code as IALevel });
+          toast.success(code ? `"${doc.title}" activated · campus set to ${shortLevel(code)}` : `"${doc.title}" activated`);
+        }}
       />
       <DocumentPreviewModal doc={previewCertificate} onClose={() => setPreviewCertificate(null)} grantAccess />
 

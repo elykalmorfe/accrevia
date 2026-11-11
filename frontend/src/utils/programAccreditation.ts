@@ -104,6 +104,11 @@ export function institutionalCertificateAreaKey(campusId: string): string {
   return `cert-ia-${campusId}`;
 }
 
+/** `areaId` shared by a campus's PQA recognition certificate folders and documents. */
+export function pqaCertificateAreaKey(campusId: string): string {
+  return `cert-pqa-${campusId}`;
+}
+
 export function isCertificateArea(areaId?: string | null): boolean {
   return !!areaId && areaId.startsWith('cert-');
 }

@@ -48,6 +48,10 @@ interface FolderExplorerProps {
   folderStatus?: (folder: EvidenceFolder, fileCount: number) => FolderStatus | null;
   folderEyebrow?: (folder: EvidenceFolder) => ReactNode;
   showApproval?: boolean;
+  /** Replaces the approval pill on each file row. */
+  documentStatus?: (doc: EvidenceDocument) => ReactNode;
+  /** Extra row actions rendered before preview/download/delete. */
+  documentActions?: (doc: EvidenceDocument) => ReactNode;
   /** Everyone who can open this explorer may preview and download its files, even without a share. */
   openToViewers?: boolean;
   /** Content above the toolbar, e.g. a stats strip. */
@@ -71,6 +75,8 @@ export function FolderExplorer({
   folderStatus,
   folderEyebrow,
   showApproval = true,
+  documentStatus,
+  documentActions,
   openToViewers = false,
   summary,
   emptyHint,
@@ -465,9 +471,12 @@ export function FolderExplorer({
                       fileType={doc.fileType}
                       onOpen={() => setPreviewDoc(doc)}
                       meta={`${doc.fileType} · ${formatSize(doc.sizeMb)} · ${doc.dateAdded} · ${doc.uploadedBy}`}
-                      status={showApproval ? <FileStatusPill status={doc.approvalStatus} /> : undefined}
+                      status={
+                        documentStatus ? documentStatus(doc) : showApproval ? <FileStatusPill status={doc.approvalStatus} /> : undefined
+                      }
                       actions={
                         <>
+                          {documentActions?.(doc)}
                           <FileRowAction icon={EyeIcon} label={`Preview ${doc.title}`} onClick={() => setPreviewDoc(doc)} />
                           {(canEdit || openToViewers) && (
                             <FileRowAction icon={DownloadIcon} label={`Download ${doc.title}`} onClick={() => handleDownload(doc)} />

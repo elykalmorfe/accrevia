@@ -1,4 +1,4 @@
-﻿export type FrameworkCategory = 'Accreditation' | 'Compliance' | 'Quality Excellence' | 'Quality Management';
+export type FrameworkCategory = 'Accreditation' | 'Compliance' | 'Quality Excellence' | 'Quality Management';
 
 export type FolderColor = 'blue' | 'purple' | 'emerald' | 'amber' | 'indigo' | 'rose' | 'cyan' | 'slate';
 
@@ -135,6 +135,8 @@ export interface EvidenceDocument {
   revisionNotes?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  /** Certificates only: the one certificate currently in force for its owner. */
+  isActive?: boolean;
 }
 
 export interface PendingDocument {

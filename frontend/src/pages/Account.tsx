@@ -132,8 +132,8 @@ function ProfileHeaderCard() {
                 {location}
               </span>
             )}
-          </div>
-        </div>
+              </div>
+            </div>
 
         <dl className="grid w-full grid-cols-3 divide-x divide-line rounded-xl border border-line bg-slate-50 text-center lg:w-auto lg:min-w-[420px]">
           {[

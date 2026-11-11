@@ -106,44 +106,44 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
   };
 
   const summary = (
-    <div className="relative overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-violet-50 p-4">
-      <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-brand-200/40 blur-2xl" />
-      <div className="relative flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-600 text-white shadow-md shadow-brand-600/30">
-            <FolderOpenIcon className="h-5 w-5" />
-          </span>
-          <div className="flex gap-5">
-            {[
-              { label: 'Folders', value: areaFolders.length },
-              { label: 'Files', value: areaDocs.length },
-              { label: 'Storage', value: areaDocs.length ? formatSize(totalSizeMb) : '—' }
-            ].map((stat) => (
-              <div key={stat.label}>
-                <p className="text-[18px] font-bold leading-tight text-ink">{stat.value}</p>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">{stat.label}</p>
+          <div className="relative overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-violet-50 p-4">
+            <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-brand-200/40 blur-2xl" />
+            <div className="relative flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-600 text-white shadow-md shadow-brand-600/30">
+                  <FolderOpenIcon className="h-5 w-5" />
+                </span>
+                <div className="flex gap-5">
+                  {[
+                    { label: 'Folders', value: areaFolders.length },
+                    { label: 'Files', value: areaDocs.length },
+                    { label: 'Storage', value: areaDocs.length ? formatSize(totalSizeMb) : '—' }
+                  ].map((stat) => (
+                    <div key={stat.label}>
+                      <p className="text-[18px] font-bold leading-tight text-ink">{stat.value}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">{stat.label}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={toggleVerified}
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-bold transition-all ${
-            requirement.verified
-              ? 'bg-success-600 text-white shadow-md shadow-success-600/25 hover:bg-success-700'
-              : 'border border-line bg-white text-ink-muted hover:border-success-600 hover:text-success-700'
-          }`}
+              <button
+                type="button"
+                onClick={toggleVerified}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-bold transition-all ${
+                  requirement.verified
+                    ? 'bg-success-600 text-white shadow-md shadow-success-600/25 hover:bg-success-700'
+                    : 'border border-line bg-white text-ink-muted hover:border-success-600 hover:text-success-700'
+                }`}
           title={requirement.verified ? 'Click to remove verification' : 'Mark this area as verified'}
         >
-          {requirement.verified ? <BadgeCheckIcon className="h-4 w-4" /> : <CheckIcon className="h-4 w-4" />}
-          {requirement.verified ? 'Verified' : 'Mark as Verified'}
-        </button>
-      </div>
-    </div>
+                {requirement.verified ? <BadgeCheckIcon className="h-4 w-4" /> : <CheckIcon className="h-4 w-4" />}
+                {requirement.verified ? 'Verified' : 'Mark as Verified'}
+              </button>
+            </div>
+          </div>
   );
 
-  return (
+                        return (
     <Modal
       open={open}
       onClose={onClose}
@@ -155,7 +155,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
           <p className="hidden text-[12px] text-ink-subtle sm:block">Tip: drag files or whole folders anywhere into the panel above.</p>
           <button type="button" onClick={onClose} className="btn btn-secondary btn-sm">
             Done
-          </button>
+                              </button>
         </div>
       }
     >
@@ -170,6 +170,6 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
         emptyHint="Drag & drop files or entire folders here, or use the buttons above to organize this area’s evidence."
         resetKey={`${areaKey}-${open}`}
       />
-    </Modal>
+      </Modal>
   );
 }
