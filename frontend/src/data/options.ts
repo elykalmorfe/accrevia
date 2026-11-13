@@ -1,4 +1,4 @@
-﻿import { Confidentiality, DocumentType, ISODocumentStage } from '../types/evidence';
+import { Confidentiality, DocumentType, ISODocumentStage } from '../types/evidence';
 import { UserRole } from '../types/user';
 
 export const documentTypes: DocumentType[] = [
@@ -87,7 +87,7 @@ export const offices = [
 
 export const confidentialityLevels: Confidentiality[] = ['Public', 'Internal', 'Confidential'];
 
-export const userRoles: UserRole[] = ['Superadmin', 'Administrator', 'QA Personnel', 'User', 'Faculty', 'Staff', 'Accreditor'];
+export const userRoles: UserRole[] = ['Superadmin', 'Administrator', 'QA Personnel', 'Faculty', 'Staff', 'Accreditor'];
 
 export const searchSuggestions = [
 'faculty development activities',

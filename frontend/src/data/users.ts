@@ -1,4 +1,4 @@
-﻿import { PortalUser } from '../types/user';
+import { PortalUser } from '../types/user';
 
 export const users: PortalUser[] = [
   {
@@ -148,7 +148,7 @@ export const users: PortalUser[] = [
     id: 'u-16',
     name: 'Engr. Mark Anthony Reyes',
     email: 'mareyes@nemsu.edu.ph',
-    role: 'User',
+    role: 'Faculty',
     office: 'College of Engineering',
     status: 'Pending Approval',
     lastLogin: null,
@@ -161,7 +161,7 @@ export const users: PortalUser[] = [
     id: 'u-17',
     name: 'Sarah Jane Flores',
     email: 'sjflores@nemsu.edu.ph',
-    role: 'User',
+    role: 'Staff',
     office: 'Bislig Campus Administration',
     status: 'Pending Approval',
     lastLogin: null,
@@ -174,7 +174,7 @@ export const users: PortalUser[] = [
     id: 'u-18',
     name: 'Prof. Dennis K. Alviola',
     email: 'dkalviola@nemsu.edu.ph',
-    role: 'User',
+    role: 'Faculty',
     office: 'Cantilan Campus - College of Industrial Technology',
     status: 'Pending Approval',
     lastLogin: null,

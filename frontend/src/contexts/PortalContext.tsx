@@ -118,6 +118,7 @@ interface PortalContextValue {
   users: PortalUser[];
   saveUser: (user: PortalUser) => void;
   setUserStatus: (id: string, status: UserStatus) => void;
+  switchUser: (userId: string) => void;
   shares: DocumentShare[];
   shareDocument: (documentId: string, recipients: ShareRecipientInput[], expiresAt: string | null) => void;
   updateSharePermission: (shareId: string, canDownload: boolean) => void;
@@ -173,6 +174,7 @@ const PortalContext = createContext<PortalContextValue | null>(null);
 const viewAsUserId: Record<PortalViewRole, string> = {
   Superadmin: 'u-00',
   Administrator: 'u-01',
+  'QA Personnel': 'u-02',
   Faculty: 'u-07',
   Staff: 'u-13',
   Accreditor: 'u-11',
@@ -228,7 +230,13 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     return missingRoots.length > 0 ? [...missingRoots, ...stored] : stored;
   });
   const [pending, setPending] = useState<PendingDocument[]>([]);
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState<PortalUser[]>(() => {
+    return loadStorage<PortalUser[]>('portal_users', initialUsers);
+  });
+
+  useEffect(() => {
+    saveStorage('portal_users', users);
+  }, [users]);
   const [shares, setShares] = useState<DocumentShare[]>([]);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>(() =>
     loadStorage<AccessRequest[]>('accessRequests', [])
@@ -453,7 +461,19 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     return isoRecords.filter((r) => r.campusId === selectedCampus);
   }, [isoRecords, selectedCampus]);
 
-  const currentUser = users.find((u) => u.id === viewAsUserId[viewAs]) ?? users[0];
+  const [activeUserId, setActiveUserId] = useState<string>(() => {
+    return loadStorage<string>('active_user_id', viewAsUserId[viewAs] || 'u-01');
+  });
+
+  const currentUser = useMemo(() => {
+    return users.find((u) => u.id === activeUserId) ?? users.find((u) => u.id === viewAsUserId[viewAs]) ?? users[0];
+  }, [users, activeUserId, viewAs]);
+
+  const switchUser = useCallback((userId: string) => {
+    setActiveUserId(userId);
+    saveStorage('active_user_id', userId);
+  }, []);
+
   const isAdmin = isAdminRole(currentUser.role);
 
   const saveFramework = useCallback((f: Framework) => setFrameworks((prev) => upsert(prev, f)), []);
@@ -1070,6 +1090,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       users,
       saveUser,
       setUserStatus,
+      switchUser,
       shares,
       shareDocument,
       updateSharePermission,
@@ -1164,6 +1185,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       users,
       saveUser,
       setUserStatus,
+      switchUser,
       shares,
       shareDocument,
       updateSharePermission,

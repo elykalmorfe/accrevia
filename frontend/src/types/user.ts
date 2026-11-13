@@ -1,6 +1,22 @@
-﻿export type UserRole = 'Superadmin' | 'Administrator' | 'QA Personnel' | 'User' | 'Faculty' | 'Staff' | 'Accreditor';
+export type UserRole =
+  | 'Superadmin'
+  | 'Administrator'
+  | 'QA Personnel'
+  | 'Faculty'
+  | 'Staff'
+  | 'Accreditor'
+  | 'User'; // Maintained for legacy fallback
+
 export type UserStatus = 'Active' | 'Pending Approval' | 'Invited' | 'Deactivated' | 'Rejected';
-export type PortalViewRole = 'Superadmin' | 'Administrator' | 'Faculty' | 'Staff' | 'Accreditor' | 'User';
+
+export type PortalViewRole =
+  | 'Superadmin'
+  | 'Administrator'
+  | 'QA Personnel'
+  | 'Faculty'
+  | 'Staff'
+  | 'Accreditor'
+  | 'User';
 
 export type PersonnelClassification = 
   | 'Faculty (Teaching - Accreditation Committee)'
@@ -8,6 +24,20 @@ export type PersonnelClassification =
   | 'Staff (Administrative)'
   | 'Staff (Technical)'
   | 'Accreditor (External)';
+
+export type PermissionDomain =
+  | 'System & Security'
+  | 'User Governance'
+  | 'Accreditation & Quality'
+  | 'Repository & Folders'
+  | 'Document Access & Sharing';
+
+export interface RoleCapability {
+  code: string;
+  domain: PermissionDomain;
+  name: string;
+  description: string;
+}
 
 export interface PortalUser {
   id: string;
@@ -23,4 +53,9 @@ export interface PortalUser {
   registeredAt?: string;
   approvedBy?: string;
   approvedAt?: string;
+  campusId?: string;
+  assignedAreas?: string[];
+  assignedPrograms?: string[];
+  temporaryPassword?: string;
+  allowedFeatures?: string[];
 }

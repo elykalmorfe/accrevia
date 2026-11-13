@@ -1,8 +1,8 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
-import { Toaster } from 'sonner';
+import { toast, Toaster } from 'sonner';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { Brand } from './Brand';
@@ -12,7 +12,7 @@ import { usePortalSettings } from '../../settings/portalSettings';
 import { useTheme } from '../../hooks/useTheme';
 
 export function AppShell() {
-  const { sidebarCollapsed, toggleSidebar } = usePortal();
+  const { sidebarCollapsed, toggleSidebar, currentUser, switchUser } = usePortal();
   usePortalSettings();
   const { resolved: theme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -43,20 +43,18 @@ export function AppShell() {
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:shadow">
-        
+
         Skip to content
       </a>
       <div className="flex min-h-screen">
         <div
-          className={`sticky top-0 z-40 hidden h-screen shrink-0 transition-[width] duration-200 ease-out lg:block ${
-            sidebarCollapsed ? 'w-[76px]' : 'w-[280px] xl:w-[300px]'
-          }`}
+          className={`sticky top-0 z-40 hidden h-screen shrink-0 transition-[width] duration-200 ease-out lg:block ${sidebarCollapsed ? 'w-[76px]' : 'w-[280px] xl:w-[300px]'
+            }`}
         >
           <aside className="glass flex h-full flex-col border-r shadow-[1px_0_12px_0_rgb(var(--shadow-color)/0.04)]">
             <div
-              className={`flex h-16 shrink-0 items-center overflow-hidden border-b border-line-subtle ${
-                sidebarCollapsed ? 'justify-center px-2' : 'px-5'
-              }`}
+              className={`flex h-16 shrink-0 items-center overflow-hidden border-b border-line-subtle ${sidebarCollapsed ? 'justify-center px-2' : 'px-5'
+                }`}
             >
               <Brand compact={sidebarCollapsed} />
             </div>
@@ -77,26 +75,26 @@ export function AppShell() {
 
         <AnimatePresence>
           {mobileOpen &&
-          <>
+            <>
               <motion.div
-              className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-sm lg:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => setMobileOpen(false)}
-              aria-hidden="true" />
-            
+                className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-sm lg:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setMobileOpen(false)}
+                aria-hidden="true" />
+
               <motion.aside
-              className="fixed left-0 top-0 z-50 flex h-dvh w-[86vw] max-w-[300px] flex-col overflow-y-auto border-r border-line-subtle bg-surface shadow-soft-lg lg:hidden"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Navigation"
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ duration: 0.25, ease: easeOut }}>
-              
+                className="fixed left-0 top-0 z-50 flex h-dvh w-[86vw] max-w-[300px] flex-col overflow-y-auto border-r border-line-subtle bg-surface shadow-soft-lg lg:hidden"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Navigation"
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ duration: 0.25, ease: easeOut }}>
+
                 <div className="flex h-16 shrink-0 items-center justify-between border-b border-line-subtle px-4">
                   <Brand showSubtitle={false} />
                   <button type="button" onClick={() => setMobileOpen(false)} className="btn btn-ghost btn-icon" aria-label="Close navigation">
@@ -112,6 +110,28 @@ export function AppShell() {
         </AnimatePresence>
 
         <div className="flex min-w-0 flex-1 flex-col">
+          {currentUser.id !== 'u-01' && currentUser.id !== 'u-00' && (
+            <div className="bg-brand-700 text-white text-xs py-1.5 px-4 flex items-center justify-between shadow-xs z-30">
+              <div className="flex items-center gap-2 truncate">
+                <span className="font-semibold">Active Session:</span>
+                <span className="truncate">{currentUser.name} ({currentUser.role})</span>
+                <span className="opacity-60 hidden sm:inline">•</span>
+                <span className="text-[11px] opacity-90 hidden sm:inline">
+                  {currentUser.allowedFeatures ? `${currentUser.allowedFeatures.length} system features enabled` : 'Full System Access'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  switchUser('u-01');
+                  toast.success('Returned to Administrator account');
+                }}
+                className="text-xs py-0.5 px-2.5 rounded bg-white/15 hover:bg-white/25 text-white transition-colors shrink-0 font-medium ml-2"
+              >
+                Return to Admin
+              </button>
+            </div>
+          )}
           <Header onOpenMenu={() => setMobileOpen(true)} />
           <main id="main" className="min-w-0 flex-1">
             <div className={`mx-auto px-3.5 py-5 xs:px-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 ${fullBleed ? 'max-w-none' : 'max-w-[1440px]'}`}>

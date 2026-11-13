@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { SaveBar, SettingRow, SettingsGroup } from './SettingsLayout';
 import { Switch } from '../ui/Switch';
 import { SharingDefaults } from './SharingDefaults';
@@ -9,29 +9,55 @@ import { PortalSettings, useSettingsDraft } from '../../settings/portalSettings'
 type SecurityConfig = PortalSettings['security'];
 
 const permissions = [
-'Search and view documents shared with them',
-'Download documents (when the share allows it)',
-'Upload documents',
-'Classify and edit metadata',
-'Manage frameworks and criteria',
-'Manage users',
-'View retrieval performance',
-'Change system settings'];
+  'Search & view accessible accreditation documents',
+  'View confidential documents (COPC, technical reviews, memos)',
+  'Download documents (when authorized)',
+  'Upload recursive folders & evidence documents',
+  'Classify, tag, and index metadata & criteria',
+  'Audit & verify compliance parameters (COPC, IA, AACCUP)',
+  'Generate accreditation survey dossiers & reports',
+  'Manage IA & Program Area folder hierarchy',
+  'Manage users & review institutional affiliations',
+  'Change system configuration & security settings'
+];
 
-
-const defaults: Record<UserRole, number> = {
-  Superadmin: 8,
-  Administrator: 8,
-  'QA Personnel': 5,
-  Faculty: 3,
-  Staff: 2,
-  Accreditor: 2,
-  User: 2
+const DEFAULT_ALLOWED: Record<UserRole, string[]> = {
+  Superadmin: permissions,
+  Administrator: permissions.filter((p) => p !== 'Change system configuration & security settings'),
+  'QA Personnel': [
+    'Search & view accessible accreditation documents',
+    'View confidential documents (COPC, technical reviews, memos)',
+    'Download documents (when authorized)',
+    'Upload recursive folders & evidence documents',
+    'Classify, tag, and index metadata & criteria',
+    'Audit & verify compliance parameters (COPC, IA, AACCUP)',
+    'Generate accreditation survey dossiers & reports',
+    'Manage IA & Program Area folder hierarchy'
+  ],
+  Faculty: [
+    'Search & view accessible accreditation documents',
+    'Download documents (when authorized)',
+    'Upload recursive folders & evidence documents',
+    'Classify, tag, and index metadata & criteria'
+  ],
+  Staff: [
+    'Search & view accessible accreditation documents',
+    'Download documents (when authorized)',
+    'Upload recursive folders & evidence documents',
+    'Classify, tag, and index metadata & criteria'
+  ],
+  Accreditor: [
+    'Search & view accessible accreditation documents',
+    'Download documents (when authorized)'
+  ],
+  User: [
+    'Search & view accessible accreditation documents'
+  ]
 };
 
-function isAllowed(overrides: Record<string, boolean>, role: UserRole, permission: string, index: number) {
+function isAllowed(overrides: Record<string, boolean>, role: UserRole, permission: string) {
   const key = `${role}|${permission}`;
-  return key in overrides ? overrides[key] : index < defaults[role];
+  return key in overrides ? overrides[key] : (DEFAULT_ALLOWED[role]?.includes(permission) ?? false);
 }
 
 export function SecuritySettings() {
@@ -86,13 +112,13 @@ export function SecuritySettings() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {permissions.map((p, i) =>
+              {permissions.map((p) =>
               <tr key={p}>
                   <td className="td">{p}</td>
                   {userRoles.map((r) => {
                   const key = `${r}|${p}`;
                   const locked = r === 'Administrator';
-                  const checked = isAllowed(s.permissions, r, p, i);
+                  const checked = isAllowed(s.permissions, r, p);
                   return (
                     <td key={r} className="td text-center">
                         <input

@@ -1,9 +1,33 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronDownIcon, LogOutIcon } from 'lucide-react';
 import { navigation, NavItem, userNavigation } from '../../data/navigation';
 import { usePortal } from '../../contexts/PortalContext';
 import { LogoutConfirmModal } from './LogoutConfirmModal';
+
+const itemFeatureMap: Record<string, string> = {
+  'Dashboard': 'dashboard',
+  'Documents': 'documents',
+  'Accreditation': 'framework_ia',
+  'Requests': 'requests',
+  'Reports & Analytics': 'reports',
+  'My Profile': 'account',
+  'User Management': 'users',
+  'Settings': 'settings',
+  'Shared with Me': 'documents',
+  'Saved Documents': 'documents',
+  'My Requests': 'requests'
+};
+
+const childFeatureMap: Record<string, string> = {
+  '/evidence': 'documents',
+  '/evidence/upload': 'upload_evidence',
+  '/frameworks/ia': 'framework_ia',
+  '/frameworks/pa': 'framework_pa',
+  '/frameworks/copc': 'framework_copc',
+  '/frameworks/pqa': 'framework_pqa',
+  '/frameworks/iso': 'framework_iso'
+};
 
 function isItemActive(item: NavItem, pathname: string) {
   if (item.matchPrefix) return pathname.startsWith(item.matchPrefix);
@@ -13,7 +37,49 @@ function isItemActive(item: NavItem, pathname: string) {
 export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   const { pathname } = useLocation();
   const { pending, isAdmin, currentUser, documentRequests, toggleSidebar } = usePortal();
-  const items = isAdmin ? navigation : userNavigation;
+
+  const items = useMemo(() => {
+    const rawItems = isAdmin ? navigation : userNavigation;
+    if (!currentUser.allowedFeatures || currentUser.allowedFeatures.length === 0) {
+      return rawItems;
+    }
+
+    const allowed = new Set(currentUser.allowedFeatures);
+
+    return rawItems
+      .map((item) => {
+        if (item.children) {
+          const validChildren = item.children.filter((child) => {
+            const childFeatId = childFeatureMap[child.to];
+            return childFeatId ? allowed.has(childFeatId) : true;
+          });
+
+          const parentFeatId = itemFeatureMap[item.label];
+          const parentAllowed = parentFeatId ? allowed.has(parentFeatId) : false;
+
+          if (validChildren.length > 0) {
+            return {
+              ...item,
+              to: validChildren.some((c) => c.to === item.to) ? item.to : validChildren[0].to,
+              children: validChildren
+            };
+          } else if (parentAllowed) {
+            return {
+              ...item,
+              children: undefined
+            };
+          }
+          return null;
+        }
+
+        const featId = itemFeatureMap[item.label];
+        if (!featId || allowed.has(featId)) {
+          return item;
+        }
+        return null;
+      })
+      .filter((item): item is NavItem => item !== null);
+  }, [isAdmin, currentUser.allowedFeatures]);
   const liveCounts: Record<NonNullable<NavItem['countKey']>, number> = {
     requests: documentRequests.filter((r) => (isAdmin ? r.unreadByAdmin : r.requesterId === currentUser.id && r.unreadByRequester)).length
   };
