@@ -129,7 +129,7 @@ export function RequestThread({ request, asAdmin, onBack }: RequestThreadProps) 
             aria-pressed={!!request.starred}
             aria-label={request.starred ? 'Unstar request' : 'Star request'}
           >
-            <StarIcon className={`h-4 w-4 ${request.starred ? 'fill-amber-400 text-amber-500' : ''}`} />
+            <StarIcon className={`h-4 w-4 ${request.starred ? 'fill-brand-400 text-brand-500' : ''}`} />
           </button>
           <RowActionsMenu actions={actions} label="Request actions" />
         </div>

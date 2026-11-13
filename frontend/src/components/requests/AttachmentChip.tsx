@@ -29,7 +29,7 @@ export function AttachmentChip({ attachment, onRemove }: AttachmentChipProps) {
     <div className="group flex min-w-0 max-w-full items-center gap-2.5 rounded-lg border border-line bg-white py-1.5 pl-2 pr-1.5 sm:max-w-[260px]">
       <span
         className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${
-          isDocument ? 'bg-emerald-50 text-emerald-600' : 'bg-brand-50 text-brand-600'
+          isDocument ? 'bg-brand-50 text-brand-600' : 'bg-brand-50 text-brand-600'
         }`}
       >
         <Icon className="h-4 w-4" aria-hidden="true" />

@@ -58,10 +58,10 @@ interface IAFolderManagerProps {
 }
 
 const AREA_STATUS_STYLE: Record<string, { tile: string }> = {
-  approved: { tile: 'from-emerald-500 to-emerald-600' },
-  needs_revision: { tile: 'from-rose-500 to-rose-600' },
-  review_required: { tile: 'from-brand-500 to-violet-600' },
-  needs_files: { tile: 'from-brand-500 to-violet-600' },
+  approved: { tile: 'from-brand-500 to-brand-600' },
+  needs_revision: { tile: 'from-brand-600 to-brand-700' },
+  review_required: { tile: 'from-brand-500 to-brand-600' },
+  needs_files: { tile: 'from-brand-500 to-brand-600' },
   needs_evidence: { tile: 'from-slate-400 to-slate-500' }
 };
 
@@ -628,7 +628,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
         <span
           className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium border shadow-2xs ${
             isExpired
-              ? 'bg-rose-50 text-rose-700 border-rose-200'
+              ? 'bg-brand-50 text-brand-900 border-brand-200'
               : 'bg-slate-50 text-slate-700 border-slate-200'
           }`}
         >
@@ -963,7 +963,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
       : 'Custom Folders Repository';
 
     return (
-      <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-r from-white via-white to-amber-50/60 p-4 shadow-xs space-y-3">
+      <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-r from-white via-white to-brand-50/60 p-4 shadow-xs space-y-3">
         {/* Top: Breadcrumb Navigation & Optional Transfer Action */}
         <div className="flex items-center justify-between text-xs text-ink-muted">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -994,7 +994,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
             <button
               type="button"
               onClick={() => setUploadingCustomFolder(currentActiveFolder)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-md transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 hover:text-brand-900 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-2.5 py-1 rounded-md transition-colors shadow-2xs"
               title={`Upload and transfer this custom folder to an official ${framework.areaNoun}`}
             >
               <Share2Icon className="h-3.5 w-3.5" />
@@ -1006,7 +1006,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
         {/* Main Row: Folder Identity on Left, Action Buttons on Right */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2.5 border-t border-line/60">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md shadow-amber-500/30">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-500 text-white shadow-md shadow-brand/30">
               <FolderOpenIcon className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -1020,23 +1020,23 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                   const fStatus = getFolderApprovalStatus(currentActiveFolder);
                   if (fStatus.status === 'approved') {
                     return (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300/80 px-2.5 py-1 rounded-lg shadow-2xs">
-                        <CheckCircle2Icon className="h-3.5 w-3.5 text-emerald-600" />
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-700 bg-brand-50 border border-brand-300/80 px-2.5 py-1 rounded-lg shadow-2xs">
+                        <CheckCircle2Icon className="h-3.5 w-3.5 text-brand-600" />
                         <span>Folder Approved</span>
                       </span>
                     );
                   }
                   if (fStatus.status === 'needs_revision') {
                     return (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-300/80 px-2.5 py-1 rounded-lg shadow-2xs">
-                        <AlertTriangleIcon className="h-3.5 w-3.5 text-amber-600" />
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-800 bg-brand-50 border border-brand-300/80 px-2.5 py-1 rounded-lg shadow-2xs">
+                        <AlertTriangleIcon className="h-3.5 w-3.5 text-brand-600" />
                         <span>Needs Revision</span>
                       </span>
                     );
                   }
                   if (fStatus.status === 'review_required') {
                     return (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-brand-700 bg-blue-50 border border-blue-200/80 px-2.5 py-1 rounded-lg shadow-2xs">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200/80 px-2.5 py-1 rounded-lg shadow-2xs">
                         <ClockIcon className="h-3.5 w-3.5 text-brand-600" />
                         <span>Review Required</span>
                       </span>
@@ -1097,7 +1097,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
       label: `${framework.areaNounPlural} Approved`,
       value: `${areaStatuses.filter((s) => s.status === 'approved').length}/${OFFICIAL_IA_AREAS.length}`,
       icon: CheckCircle2Icon,
-      tile: 'bg-emerald-50 text-emerald-600'
+      tile: 'bg-brand-50 text-brand-600'
     },
     {
       label: 'Evidence Files',
@@ -1109,22 +1109,22 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
       label: 'Pending Review',
       value: areaStatuses.reduce((sum, s) => sum + s.pendingCount, 0),
       icon: ClockIcon,
-      tile: 'bg-sky-50 text-sky-600'
+      tile: 'bg-brand-50 text-brand-600'
     },
     {
       label: 'Needs Revision',
       value: areaStatuses.reduce((sum, s) => sum + s.revisionCount, 0),
       icon: AlertTriangleIcon,
-      tile: 'bg-amber-50 text-amber-600'
+      tile: 'bg-brand-50 text-brand-600'
     }
   ];
 
   return (
     <div className="panel mb-6 overflow-hidden">
       {/* Header */}
-      <div className="relative overflow-hidden border-b border-line bg-gradient-to-br from-brand-50 via-white to-violet-50/70 p-5">
+      <div className="relative overflow-hidden border-b border-line bg-gradient-to-br from-brand-50 via-white to-brand-50/70 p-5">
         <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand-200/40 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-violet-200/30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-brand-200/30 blur-3xl" />
 
         <div className="relative flex flex-col gap-5 2xl:flex-row 2xl:items-center 2xl:justify-between">
           <div className="flex items-start">
@@ -1205,7 +1205,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                   : 'text-ink-muted hover:text-ink'
               }`}
             >
-              <FolderIcon className="h-3.5 w-3.5 text-amber-500" />
+              <FolderIcon className="h-3.5 w-3.5 text-brand-500" />
               <span>Custom Folders</span>
               <span
                 className={`rounded-full px-1.5 text-[10px] font-bold ${
@@ -1273,7 +1273,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                 setSelectedCustomFolderToUpload('');
                 setUploadModalOpen(true);
               }}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-violet-600 px-3.5 text-xs font-semibold text-white shadow-md shadow-brand-600/25 transition hover:shadow-lg hover:shadow-brand-600/30 hover:brightness-110"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-600 px-3.5 text-xs font-semibold text-white shadow-md shadow-brand-600/25 transition hover:shadow-lg hover:shadow-brand-600/30 hover:brightness-110"
               title="Upload individual files, an entire folder, or custom folders into specific Areas"
             >
               <UploadIcon className="h-3.5 w-3.5" />
@@ -1397,10 +1397,10 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                 const areaStatus = getAreaApprovalStatus(currentArea.code);
                 if (areaStatus.status === 'approved') {
                   return (
-                    <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/90 p-3.5 text-xs text-emerald-900 shadow-2xs">
-                      <CheckCircle2Icon className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <div className="flex items-center gap-2.5 rounded-xl border border-brand-200 bg-brand-50/90 p-3.5 text-xs text-brand-900 shadow-2xs">
+                      <CheckCircle2Icon className="h-4 w-4 text-brand-600 shrink-0" />
                       <div className="flex-1">
-                        <span className="font-bold text-emerald-950">All {framework.areaNoun} Evidence Approved: </span>
+                        <span className="font-bold text-brand-950">All {framework.areaNoun} Evidence Approved: </span>
                         <span>
                           All {areaStatus.fileCount} evidence file(s) across {areaStatus.folderCount} folder(s) in {areaLabel(currentArea)} ({currentArea.name}) are officially approved for {campusName}.
                         </span>
@@ -1410,10 +1410,10 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                 }
                 if (areaStatus.status === 'needs_revision') {
                   return (
-                    <div className="flex items-center gap-2.5 rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 text-xs text-amber-900 shadow-2xs">
-                      <AlertTriangleIcon className="h-4 w-4 text-amber-600 shrink-0" />
+                    <div className="flex items-center gap-2.5 rounded-xl border border-brand-300 bg-brand-50/90 p-3.5 text-xs text-brand-900 shadow-2xs">
+                      <AlertTriangleIcon className="h-4 w-4 text-brand-600 shrink-0" />
                       <div className="flex-1">
-                        <span className="font-bold text-amber-950">Action Required — Revisions Pending: </span>
+                        <span className="font-bold text-brand-950">Action Required — Revisions Pending: </span>
                         <span>
                           {areaStatus.revisionCount} file(s) in this {framework.areaNoun} have been returned for revision. Please review feedback remarks and update evidence portfolios.
                         </span>
@@ -1423,7 +1423,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                 }
                 if (areaStatus.status === 'review_required') {
                   return (
-                    <div className="flex items-center gap-2.5 rounded-xl border border-blue-200 bg-blue-50/90 p-3.5 text-xs text-blue-900 shadow-2xs">
+                    <div className="flex items-center gap-2.5 rounded-xl border border-brand-200 bg-brand-50/90 p-3.5 text-xs text-blue-900 shadow-2xs">
                       <ClockIcon className="h-4 w-4 text-brand-600 shrink-0" />
                       <div className="flex-1">
                         <span className="font-bold text-brand-950">{framework.label} Review in Progress: </span>
@@ -1451,7 +1451,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
               {areaFolders.length === 0 ? (
                 /* Prompt to create first folder if none exists */
                 <div className="rounded-2xl border-2 border-dashed border-brand-200 bg-gradient-to-b from-white to-brand-50/40 p-10 text-center space-y-3">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-lg shadow-brand-500/30">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-500 text-white shadow-lg shadow-brand-500/30">
                     <FolderPlusIcon className="h-6 w-6" />
                   </div>
                   <div>
@@ -1580,7 +1580,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                       onClick={() => setRepoFilter('folders')}
                       className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
                         repoFilter === 'folders'
-                          ? 'bg-amber-600 text-white shadow-2xs'
+                          ? 'bg-brand-600 text-white shadow-2xs'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                       }`}
                     >
@@ -1643,9 +1643,9 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                       onClick={() => setApprovalStatusFilter('approved')}
                       className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
                         approvalStatusFilter === 'approved'
-                          ? 'bg-emerald-600 text-white shadow-2xs'
+                          ? 'bg-brand-600 text-white shadow-2xs'
                           : folderApprovalCounts.approved > 0
-                          ? 'text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800'
+                          ? 'text-brand-700 hover:bg-brand-50 hover:text-brand-800'
                           : 'text-slate-400 opacity-60 hover:opacity-100'
                       }`}
                       title="Filter by approved evidence"
@@ -1659,9 +1659,9 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                       onClick={() => setApprovalStatusFilter('pending')}
                       className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
                         approvalStatusFilter === 'pending'
-                          ? 'bg-blue-600 text-white shadow-2xs'
+                          ? 'bg-brand-600 text-white shadow-2xs'
                           : folderApprovalCounts.pending > 0
-                          ? 'text-brand-700 hover:bg-blue-50 hover:text-brand-800'
+                          ? 'text-brand-700 hover:bg-brand-50 hover:text-brand-800'
                           : 'text-slate-400 opacity-60 hover:opacity-100'
                       }`}
                       title="Filter by evidence pending review"
@@ -1675,9 +1675,9 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                       onClick={() => setApprovalStatusFilter('needs_revision')}
                       className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
                         approvalStatusFilter === 'needs_revision'
-                          ? 'bg-amber-600 text-white shadow-2xs'
+                          ? 'bg-brand-600 text-white shadow-2xs'
                           : folderApprovalCounts.revision > 0
-                          ? 'text-amber-800 hover:bg-amber-50 hover:text-amber-900 font-bold'
+                          ? 'text-brand-800 hover:bg-brand-50 hover:text-brand-900 font-bold'
                           : 'text-slate-400 opacity-60 hover:opacity-100'
                       }`}
                       title="Filter by evidence requiring revision"
@@ -1702,7 +1702,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
               {/* EMPTY STATE INSIDE THE FOLDER */}
               {insideSubfolders.length === 0 && allFolderDocs.length === 0 && (
                 <div className="rounded-2xl border-2 border-dashed border-line bg-gradient-to-b from-white to-canvas p-10 text-center">
-                  <FolderOpenIcon className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-amber-50 p-2.5 text-amber-500 ring-1 ring-amber-100" />
+                  <FolderOpenIcon className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-brand-50 p-2.5 text-brand-500 ring-1 ring-brand-100" />
                   <p className="text-xs font-semibold text-ink">No files or subfolders found</p>
                   <p className="text-[11px] text-ink-muted mt-1">
                     {searchQuery
@@ -1856,10 +1856,10 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                                     <button
                                       type="button"
                                       onClick={() => handleOpenRevisionModal(doc)}
-                                      className="btn btn-ghost btn-xs h-7.5 px-2.5 text-xs font-medium text-slate-500 hover:text-amber-800 hover:bg-amber-50 border border-transparent hover:border-amber-200 rounded-lg gap-1.5 transition-all"
+                                      className="btn btn-ghost btn-xs h-7.5 px-2.5 text-xs font-medium text-slate-500 hover:text-brand-800 hover:bg-brand-50 border border-transparent hover:border-brand-200 rounded-lg gap-1.5 transition-all"
                                       title="Request changes or update revision remarks"
                                     >
-                                      <FileEditIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-amber-600" />
+                                      <FileEditIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-brand-600" />
                                       <span>Request Revision</span>
                                     </button>
                                   ) : isNeedsRevision ? (
@@ -1868,7 +1868,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                                       <button
                                         type="button"
                                         onClick={() => handleApproveDocument(doc)}
-                                        className="btn btn-xs h-7.5 px-3 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs transition-all"
+                                        className="btn btn-xs h-7.5 px-3 text-xs font-semibold gap-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-xs transition-all"
                                         title="Mark this revised document as Approved"
                                       >
                                         <CheckIcon className="h-3.5 w-3.5" />
@@ -1877,10 +1877,10 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                                       <button
                                         type="button"
                                         onClick={() => handleOpenRevisionModal(doc)}
-                                        className="btn btn-xs h-7.5 px-2.5 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg gap-1.5 transition-all"
+                                        className="btn btn-xs h-7.5 px-2.5 text-xs font-medium text-brand-800 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-lg gap-1.5 transition-all"
                                         title="Edit revision instructions"
                                       >
-                                        <FileEditIcon className="h-3.5 w-3.5 text-amber-600" />
+                                        <FileEditIcon className="h-3.5 w-3.5 text-brand-600" />
                                         <span>Edit Notes</span>
                                       </button>
                                     </>
@@ -1890,7 +1890,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                                       <button
                                         type="button"
                                         onClick={() => handleApproveDocument(doc)}
-                                        className="btn btn-xs h-7.5 px-3 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs transition-all"
+                                        className="btn btn-xs h-7.5 px-3 text-xs font-semibold gap-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-xs transition-all"
                                         title="Approve this evidence document"
                                       >
                                         <CheckIcon className="h-3.5 w-3.5" />
@@ -1899,7 +1899,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                                       <button
                                         type="button"
                                         onClick={() => handleOpenRevisionModal(doc)}
-                                        className="btn btn-xs h-7.5 px-3 text-xs font-semibold gap-1.5 bg-amber-50 text-amber-800 hover:bg-amber-600 hover:text-white border border-amber-300 rounded-lg shadow-2xs transition-all"
+                                        className="btn btn-xs h-7.5 px-3 text-xs font-semibold gap-1.5 bg-brand-50 text-brand-800 hover:bg-brand-600 hover:text-white border border-brand-300 rounded-lg shadow-2xs transition-all"
                                         title="Request revision with feedback remarks"
                                       >
                                         <FileEditIcon className="h-3.5 w-3.5" />
@@ -1917,11 +1917,11 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                             }
                           >
                             {isOfficialArea && isNeedsRevision && doc.revisionNotes && (
-                              <div className="flex items-start gap-2.5 rounded-r-lg border-l-4 border-amber-500 bg-amber-50/70 p-2.5 text-xs text-amber-900">
-                                <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                              <div className="flex items-start gap-2.5 rounded-r-lg border-l-4 border-brand-500 bg-brand-50/70 p-2.5 text-xs text-brand-900">
+                                <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
                                 <div className="min-w-0">
-                                  <span className="font-bold text-amber-950">Revision Feedback: </span>
-                                  <span className="text-amber-900">{doc.revisionNotes}</span>
+                                  <span className="font-bold text-brand-950">Revision Feedback: </span>
+                                  <span className="text-brand-900">{doc.revisionNotes}</span>
                             </div>
                           </div>
                             )}
@@ -2091,7 +2091,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                     onClick={() => setRepoFilter('folders')}
                     className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
                       repoFilter === 'folders'
-                        ? 'bg-amber-600 text-white shadow-xs'
+                        ? 'bg-brand-600 text-white shadow-xs'
                         : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
                     }`}
                   >
@@ -2111,7 +2111,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                     onClick={() => setRepoFilter('files')}
                     className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
                       repoFilter === 'files'
-                        ? 'bg-blue-600 text-white shadow-xs'
+                        ? 'bg-brand-600 text-white shadow-xs'
                         : 'bg-canvas text-ink-muted hover:bg-slate-100 hover:text-ink'
                     }`}
                   >
@@ -2142,7 +2142,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
               {/* EMPTY STATE INSIDE THE FOLDER */}
               {insideSubfolders.length === 0 && insideFiles.length === 0 && (
                 <div className="rounded-2xl border-2 border-dashed border-line bg-gradient-to-b from-white to-canvas p-10 text-center">
-                  <FolderOpenIcon className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-amber-50 p-2.5 text-amber-500 ring-1 ring-amber-100" />
+                  <FolderOpenIcon className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-brand-50 p-2.5 text-brand-500 ring-1 ring-brand-100" />
                   <p className="text-xs font-semibold text-ink">No files or subfolders found</p>
                   <p className="text-[11px] text-ink-muted mt-1">
                     {searchQuery
@@ -2289,7 +2289,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
             <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-2 shadow-2xs">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600 border border-amber-200 shrink-0">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600 border border-brand-200 shrink-0">
                     <FolderIcon className="h-5 w-5" />
                   </div>
                   <div>
@@ -2367,7 +2367,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                   {framework.areaNoun} {OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaForCustomFolder)?.number}: {OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaForCustomFolder)?.name}
                 </span>
                 <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
-                <span className="font-semibold text-amber-700">{uploadingCustomFolder.name}</span>
+                <span className="font-semibold text-brand-700">{uploadingCustomFolder.name}</span>
               </div>
             </div>
           </div>
@@ -2495,7 +2495,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                         );
                         setTopUploadTargetFolderId(foldersInNext.length > 0 ? foldersInNext[0].id : '');
                       }}
-                      className="input text-xs w-full bg-white font-medium border-slate-300 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 h-9"
+                      className="input select select-sm h-9 w-full text-xs font-medium hover:border-brand-300"
                     >
                       {OFFICIAL_IA_AREAS.map((a) => {
                         const count = iaFolders.filter((f) => (f.areaId || '').toLowerCase() === a.code.toLowerCase()).length;
@@ -2519,12 +2519,12 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                     <select
                       value={topUploadTargetFolderId}
                       onChange={(e) => setTopUploadTargetFolderId(e.target.value)}
-                      className="input text-xs w-full bg-white font-medium border-slate-300 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 h-9"
+                      className="input select select-sm h-9 w-full text-xs font-medium hover:border-brand-300"
                     >
                       <option value="">
                         {foldersInTopUploadArea.length === 0
-                          ? '📁 ' + framework.areaNoun + ' Root (Default Portfolio)'
-                          : '📁 ' + framework.areaNoun + ' Root (Directly in ' + framework.areaNoun + ')'}
+                          ? framework.areaNoun + ' Root (Default Portfolio)'
+                          : framework.areaNoun + ' Root (Directly in ' + framework.areaNoun + ')'}
                       </option>
                       {foldersInTopUploadArea.map((f) => {
                         const parent = f.parentId ? iaFolders.find((p) => p.id === f.parentId) : null;
@@ -2633,7 +2633,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                 )}
               >
-                <FolderArchiveIcon className="h-4 w-4 shrink-0 text-amber-600" />
+                <FolderArchiveIcon className="h-4 w-4 shrink-0 text-brand-600" />
                 <span>Entire Folder</span>
               </button>
 
@@ -2651,7 +2651,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                       : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                   )}
                 >
-                  <FolderIcon className="h-4 w-4 shrink-0 text-indigo-600" />
+                  <FolderIcon className="h-4 w-4 shrink-0 text-brand-600" />
                   <span>Custom Folder</span>
                 </button>
               )}
@@ -2670,7 +2670,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                     <select
                       value={selectedTargetFolder || areaFolders[0]?.id || ''}
                       onChange={(e) => setSelectedTargetFolder(e.target.value)}
-                      className="input text-xs w-full bg-white border-slate-300"
+                      className="input select h-9 w-full text-xs hover:border-brand-300"
                     >
                       {areaFolders.map((af) => (
                         <option key={af.id} value={af.id}>
@@ -2757,7 +2757,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                               onChange={() => setSelectedCustomFolderToUpload(f.id)}
                               className="text-brand-600 focus:ring-brand-500 h-4 w-4"
                             />
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 border border-amber-200/60 shrink-0">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600 border border-brand-200/60 shrink-0">
                               <FolderIcon className="h-4 w-4" />
                             </div>
                             <div>
@@ -2846,7 +2846,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
               <button
                 type="button"
                 disabled={isSubmittingRevision || (requireRevisionNote && !revisionRemarks.trim())}
-                className="btn btn-primary w-full sm:w-auto text-xs font-semibold h-9 px-4 gap-1.5 shadow-xs bg-amber-600 hover:bg-amber-700 border-amber-600 text-white disabled:opacity-50"
+                className="btn btn-primary w-full sm:w-auto text-xs font-semibold h-9 px-4 gap-1.5 shadow-xs bg-brand-600 hover:bg-brand-700 border-brand-600 text-white disabled:opacity-50"
                 onClick={handleSubmitRevision}
               >
                 <AlertCircleIcon className="h-3.5 w-3.5" />
@@ -2880,7 +2880,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                 value={revisionRemarks}
                 onChange={(e) => setRevisionRemarks(e.target.value)}
                 rows={4}
-                className="textarea text-xs w-full bg-white border-slate-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                className="textarea text-xs w-full bg-white border-slate-300 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                 placeholder="Explain clearly what needs to be revised or attached (e.g. Please attach the signed BOR certification on page 3 and update statistical figures for AY 2024–2025)..."
                 required
               />

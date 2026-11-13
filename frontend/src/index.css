@@ -10,52 +10,73 @@
 
 /* Theme tokens as RGB triplets, consumed by tailwind.config.js and the classes below. */
 :root {
-  --canvas: 248 250 252;
+  /* Light: white / cool white + institutional blue (#005A9C) */
+  --canvas: 245 249 252;
   --surface: 255 255 255;
-  --line: 226 232 240;
-  --line-strong: 203 213 225;
-  --line-subtle: 241 245 249;
-  --ink: 15 23 42;
-  --ink-muted: 100 116 139;
-  --ink-subtle: 148 163 184;
-  --scrollbar: 203 213 225;
-  --scrollbar-hover: 148 163 184;
+  --line: 209 226 239;
+  --line-strong: 179 209 235;
+  --line-subtle: 232 241 248;
+  --ink: 0 26 48;
+  --ink-muted: 55 90 120;
+  --ink-subtle: 110 140 168;
+  --scrollbar: 179 209 235;
+  --scrollbar-hover: 110 140 168;
   --surface-raised: 255 255 255;
-  --brand-tint: 239 246 255;
-  --shadow-color: 15 23 42;
+  --brand-tint: 240 246 251;
+  --shadow-color: 0 26 48;
   --shadow-strength: 0.05;
-  --ambient-a: rgb(59 130 246 / 0.06);
-  --ambient-b: rgb(139 92 246 / 0.04);
+  --ambient-a: rgb(0 90 156 / 0.07);
+  --ambient-b: rgb(26 116 181 / 0.04);
+  --brand: 0 90 156;
+  --brand-strong: 0 74 130;
+  --brand-soft: 26 116 181;
+  --brand-btn: 0 90 156;
+  --brand-btn-hover: 0 74 130;
+  --brand-icon: 0 74 130;
 }
 .dark {
-  --canvas: 2 6 23;
-  --surface: 15 23 42;
-  --line: 44 56 76;
-  --line-strong: 71 85 105;
-  --line-subtle: 30 41 59;
-  --ink: 241 245 249;
-  --ink-muted: 148 163 184;
-  --ink-subtle: 100 116 139;
-  --scrollbar: 51 65 85;
-  --scrollbar-hover: 71 85 105;
-  --surface-raised: 22 32 52;
-  --brand-tint: 23 37 84;
+  /* Dark: near-black + #005A9C family accents */
+  --canvas: 4 10 18;
+  --surface: 10 18 28;
+  --line: 32 48 68;
+  --line-strong: 48 72 98;
+  --line-subtle: 18 30 44;
+  --ink: 232 241 248;
+  --ink-muted: 148 176 200;
+  --ink-subtle: 100 130 158;
+  --scrollbar: 48 72 98;
+  --scrollbar-hover: 74 110 148;
+  --surface-raised: 14 26 40;
+  --brand-tint: 0 36 68;
   --shadow-color: 0 0 0;
-  --shadow-strength: 0.35;
-  --ambient-a: rgb(59 130 246 / 0.10);
-  --ambient-b: rgb(139 92 246 / 0.07);
+  --shadow-strength: 0.4;
+  --ambient-a: rgb(0 90 156 / 0.16);
+  --ambient-b: rgb(61 143 199 / 0.08);
+  --brand: 61 143 199;
+  --brand-strong: 124 179 220;
+  --brand-soft: 26 116 181;
+  /* Same button/icon language as light mode, tuned for dark surfaces */
+  --brand-btn: 0 90 156;
+  --brand-btn-hover: 0 74 130;
+  --brand-icon: 124 179 220;
 }
 /* Printable paper previews stay light inside the dark theme. */
 .dark .light-island {
-  --canvas: 248 250 252;
+  --canvas: 245 249 252;
   --surface: 255 255 255;
   --surface-raised: 255 255 255;
-  --line: 226 232 240;
-  --line-strong: 203 213 225;
-  --line-subtle: 241 245 249;
-  --ink: 15 23 42;
-  --ink-muted: 100 116 139;
-  --ink-subtle: 148 163 184;
+  --line: 209 226 239;
+  --line-strong: 179 209 235;
+  --line-subtle: 232 241 248;
+  --ink: 0 26 48;
+  --ink-muted: 55 90 120;
+  --ink-subtle: 110 140 168;
+  --brand: 0 90 156;
+  --brand-strong: 0 74 130;
+  --brand-soft: 26 116 181;
+  --brand-btn: 0 90 156;
+  --brand-btn-hover: 0 74 130;
+  --brand-icon: 0 74 130;
   color-scheme: light;
 }
 
@@ -77,15 +98,15 @@ body {
   background-attachment: fixed;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: rgb(var(--ink));
-  accent-color: #2563EB;
+  accent-color: #005A9C;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 ::selection {
-  background-color: rgb(59 130 246 / 0.22);
+  background-color: rgb(0 90 156 / 0.22);
 }
 :focus-visible {
-  outline: 2px solid rgb(59 130 246 / 0.7);
+  outline: 2px solid rgb(0 90 156 / 0.7);
   outline-offset: 2px;
 }
 
@@ -160,21 +181,21 @@ body {
   .btn:focus-visible {
     outline: 2px solid transparent;
     outline-offset: 2px;
-    box-shadow: 0 0 0 2px rgb(var(--surface)), 0 0 0 4px #3B82F6;
+    box-shadow: 0 0 0 2px rgb(var(--surface)), 0 0 0 4px rgb(var(--brand));
   }
   .btn:disabled {
     pointer-events: none;
     opacity: 0.5;
   }
   .btn-primary {
-    background-color: #2563EB;
+    background-color: rgb(var(--brand-btn));
     color: #ffffff;
-    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.16), 0 1px 2px 0 rgb(15 23 42 / 0.08), 0 4px 12px -4px rgb(37 99 235 / 0.45);
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.12), 0 1px 2px 0 rgb(var(--shadow-color) / 0.08), 0 4px 12px -4px rgb(var(--brand-btn) / 0.4);
   }
   .btn-primary:hover {
-    background-color: #1D4ED8;
+    background-color: rgb(var(--brand-btn-hover));
     transform: translateY(-1px);
-    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.16), 0 2px 4px 0 rgb(15 23 42 / 0.08), 0 8px 20px -6px rgb(37 99 235 / 0.55);
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.12), 0 2px 4px 0 rgb(var(--shadow-color) / 0.08), 0 8px 20px -6px rgb(var(--brand-btn) / 0.45);
   }
   .btn-secondary {
     border: 1px solid rgb(var(--line));
@@ -185,6 +206,7 @@ body {
   .btn-secondary:hover {
     background-color: rgb(var(--canvas));
     border-color: rgb(var(--line-strong));
+    color: rgb(var(--brand-icon));
     transform: translateY(-1px);
     box-shadow: 0 4px 10px -4px rgb(var(--shadow-color) / 0.12);
   }
@@ -195,20 +217,24 @@ body {
     color: rgb(var(--ink-muted));
   }
   .btn-ghost:hover {
-    background-color: #EFF6FF;
-    color: #1D4ED8;
+    background-color: rgb(var(--brand-tint));
+    color: rgb(var(--brand-icon));
   }
-  .dark .btn-ghost:hover {
-    background-color: rgb(59 130 246 / 0.12);
-    color: #93C5FD;
+  /* Icon buttons share the same ocean treatment in both themes */
+  .btn-icon {
+    color: rgb(var(--ink-muted));
+  }
+  .btn-icon:hover {
+    background-color: rgb(var(--brand-tint));
+    color: rgb(var(--brand-icon));
   }
   .btn-danger {
-    background-color: #DC2626;
+    background-color: rgb(var(--brand-strong));
     color: #ffffff;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 2px 0 rgb(var(--shadow-color) / 0.08), 0 4px 12px -4px rgb(var(--brand-strong) / 0.35);
   }
   .btn-danger:hover {
-    background-color: #B91C1C;
+    background-color: rgb(0 47 84); /* brand-900 */
   }
   .btn-sm {
     min-height: 34px;
@@ -251,18 +277,79 @@ body {
     border-color: rgb(var(--line-strong));
   }
   .input:focus {
-    border-color: #3B82F6;
+    border-color: #1A74B5;
     outline: none;
-    box-shadow: 0 0 0 4px rgb(59 130 246 / 0.12);
+    box-shadow: 0 0 0 4px rgb(0 90 156 / 0.14);
   }
   .dark .input:focus,
   .dark .textarea:focus {
-    box-shadow: 0 0 0 4px rgb(59 130 246 / 0.25);
+    box-shadow: 0 0 0 4px rgb(0 90 156 / 0.28);
   }
   .input:disabled {
     background-color: rgb(var(--canvas));
     color: rgb(var(--ink-subtle));
   }
+
+  /* Clean native dropdowns — custom chevron, brand focus, no browser chrome */
+  select.input,
+  .select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    cursor: pointer;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23004A82' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 1rem 1rem;
+    line-height: 1.25;
+  }
+  select.input:hover:not(:disabled):not(:focus),
+  .select:hover:not(:disabled):not(:focus) {
+    border-color: #7CB3DC;
+  }
+  select.input:focus,
+  .select:focus {
+    border-color: #005A9C;
+    outline: none;
+    box-shadow: 0 0 0 4px rgb(0 90 156 / 0.14);
+  }
+  select.input:disabled,
+  .select:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  }
+  select.input option,
+  .select option {
+    color: rgb(var(--ink));
+    background-color: rgb(var(--surface));
+  }
+  .dark select.input,
+  .dark .select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%237CB3DC' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  }
+  .dark select.input:focus,
+  .dark .select:focus {
+    box-shadow: 0 0 0 4px rgb(0 90 156 / 0.28);
+  }
+  /* Compact filter / toolbar selects */
+  select.input.h-9,
+  select.input.h-8,
+  .select-sm {
+    min-height: 2.25rem;
+    height: 2.25rem;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 0.75rem;
+    padding-right: 2rem;
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+    border-radius: 0.625rem;
+    background-position: right 0.55rem center;
+    background-size: 0.875rem 0.875rem;
+  }
+
   .textarea {
     width: 100%;
     border-radius: 0.75rem;
@@ -288,9 +375,9 @@ body {
     color: rgb(var(--ink-subtle));
   }
   .textarea:focus {
-    border-color: #3B82F6;
+    border-color: #1A74B5;
     outline: none;
-    box-shadow: 0 0 0 4px rgb(59 130 246 / 0.12);
+    box-shadow: 0 0 0 4px rgb(0 90 156 / 0.14);
   }
   .label {
     margin-bottom: 0.375rem;
@@ -345,12 +432,9 @@ body {
     color: rgb(var(--ink));
   }
   .chip-active {
-    border-color: rgb(59 130 246 / 0.4);
+    border-color: rgb(var(--brand-btn) / 0.35);
     background-color: rgb(var(--brand-tint));
-    color: #1D4ED8;
-  }
-  .dark .chip-active {
-    color: #93C5FD;
+    color: rgb(var(--brand-icon));
   }
   .tr-hover {
     transition: background-color 150ms ease;
@@ -403,29 +487,23 @@ body {
     font-weight: 500;
     color: rgb(var(--ink-muted));
   }
-  .dark .link {
-    color: #60A5FA;
-  }
-  .dark .link:hover {
-    color: #93C5FD;
-  }
   .link {
     font-weight: 600;
-    color: #2563EB;
+    color: rgb(var(--brand-btn));
     transition-property: color;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 150ms;
   }
   .link:hover {
-    color: #1E40AF;
+    color: rgb(var(--brand-btn-hover));
   }
 
   /* Custom Hatched / Striped Patterns from the Reference Dashboard */
   .pattern-diagonal-stripes {
     background-image: repeating-linear-gradient(
       -45deg,
-      rgba(96, 165, 250, 0.4),
-      rgba(96, 165, 250, 0.4) 3px,
+      rgba(61, 143, 199, 0.4),
+      rgba(61, 143, 199, 0.4) 3px,
       transparent 3px,
       transparent 7px
     );
@@ -433,19 +511,19 @@ body {
   .pattern-diagonal-stripes-solid {
     background-image: repeating-linear-gradient(
       -45deg,
-      #60a5fa,
-      #60a5fa 3px,
-      #93c5fd 3px,
-      #93c5fd 7px
+      #3D8FC7,
+      #3D8FC7 3px,
+      #7CB3DC 3px,
+      #7CB3DC 7px
     );
   }
   .pattern-diagonal-stripes-light {
     background-image: repeating-linear-gradient(
       -45deg,
-      #93c5fd,
-      #93c5fd 3px,
-      #eff6ff 3px,
-      #eff6ff 7px
+      #7CB3DC,
+      #7CB3DC 3px,
+      #F0F6FB 3px,
+      #F0F6FB 7px
     );
   }
 }

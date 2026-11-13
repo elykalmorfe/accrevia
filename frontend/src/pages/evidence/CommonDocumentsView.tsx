@@ -153,7 +153,7 @@ export function CommonDocumentsView() {
           <div className="flex items-start gap-3">
             <div
               className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg shadow-xs ${
-                isAdmin ? 'bg-purple-600 text-white' : 'bg-emerald-600 text-white'
+                isAdmin ? 'bg-brand-600 text-white' : 'bg-brand-600 text-white'
               }`}
             >
               {isAdmin ? <ShieldCheckIcon className="h-5 w-5" /> : <CheckCircle2Icon className="h-5 w-5" />}
@@ -211,11 +211,11 @@ export function CommonDocumentsView() {
                     {item.type}
                   </span>
                   {isConfidential ? (
-                    <span className="rounded bg-rose-50 text-rose-700 text-[10px] font-bold px-1.5 py-0.2 shrink-0 border border-rose-200">
+                    <span className="rounded bg-brand-50 text-brand-900 text-[10px] font-bold px-1.5 py-0.2 shrink-0 border border-brand-200">
                       Confidential
                     </span>
                   ) : (
-                    <span className="rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold px-1.5 py-0.2 shrink-0 border border-emerald-200">
+                    <span className="rounded bg-brand-50 text-brand-700 text-[10px] font-bold px-1.5 py-0.2 shrink-0 border border-brand-200">
                       Accessible
                     </span>
                   )}
@@ -248,7 +248,7 @@ export function CommonDocumentsView() {
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value as CommonDocType | 'all')}
-              className="input h-9 text-xs py-0 w-full sm:w-auto"
+              className="input select select-sm h-9 w-full text-xs hover:border-brand-300 sm:w-auto"
             >
               <option value="all">All 8 Document Types</option>
               {officialCommonDocumentTypes.map((t) => (
@@ -261,7 +261,7 @@ export function CommonDocumentsView() {
             <select
               value={accessFilter}
               onChange={(e) => setAccessFilter(e.target.value as 'all' | 'Accessible' | 'Confidential')}
-              className="input h-9 text-xs py-0 w-full sm:w-auto"
+              className="input select select-sm h-9 w-full text-xs hover:border-brand-300 sm:w-auto"
             >
               <option value="all">All Security Levels</option>
               <option value="Accessible">Accessible Only (Open to Faculty & Staff)</option>
@@ -309,20 +309,20 @@ export function CommonDocumentsView() {
               <div
                 key={doc.id}
                 className={`panel p-4 flex flex-col justify-between transition-all hover:shadow-sm ${
-                  isConfidential ? 'border-amber-200/60 bg-amber-50/10' : 'border-line bg-white'
+                  isConfidential ? 'border-brand-200/60 bg-brand-50/10' : 'border-line bg-white'
                 }`}
               >
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <span className="font-mono text-[11px] font-bold text-ink-subtle">{doc.id.toUpperCase()}</span>
                     {isConfidential ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 text-[10.5px] font-semibold">
-                        <LockIcon className="h-3 w-3 text-amber-600" />
+                      <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 text-brand-800 border border-brand-200 px-2 py-0.5 text-[10.5px] font-semibold">
+                        <LockIcon className="h-3 w-3 text-brand-600" />
                         Confidential
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10.5px] font-semibold">
-                        <UnlockIcon className="h-3 w-3 text-emerald-600" />
+                      <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 text-brand-800 border border-brand-200 px-2 py-0.5 text-[10.5px] font-semibold">
+                        <UnlockIcon className="h-3 w-3 text-brand-600" />
                         Accessible
                       </span>
                     )}
@@ -392,7 +392,7 @@ export function CommonDocumentsView() {
                       </>
                     ) : (
                       <>
-                        <LockIcon className="h-3.5 w-3.5 mr-1 text-amber-600" />
+                        <LockIcon className="h-3.5 w-3.5 mr-1 text-brand-600" />
                         Restricted
                       </>
                     )}
@@ -434,8 +434,8 @@ export function CommonDocumentsView() {
           }
         >
           <div className="space-y-3">
-            <div className="rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-900 flex items-start gap-2.5">
-              <ShieldAlertIcon className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="rounded-lg bg-brand-50 border border-brand-200 p-3 text-xs text-brand-900 flex items-start gap-2.5">
+              <ShieldAlertIcon className="h-5 w-5 text-brand-800 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold">Confidential Classification</p>
                 <p className="mt-0.5">

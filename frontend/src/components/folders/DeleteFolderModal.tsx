@@ -110,7 +110,7 @@ export function DeleteFolderModal({
         {/* Folder Details Card */}
         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-2.5 shadow-2xs">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white border border-slate-200 shadow-2xs text-amber-600 shrink-0">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white border border-slate-200 shadow-2xs text-brand-600 shrink-0">
               <FolderIcon className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">

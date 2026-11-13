@@ -99,6 +99,11 @@ export function certificateAreaKey(programId: string): string {
   return `cert-${programId}`;
 }
 
+/** `areaId` shared by a program's Technical Review & Board Action / ratings folders. */
+export function ratingsAreaKey(programId: string): string {
+  return `trba-${programId}`;
+}
+
 /** `areaId` shared by a campus's institutional (IA) certificate folders and documents. */
 export function institutionalCertificateAreaKey(campusId: string): string {
   return `cert-ia-${campusId}`;

@@ -196,7 +196,7 @@ export function AccessRequestsTable() {
                           <button
                             type="button"
                             onClick={() => openReview(r, 'Approved')}
-                            className="btn btn-primary btn-sm text-[11px] h-7 px-2.5 gap-1 bg-emerald-700 hover:bg-emerald-800 border-emerald-700"
+                            className="btn btn-primary btn-sm text-[11px] h-7 px-2.5 gap-1 bg-brand-700 hover:bg-brand-800 border-brand-700"
                             title="Approve request and grant access immediately"
                           >
                             <ThumbsUpIcon className="h-3 w-3" />
@@ -248,7 +248,7 @@ export function AccessRequestsTable() {
                 onClick={handleConfirmReview}
                 className={`btn ${
                   reviewModal.decision === 'Approved'
-                    ? 'btn-primary bg-emerald-700 hover:bg-emerald-800'
+                    ? 'btn-primary bg-brand-700 hover:bg-brand-800'
                     : 'btn-secondary text-danger-700 hover:bg-danger-50'
                 }`}
               >

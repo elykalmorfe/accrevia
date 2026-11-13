@@ -101,7 +101,7 @@ export function DocumentViewer() {
   ['Office', doc.office],
   ['Academic year', doc.academicYear],
   ['Accreditation cycle', doc.cycle],
-  ...(doc.isoStage ? [['ISO Audit Stage / Label', <span key="iso" className="font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 text-xs">{doc.isoStage}</span>] as [string, React.ReactNode]] : []),
+  ...(doc.isoStage ? [['ISO Audit Stage / Label', <span key="iso" className="font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200 text-xs">{doc.isoStage}</span>] as [string, React.ReactNode]] : []),
   ['Upload date', formatDate(doc.dateAdded)],
   ['Processing status', <StatusBadge key="s" status={doc.status} />],
   ['Confidentiality', doc.confidentiality]];

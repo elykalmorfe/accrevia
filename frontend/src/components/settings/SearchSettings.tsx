@@ -51,7 +51,7 @@ export function SearchSettings() {
           <input aria-label="Candidates to rerank" type="number" min={5} max={100} disabled={!s.rerank} className="input" value={s.rerankTopN} onChange={(e) => set('rerankTopN', Number(e.target.value))} />
         </SettingRow>
         <SettingRow label="Results returned" description="Maximum results shown on the search results page.">
-          <select aria-label="Results returned" className="input" value={s.resultCount} onChange={(e) => set('resultCount', Number(e.target.value))}>
+          <select aria-label="Results returned" className="input select" value={s.resultCount} onChange={(e) => set('resultCount', Number(e.target.value))}>
             {[10, 20, 50].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </SettingRow>

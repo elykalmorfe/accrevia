@@ -116,7 +116,7 @@ export function ProgramReportPrintModal({
   const yearSelect = (label: string, value: number, onChange: (y: number) => void, min?: number) => (
     <label className="block">
       <span className="label">{label}</span>
-      <select value={value} onChange={(e) => onChange(Number(e.target.value))} className="input h-9 text-xs py-0">
+      <select value={value} onChange={(e) => onChange(Number(e.target.value))} className="input select select-sm h-9 text-xs">
         {yearOptions
           .filter((y) => min === undefined || y >= min)
           .map((y) => (
@@ -157,14 +157,14 @@ export function ProgramReportPrintModal({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <label className="block lg:col-span-1">
             <span className="label">Report</span>
-            <select value={type} onChange={(e) => setType(e.target.value as ProgramReportType)} className="input h-9 text-xs py-0">
+            <select value={type} onChange={(e) => setType(e.target.value as ProgramReportType)} className="input select select-sm h-9 text-xs">
               <option value="summary">Summary Report</option>
               <option value="level">Level Tracking Report</option>
             </select>
           </label>
           <label className="block lg:col-span-1">
             <span className="label">Campus</span>
-            <select value={campus} onChange={(e) => setCampus(e.target.value)} className="input h-9 text-xs py-0">
+            <select value={campus} onChange={(e) => setCampus(e.target.value)} className="input select select-sm h-9 text-xs">
               <option value="all">All Campuses</option>
               {campuses.map((c) => (
                 <option key={c.id} value={c.id}>

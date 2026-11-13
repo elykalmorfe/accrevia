@@ -41,10 +41,6 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
   const [findingsLink, setFindingsLink] = useState('');
   const [technicalReviewLink, setTechnicalReviewLink] = useState('');
   const [scheduleForAccreditation, setScheduleForAccreditation] = useState('');
-  const [copcStatus, setCopcStatus] = useState<'Compliant' | 'Pending' | 'Not Applicable'>('Compliant');
-  const [copcCertificateNumber, setCopcCertificateNumber] = useState('');
-  const [borRes, setBorRes] = useState('');
-  const [cmoNo, setCmoNo] = useState('');
   const [remarks, setRemarks] = useState('');
   const [boardAction, setBoardAction] = useState('');
   const [history, setHistory] = useState<ProgramLevelHistoryEntry[]>([]);
@@ -70,10 +66,6 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
       setFindingsLink(program.findingsLink || '');
       setTechnicalReviewLink(program.technicalReviewLink || '');
       setScheduleForAccreditation(program.scheduleForAccreditation || '');
-      setCopcStatus(program.copcStatus);
-      setCopcCertificateNumber(program.copcCertificateNumber || '');
-      setBorRes(program.borRes || '');
-      setCmoNo(program.cmoNo || '');
       setRemarks(program.remarks || '');
       setBoardAction(program.boardAction || '');
       setHistory(getLevelHistory(program));
@@ -90,10 +82,6 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
       setFindingsLink('');
       setTechnicalReviewLink('');
       setScheduleForAccreditation('');
-      setCopcStatus('Compliant');
-      setCopcCertificateNumber('');
-      setBorRes('');
-      setCmoNo(getSettings().accreditation.copcCmoDefault);
       setRemarks('');
       setBoardAction('');
       setHistory([]);
@@ -147,10 +135,11 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
       findingsLink: findingsLink.trim() || undefined,
       technicalReviewLink: technicalReviewLink.trim() || undefined,
       scheduleForAccreditation: scheduleForAccreditation.trim() || undefined,
-      copcStatus,
-      copcCertificateNumber: copcCertificateNumber.trim() || undefined,
-      borRes: borRes.trim() || undefined,
-      cmoNo: cmoNo.trim() || undefined,
+      // Preserve compliance fields from existing record (no longer edited in this form).
+      copcStatus: program?.copcStatus ?? 'Compliant',
+      copcCertificateNumber: program?.copcCertificateNumber,
+      borRes: program?.borRes,
+      cmoNo: program?.cmoNo ?? getSettings().accreditation.copcCmoDefault,
       remarks: remarks.trim() || undefined,
       boardAction: boardAction.trim() || undefined,
       levelHistory: program ? history : undefined,
@@ -176,7 +165,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
       open={open}
       onClose={onClose}
       title={program ? 'Edit Program Accreditation' : 'Add Program Accreditation'}
-      description="Track AACCUP program accreditation status, validity schedule, instruments, and COPC compliance."
+      description="Track AACCUP program accreditation status, validity schedule, and supporting documents."
       size="xl"
       footer={
         <div className="flex w-full items-center justify-between">
@@ -322,57 +311,15 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
                 />
 
                 <TextField
-                  label="AACCUP Technical Review"
+                  label="Technical Review & Board Action (link)"
                   value={technicalReviewLink}
                   onChange={(val) => setTechnicalReviewLink(val)}
-                  placeholder="Google Drive link or URL"
+                  placeholder="Local path or Google Drive link"
                 />
               </div>
             </div>
           </div>
         )}
-
-        <div className="border-t border-line pt-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
-            Compliance & Regulatory References
-          </h3>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <SelectField
-              label="COPC Status"
-              value={copcStatus}
-              onChange={(val) => setCopcStatus(val as 'Compliant' | 'Pending' | 'Not Applicable')}
-              options={[
-                { value: 'Compliant', label: 'Compliant (With Certificate)' },
-                { value: 'Pending', label: 'Pending Review / Under Evaluation' },
-                { value: 'Not Applicable', label: 'Not Applicable' }
-              ]}
-            />
-
-            <TextField
-              label="COPC Certificate Number"
-              value={copcCertificateNumber}
-              onChange={(val) => setCopcCertificateNumber(val)}
-              placeholder="e.g. COPC-2023-TAN-01"
-            />
-
-            <TextField
-              label="BOR Resolution Number"
-              value={borRes}
-              onChange={(val) => setBorRes(val)}
-              placeholder="e.g. Res. no. 027 s. 2013"
-            />
-          </div>
-
-          <div className="mt-3">
-            <TextField
-              label="CHED Memorandum Order (CMO)"
-              value={cmoNo}
-              onChange={(val) => setCmoNo(val)}
-              placeholder="e.g. CMO No. 25, Series of 2015"
-            />
-          </div>
-        </div>
 
         {program && (
           <div className="border-t border-line pt-4">

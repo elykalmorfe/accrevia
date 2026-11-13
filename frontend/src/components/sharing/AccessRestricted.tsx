@@ -23,7 +23,7 @@ export function AccessRestricted({ documentId }: AccessRestrictedProps) {
   return (
     <>
       <div className="panel mx-auto max-w-xl px-6 py-12 text-center" role="alert">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-amber-50 text-amber-700 ring-8 ring-amber-50/50">
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-brand-50 text-brand-700 ring-8 ring-brand-50/50">
           <LockIcon className="h-6 w-6" aria-hidden="true" />
         </span>
         <h1 className="mt-4 font-serif text-2xl font-bold text-ink">Permission-Based Access Restricted</h1>

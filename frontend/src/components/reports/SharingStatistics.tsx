@@ -1,7 +1,8 @@
-﻿import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { usePortal } from '../../contexts/PortalContext';
 import { recipientRoles, shareStatus } from '../../utils/sharing';
 import { BarList } from '../ui/BarList';
+import { CampusScopeNote } from './ReportParts';
 
 export function SharingStatistics() {
   const { shares, documents, filteredDocuments, selectedCampus, selectedCampusObj } = usePortal();
@@ -14,10 +15,10 @@ export function SharingStatistics() {
   }, [shares, selectedCampus, campusDocIds]);
 
   const kpis = [
-    { label: 'Total shared documents', value: new Set(activeSharesForScope.map((s) => s.documentId)).size },
-    { label: 'Active shares', value: activeSharesForScope.filter((s) => shareStatus(s) === 'Active').length },
-    { label: 'View-only shares', value: activeSharesForScope.filter((s) => !s.canDownload).length },
-    { label: 'Download-enabled shares', value: activeSharesForScope.filter((s) => s.canDownload).length }
+    { label: 'Documents shared', value: new Set(activeSharesForScope.map((s) => s.documentId)).size },
+    { label: 'Shares still open', value: activeSharesForScope.filter((s) => shareStatus(s) === 'Active').length },
+    { label: 'Can view only', value: activeSharesForScope.filter((s) => !s.canDownload).length },
+    { label: 'Can view and download', value: activeSharesForScope.filter((s) => s.canDownload).length }
   ];
 
   const perDoc = Object.entries(
@@ -30,11 +31,9 @@ export function SharingStatistics() {
   return (
     <div className="space-y-4">
       {selectedCampus !== 'all' && (
-        <div className="rounded-lg border border-brand-200 bg-brand-50/60 px-4 py-2 text-xs text-brand-900 flex items-center justify-between">
-          <span>Displaying sharing statistics for <strong>{selectedCampusObj?.name}</strong></span>
-          <span className="font-semibold text-brand-700">{activeSharesForScope.length} Total Shares</span>
-        </div>
+        <CampusScopeNote campusName={selectedCampusObj?.name} detail={`${activeSharesForScope.length} shares in total`} />
       )}
+      <p className="text-sm text-ink-muted">Who documents have been shared with and whether that access is still open.</p>
       <dl className="panel grid grid-cols-2 gap-px overflow-hidden bg-line xl:grid-cols-4">
         {kpis.map((k) => (
           <div key={k.label} className="bg-white p-5">

@@ -60,7 +60,12 @@ export function DocumentPreviewModal({ doc, onClose, terms = [], query, grantAcc
       
       {doc && rights.canView &&
       <div className="-mx-6 -my-5 bg-canvas p-4 sm:p-6">
-          <OriginalDocumentView doc={doc} terms={terms} canDownload={rights.canDownload} />
+          <OriginalDocumentView
+            doc={doc}
+            terms={terms}
+            canDownload={rights.canDownload}
+            heightClass={doc.docType === 'Certificate' ? 'h-[min(78vh,620px)]' : 'h-[70vh]'}
+          />
         </div>
       }
     </Modal>);

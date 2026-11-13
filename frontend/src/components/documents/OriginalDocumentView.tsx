@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { DownloadIcon, ExternalLinkIcon, FileWarningIcon, InfoIcon, LoaderIcon } from 'lucide-react';
 import { EvidenceDocument } from '../../types/evidence';
-import { getStoredFile, StoredFile } from '../../utils/fileStore';
+import { getStoredFile, saveStoredFile, StoredFile } from '../../utils/fileStore';
+import { driveEmbedUrl } from '../../utils/driveLinks';
+import { isLocalCertificatePath } from '../../utils/linkedCertificates';
 import { DocumentPage } from './DocumentPage';
 
 interface OriginalDocumentViewProps {
@@ -16,6 +18,10 @@ interface OriginalDocumentViewProps {
 type Kind = 'pdf' | 'image' | 'docx' | 'xlsx' | 'csv' | 'text' | 'unsupported';
 
 const BROWSER_IMAGE = /^image\/(png|jpe?g|gif|webp|svg\+xml|bmp|avif)$/;
+
+function isUrlLike(value?: string | null): boolean {
+  return /^https?:\/\//i.test((value || '').trim());
+}
 
 function detectKind(file: StoredFile): Kind {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
@@ -183,7 +189,7 @@ function Loading() {
 function UnsupportedNotice({ message, url, name, canDownload }: { message: string; url?: string; name?: string; canDownload?: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-line bg-white px-6 py-14 text-center">
-      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-500 ring-1 ring-amber-100">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-500 ring-1 ring-brand-100">
         <FileWarningIcon className="h-7 w-7" />
       </span>
       <p className="mt-4 text-[15px] font-bold text-ink">{name ?? 'Original document'}</p>
@@ -204,6 +210,60 @@ function UnsupportedNotice({ message, url, name, canDownload }: { message: strin
   );
 }
 
+function LinkedDocumentView({ doc, url, heightClass }: { doc: EvidenceDocument; url: string; heightClass: string }) {
+  const embedUrl = driveEmbedUrl(url);
+  if (!embedUrl) {
+    return (
+      <UnsupportedNotice
+        name={doc.title}
+        url={url}
+        message="The original certificate is stored in Google Drive. Open it to view the real file."
+      />
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 font-sans text-[12px] text-ink-muted">
+        <span className="flex items-center gap-2">
+          <InfoIcon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          Showing the original certificate from Google Drive.
+        </span>
+        <a href={url} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm shrink-0">
+          <ExternalLinkIcon className="h-3.5 w-3.5" /> Open original
+        </a>
+      </div>
+      <iframe
+        title={doc.title}
+        src={embedUrl}
+        allow="autoplay"
+        className={`w-full rounded-xl border border-line bg-white ${heightClass}`}
+      />
+    </div>
+  );
+}
+
+async function loadOriginalFile(doc: EvidenceDocument): Promise<StoredFile | undefined> {
+  const stored = await getStoredFile(doc.id).catch(() => undefined);
+  if (stored) return stored;
+
+  const href = doc.documentUrl?.trim();
+  if (!href || !isLocalCertificatePath(href)) return undefined;
+
+  const res = await fetch(href);
+  if (!res.ok) return undefined;
+  const blob = await res.blob();
+  const name = href.split('/').pop() || `${doc.id}.pdf`;
+  await saveStoredFile(doc.id, blob, name).catch(() => undefined);
+  return {
+    id: doc.id,
+    name,
+    type: blob.type,
+    size: blob.size,
+    blob,
+    storedAt: new Date().toISOString()
+  };
+}
+
 export function OriginalDocumentView({
   doc,
   terms = [],
@@ -219,7 +279,7 @@ export function OriginalDocumentView({
     let cancelled = false;
     let url: string | undefined;
     setState({ status: 'loading' });
-    getStoredFile(doc.id)
+    loadOriginalFile(doc)
       .then((file) => {
         if (cancelled) return;
         if (!file) return setState({ status: 'missing' });
@@ -233,9 +293,24 @@ export function OriginalDocumentView({
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [doc.id]);
+  }, [doc.id, doc.documentUrl]);
 
   if (state.status === 'loading') return <Loading />;
+
+  if ((state.status === 'missing' || !state.file || !state.url) && doc.documentUrl && isUrlLike(doc.documentUrl) && !isLocalCertificatePath(doc.documentUrl)) {
+    return <LinkedDocumentView doc={doc} url={doc.documentUrl} heightClass={heightClass} />;
+  }
+
+  if ((state.status === 'missing' || !state.file || !state.url) && isLocalCertificatePath(doc.documentUrl)) {
+    return (
+      <UnsupportedNotice
+        name={doc.title}
+        url={doc.documentUrl}
+        canDownload={canDownload}
+        message="The certificate file could not be loaded from local storage. Open or download it directly."
+      />
+    );
+  }
 
   if (state.status === 'missing' || !state.file || !state.url) {
     return (
@@ -250,9 +325,16 @@ export function OriginalDocumentView({
   }
 
   const { file, url } = state;
+  const pdfHeight = doc.docType === 'Certificate' ? 'h-[min(78vh,620px)]' : heightClass;
   switch (detectKind(file)) {
     case 'pdf':
-      return <iframe title={file.name} src={url} className={`w-full rounded-xl border border-line bg-white ${heightClass}`} />;
+      return (
+        <iframe
+          title={file.name}
+          src={`${url}#toolbar=1&navpanes=0&view=FitH`}
+          className={`w-full rounded-xl border border-line bg-white ${pdfHeight}`}
+        />
+      );
     case 'image':
       return (
         <div className="flex justify-center rounded-xl border border-line bg-white p-3">

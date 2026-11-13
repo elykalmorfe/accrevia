@@ -263,7 +263,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
                             [clause.clauseNumber]: e.target.value as 'Conforming' | 'Opportunity for Improvement' | 'Minor Non-Conformance' | 'Major Non-Conformance'
                           }))
                         }
-                        className="input text-xs h-8"
+                        className="input select select-sm h-8 text-xs hover:border-brand-300"
                       >
                         <option value="Conforming">Conforming (Pass)</option>
                         <option value="Opportunity for Improvement">Opportunity for Improvement</option>

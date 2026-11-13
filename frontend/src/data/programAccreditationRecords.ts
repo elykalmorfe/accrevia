@@ -7,7 +7,7 @@ import { ProgramAccreditation } from '../types/accreditation';
  * so browsers replace their stored copy.
  */
 export const PROGRAM_ACCREDITATION_DATA_VERSION = '2026-workbook-1';
-export const COPC_DATA_VERSION = '2026-copc-verified-v4';
+export const COPC_DATA_VERSION = '2026-copc-local-certs-1';
 
 export const programAccreditationRecords: Omit<ProgramAccreditation, 'requirements'>[] = [
   {

@@ -1,14 +1,14 @@
 import { ReactNode } from 'react';
-import { ArrowUpRightIcon, ChevronDownIcon } from 'lucide-react';
+import { ArrowUpRightIcon } from 'lucide-react';
 import { AccreditationLevel, ProgramAccreditation } from '../../types/accreditation';
 import { formatReportDate, getExpiryInfo, levelRank, parseAccreditationDate, statusLabel } from '../../utils/programAccreditation';
 
 const LEVEL_STYLES: Record<string, { pill: string; bar: string }> = {
-  Candidate: { pill: 'bg-amber-50 text-amber-800 ring-amber-200', bar: 'bg-amber-400' },
-  'Level 1': { pill: 'bg-sky-50 text-sky-800 ring-sky-200', bar: 'bg-sky-500' },
-  'Level 2': { pill: 'bg-blue-50 text-blue-800 ring-blue-200', bar: 'bg-blue-500' },
-  'Level 3': { pill: 'bg-emerald-50 text-emerald-800 ring-emerald-200', bar: 'bg-emerald-500' },
-  'Level 4': { pill: 'bg-violet-50 text-violet-800 ring-violet-200', bar: 'bg-violet-500' }
+  Candidate: { pill: 'bg-brand-50 text-brand-700 ring-brand-200', bar: 'bg-brand-300' },
+  'Level 1': { pill: 'bg-brand-50 text-brand-800 ring-brand-200', bar: 'bg-brand-400' },
+  'Level 2': { pill: 'bg-brand-100 text-brand-800 ring-brand-300', bar: 'bg-brand-500' },
+  'Level 3': { pill: 'bg-brand-600 text-white ring-brand-700', bar: 'bg-brand-600' },
+  'Level 4': { pill: 'bg-brand-800 text-white ring-brand-900', bar: 'bg-brand-800' }
 };
 const NEUTRAL_STYLE = { pill: 'bg-slate-50 text-slate-600 ring-slate-200', bar: 'bg-slate-300' };
 
@@ -42,9 +42,9 @@ function describeRemaining(days: number): string {
 }
 
 const VALIDITY_TONE = {
-  active: { bar: 'bg-emerald-500', label: 'text-emerald-700' },
-  expiring: { bar: 'bg-amber-500', label: 'text-amber-700' },
-  expired: { bar: 'bg-rose-500', label: 'text-rose-700' }
+  active: { bar: 'bg-brand-500', label: 'text-brand-700' },
+  expiring: { bar: 'bg-brand-400', label: 'text-brand-800' },
+  expired: { bar: 'bg-brand-900', label: 'text-brand-900' }
 } as const;
 
 /** Validity dates with a progress bar of elapsed time and a plain-language status. */
@@ -100,7 +100,7 @@ export function EmptyCell() {
   return <span className="text-slate-300">—</span>;
 }
 
-/** Native select styled as a compact pill; highlights while a non-default option is chosen. */
+/** Compact toolbar select; highlights while a non-default option is chosen. */
 export function FilterSelect({
   value,
   onChange,
@@ -114,24 +114,17 @@ export function FilterSelect({
 }) {
   const active = value !== 'all';
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        title={title}
-        className={`h-9 appearance-none rounded-lg border pl-3 pr-8 text-xs font-medium outline-none transition-colors focus:ring-2 focus:ring-brand-200 ${
-          active
-            ? 'border-brand-300 bg-brand-50 text-brand-800'
-            : 'border-slate-200 bg-white text-ink hover:border-slate-300'
-        }`}
-      >
-        {children}
-      </select>
-      <ChevronDownIcon
-        className={`pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 ${
-          active ? 'text-brand-600' : 'text-ink-subtle'
-        }`}
-      />
-    </div>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      title={title}
+      className={`input select select-sm h-9 w-auto min-w-[7.5rem] text-xs font-medium ${
+        active
+          ? 'border-brand-400 bg-brand-50 text-brand-800 hover:border-brand-500'
+          : 'hover:border-brand-300'
+      }`}
+    >
+      {children}
+    </select>
   );
 }

@@ -7,7 +7,7 @@ export function ExpiryIndicator({ program }: { program: ProgramAccreditation }) 
   if (info.state === 'expiring') {
     return (
       <span
-        className="mt-1 inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-bold text-amber-800 border border-amber-200"
+        className="mt-1 inline-flex items-center gap-1 rounded bg-brand-50 px-1.5 py-0.5 text-[10.5px] font-bold text-brand-800 border border-brand-200"
         title={`Validity ends ${formatReportDate(info.endDate)} · ${describeDaysRemaining(info)}`}
       >
         <AlertTriangleIcon className="h-3 w-3" /> Expiring Soon
@@ -17,7 +17,7 @@ export function ExpiryIndicator({ program }: { program: ProgramAccreditation }) 
   if (info.state === 'expired') {
     return (
       <span
-        className="mt-1 inline-flex items-center gap-1 rounded bg-rose-50 px-1.5 py-0.5 text-[10.5px] font-bold text-rose-700 border border-rose-200"
+        className="mt-1 inline-flex items-center gap-1 rounded bg-brand-50 px-1.5 py-0.5 text-[10.5px] font-bold text-brand-900 border border-brand-200"
         title={`Validity ended ${formatReportDate(info.endDate)}`}
       >
         Expired

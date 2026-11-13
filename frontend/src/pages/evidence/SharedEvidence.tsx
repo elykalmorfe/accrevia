@@ -39,7 +39,7 @@ export function SharedEvidence() {
         </div>
         <div>
           <dt className="text-ink-muted">Pending access requests</dt>
-          <dd className="text-xl font-semibold tabular-nums text-amber-700">{pendingCount}</dd>
+          <dd className="text-xl font-semibold tabular-nums text-brand-700">{pendingCount}</dd>
         </div>
         <div>
           <dt className="text-ink-muted">Expired shares</dt>

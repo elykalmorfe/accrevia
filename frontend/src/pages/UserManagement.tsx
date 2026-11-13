@@ -37,11 +37,11 @@ const statusTone: Record<UserStatus, BadgeTone> = {
 type AccessTone = 'full' | 'elevated' | 'scoped' | 'limited' | 'denied';
 
 const ACCESS_TONE: Record<AccessTone, string> = {
-  full: 'text-emerald-600 font-bold',
-  elevated: 'text-purple-700 font-bold',
+  full: 'text-brand-600 font-bold',
+  elevated: 'text-brand-700 font-bold',
   scoped: 'text-brand-700 font-bold',
   limited: 'text-ink-muted',
-  denied: 'text-rose-600 font-bold'
+  denied: 'text-brand-800 font-bold'
 };
 
 const PERMISSION_ROLES = ['Superadmin', 'Admin', 'QA Personnel', 'Faculty / Staff (User)', 'Accreditor (Ext.)'];
@@ -216,7 +216,7 @@ export function UserManagement() {
       />
 
       {/* NEMSU Workspace Security Notice Banner */}
-      <div className="mb-5 rounded-xl border border-brand-200/80 bg-gradient-to-r from-brand-50/90 via-sky-50/40 to-brand-50/70 p-4 text-xs text-brand-950 shadow-xs">
+      <div className="mb-5 rounded-xl border border-brand-200/80 bg-gradient-to-r from-brand-50/90 via-brand-50/40 to-brand-50/70 p-4 text-xs text-brand-950 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start sm:items-center gap-2.5">
             <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-600 text-white shadow-xs">
@@ -235,7 +235,7 @@ export function UserManagement() {
             <button
               type="button"
               onClick={() => setActiveTab('approvals')}
-              className="btn btn-sm bg-amber-500 hover:bg-amber-600 text-white border-transparent shrink-0 shadow-xs flex items-center gap-1.5"
+              className="btn btn-sm bg-brand-500 hover:bg-brand-600 text-white border-transparent shrink-0 shadow-xs flex items-center gap-1.5"
             >
               <ClockIcon className="h-3.5 w-3.5" />
               <span>{pendingApprovals.length} Pending Approval{pendingApprovals.length > 1 ? 's' : ''}</span>
@@ -274,7 +274,7 @@ export function UserManagement() {
           <ClockIcon className="h-4 w-4" />
           <span>Pending Approvals</span>
           {pendingApprovals.length > 0 ? (
-            <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold border border-amber-200">
+            <span className="rounded-full bg-brand-100 text-brand-800 px-2 py-0.5 text-[10px] font-bold border border-brand-200">
               {pendingApprovals.length}
             </span>
           ) : (
@@ -361,7 +361,7 @@ export function UserManagement() {
                         <span
                           className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-semibold ${
                             u.role === 'Superadmin'
-                              ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                              ? 'bg-brand-100 text-brand-800 border border-brand-200'
                               : u.role === 'Administrator'
                               ? 'bg-brand-100 text-brand-800 border border-brand-200'
                               : 'bg-slate-100 text-ink-muted'
@@ -375,11 +375,11 @@ export function UserManagement() {
                             <p className="font-semibold text-ink truncate">{u.name}</p>
                             {u.affiliationVerified ? (
                               <span title="Verified NEMSU Affiliation">
-                                <CheckCircle2Icon className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                <CheckCircle2Icon className="h-3.5 w-3.5 text-brand-600 shrink-0" />
                               </span>
                             ) : (
                               <span title="Pending Affiliation Verification">
-                                <ClockIcon className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                <ClockIcon className="h-3.5 w-3.5 text-brand-500 shrink-0" />
                               </span>
                             )}
                           </div>
@@ -398,13 +398,13 @@ export function UserManagement() {
                       <span
                         className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ${
                           u.role === 'Superadmin'
-                            ? 'bg-purple-50 text-purple-700 border-purple-200'
+                            ? 'bg-brand-50 text-brand-700 border-brand-200'
                             : u.role === 'Administrator'
                             ? 'bg-brand-50 text-brand-700 border-brand-200'
                             : u.role === 'QA Personnel'
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            ? 'bg-brand-50 text-brand-700 border-brand-200'
                             : u.role === 'Faculty'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            ? 'bg-brand-50 text-brand-700 border-brand-200'
                             : u.role === 'Staff'
                             ? 'bg-cyan-50 text-cyan-700 border-cyan-200'
                             : 'bg-slate-50 text-slate-700 border-slate-200'
@@ -446,7 +446,7 @@ export function UserManagement() {
                   <div className="flex items-center gap-1.5">
                     <p className="text-[13px] font-semibold text-ink">{u.name}</p>
                     {u.affiliationVerified && (
-                      <CheckCircle2Icon className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <CheckCircle2Icon className="h-3.5 w-3.5 text-brand-600 shrink-0" />
                     )}
                   </div>
                   <p className="truncate text-xs text-ink-muted">{u.email}</p>
@@ -478,10 +478,10 @@ export function UserManagement() {
       {/* Tab 2: Pending Approvals & NEMSU Affiliation Verification */}
       {activeTab === 'approvals' && (
         <section className="space-y-4">
-          <div className="panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/40 border-amber-200/70">
+          <div className="panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-brand-50/40 border-brand-200/70">
             <div>
-              <h3 className="font-bold text-sm text-amber-950 flex items-center gap-2">
-                <ClockIcon className="h-4 w-4 text-amber-600" />
+              <h3 className="font-bold text-sm text-brand-950 flex items-center gap-2">
+                <ClockIcon className="h-4 w-4 text-brand-600" />
                 Registrations Requiring Administrator Approval
               </h3>
               <p className="text-xs text-ink-muted mt-0.5">
@@ -502,7 +502,7 @@ export function UserManagement() {
 
           {pendingApprovals.length === 0 ? (
             <div className="panel p-10 text-center">
-              <CheckCircle2Icon className="mx-auto h-10 w-10 text-emerald-500 mb-2" />
+              <CheckCircle2Icon className="mx-auto h-10 w-10 text-brand-500 mb-2" />
               <h4 className="font-bold text-ink text-sm">All Registrations Approved</h4>
               <p className="text-xs text-ink-muted mt-1 max-w-md mx-auto">
                 There are no pending accounts waiting for affiliation verification. New registrations from the NEMSU Workspace will appear here automatically.
@@ -516,7 +516,7 @@ export function UserManagement() {
                 return (
                   <div
                     key={u.id}
-                    className="panel p-4 flex flex-col justify-between border-amber-200/80 shadow-xs"
+                    className="panel p-4 flex flex-col justify-between border-brand-200/80 shadow-xs"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
@@ -551,11 +551,11 @@ export function UserManagement() {
                         <div className="flex items-center justify-between">
                           <span className="text-ink-muted">Domain Verified:</span>
                           {isNemsuDomain ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700">
                               <CheckCircle2Icon className="h-3 w-3" /> @nemsu.edu.ph
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-900">
                               <ShieldAlertIcon className="h-3 w-3" /> External Domain
                             </span>
                           )}

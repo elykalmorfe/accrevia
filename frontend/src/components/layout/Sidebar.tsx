@@ -46,7 +46,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
       <div
         className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border transition-all duration-200 ${
           active && (!item.children || collapsed)
-            ? 'bg-brand-600 text-white border-brand-600 shadow-glow'
+            ? 'bg-brand-600 text-white border-brand-600'
             : active && item.children
             ? 'bg-brand-tint text-brand-700 border-brand-200'
             : `${item.color.iconBg} ${item.color.iconColor} ${item.color.border}`
@@ -57,10 +57,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
     );
 
     const indicator = active && (
-      <span
-        className="absolute -left-2 top-2 bottom-2 z-10 w-1 rounded-r-full bg-gradient-to-b from-brand-500 to-violet-500 shadow-glow"
-        aria-hidden="true"
-      />
+      <span className="absolute -left-2 top-2 bottom-2 z-10 w-1 rounded-r-full bg-brand-600" aria-hidden="true" />
     );
 
     if (collapsed) {
@@ -202,11 +199,11 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
           onClick={() => setLogoutOpen(true)}
           title={collapsed ? 'Logout' : undefined}
           aria-label="Logout"
-          className={`group flex items-center rounded-xl border border-transparent text-ink transition-all duration-150 hover:border-danger-100 hover:bg-danger-50 hover:text-danger-700 ${
+          className={`group flex items-center rounded-xl border border-transparent text-ink transition-all duration-150 hover:border-brand-200 hover:bg-brand-50 hover:text-brand-800 ${
             collapsed ? 'mx-auto h-10 w-10 justify-center' : 'w-full gap-3 px-2 py-2.5'
           }`}
         >
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-danger-100 bg-danger-50 text-danger-600">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-brand-100 bg-brand-50 text-brand-700">
             <LogOutIcon className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
           {!collapsed && <span className="text-[13px] font-semibold leading-tight">Logout</span>}

@@ -165,7 +165,7 @@ function BoxDropzone({
         }}
       />
       <span
-        className={`flex items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-lg shadow-brand-500/30 transition-transform group-hover:scale-105 ${
+        className={`flex items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-500 text-white shadow-lg shadow-brand-500/30 transition-transform group-hover:scale-105 ${
           compact ? 'h-10 w-10' : 'h-12 w-12'
         }`}
       >

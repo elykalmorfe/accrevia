@@ -32,14 +32,16 @@ import { UserHome } from './pages/user/UserHome';
 import { SharedWithMe } from './pages/user/SharedWithMe';
 import { SavedEvidence } from './pages/user/SavedEvidence';
 import { Requests } from './pages/Requests';
+import { PortalViewRole } from './types/user';
+import { isAdminRole } from './utils/sharing';
 
 interface AppProps {
   /** Which signed-in experience to preview. Non-administrators only see evidence explicitly shared with them. */
-  viewAs?: 'Administrator' | 'Faculty' | 'Staff' | 'Accreditor';
+  viewAs?: PortalViewRole;
 }
 
 export function App({ viewAs = 'Administrator' }: AppProps) {
-  const isAdmin = viewAs === 'Administrator';
+  const isAdmin = isAdminRole(viewAs);
 
   return (
     <BrowserRouter>

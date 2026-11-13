@@ -7,20 +7,20 @@ export const MAX_PRINT_COPIES = 50;
 export const REPORT_CSS = `
 .pr-doc { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #111827; font-size: 10pt; line-height: 1.4; background: #fff; }
 .pr-doc * { box-sizing: border-box; }
-.pr-header { display: flex; align-items: center; gap: 14px; border-bottom: 2.5px solid #0f3d7a; padding-bottom: 10px; }
+.pr-header { display: flex; align-items: center; gap: 14px; border-bottom: 2.5px solid #005A9C; padding-bottom: 10px; }
 .pr-logo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .pr-header-text { flex: 1; text-align: center; }
 .pr-header-spacer { width: 64px; flex-shrink: 0; }
 .pr-republic { font-size: 8.5pt; color: #374151; }
 .pr-univ { font-size: 13pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin: 1px 0; }
-.pr-office { font-size: 9pt; font-weight: 600; color: #0f3d7a; text-transform: uppercase; }
+.pr-office { font-size: 9pt; font-weight: 600; color: #005A9C; text-transform: uppercase; }
 .pr-address { font-size: 8pt; color: #4b5563; }
 .pr-title { font-size: 12.5pt; font-weight: 700; text-align: center; text-transform: uppercase; margin: 12px 0 2px; letter-spacing: 0.03em; }
 .pr-subtitle { text-align: center; font-size: 9pt; color: #4b5563; margin: 0; }
 .pr-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 18px; font-size: 8.5pt; color: #1f2937; border: 1px solid #d1d5db; background: #f8fafc; padding: 6px 9px; margin: 10px 0 4px; }
 .pr-meta b { font-weight: 700; }
 .pr-section { margin-top: 14px; }
-.pr-section-title { font-size: 9.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #9ca3af; padding-bottom: 3px; margin: 0 0 6px; color: #0f3d7a; }
+.pr-section-title { font-size: 9.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #9ca3af; padding-bottom: 3px; margin: 0 0 6px; color: #005A9C; }
 .pr-note { font-size: 8pt; color: #4b5563; margin: 4px 0 0; }
 .pr-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .pr-stat { border: 1px solid #d1d5db; padding: 6px 8px; }

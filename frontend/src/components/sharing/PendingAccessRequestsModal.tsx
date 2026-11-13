@@ -104,20 +104,20 @@ export function PendingAccessRequestsModal({ open, onClose }: PendingAccessReque
     >
       <div className="-mt-2 space-y-4">
         {/* ENHANCED HEADER HERO BANNER */}
-        <div className="rounded-xl bg-gradient-to-r from-brand-900 via-brand-800 to-indigo-900 p-5 text-white shadow-md relative overflow-hidden">
+        <div className="rounded-xl bg-gradient-to-r from-brand-900 via-brand-800 to-brand-900 p-5 text-white shadow-md relative overflow-hidden">
           <div className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/10 blur-xl" />
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15 backdrop-blur-md border border-white/20 text-white shadow-sm">
-                <ShieldCheckIcon className="h-6 w-6 text-emerald-300" />
+                <ShieldCheckIcon className="h-6 w-6 text-brand-300" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-base sm:text-lg font-bold tracking-tight text-white">
                     Pending Document Access Requests
                   </h2>
-                  <span className="rounded-full bg-amber-400/90 text-amber-950 font-black px-2 py-0.5 text-[11px] uppercase tracking-wide">
+                  <span className="rounded-full bg-brand-400/90 text-brand-950 font-black px-2 py-0.5 text-[11px] uppercase tracking-wide">
                     {pendingRequests.length} Pending
                   </span>
                 </div>
@@ -131,11 +131,11 @@ export function PendingAccessRequestsModal({ open, onClose }: PendingAccessReque
             <div className="flex sm:flex-col gap-2 shrink-0 text-xs">
               <div className="rounded-lg bg-white/10 px-3 py-1.5 backdrop-blur-sm border border-white/10 flex items-center justify-between gap-3">
                 <span className="text-white/70">View & Download:</span>
-                <span className="font-extrabold text-emerald-300">{viewDownloadCount}</span>
+                <span className="font-extrabold text-brand-300">{viewDownloadCount}</span>
               </div>
               <div className="rounded-lg bg-white/10 px-3 py-1.5 backdrop-blur-sm border border-white/10 flex items-center justify-between gap-3">
                 <span className="text-white/70">View Only:</span>
-                <span className="font-extrabold text-sky-300">{viewOnlyCount}</span>
+                <span className="font-extrabold text-brand-300">{viewOnlyCount}</span>
               </div>
             </div>
           </div>
@@ -159,7 +159,7 @@ export function PendingAccessRequestsModal({ open, onClose }: PendingAccessReque
         <div className="max-h-[55vh] overflow-y-auto space-y-3.5 pr-1">
           {pendingRequests.length === 0 ? (
             <div className="rounded-xl border border-line bg-canvas/40 py-12 px-6 text-center">
-              <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-50 text-emerald-600 mb-3 border border-emerald-200">
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-brand-50 text-brand-600 mb-3 border border-brand-200">
                 <CheckCircle2Icon className="h-8 w-8" />
               </div>
               <h3 className="text-sm font-bold text-ink">All Caught Up!</h3>
@@ -188,7 +188,7 @@ export function PendingAccessRequestsModal({ open, onClose }: PendingAccessReque
                     <div className="flex-1 min-w-0">
                       {/* Requester Identity Row */}
                       <div className="flex items-center gap-3">
-                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-tr from-brand-700 to-indigo-600 text-white font-black text-xs shadow-xs">
+                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-tr from-brand-700 to-brand-600 text-white font-black text-xs shadow-xs">
                           {initials}
                         </div>
                         <div className="min-w-0">
@@ -264,8 +264,8 @@ export function PendingAccessRequestsModal({ open, onClose }: PendingAccessReque
                         </div>
 
                         {/* Stated Justification */}
-                        <div className="mt-2.5 rounded border border-amber-200/70 bg-amber-50/50 p-2.5 text-xs text-ink">
-                          <span className="font-semibold text-amber-900 block text-[11px]">
+                        <div className="mt-2.5 rounded border border-brand-200/70 bg-brand-50/50 p-2.5 text-xs text-ink">
+                          <span className="font-semibold text-brand-900 block text-[11px]">
                             Stated Justification:
                           </span>
                           <p className="mt-0.5 italic text-ink-muted leading-relaxed">
@@ -287,7 +287,7 @@ export function PendingAccessRequestsModal({ open, onClose }: PendingAccessReque
                             onChange={(e) =>
                               setSelectedExpiries((prev) => ({ ...prev, [req.id]: e.target.value }))
                             }
-                            className="input h-8 text-[11.5px] py-0 mt-1"
+                            className="input select select-sm mt-1 h-8 text-[11.5px] hover:border-brand-300"
                           >
                             <option value="">Indefinite (No Expiration)</option>
                             <option value="2026-11-15">30 Days (Audit Review)</option>
@@ -319,7 +319,7 @@ export function PendingAccessRequestsModal({ open, onClose }: PendingAccessReque
                           onClick={() =>
                             handleApprove(req.id, req.requesterName, req.requestedPermission)
                           }
-                          className="btn btn-primary btn-sm flex-1 text-xs gap-1.5 bg-emerald-700 hover:bg-emerald-800 border-emerald-700 font-semibold"
+                          className="btn btn-primary btn-sm flex-1 text-xs gap-1.5 bg-brand-700 hover:bg-brand-800 border-brand-700 font-semibold"
                         >
                           <CheckIcon className="h-3.5 w-3.5" /> Approve
                         </button>

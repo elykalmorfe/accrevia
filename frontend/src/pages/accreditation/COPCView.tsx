@@ -49,10 +49,68 @@ export function COPCView() {
   const [viewModalTab, setViewModalTab] = useState<'certificate' | 'requirements'>('certificate');
   const [selectedPreviewReq, setSelectedPreviewReq] = useState<COPCRequirementItem | null>(null);
 
+  const [officialCertUrl, setOfficialCertUrl] = useState<string | null>(null);
+  const [officialCertKind, setOfficialCertKind] = useState<'pdf' | 'image' | null>(null);
+  const [officialCertLoading, setOfficialCertLoading] = useState(false);
+
+  const loadOfficialCertificate = async (copc: COPCRecord) => {
+    setOfficialCertLoading(true);
+    setOfficialCertUrl(null);
+    setOfficialCertKind(null);
+    const key = `${copc.id}-COPC-CERT`;
+    try {
+      const stored = await getStoredFile(key);
+      if (stored?.blob) {
+        const url = URL.createObjectURL(stored.blob);
+        const ext = (stored.name || '').split('.').pop()?.toLowerCase() || '';
+        const kind: 'pdf' | 'image' =
+          stored.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)
+            ? 'image'
+            : 'pdf';
+        setOfficialCertUrl(url);
+        setOfficialCertKind(kind);
+        setOfficialCertLoading(false);
+        return;
+      }
+    } catch {
+      // fall through to documentLink
+    }
+
+    const link = copc.documentLink?.trim();
+    if (link?.startsWith('/certificates/') || link?.startsWith('blob:')) {
+      try {
+        if (link.startsWith('blob:')) {
+          setOfficialCertUrl(link);
+          setOfficialCertKind(/\.(png|jpe?g|gif|webp)(\?|$)/i.test(link) ? 'image' : 'pdf');
+          setOfficialCertLoading(false);
+          return;
+        }
+        const res = await fetch(link);
+        if (res.ok) {
+          const blob = await res.blob();
+          persistUpload(key, blob, link.split('/').pop());
+          const url = URL.createObjectURL(blob);
+          const ext = link.split('.').pop()?.toLowerCase() || '';
+          setOfficialCertUrl(url);
+          setOfficialCertKind(
+            blob.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? 'image' : 'pdf'
+          );
+          setOfficialCertLoading(false);
+          return;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    setOfficialCertLoading(false);
+  };
+
   const handleOpenView = (copc: COPCRecord, defaultTab: 'certificate' | 'requirements' = 'certificate') => {
+    if (officialCertUrl?.startsWith('blob:')) URL.revokeObjectURL(officialCertUrl);
     setViewingCertificateCopc(copc);
     setViewModalTab(defaultTab);
     setSelectedPreviewReq(null);
+    void loadOfficialCertificate(copc);
   };
 
   // Real PDF Document Viewer Modal State (shows actual uploaded file or authentic CHED compliance PDF)
@@ -587,15 +645,7 @@ export function COPCView() {
 
   return (
     <>
-      <PageHeader
-        eyebrow={
-          <span>
-            Accreditation & Frameworks / Program Compliance
-          </span>
-        }
-        title="Certificate of Program Compliance (COPC)"
-        description="Official CHED regulatory compliance tracking across degree programs, institutional compliance matrix, CMO curriculum alignment, and faculty portfolio verifications."
-      />
+      <PageHeader title="Certificate of Program Compliance (COPC)" />
 
       {/* Institutional COPC Summary Cards */}
       <div className="mb-6 grid gap-3.5 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
@@ -647,14 +697,14 @@ export function COPCView() {
           onClick={() => setSelectedStatus(selectedStatus === 'without-copc' ? 'all' : 'without-copc')}
           className={`panel p-4 text-left transition-all cursor-pointer flex flex-col justify-between ${
             selectedStatus === 'without-copc'
-              ? 'border-rose-500 bg-rose-50/50 ring-2 ring-rose-400/30 shadow-xs'
-              : 'hover:border-rose-300 shadow-2xs'
+              ? 'border-brand-500 bg-brand-50/50 ring-2 ring-brand-400/30 shadow-xs'
+              : 'hover:border-brand-300 shadow-2xs'
           }`}
           title="Click to filter programs without COPC"
         >
           <div>
             <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Without COPC</span>
-            <p className="mt-1.5 text-2xl font-black text-rose-600">{withoutCopcCount}</p>
+            <p className="mt-1.5 text-2xl font-black text-brand-800">{withoutCopcCount}</p>
           </div>
           <p className="text-[11px] text-ink-subtle mt-1 line-clamp-1">Lacking active certification</p>
         </button>
@@ -678,7 +728,7 @@ export function COPCView() {
           onClick={() => setSelectedStatus(selectedStatus === 'Pending Review' ? 'all' : 'Pending Review')}
           className={`panel p-4 text-left transition-all cursor-pointer flex flex-col justify-between ${
             selectedStatus === 'Pending Review'
-              ? 'border-warning-500 bg-amber-50/50 ring-2 ring-warning-400/30 shadow-xs'
+              ? 'border-warning-500 bg-brand-50/50 ring-2 ring-warning-400/30 shadow-xs'
               : 'hover:border-warning-300 shadow-2xs'
           }`}
           title="Click to filter pending applications"
@@ -763,7 +813,7 @@ export function COPCView() {
                       100%
                     </span>
                   ) : (
-                    <span className="rounded bg-amber-50 text-amber-800 border border-amber-200 px-1 py-0.2 text-[10px] font-bold">
+                    <span className="rounded bg-brand-50 text-brand-800 border border-brand-200 px-1 py-0.2 text-[10px] font-bold">
                       Pending
                     </span>
                   )}
@@ -798,7 +848,7 @@ export function COPCView() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="input h-9 text-xs py-0 w-auto"
+              className="input select select-sm h-9 w-auto text-xs hover:border-brand-300"
             >
               <option value="all">All Statuses</option>
               <option value="Compliant">Active COPC (Compliant)</option>
@@ -819,7 +869,7 @@ export function COPCView() {
               <button
                 type="button"
                 onClick={() => setSelectedStatus('all')}
-                className="inline-flex items-center gap-1 rounded bg-amber-50 text-amber-900 border border-amber-300 px-1.5 py-0.2 text-[10.5px] font-bold hover:bg-amber-100 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 rounded bg-brand-50 text-brand-900 border border-brand-300 px-1.5 py-0.2 text-[10.5px] font-bold hover:bg-brand-100 transition-colors cursor-pointer"
                 title="Clear status filter"
               >
                 Status: {selectedStatus === 'without-copc' ? 'Without COPC' : selectedStatus}
@@ -888,14 +938,14 @@ export function COPCView() {
                           className="font-mono text-xs font-semibold text-brand-700 hover:underline flex items-center gap-1 cursor-pointer"
                           title="View Official COPC Certificate"
                         >
-                          <AwardIcon className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                          <AwardIcon className="h-3.5 w-3.5 text-brand-600 shrink-0" />
                           <span>{copc.certificateNumber}</span>
                         </button>
                       ) : (
                         <button
                           type="button"
                           onClick={() => handleOpenUpload(copc, 'COPC-CERT')}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 rounded-md px-2 py-0.5 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200/80 rounded-md px-2 py-0.5 transition-colors cursor-pointer"
                           title="Click to upload official COPC certificate"
                         >
                           <UploadIcon className="h-3 w-3" />
@@ -1017,7 +1067,7 @@ export function COPCView() {
                         <button
                           type="button"
                           onClick={() => handleOpenUpload(copc, 'COPC-CERT')}
-                          className="text-[11px] font-semibold text-amber-700 hover:underline mt-0.5 flex items-center gap-1 cursor-pointer"
+                          className="text-[11px] font-semibold text-brand-700 hover:underline mt-0.5 flex items-center gap-1 cursor-pointer"
                           title="Upload Certificate"
                         >
                           <UploadIcon className="h-3 w-3" />
@@ -1094,7 +1144,12 @@ export function COPCView() {
       {viewingCertificateCopc && (
         <Modal
           open={!!viewingCertificateCopc}
-          onClose={() => setViewingCertificateCopc(null)}
+          onClose={() => {
+            if (officialCertUrl?.startsWith('blob:')) URL.revokeObjectURL(officialCertUrl);
+            setOfficialCertUrl(null);
+            setOfficialCertKind(null);
+            setViewingCertificateCopc(null);
+          }}
           zIndex="z-[60]"
           title={
             viewModalTab === 'certificate'
@@ -1180,17 +1235,42 @@ export function COPCView() {
               </div>
             </div>
 
-            {/* TAB 1: Official Certificate */}
+            {/* TAB 1: Official Certificate — real file when available */}
             {viewModalTab === 'certificate' && (
-              <div className="relative rounded-2xl border-4 border-double border-amber-600/40 bg-gradient-to-b from-amber-50/30 via-white to-amber-50/20 p-6 sm:p-10 text-center shadow-xs overflow-hidden">
+              officialCertLoading ? (
+                <div className="flex items-center justify-center rounded-2xl border border-line bg-white py-20 text-sm text-ink-muted">
+                  Loading official certificate…
+                </div>
+              ) : officialCertUrl && officialCertKind === 'image' ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-ink-muted">Official CHED COPC certificate on file.</p>
+                  <div className="flex justify-center rounded-xl border border-line bg-white p-3">
+                    <img
+                      src={officialCertUrl}
+                      alt={`COPC – ${viewingCertificateCopc.programName}`}
+                      className="max-h-[min(78vh,720px)] max-w-full rounded-lg object-contain"
+                    />
+                  </div>
+                </div>
+              ) : officialCertUrl ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-ink-muted">Official CHED COPC certificate on file.</p>
+                  <iframe
+                    title={`COPC – ${viewingCertificateCopc.programName}`}
+                    src={`${officialCertUrl}#toolbar=1&navpanes=0&view=FitH`}
+                    className="h-[min(78vh,720px)] w-full rounded-xl border border-line bg-white"
+                  />
+                </div>
+              ) : (
+              <div className="relative rounded-2xl border-4 border-double border-brand-600/40 bg-gradient-to-b from-brand-50/30 via-white to-brand-50/20 p-6 sm:p-10 text-center shadow-xs overflow-hidden">
                 {/* Subtle decorative watermark */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
-                  <AwardIcon className="w-96 h-96 text-amber-900" />
+                  <AwardIcon className="w-96 h-96 text-brand-900" />
                 </div>
 
                 {/* Certificate Header */}
                 <div className="relative space-y-1">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-800 ring-4 ring-amber-50 shadow-xs mb-3">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-100 text-brand-800 ring-4 ring-brand-50 shadow-xs mb-3">
                     <AwardIcon className="h-6 w-6" />
                   </div>
                   <p className="text-[11px] font-bold tracking-widest text-ink-muted uppercase">
@@ -1208,7 +1288,7 @@ export function COPCView() {
                 </div>
 
                 {/* Certificate Title */}
-                <div className="relative my-6 py-3 border-y-2 border-amber-600/30">
+                <div className="relative my-6 py-3 border-y-2 border-brand-600/30">
                   <h2 className="text-xl sm:text-2xl font-serif font-black tracking-wide text-ink">
                     CERTIFICATE OF PROGRAM COMPLIANCE
                   </h2>
@@ -1274,6 +1354,7 @@ export function COPCView() {
                   </div>
                 </div>
               </div>
+              )
             )}
 
             {/* TAB 2: Requirements Audit Uploaded Evidence Files */}
@@ -1932,14 +2013,14 @@ export function COPCView() {
                     </div>
 
                     <div className="text-center">
-                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-emerald-600 bg-emerald-50 text-emerald-800 p-1">
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-brand-600 bg-brand-50 text-brand-800 p-1">
                         <div className="text-center">
-                          <p className="text-[8px] font-black uppercase tracking-widest text-emerald-700">CHED RQAT</p>
-                          <p className="text-[9px] font-black text-emerald-800">VERIFIED</p>
-                          <p className="text-[7px] text-emerald-600">REGION XIII</p>
+                          <p className="text-[8px] font-black uppercase tracking-widest text-brand-700">CHED RQAT</p>
+                          <p className="text-[9px] font-black text-brand-800">VERIFIED</p>
+                          <p className="text-[7px] text-brand-600">REGION XIII</p>
                         </div>
                       </div>
-                      <p className="text-[9px] font-bold text-emerald-800 mt-1 uppercase">RQAT Validation Seal</p>
+                      <p className="text-[9px] font-bold text-brand-800 mt-1 uppercase">RQAT Validation Seal</p>
                     </div>
 
                     <div className="text-center">
@@ -2019,7 +2100,7 @@ export function COPCView() {
                         ✓
                       </span>
                     ) : (
-                      <span className="h-4 w-4 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-bold">
+                      <span className="h-4 w-4 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold">
                         ⏳
                       </span>
                     )}
@@ -2054,7 +2135,7 @@ export function COPCView() {
                             ✓
                           </span>
                         ) : (
-                          <span className="h-4 w-4 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-bold">
+                          <span className="h-4 w-4 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold">
                             ⏳
                           </span>
                         )}
@@ -2273,7 +2354,7 @@ export function COPCView() {
                           copcStatus: e.target.value as 'Compliant' | 'Pending Review' | 'Non-Compliant' | 'Not Applicable (Under 5 years)'
                         }))
                       }
-                      className="input text-xs"
+                      className="input select text-xs hover:border-brand-300"
                     >
                       <option value="Compliant">Compliant (Active COPC)</option>
                       <option value="Pending Review">Pending Review</option>
@@ -2406,7 +2487,7 @@ export function COPCView() {
                                 ✓
                               </span>
                             ) : (
-                              <span className="h-4 w-4 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-bold">
+                              <span className="h-4 w-4 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold">
                                 ⏳
                               </span>
                             )}
@@ -2510,7 +2591,7 @@ export function COPCView() {
                                 )
                               );
                             }}
-                            className="input text-xs"
+                            className="input select text-xs hover:border-brand-300"
                           >
                             <option value="Approved">Approved (Verified Compliant)</option>
                             <option value="Under Review">Under Review</option>

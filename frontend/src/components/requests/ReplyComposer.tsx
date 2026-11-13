@@ -121,7 +121,7 @@ export function ReplyComposer({ request, asAdmin }: ReplyComposerProps) {
                 disabled={!canSend}
                 className="btn btn-secondary btn-sm text-xs disabled:opacity-50"
               >
-                <CheckCircle2Icon className="h-3.5 w-3.5 text-emerald-600" /> Send &amp; mark fulfilled
+                <CheckCircle2Icon className="h-3.5 w-3.5 text-brand-600" /> Send &amp; mark fulfilled
               </button>
             )}
             <button type="button" onClick={() => send()} disabled={!canSend} className="btn btn-primary btn-sm text-xs disabled:opacity-50">

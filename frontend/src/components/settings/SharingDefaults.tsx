@@ -17,13 +17,13 @@ export function SharingDefaults({ value: s, onChange }: SharingDefaultsProps) {
       description="New uploads are private to administrators and QA personnel. These values are pre-selected when you share a document.">
       
       <SettingRow label="Default permission" description="Pre-selected in the Share dialog.">
-        <select aria-label="Default permission" className="input" value={s.permission} onChange={(e) => onChange({ permission: e.target.value as SharingConfig['permission'] })}>
+        <select aria-label="Default permission" className="input select" value={s.permission} onChange={(e) => onChange({ permission: e.target.value as SharingConfig['permission'] })}>
           <option value="view">View only</option>
           <option value="download">View + Download</option>
         </select>
       </SettingRow>
       <SettingRow label="Default access expiration">
-        <select aria-label="Default access expiration" className="input" value={s.expiry} onChange={(e) => onChange({ expiry: e.target.value })}>
+        <select aria-label="Default access expiration" className="input select" value={s.expiry} onChange={(e) => onChange({ expiry: e.target.value })}>
           <option value="none">No expiration</option>
           <option value="30">30 days</option>
           <option value="90">90 days</option>

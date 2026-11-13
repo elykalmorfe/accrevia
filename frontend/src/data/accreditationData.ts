@@ -10,6 +10,7 @@ import {
   ProgramRequirementItem
 } from '../types/accreditation';
 import { programAccreditationRecords } from './programAccreditationRecords';
+import { copcCertificateManifest } from './copcCertificateManifest';
 
 export const campuses: Campus[] = [
   {
@@ -674,9 +675,13 @@ export const initialCOPCRecords: COPCRecord[] = initialProgramAccreditations.map
     dateIssued: isPending ? undefined : details.dateIssued,
     cmoNo: details.cmo,
     borRes: isPending ? 'BOR Res. No. 08, S. 2024 (Endorsed)' : (p.borRes || details.borRes),
-    documentLink: isPending
-      ? undefined
-      : `https://drive.google.com/file/d/accrevia-copc-certificate-${details.code.toLowerCase()}-${p.id}/view`,
+    documentLink: (() => {
+      const cert = (copcCertificateManifest as Record<string, { path?: string; driveUrl?: string }>)[p.id];
+      if (cert?.path) return cert.path;
+      if (cert?.driveUrl) return cert.driveUrl;
+      if (isPending) return undefined;
+      return `https://drive.google.com/file/d/accrevia-copc-certificate-${details.code.toLowerCase()}-${p.id}/view`;
+    })(),
     remarks: isPending
       ? 'CHED Regional Office validation visit pending.'
       : (p.remarks || 'Full COPC compliance issued by CHED Regional Office XIII.'),

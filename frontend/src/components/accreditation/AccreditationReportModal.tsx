@@ -93,7 +93,7 @@ export function AccreditationReportModal({ open, onClose }: AccreditationReportM
             <select
               value={selectedCampus}
               onChange={(e) => setSelectedCampus(e.target.value)}
-              className="input h-8 text-xs py-0"
+              className="input select select-sm h-8 text-xs hover:border-brand-300"
             >
               <option value="all">All Campuses (Consolidated)</option>
               {campuses.map((c) => (

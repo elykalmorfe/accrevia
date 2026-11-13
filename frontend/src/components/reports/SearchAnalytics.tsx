@@ -1,9 +1,10 @@
-﻿import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useLookup } from '../../hooks/useLookup';
 import { usePortal } from '../../contexts/PortalContext';
 import { BarList } from '../ui/BarList';
 import { formatNumber } from '../../utils/format';
+import { CampusScopeNote } from './ReportParts';
 
 export function SearchAnalytics() {
   const lookup = useLookup();
@@ -17,10 +18,10 @@ export function SearchAnalytics() {
 
   const kpis = [
     { label: 'Recent searches', value: formatNumber(recentSearches.length) },
-    { label: 'Document views', value: formatNumber(retrievals.filter((e) => e.action === 'Viewed').length) },
+    { label: 'Times documents were opened', value: formatNumber(retrievals.filter((e) => e.action === 'Viewed').length) },
     { label: 'Downloads', value: formatNumber(retrievals.filter((e) => e.action === 'Downloaded').length) },
-    { label: 'Searchable documents', value: formatNumber(filteredDocuments.length) },
-    { label: 'Criteria with evidence', value: formatNumber(new Set(filteredDocuments.map((d) => d.criterionId).filter(Boolean)).size) }
+    { label: 'Documents available to search', value: formatNumber(filteredDocuments.length) },
+    { label: 'Criteria with documents', value: formatNumber(new Set(filteredDocuments.map((d) => d.criterionId).filter(Boolean)).size) }
   ];
 
   const mostRetrieved = useMemo(() => {
@@ -52,12 +53,8 @@ export function SearchAnalytics() {
 
   return (
     <div className="space-y-4">
-      {selectedCampus !== 'all' && (
-        <div className="rounded-lg border border-brand-200 bg-brand-50/60 px-4 py-2 text-xs text-brand-900 flex items-center justify-between">
-          <span>Search and retrieval analytics filtered for <strong>{selectedCampusObj?.name}</strong></span>
-          <span className="font-semibold text-brand-700">Campus Query Telemetry</span>
-        </div>
-      )}
+      {selectedCampus !== 'all' && <CampusScopeNote campusName={selectedCampusObj?.name} />}
+      <p className="text-sm text-ink-muted">What people search for and which documents they open most. Use this to see which evidence is in demand.</p>
       <dl className="panel grid grid-cols-2 gap-px overflow-hidden bg-line sm:grid-cols-3 xl:grid-cols-5">
         {kpis.map((k) => (
           <div key={k.label} className="bg-white p-5">
@@ -82,9 +79,9 @@ export function SearchAnalytics() {
           )}
         </section>
         <section className="panel p-5">
-          <h2 className="panel-title mb-3">Most retrieved documents</h2>
+          <h2 className="panel-title mb-3">Most opened documents</h2>
           {mostRetrieved.length === 0 ? (
-            <p className="py-4 text-xs text-ink-muted">No document retrievals recorded yet.</p>
+            <p className="py-4 text-xs text-ink-muted">No one has opened or downloaded a document yet.</p>
           ) : (
             <ol className="divide-y divide-line">
               {mostRetrieved.map(({ doc, value }, i) => (
@@ -92,7 +89,7 @@ export function SearchAnalytics() {
                   <span className="w-4 shrink-0 text-[13px] font-semibold tabular-nums text-ink-subtle">{i + 1}</span>
                   <div className="min-w-0 flex-1">
                     <Link to={`/documents/${doc.id}`} className="text-[13px] font-medium text-ink hover:text-brand-700 hover:underline">{doc.title}</Link>
-                    <p className="text-xs text-ink-muted">{value} {value === 1 ? 'retrieval' : 'retrievals'}</p>
+                    <p className="text-xs text-ink-muted">Opened or downloaded {value} {value === 1 ? 'time' : 'times'}</p>
                   </div>
                 </li>
               ))}
@@ -100,8 +97,8 @@ export function SearchAnalytics() {
           )}
         </section>
         <section className="panel p-5">
-          <h2 className="panel-title mb-4">Frequently requested criteria</h2>
-          <BarList items={requestedCriteria} emptyText="No criteria requested yet." />
+          <h2 className="panel-title mb-4">Most viewed criteria</h2>
+          <BarList items={requestedCriteria} emptyText="No documents have been opened yet." />
         </section>
       </div>
     </div>

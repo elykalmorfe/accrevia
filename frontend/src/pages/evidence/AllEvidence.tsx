@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
@@ -81,13 +81,20 @@ const placeholders: Record<FilterKey, string> = {
   cycle: 'All accreditation cycles'
 };
 
+/** Review statuses that can be preselected with `?review=`, e.g. from Reports & Analytics. */
+const REVIEW_FILTERS = ['Approved', 'Pending Review', 'Needs Revision'];
+
 const secondaryKeys: FilterKey[] = ['criterionId', 'indicatorId', 'program', 'office', 'academicYear', 'cycle'];
 
 export function AllEvidence() {
   const { documents, frameworks, areas, criteria, indicators } = usePortal();
   const lookup = useLookup();
+  const [params] = useSearchParams();
   const [text, setText] = useState('');
-  const [filters, setFilters] = useState(emptyFilters);
+  const [filters, setFilters] = useState(() => {
+    const review = params.get('review') ?? '';
+    return REVIEW_FILTERS.includes(review) ? { ...emptyFilters, approvalStatus: review } : emptyFilters;
+  });
   const [showMore, setShowMore] = useState(false);
   const [preview, setPreview] = useState<EvidenceDocument | null>(null);
   const [editing, setEditing] = useState<EvidenceDocument | null>(null);
@@ -236,7 +243,7 @@ export function AllEvidence() {
                 className={`grid h-9 w-9 place-items-center rounded-xl border shadow-2xs transition-colors ${
                   !filters.approvalStatus
                     ? 'bg-brand-600 text-white border-brand-600'
-                    : 'bg-blue-50 text-blue-600 border-blue-100/70 group-hover:bg-blue-100'
+                    : 'bg-brand-50 text-brand-600 border-blue-100/70 group-hover:bg-brand-100'
                 }`}
               >
                 <FileTextIcon className="h-4.5 w-4.5" />
@@ -260,7 +267,7 @@ export function AllEvidence() {
             }
             className={`group rounded-2xl border p-5 shadow-xs transition-all duration-200 cursor-pointer text-left ${
               filters.approvalStatus === 'Approved'
-                ? 'border-emerald-500 bg-white ring-2 ring-emerald-500/20 shadow-sm'
+                ? 'border-brand-500 bg-white ring-2 ring-brand-500/20 shadow-sm'
                 : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-sm'
             }`}
             title="Click to filter by approved evidence"
@@ -272,8 +279,8 @@ export function AllEvidence() {
               <span
                 className={`grid h-9 w-9 place-items-center rounded-xl border shadow-2xs transition-colors ${
                   filters.approvalStatus === 'Approved'
-                    ? 'bg-emerald-600 text-white border-emerald-600'
-                    : 'bg-emerald-50 text-emerald-600 border-emerald-100/70 group-hover:bg-emerald-100'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-brand-50 text-brand-600 border-brand-100/70 group-hover:bg-brand-100'
                 }`}
               >
                 <CheckCircle2Icon className="h-4.5 w-4.5" />
@@ -311,7 +318,7 @@ export function AllEvidence() {
                 className={`grid h-9 w-9 place-items-center rounded-xl border shadow-2xs transition-colors ${
                   filters.approvalStatus === 'Pending Review'
                     ? 'bg-brand-600 text-white border-brand-600'
-                    : 'bg-blue-50 text-brand-600 border-blue-100/70 group-hover:bg-blue-100'
+                    : 'bg-brand-50 text-brand-600 border-blue-100/70 group-hover:bg-brand-100'
                 }`}
               >
                 <ClockIcon className="h-4.5 w-4.5" />
@@ -336,7 +343,7 @@ export function AllEvidence() {
             }
             className={`group rounded-2xl border p-5 shadow-xs transition-all duration-200 cursor-pointer text-left ${
               filters.approvalStatus === 'Needs Revision'
-                ? 'border-amber-500 bg-white ring-2 ring-amber-500/20 shadow-sm'
+                ? 'border-brand-500 bg-white ring-2 ring-brand-500/20 shadow-sm'
                 : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-sm'
             }`}
             title="Click to filter by evidence requiring revision"
@@ -348,8 +355,8 @@ export function AllEvidence() {
               <span
                 className={`grid h-9 w-9 place-items-center rounded-xl border shadow-2xs transition-colors ${
                   filters.approvalStatus === 'Needs Revision'
-                    ? 'bg-amber-600 text-white border-amber-600'
-                    : 'bg-amber-50 text-amber-600 border-amber-100/70 group-hover:bg-amber-100'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-brand-50 text-brand-600 border-brand-100/70 group-hover:bg-brand-100'
                 }`}
               >
                 <AlertTriangleIcon className="h-4.5 w-4.5" />
@@ -397,8 +404,8 @@ export function AllEvidence() {
                 onClick={() => setFilter('approvalStatus', 'Approved')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                   filters.approvalStatus === 'Approved'
-                    ? 'bg-emerald-600 text-white shadow-2xs'
-                    : 'text-emerald-700 hover:bg-emerald-50'
+                    ? 'bg-brand-600 text-white shadow-2xs'
+                    : 'text-brand-700 hover:bg-brand-50'
                 }`}
                 title="Filter by approved evidence"
               >
@@ -406,7 +413,7 @@ export function AllEvidence() {
                 <span>Approved</span>
                 <span
                   className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
-                    filters.approvalStatus === 'Approved' ? 'bg-white/30 text-white' : 'bg-emerald-100 text-emerald-800'
+                    filters.approvalStatus === 'Approved' ? 'bg-white/30 text-white' : 'bg-brand-100 text-brand-800'
                   }`}
                 >
                   {approvalCounts.approved}
@@ -418,8 +425,8 @@ export function AllEvidence() {
                 onClick={() => setFilter('approvalStatus', 'Pending Review')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                   filters.approvalStatus === 'Pending Review'
-                    ? 'bg-blue-600 text-white shadow-2xs'
-                    : 'text-brand-700 hover:bg-blue-50'
+                    ? 'bg-brand-600 text-white shadow-2xs'
+                    : 'text-brand-700 hover:bg-brand-50'
                 }`}
                 title="Filter by evidence pending review"
               >
@@ -429,7 +436,7 @@ export function AllEvidence() {
                   className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
                     filters.approvalStatus === 'Pending Review'
                       ? 'bg-white/30 text-white'
-                      : 'bg-blue-100 text-brand-800'
+                      : 'bg-brand-100 text-brand-800'
                   }`}
                 >
                   {approvalCounts.pendingReview}
@@ -441,8 +448,8 @@ export function AllEvidence() {
                 onClick={() => setFilter('approvalStatus', 'Needs Revision')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                   filters.approvalStatus === 'Needs Revision'
-                    ? 'bg-amber-600 text-white shadow-2xs'
-                    : 'text-amber-800 hover:bg-amber-50'
+                    ? 'bg-brand-600 text-white shadow-2xs'
+                    : 'text-brand-800 hover:bg-brand-50'
                 }`}
                 title="Filter by evidence requiring revision"
               >
@@ -452,7 +459,7 @@ export function AllEvidence() {
                   className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-bold ${
                     filters.approvalStatus === 'Needs Revision'
                       ? 'bg-white/30 text-white'
-                      : 'bg-amber-100 text-amber-900'
+                      : 'bg-brand-100 text-brand-900'
                   }`}
                 >
                   {approvalCounts.revision}

@@ -5,7 +5,6 @@ import {
   AwardIcon,
   CalendarClockIcon,
   CheckCircle2Icon,
-  ChevronDownIcon,
   ClipboardCheckIcon,
   ExternalLinkIcon,
   FileCheckIcon,
@@ -39,14 +38,14 @@ interface LevelStyle {
 }
 
 const LEVEL_STYLES: Record<string, LevelStyle> = {
-  Candidate: { pill: 'bg-orange-50 text-orange-700 ring-orange-200', accent: 'bg-orange-400', meter: 'bg-orange-400' },
-  'Level 1': { pill: 'bg-sky-50 text-sky-700 ring-sky-200', accent: 'bg-sky-500', meter: 'bg-sky-500' },
-  'Level 2': { pill: 'bg-indigo-50 text-indigo-700 ring-indigo-200', accent: 'bg-indigo-500', meter: 'bg-indigo-500' },
-  'Level 3': { pill: 'bg-emerald-50 text-emerald-700 ring-emerald-200', accent: 'bg-emerald-500', meter: 'bg-emerald-500' },
+  Candidate: { pill: 'bg-brand-50 text-brand-700 ring-brand-200', accent: 'bg-brand-400', meter: 'bg-brand-400' },
+  'Level 1': { pill: 'bg-brand-50 text-brand-700 ring-brand-200', accent: 'bg-brand-500', meter: 'bg-brand-500' },
+  'Level 2': { pill: 'bg-brand-50 text-brand-700 ring-brand-200', accent: 'bg-brand-500', meter: 'bg-brand-500' },
+  'Level 3': { pill: 'bg-brand-50 text-brand-700 ring-brand-200', accent: 'bg-brand-500', meter: 'bg-brand-500' },
   'Level 4': {
-    pill: 'bg-gradient-to-r from-amber-100 to-yellow-50 text-amber-800 ring-amber-300',
-    accent: 'bg-amber-500',
-    meter: 'bg-amber-500'
+    pill: 'bg-gradient-to-r from-brand-100 to-yellow-50 text-brand-800 ring-brand-300',
+    accent: 'bg-brand-500',
+    meter: 'bg-brand-500'
   },
   'Not Accreditable': { pill: 'bg-slate-100 text-slate-600 ring-slate-200', accent: 'bg-slate-300', meter: 'bg-slate-300' }
 };
@@ -89,20 +88,19 @@ export function FilterSelect({
       <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wider text-ink-subtle">{label}</span>
       <span className="relative block">
         <Icon
-          className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${
-            active ? 'text-brand-600' : 'text-ink-subtle'
+          className={`pointer-events-none absolute left-3 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 ${
+            active ? 'text-brand-700' : 'text-ink-subtle'
           }`}
         />
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`h-10 w-full appearance-none truncate rounded-xl border pl-9 pr-8 text-[13px] font-medium outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 ${
-            active ? 'border-brand-300 bg-brand-50/60 text-brand-800' : 'border-line bg-white text-ink hover:border-line-strong'
+          className={`input select h-10 w-full truncate pl-9 text-[13px] font-medium ${
+            active ? 'border-brand-400 bg-brand-50 text-brand-800 hover:border-brand-500' : 'hover:border-brand-300'
           }`}
         >
           {children}
         </select>
-        <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-subtle" />
       </span>
     </label>
   );
@@ -112,9 +110,9 @@ export type ValidityTab = 'all' | 'active' | 'expiring' | 'expired';
 
 const VALIDITY_TABS: { id: ValidityTab; label: string; hint: (months: number) => string; dot: string }[] = [
   { id: 'all', label: 'All', hint: () => 'Every program', dot: 'bg-slate-400' },
-  { id: 'active', label: 'Valid', hint: (m) => `More than ${m} months of validity left`, dot: 'bg-emerald-500' },
-  { id: 'expiring', label: 'Expiring Soon', hint: (m) => `Validity ends within the next ${m} months`, dot: 'bg-amber-500' },
-  { id: 'expired', label: 'Expired', hint: () => 'Validity period has already ended', dot: 'bg-rose-500' }
+  { id: 'active', label: 'Valid', hint: (m) => `More than ${m} months of validity left`, dot: 'bg-brand-500' },
+  { id: 'expiring', label: 'Expiring Soon', hint: (m) => `Validity ends within the next ${m} months`, dot: 'bg-brand-500' },
+  { id: 'expired', label: 'Expired', hint: () => 'Validity period has already ended', dot: 'bg-brand-500' }
 ];
 
 export function ValidityTabs({
@@ -186,9 +184,9 @@ function LevelCell({ status }: { status: AccreditationLevel }) {
 }
 
 const VALIDITY_TONE: Record<Exclude<ExpiryState, 'none'>, { bar: string; text: string; icon: IconType; label: string }> = {
-  active: { bar: 'bg-emerald-500', text: 'text-emerald-700', icon: CheckCircle2Icon, label: 'Valid' },
-  expiring: { bar: 'bg-amber-500', text: 'text-amber-700', icon: AlertTriangleIcon, label: 'Expiring soon' },
-  expired: { bar: 'bg-rose-500', text: 'text-rose-700', icon: XCircleIcon, label: 'Expired' }
+  active: { bar: 'bg-brand-500', text: 'text-brand-700', icon: CheckCircle2Icon, label: 'Valid' },
+  expiring: { bar: 'bg-brand-500', text: 'text-brand-700', icon: AlertTriangleIcon, label: 'Expiring soon' },
+  expired: { bar: 'bg-brand-500', text: 'text-brand-900', icon: XCircleIcon, label: 'Expired' }
 };
 
 function ValidityCell({ program }: { program: ProgramAccreditation }) {
@@ -228,9 +226,9 @@ function ValidityCell({ program }: { program: ProgramAccreditation }) {
 }
 
 const CHIP_TONES = {
-  emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100',
+  emerald: 'bg-brand-50 text-brand-700 ring-brand-200 hover:bg-brand-100',
   brand: 'bg-brand-50 text-brand-700 ring-brand-200 hover:bg-brand-100',
-  violet: 'bg-violet-50 text-violet-700 ring-violet-200 hover:bg-violet-100'
+  violet: 'bg-brand-50 text-brand-700 ring-brand-200 hover:bg-brand-100'
 };
 
 function DocChip({
@@ -377,7 +375,7 @@ export function ProgramAccreditationTable({
                         <span
                           className={`rounded-md px-1.5 py-0.5 font-semibold ring-1 ring-inset ${
                             prog.degreeLevel === 'Graduate'
-                              ? 'bg-violet-50 text-violet-700 ring-violet-200'
+                              ? 'bg-brand-50 text-brand-700 ring-brand-200'
                               : 'bg-slate-50 text-slate-600 ring-slate-200'
                           }`}
                         >

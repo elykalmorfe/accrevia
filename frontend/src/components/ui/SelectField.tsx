@@ -28,27 +28,38 @@ export function SelectField({
   required = false
 }: SelectFieldProps) {
   const id = useId();
-  const normalized = options.map((o) => typeof o === 'string' ? { value: o, label: o } : o);
+  const normalized = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
+  const empty = !value;
+
   return (
     <div className={className}>
       <label htmlFor={id} className={hideLabel ? 'sr-only' : 'label'}>
         {label}
-        {required && <span className="ml-0.5 text-danger-600">*</span>}
+        {required && <span className="ml-0.5 text-brand-700">*</span>}
       </label>
       <select
         id={id}
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className={`input pr-8 ${compact ? 'min-h-[38px] sm:min-h-[34px] sm:h-8 text-base sm:text-xs' : 'text-base sm:text-sm'} ${value ? '' : 'text-ink-muted'}`}
+        className={[
+          'input select w-full',
+          compact ? 'select-sm h-9 text-xs' : 'text-base sm:text-sm',
+          empty ? 'text-ink-muted' : 'text-ink',
+          disabled ? '' : 'hover:border-brand-300'
+        ].join(' ')}
       >
-        {placeholder !== undefined && <option value="">{placeholder}</option>}
-        {normalized.map((o) =>
-        <option key={o.value} value={o.value} disabled={o.disabled}>
-            {o.label}
+        {placeholder !== undefined && (
+          <option value="" disabled={required}>
+            {placeholder}
           </option>
         )}
+        {normalized.map((o) => (
+          <option key={o.value} value={o.value} disabled={o.disabled}>
+            {o.label}
+          </option>
+        ))}
       </select>
-    </div>);
-
+    </div>
+  );
 }

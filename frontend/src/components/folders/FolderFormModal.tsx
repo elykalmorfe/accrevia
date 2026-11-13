@@ -222,7 +222,7 @@ export function FolderFormModal({
           </div>
 
           {hasNoDeadline ? (
-            <p className="text-[11px] text-emerald-700 font-medium bg-emerald-50 border border-emerald-200/60 rounded-md p-1.5 flex items-center gap-1.5">
+            <p className="text-[11px] text-brand-700 font-medium bg-brand-50 border border-brand-200/60 rounded-md p-1.5 flex items-center gap-1.5">
               <span>✓</span>
               <span>This folder will remain active indefinitely with no expiration date.</span>
             </p>

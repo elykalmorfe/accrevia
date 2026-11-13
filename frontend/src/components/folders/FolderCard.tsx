@@ -10,10 +10,10 @@ export interface FolderStatus {
 
 const TONE_STYLE: Record<FolderStatusTone, { text: string; dot: string }> = {
   neutral: { text: 'text-ink-subtle', dot: 'bg-slate-300' },
-  warning: { text: 'text-amber-700', dot: 'bg-amber-400' },
+  warning: { text: 'text-brand-700', dot: 'bg-brand-400' },
   info: { text: 'text-brand-700', dot: 'bg-brand-500' },
-  danger: { text: 'text-rose-700', dot: 'bg-rose-500' },
-  success: { text: 'text-emerald-700', dot: 'bg-emerald-500' }
+  danger: { text: 'text-brand-900', dot: 'bg-brand-500' },
+  success: { text: 'text-brand-700', dot: 'bg-brand-500' }
 };
 
 interface FolderCardProps {
@@ -46,7 +46,7 @@ export function FolderCard({ name, eyebrow, meta, status, actions, onOpen, title
       className="group flex cursor-pointer flex-col rounded-xl border border-line bg-white p-4 text-left outline-none transition-colors hover:border-brand-300 hover:bg-slate-50/60 focus-visible:ring-2 focus-visible:ring-brand-200"
     >
       <div className="mb-4 flex w-full items-start gap-3">
-        <FolderIcon className="h-9 w-9 shrink-0 fill-amber-100 text-amber-400" strokeWidth={1.5} />
+        <FolderIcon className="h-9 w-9 shrink-0 fill-brand-100 text-brand-400" strokeWidth={1.5} />
         <div className="min-w-0 flex-1">
           {eyebrow && <p className="truncate text-[11px] font-semibold text-ink-subtle">{eyebrow}</p>}
           <h4 className="break-words text-sm font-semibold leading-snug text-ink group-hover:text-brand-700">{name}</h4>

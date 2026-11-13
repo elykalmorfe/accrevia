@@ -37,27 +37,26 @@ export interface NavItem {
   children?: NavChild[];
 }
 
+/** Shared ocean brand chip for every nav icon in light and dark mode. */
+const navIcon = {
+  iconBg: 'bg-brand-50',
+  iconColor: 'text-brand-700',
+  border: 'border-brand-100'
+} as const;
+
 export const navigation: NavItem[] = [
   {
     label: 'Dashboard',
     to: '/',
     icon: LayoutDashboardIcon,
-    color: {
-      iconBg: 'bg-blue-500/10',
-      iconColor: 'text-blue-600',
-      border: 'border-blue-500/20'
-    }
+    color: navIcon
   },
   {
     label: 'Documents',
     to: '/evidence',
     icon: FolderKanbanIcon,
     matchPrefix: '/evidence',
-    color: {
-      iconBg: 'bg-amber-500/10',
-      iconColor: 'text-amber-600',
-      border: 'border-amber-500/20'
-    },
+    color: navIcon,
     children: [
       { label: 'All Documents', to: '/evidence' },
       { label: 'Upload Documents', to: '/evidence/upload' }
@@ -68,11 +67,7 @@ export const navigation: NavItem[] = [
     to: '/frameworks/ia',
     icon: ShieldCheckIcon,
     matchPrefix: '/frameworks',
-    color: {
-      iconBg: 'bg-emerald-500/10',
-      iconColor: 'text-emerald-600',
-      border: 'border-emerald-500/20'
-    },
+    color: navIcon,
     children: [
       { label: 'Institutional (IA)', to: '/frameworks/ia' },
       { label: 'Program (AACCUP)', to: '/frameworks/pa' },
@@ -87,21 +82,13 @@ export const navigation: NavItem[] = [
     icon: InboxIcon,
     matchPrefix: '/requests',
     countKey: 'requests',
-    color: {
-      iconBg: 'bg-rose-500/10',
-      iconColor: 'text-rose-600',
-      border: 'border-rose-500/20'
-    }
+    color: navIcon
   },
   {
     label: 'Reports & Analytics',
     to: '/reports',
     icon: BarChart3Icon,
-    color: {
-      iconBg: 'bg-purple-500/10',
-      iconColor: 'text-purple-600',
-      border: 'border-purple-500/20'
-    }
+    color: navIcon
   },
   {
     label: 'My Profile',
@@ -109,33 +96,21 @@ export const navigation: NavItem[] = [
     matchPrefix: '/account',
     icon: UserIcon,
     section: 'account',
-    color: {
-      iconBg: 'bg-indigo-500/10',
-      iconColor: 'text-indigo-600',
-      border: 'border-indigo-500/20'
-    }
+    color: navIcon
   },
   {
     label: 'User Management',
     to: '/users',
     icon: UsersIcon,
     section: 'account',
-    color: {
-      iconBg: 'bg-cyan-500/10',
-      iconColor: 'text-cyan-600',
-      border: 'border-cyan-500/20'
-    }
+    color: navIcon
   },
   {
     label: 'Settings',
     to: '/settings',
     icon: SettingsIcon,
     section: 'account',
-    color: {
-      iconBg: 'bg-slate-500/10',
-      iconColor: 'text-slate-600',
-      border: 'border-slate-500/20'
-    }
+    color: navIcon
   }
 ];
 
@@ -144,31 +119,19 @@ export const userNavigation: NavItem[] = [
     label: 'Dashboard',
     to: '/',
     icon: LayoutDashboardIcon,
-    color: {
-      iconBg: 'bg-blue-500/10',
-      iconColor: 'text-blue-600',
-      border: 'border-blue-500/20'
-    }
+    color: navIcon
   },
   {
     label: 'Shared with Me',
     to: '/shared-with-me',
     icon: FolderOpenIcon,
-    color: {
-      iconBg: 'bg-amber-500/10',
-      iconColor: 'text-amber-600',
-      border: 'border-amber-500/20'
-    }
+    color: navIcon
   },
   {
     label: 'Saved Documents',
     to: '/saved',
     icon: BookmarkIcon,
-    color: {
-      iconBg: 'bg-purple-500/10',
-      iconColor: 'text-purple-600',
-      border: 'border-purple-500/20'
-    }
+    color: navIcon
   },
   {
     label: 'My Requests',
@@ -176,11 +139,7 @@ export const userNavigation: NavItem[] = [
     icon: InboxIcon,
     matchPrefix: '/requests',
     countKey: 'requests',
-    color: {
-      iconBg: 'bg-rose-500/10',
-      iconColor: 'text-rose-600',
-      border: 'border-rose-500/20'
-    }
+    color: navIcon
   },
   {
     label: 'My Profile',
@@ -188,10 +147,6 @@ export const userNavigation: NavItem[] = [
     matchPrefix: '/account',
     icon: UserIcon,
     section: 'account',
-    color: {
-      iconBg: 'bg-indigo-500/10',
-      iconColor: 'text-indigo-600',
-      border: 'border-indigo-500/20'
-    }
+    color: navIcon
   }
 ];

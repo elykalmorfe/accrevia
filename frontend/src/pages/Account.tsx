@@ -85,7 +85,7 @@ function ProfileHeaderCard() {
             <img src={profile.avatar} alt="" className="h-24 w-24 rounded-full object-cover shadow-md ring-4 ring-white" />
           ) : (
             <span
-              className="grid h-24 w-24 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-violet-600 text-2xl font-bold text-white shadow-md ring-4 ring-white"
+              className="grid h-24 w-24 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-2xl font-bold text-white shadow-md ring-4 ring-white"
               aria-hidden="true">
               {initials(fullName)}
             </span>
@@ -114,7 +114,7 @@ function ProfileHeaderCard() {
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <h2 className="text-xl font-bold tracking-tight text-brand-700">{fullName}</h2>
             {currentUser.affiliationVerified && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
                 <BadgeCheckIcon className="h-3.5 w-3.5" />
                 Verified
               </span>
@@ -338,11 +338,11 @@ function SettingsTab() {
 }
 
 const STATUS_TONE: Record<string, string> = {
-  Active: 'bg-emerald-50 text-emerald-700',
-  'Pending Approval': 'bg-amber-50 text-amber-700',
-  Invited: 'bg-sky-50 text-sky-700',
+  Active: 'bg-brand-50 text-brand-700',
+  'Pending Approval': 'bg-brand-50 text-brand-700',
+  Invited: 'bg-brand-50 text-brand-700',
   Deactivated: 'bg-slate-100 text-slate-600',
-  Rejected: 'bg-rose-50 text-rose-700',
+  Rejected: 'bg-brand-50 text-brand-900',
 };
 
 function AccountDetailsCard() {
@@ -375,11 +375,11 @@ const PASSWORD_RULES: { label: string; test: (value: string) => boolean }[] = [
 ];
 
 const STRENGTH = [
-  { label: 'Too weak', bar: 'bg-rose-500', text: 'text-rose-600' },
-  { label: 'Weak', bar: 'bg-rose-500', text: 'text-rose-600' },
-  { label: 'Fair', bar: 'bg-amber-500', text: 'text-amber-600' },
-  { label: 'Good', bar: 'bg-sky-500', text: 'text-sky-600' },
-  { label: 'Strong', bar: 'bg-emerald-500', text: 'text-emerald-600' },
+  { label: 'Too weak', bar: 'bg-brand-500', text: 'text-brand-800' },
+  { label: 'Weak', bar: 'bg-brand-500', text: 'text-brand-800' },
+  { label: 'Fair', bar: 'bg-brand-500', text: 'text-brand-600' },
+  { label: 'Good', bar: 'bg-brand-500', text: 'text-brand-600' },
+  { label: 'Strong', bar: 'bg-brand-500', text: 'text-brand-600' },
 ];
 
 function PasswordField({ label, value, onChange, autoComplete }: { label: string; value: string; onChange: (v: string) => void; autoComplete: string }) {
@@ -453,8 +453,8 @@ function PasswordCard() {
               {PASSWORD_RULES.map((rule) => {
                 const ok = rule.test(form.next);
                 return (
-                  <li key={rule.label} className={`flex items-center gap-1.5 text-xs ${ok ? 'font-medium text-emerald-700' : 'text-ink-muted'}`}>
-                    <span className={`grid h-4 w-4 place-items-center rounded-full ${ok ? 'bg-emerald-500 text-white' : 'border border-line-strong'}`}>
+                  <li key={rule.label} className={`flex items-center gap-1.5 text-xs ${ok ? 'font-medium text-brand-700' : 'text-ink-muted'}`}>
+                    <span className={`grid h-4 w-4 place-items-center rounded-full ${ok ? 'bg-brand-500 text-white' : 'border border-line-strong'}`}>
                       {ok && <CheckIcon className="h-2.5 w-2.5" strokeWidth={3} />}
                     </span>
                     {rule.label}
@@ -462,7 +462,7 @@ function PasswordCard() {
                 );
               })}
             </ul>
-            {form.confirm && form.next !== form.confirm && <p className="mt-3 text-xs font-medium text-rose-600">The new passwords do not match.</p>}
+            {form.confirm && form.next !== form.confirm && <p className="mt-3 text-xs font-medium text-brand-800">The new passwords do not match.</p>}
           </div>
         </div>
       ) : (
@@ -474,7 +474,7 @@ function PasswordCard() {
             value="Signed in with your NEMSU account"
             display={
               <span className="inline-flex items-center gap-1.5">
-                <ShieldCheckIcon className="h-4 w-4 text-emerald-600" />
+                <ShieldCheckIcon className="h-4 w-4 text-brand-600" />
                 Signed in with your NEMSU account
               </span>
             }

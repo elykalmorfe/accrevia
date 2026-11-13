@@ -8,6 +8,8 @@
     "build": "vite build",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "gen:dark": "node scripts/gen-dark-css.mjs",
+    "import:certs": "node scripts/import-certificates.mjs",
+    "import:ratings": "node scripts/import-ratings.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

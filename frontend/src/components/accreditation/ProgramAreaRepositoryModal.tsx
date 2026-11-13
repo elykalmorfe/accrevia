@@ -106,7 +106,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
   };
 
   const summary = (
-          <div className="relative overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-violet-50 p-4">
+          <div className="relative overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-brand-50 p-4">
             <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-brand-200/40 blur-2xl" />
             <div className="relative flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">

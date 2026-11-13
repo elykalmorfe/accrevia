@@ -31,9 +31,9 @@ function shortLevel(status: string): string {
 
 const LEVEL_DOT: Record<string, string> = {
   'Level I': 'bg-slate-400',
-  'Level II': 'bg-sky-500',
-  'Level III': 'bg-indigo-500',
-  'Level IV': 'bg-emerald-500'
+  'Level II': 'bg-brand-500',
+  'Level III': 'bg-brand-500',
+  'Level IV': 'bg-brand-500'
 };
 
 function levelTone(status: string): string {
@@ -119,11 +119,7 @@ export function CampusIAView() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Accreditation"
-        title="Institutional Accreditation (IA)"
-        description="Track each campus's AACCUP accreditation level, compliance and certificates."
-      />
+      <PageHeader title="Institutional Accreditation (IA)" />
 
       {/* Campus Selector Bar */}
       <div className="mb-2 flex items-center justify-between">
@@ -163,7 +159,7 @@ export function CampusIAView() {
               <Building2Icon className={`hidden h-4 w-4 shrink-0 2xl:block ${isSelected ? 'text-brand-600' : 'text-ink-subtle'}`} />
               <div className="min-w-0">
                 <p className={`truncate text-[13px] font-semibold ${isSelected ? 'text-brand-800' : 'text-ink'}`}>
-                  {c.shortName} {c.isMain && <span className="text-amber-500">★</span>}
+                  {c.shortName} {c.isMain && <span className="text-brand-500">★</span>}
                 </p>
                 <p className="mt-0.5 flex items-center gap-1.5 text-[11.5px] font-medium text-ink-muted">
                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${levelTone(statusText)}`} />
@@ -211,12 +207,12 @@ export function CampusIAView() {
                 value: iaRecord.surveyBody.includes('AACCUP') ? iaRecord.surveyBody : 'AACCUP',
                 tone: 'bg-brand-50 text-brand-600'
               },
-              { icon: CalendarCheckIcon, label: 'Last Formal Survey', value: readableDate(iaRecord.lastEvaluationDate), tone: 'bg-emerald-50 text-emerald-600' },
+              { icon: CalendarCheckIcon, label: 'Last Formal Survey', value: readableDate(iaRecord.lastEvaluationDate), tone: 'bg-brand-50 text-brand-600' },
               {
                 icon: CalendarClockIcon,
                 label: 'Next Scheduled Evaluation',
                 value: readableDate(iaRecord.nextScheduledEvaluation),
-                tone: 'bg-amber-50 text-amber-600'
+                tone: 'bg-brand-50 text-brand-600'
               }
             ].map((info) => (
               <div key={info.label} className="flex items-start gap-2.5 rounded-xl border border-line bg-canvas/50 p-3">
@@ -392,7 +388,7 @@ export function CampusIAView() {
                       updateCampusIA(c.id, { status: newStatus });
                       toast.success(`Updated ${c.shortName} status to ${newStatus}`);
                     }}
-                    className="rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-ink shadow-2xs hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
+                    className="input select select-sm h-9 w-auto min-w-[8.5rem] text-xs font-semibold hover:border-brand-300"
                   >
                     {IA_LEVEL_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>

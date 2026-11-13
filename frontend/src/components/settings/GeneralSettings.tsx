@@ -65,12 +65,12 @@ export function GeneralSettings() {
           </div>
         </SettingRow>
         <SettingRow label="Default academic year" description="Pre-selected when classifying and uploading new evidence. Manage the list under Accreditation Setup.">
-          <select aria-label="Default academic year" className="input" value={form.defaultAcademicYear} onChange={(e) => set({ defaultAcademicYear: e.target.value })}>
+          <select aria-label="Default academic year" className="input select" value={form.defaultAcademicYear} onChange={(e) => set({ defaultAcademicYear: e.target.value })}>
             {years.map((y) => <option key={y}>{y}</option>)}
           </select>
         </SettingRow>
         <SettingRow label="Rows per page" description="Page size for the evidence tables.">
-          <select aria-label="Rows per page" className="input" value={form.pageSize} onChange={(e) => set({ pageSize: Number(e.target.value) })}>
+          <select aria-label="Rows per page" className="input select" value={form.pageSize} onChange={(e) => set({ pageSize: Number(e.target.value) })}>
             {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </SettingRow>

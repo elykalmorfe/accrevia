@@ -50,6 +50,23 @@ import { isCampusMatch } from '../utils/campus';
 import { deleteStoredFile } from '../utils/fileStore';
 import { applyLevelChange, ensureLevelHistory, normalizeLegacyStatus } from '../utils/programAccreditation';
 import { purgeLegacySampleData } from '../utils/samplePurge';
+import {
+  COPC_CERT_FILES_KEY,
+  COPC_CERT_FILES_VERSION,
+  LINKED_CERTIFICATES_KEY,
+  LINKED_CERTIFICATES_VERSION,
+  buildLinkedCertificates,
+  clearGeneratedLinkedCertificateFiles,
+  prefetchCertificateFiles,
+  prefetchCopcCertificateFiles,
+  refreshLinkedCertificateMeta
+} from '../utils/linkedCertificates';
+import {
+  RATINGS_DOCUMENTS_KEY,
+  RATINGS_DOCUMENTS_VERSION,
+  buildRatingsDocuments,
+  prefetchRatingsDocuments
+} from '../utils/ratingsDocuments';
 import { getSettings } from '../settings/portalSettings';
 
 purgeLegacySampleData();
@@ -311,6 +328,104 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     return loaded;
   });
   const [isoRecords, setIsoRecords] = useState<ISOSurveillanceRecord[]>(() => loadStorage('isoRecords', initialISORecords));
+
+  // Seed AACCUP certificate folders/docs from the local manifest (once per seed version).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(LINKED_CERTIFICATES_KEY) !== LINKED_CERTIFICATES_VERSION) {
+        localStorage.setItem(LINKED_CERTIFICATES_KEY, LINKED_CERTIFICATES_VERSION);
+        const seed = buildLinkedCertificates(programAccreditations);
+        const folderIdFor = new Map<string, string>();
+        const addedFolders = seed.folders.filter((f) => {
+          const existing = folders.find((e) => e.isSystem && e.areaId === f.areaId && e.code === f.code);
+          if (existing) folderIdFor.set(f.id, existing.id);
+          return !existing && !folders.some((e) => e.id === f.id);
+        });
+        const seededDocs = seed.documents.map((d) =>
+          d.folderId && folderIdFor.has(d.folderId) ? { ...d, folderId: folderIdFor.get(d.folderId) } : d
+        );
+        if (addedFolders.length) setFolders((prev) => [...prev, ...addedFolders.filter((f) => !prev.some((p) => p.id === f.id))]);
+        setDocuments((prev) => {
+          // Replace prior linked/local certificate docs for these programs so level files refresh.
+          const seededIds = new Set(seededDocs.map((d) => d.id));
+          const areaIds = new Set(seededDocs.map((d) => d.areaId));
+          const kept = prev.filter(
+            (d) =>
+              !(d.frameworkId === 'pa' && areaIds.has(d.areaId) && (d.id.startsWith('doc-cert-') || seededIds.has(d.id)))
+          );
+          return refreshLinkedCertificateMeta([...kept, ...seededDocs], programAccreditations);
+        });
+        void clearGeneratedLinkedCertificateFiles(programAccreditations)
+          .then(() => prefetchCertificateFiles(seededDocs))
+          .catch((err) => console.error('Could not prefetch certificate files', err));
+      }
+    } catch {
+      // Storage unavailable; skip seeding.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programAccreditations]);
+
+  // Prefetch COPC official certificate binaries into IndexedDB once per version.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(COPC_CERT_FILES_KEY) === COPC_CERT_FILES_VERSION) return;
+      localStorage.setItem(COPC_CERT_FILES_KEY, COPC_CERT_FILES_VERSION);
+      void prefetchCopcCertificateFiles(copcRecords).catch((err) =>
+        console.error('Could not prefetch COPC certificate files', err)
+      );
+    } catch {
+      // ignore
+    }
+  }, [copcRecords]);
+
+  // Seed Technical Review & Board Action rating documents (once per version).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(RATINGS_DOCUMENTS_KEY) === RATINGS_DOCUMENTS_VERSION) return;
+      localStorage.setItem(RATINGS_DOCUMENTS_KEY, RATINGS_DOCUMENTS_VERSION);
+      const seed = buildRatingsDocuments(programAccreditations);
+      const folderIdFor = new Map<string, string>();
+      const addedFolders = seed.folders.filter((f) => {
+        const existing = folders.find((e) => e.isSystem && e.areaId === f.areaId && e.code === f.code);
+        if (existing) folderIdFor.set(f.id, existing.id);
+        return !existing && !folders.some((e) => e.id === f.id);
+      });
+      const seededDocs = seed.documents.map((d) =>
+        d.folderId && folderIdFor.has(d.folderId) ? { ...d, folderId: folderIdFor.get(d.folderId) } : d
+      );
+      if (addedFolders.length) setFolders((prev) => [...prev, ...addedFolders.filter((f) => !prev.some((p) => p.id === f.id))]);
+      setDocuments((prev) => {
+        const areaIds = new Set(seededDocs.map((d) => d.areaId));
+        const kept = prev.filter(
+          (d) => !(d.frameworkId === 'pa' && typeof d.areaId === 'string' && d.areaId.startsWith('trba-') && areaIds.has(d.areaId))
+        );
+        return [...kept, ...seededDocs.filter((d) => !kept.some((p) => p.id === d.id))];
+      });
+      // Point technicalReviewLink at the newest local ratings file.
+      setProgramAccreditations((prev) => {
+        let changed = false;
+        const next = prev.map((p) => {
+          const primary =
+            seed.documents.find((d) => d.areaId === `trba-${p.id}` && d.isActive)?.documentUrl ||
+            seed.documents.find((d) => d.areaId === `trba-${p.id}`)?.documentUrl;
+          if (!primary || p.technicalReviewLink === primary) return p;
+          changed = true;
+          return { ...p, technicalReviewLink: primary };
+        });
+        if (changed) {
+          saveStorage('programAccreditations', next);
+          return next;
+        }
+        return prev;
+      });
+      void prefetchRatingsDocuments(seededDocs).catch((err) =>
+        console.error('Could not prefetch ratings documents', err)
+      );
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programAccreditations]);
 
   // Selected campus derived helpers
   const selectedCampusObj = useMemo(() => {

@@ -51,8 +51,8 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
 
     if (isApproved) {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200/90 shadow-2xs whitespace-nowrap">
-          <CheckCircle2Icon className="h-3 w-3 text-emerald-600" />
+        <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 border border-brand-200/90 shadow-2xs whitespace-nowrap">
+          <CheckCircle2Icon className="h-3 w-3 text-brand-600" />
           <span>Approved</span>
         </span>
       );
@@ -60,16 +60,16 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
     if (isNeedsRevision) {
       return (
         <span
-          className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-200/90 shadow-2xs whitespace-nowrap cursor-help"
+          className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-800 border border-brand-200/90 shadow-2xs whitespace-nowrap cursor-help"
           title={doc.revisionNotes ? 'Revision: ' + doc.revisionNotes : 'Requires revision'}
         >
-          <AlertTriangleIcon className="h-3 w-3 text-amber-600" />
+          <AlertTriangleIcon className="h-3 w-3 text-brand-600" />
           <span>Needs Revision</span>
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 border border-blue-200/90 shadow-2xs whitespace-nowrap">
+      <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 border border-brand-200/90 shadow-2xs whitespace-nowrap">
         <ClockIcon className="h-3 w-3 text-brand-600" />
         <span>Pending Review</span>
       </span>
@@ -133,11 +133,11 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
                     <span
                       className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg border text-[10px] font-black uppercase shadow-2xs ${
                         doc.fileType?.toLowerCase() === 'pdf'
-                          ? 'bg-rose-50 text-rose-700 border-rose-200/90'
+                          ? 'bg-brand-50 text-brand-900 border-brand-200/90'
                           : doc.fileType?.toLowerCase().includes('doc')
-                          ? 'bg-blue-50 text-blue-700 border-blue-200/90'
+                          ? 'bg-brand-50 text-brand-700 border-brand-200/90'
                           : doc.fileType?.toLowerCase().includes('xls')
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200/90'
+                          ? 'bg-brand-50 text-brand-700 border-brand-200/90'
                           : 'bg-slate-50 text-slate-700 border-slate-200/90'
                       }`}
                       title={`${doc.fileType?.toUpperCase()} document`}
@@ -166,7 +166,7 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
                           </>
                         )}
                         {doc.isoStage && (
-                          <span className="rounded bg-purple-100 text-purple-800 font-bold px-1.5 py-0.2 text-[9.5px]">
+                          <span className="rounded bg-brand-100 text-brand-800 font-bold px-1.5 py-0.2 text-[9.5px]">
                             {doc.isoStage}
                           </span>
                         )}
@@ -268,11 +268,11 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
                 <span
                   className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg border text-[10px] font-black uppercase shadow-2xs ${
                     doc.fileType?.toLowerCase() === 'pdf'
-                      ? 'bg-rose-50 text-rose-700 border-rose-200/90'
+                      ? 'bg-brand-50 text-brand-900 border-brand-200/90'
                       : doc.fileType?.toLowerCase().includes('doc')
-                      ? 'bg-blue-50 text-blue-700 border-blue-200/90'
+                      ? 'bg-brand-50 text-brand-700 border-brand-200/90'
                       : doc.fileType?.toLowerCase().includes('xls')
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200/90'
+                      ? 'bg-brand-50 text-brand-700 border-brand-200/90'
                       : 'bg-slate-50 text-slate-700 border-slate-200/90'
                   }`}
                 >

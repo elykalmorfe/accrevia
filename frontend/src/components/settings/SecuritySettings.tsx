@@ -44,7 +44,7 @@ export function SecuritySettings() {
     <div className="space-y-4">
       <SettingsGroup title="Sessions" description="Enforced by the sign-in server once it is connected.">
         <SettingRow label="Sign out after inactivity">
-          <select aria-label="Session timeout" className="input" value={s.timeout} onChange={(e) => set('timeout', e.target.value)}>
+          <select aria-label="Session timeout" className="input select" value={s.timeout} onChange={(e) => set('timeout', e.target.value)}>
             {['15', '30', '60', '120'].map((m) => <option key={m} value={m}>{m} minutes</option>)}
           </select>
         </SettingRow>
@@ -64,7 +64,7 @@ export function SecuritySettings() {
           <Switch checked={s.complexity} onChange={(v) => set('complexity', v)} label="Require password complexity" />
         </SettingRow>
         <SettingRow label="Password expiry">
-          <select aria-label="Password expiry" className="input" value={s.expiry} onChange={(e) => set('expiry', e.target.value)}>
+          <select aria-label="Password expiry" className="input select" value={s.expiry} onChange={(e) => set('expiry', e.target.value)}>
             {['30', '90', '180', 'never'].map((d) => <option key={d} value={d}>{d === 'never' ? 'Never' : `${d} days`}</option>)}
           </select>
         </SettingRow>

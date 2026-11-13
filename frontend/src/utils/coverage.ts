@@ -1,12 +1,20 @@
-﻿import { EvidenceDocument } from '../types/evidence';
+import { EvidenceDocument } from '../types/evidence';
 
 export type CoverageLevel = 'Multiple' | 'Available' | 'Limited' | 'None';
 
 export const coverageLabels: Record<CoverageLevel, string> = {
-  Multiple: 'Multiple supporting documents',
-  Available: 'Available evidence',
-  Limited: 'Limited evidence',
-  None: 'No indexed evidence'
+  Multiple: 'Complete',
+  Available: 'Almost there',
+  Limited: 'Needs work',
+  None: 'Missing'
+};
+
+/** One-line explanation of each coverage level, shown next to the legend. */
+export const coverageHints: Record<CoverageLevel, string> = {
+  Multiple: '3 or more documents',
+  Available: '2 documents',
+  Limited: 'Only 1 document',
+  None: 'No documents yet'
 };
 
 export function coverageLevel(count: number): CoverageLevel {

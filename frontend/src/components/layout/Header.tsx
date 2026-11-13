@@ -20,7 +20,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         <div className="flex min-w-0 items-center gap-2 sm:gap-3 lg:hidden">
           <button
             type="button"
-            className="btn btn-ghost btn-icon h-9 w-9 min-h-0 min-w-0 text-ink-muted hover:text-ink"
+            className="btn btn-ghost btn-icon h-9 w-9 min-h-0 min-w-0"
             aria-label="Open navigation"
             onClick={onOpenMenu}
           >
@@ -42,7 +42,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           <button
             type="button"
             onClick={() => setSearchOpen((v) => !v)}
-            className="btn btn-ghost btn-icon h-9 w-9 min-h-0 min-w-0 text-ink-muted hover:text-ink sm:hidden"
+            className="btn btn-ghost btn-icon h-9 w-9 min-h-0 min-w-0 sm:hidden"
             aria-label={searchOpen ? 'Close search' : 'Search'}
             aria-expanded={searchOpen}
           >

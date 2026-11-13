@@ -21,12 +21,12 @@ export function ProcessingSettings() {
       </ServerNotice>
       <SettingsGroup title="OCR configuration" description="Applied to scanned documents and images.">
         <SettingRow label="OCR engine">
-          <select aria-label="OCR engine" className="input" value={s.engine} onChange={(e) => set('engine', e.target.value)}>
+          <select aria-label="OCR engine" className="input select" value={s.engine} onChange={(e) => set('engine', e.target.value)}>
             {['Tesseract 5', 'PaddleOCR'].map((o) => <option key={o}>{o}</option>)}
           </select>
         </SettingRow>
         <SettingRow label="Recognition languages">
-          <select aria-label="Recognition languages" className="input" value={s.languages} onChange={(e) => set('languages', e.target.value)}>
+          <select aria-label="Recognition languages" className="input select" value={s.languages} onChange={(e) => set('languages', e.target.value)}>
             {['English', 'English + Filipino'].map((o) => <option key={o}>{o}</option>)}
           </select>
         </SettingRow>
@@ -34,7 +34,7 @@ export function ProcessingSettings() {
           <Switch checked={s.autoDetect} onChange={(v) => set('autoDetect', v)} label="Detect scanned documents automatically" />
         </SettingRow>
         <SettingRow label="Rasterization resolution">
-          <select aria-label="Rasterization resolution" className="input" value={s.dpi} onChange={(e) => set('dpi', e.target.value)}>
+          <select aria-label="Rasterization resolution" className="input select" value={s.dpi} onChange={(e) => set('dpi', e.target.value)}>
             {['200', '300', '400'].map((o) => <option key={o} value={o}>{o} DPI</option>)}
           </select>
         </SettingRow>

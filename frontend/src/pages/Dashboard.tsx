@@ -188,14 +188,14 @@ export function Dashboard() {
     const lower = title.toLowerCase();
     if (lower.endsWith('.xlsx') || lower.endsWith('.csv') || lower.endsWith('.xls')) {
       return (
-        <div className="grid h-7 w-7 place-items-center rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">
+        <div className="grid h-7 w-7 place-items-center rounded-lg bg-brand-50 text-brand-600 border border-brand-100 shrink-0">
           <FileSpreadsheetIcon className="h-3.5 w-3.5" />
         </div>
       );
     }
     if (lower.endsWith('.pdf')) {
       return (
-        <div className="grid h-7 w-7 place-items-center rounded-lg bg-rose-50 text-rose-600 border border-rose-100 shrink-0">
+        <div className="grid h-7 w-7 place-items-center rounded-lg bg-brand-50 text-brand-800 border border-brand-100 shrink-0">
           <FileTextIcon className="h-3.5 w-3.5" />
         </div>
       );
@@ -235,7 +235,7 @@ export function Dashboard() {
               value={selectedCampus}
               onChange={(e) => setSelectedCampus(e.target.value)}
               aria-label="Filter by campus"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink shadow-2xs focus:border-brand-500 focus:outline-none cursor-pointer"
+              className="input select select-sm h-9 w-auto min-w-[9rem] text-xs font-semibold hover:border-brand-300"
             >
               {campusOptions.map((c) => (
                 <option key={c} value={c}>
@@ -289,7 +289,7 @@ export function Dashboard() {
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink-muted">AACCUP Programs</span>
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50 text-blue-600 group-hover:scale-105 transition-transform">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600 group-hover:scale-105 transition-transform">
               <GraduationCapIcon className="h-4 w-4" />
             </div>
           </div>
@@ -301,7 +301,7 @@ export function Dashboard() {
               </span>
             </p>
             <div className="mt-2 flex items-center justify-between text-[11px]">
-              <span className="font-semibold text-emerald-700">{certifiedPercentage}% Certified</span>
+              <span className="font-semibold text-brand-700">{certifiedPercentage}% Certified</span>
               <span className="text-ink-subtle">Level I to IV</span>
             </div>
           </div>
@@ -310,11 +310,11 @@ export function Dashboard() {
         {/* Card 2: CHED COPC Compliance */}
         <Link
           to="/frameworks/copc"
-          className="panel group p-5 border border-slate-200/90 hover:border-emerald-300 hover:shadow-soft transition-all"
+          className="panel group p-5 border border-slate-200/90 hover:border-brand-300 hover:shadow-soft transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink-muted">CHED COPC</span>
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 text-emerald-600 group-hover:scale-105 transition-transform">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600 group-hover:scale-105 transition-transform">
               <FileCheck2Icon className="h-4 w-4" />
             </div>
           </div>
@@ -323,7 +323,7 @@ export function Dashboard() {
               {copcRate}%
             </p>
             <div className="mt-2 flex items-center justify-between text-[11px]">
-              <span className="font-semibold text-emerald-700">{compliantCopc} Compliant</span>
+              <span className="font-semibold text-brand-700">{compliantCopc} Compliant</span>
               <span className="text-ink-subtle">Statutory PSGs</span>
             </div>
           </div>
@@ -332,11 +332,11 @@ export function Dashboard() {
         {/* Card 3: Evidence Repository */}
         <Link
           to="/evidence"
-          className="panel group p-5 border border-slate-200/90 hover:border-amber-300 hover:shadow-soft transition-all"
+          className="panel group p-5 border border-slate-200/90 hover:border-brand-300 hover:shadow-soft transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink-muted">Evidence Files</span>
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-amber-50 text-amber-600 group-hover:scale-105 transition-transform">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600 group-hover:scale-105 transition-transform">
               <ShieldCheckIcon className="h-4 w-4" />
             </div>
           </div>
@@ -345,7 +345,7 @@ export function Dashboard() {
               {formatNumber(s.indexed)}
             </p>
             <div className="mt-2 flex items-center justify-between text-[11px]">
-              <span className={`font-semibold ${s.total === 0 || awaitingProcessing > 0 ? 'text-ink-muted' : 'text-emerald-700'}`}>
+              <span className={`font-semibold ${s.total === 0 || awaitingProcessing > 0 ? 'text-ink-muted' : 'text-brand-700'}`}>
                 {s.total === 0 ? 'No uploads yet' : awaitingProcessing > 0 ? `${formatNumber(awaitingProcessing)} awaiting indexing` : 'All indexed'}
               </span>
               <span className="text-ink-subtle">{formatNumber(s.total)} total</span>
@@ -356,11 +356,11 @@ export function Dashboard() {
         {/* Card 4: ISO 9001 & PQA Standard */}
         <Link
           to="/frameworks/iso"
-          className="panel group p-5 border border-slate-200/90 hover:border-indigo-300 hover:shadow-soft transition-all"
+          className="panel group p-5 border border-slate-200/90 hover:border-brand-300 hover:shadow-soft transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink-muted">ISO 9001 & PQA</span>
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-50 text-indigo-600 group-hover:scale-105 transition-transform">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600 group-hover:scale-105 transition-transform">
               <AwardIcon className="h-4 w-4" />
             </div>
           </div>
@@ -369,7 +369,7 @@ export function Dashboard() {
               {isoSummary.rate}%
             </p>
             <div className="mt-2 flex items-center justify-between text-[11px]">
-              <span className={`font-semibold ${isoSummary.openMajor > 0 ? 'text-danger-700' : 'text-emerald-700'}`}>
+              <span className={`font-semibold ${isoSummary.openMajor > 0 ? 'text-danger-700' : 'text-brand-700'}`}>
                 {isoSummary.openMajor} Major NC{isoSummary.openMajor === 1 ? '' : 's'}
               </span>
               <span className="text-ink-subtle">{highestPqaLevel}</span>
@@ -412,11 +412,11 @@ export function Dashboard() {
                   onClick={() => setActiveLegendBar(activeLegendBar === 'prog' ? 'all' : 'prog')}
                   className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
                     activeLegendBar === 'all' || activeLegendBar === 'prog'
-                      ? 'border-sky-200 bg-sky-50 text-sky-800'
+                      ? 'border-brand-200 bg-brand-50 text-brand-800'
                       : 'border-slate-200 bg-white text-ink-subtle opacity-50'
                   }`}
                 >
-                  <span className="h-2 w-2 rounded-full bg-sky-500" />
+                  <span className="h-2 w-2 rounded-full bg-brand-500" />
                   <span>Programs</span>
                 </button>
               </div>
@@ -466,7 +466,7 @@ export function Dashboard() {
                         {(activeLegendBar === 'all' || activeLegendBar === 'prog') && (
                           <div
                             style={{ height: `${d.prog}%` }}
-                            className={`w-3 sm:w-4 rounded-t bg-sky-400 transition-all ${
+                            className={`w-3 sm:w-4 rounded-t bg-brand-400 transition-all ${
                               isHovered ? 'brightness-110 scale-y-105' : 'hover:brightness-105'
                             }`}
                           />
@@ -483,7 +483,7 @@ export function Dashboard() {
           </div>
 
           <div className="mt-2 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-ink-muted">
-            <span className="font-medium text-emerald-700 flex items-center gap-1.5">
+            <span className="font-medium text-brand-700 flex items-center gap-1.5">
               <CheckCircle2Icon className="h-3.5 w-3.5" />
               <span>
                 {latestAttainment.prog}% of programs accredited as of {latestAttainment.year}
@@ -506,10 +506,10 @@ export function Dashboard() {
               {/* Pillar 1: AACCUP */}
               <Link
                 to="/frameworks/pa"
-                className="group flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 transition-all"
+                className="group flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/40 transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600 border border-blue-100">
                     <GraduationCapIcon className="h-4 w-4" />
                   </div>
                   <div>
@@ -522,7 +522,7 @@ export function Dashboard() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-[10px] font-bold">
+                  <span className="rounded-full bg-brand-50 text-brand-700 px-2 py-0.5 text-[10px] font-bold">
                     {certifiedPercentage}% Certified
                   </span>
                   <ChevronRightIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700" />
@@ -532,10 +532,10 @@ export function Dashboard() {
               {/* Pillar 2: CHED COPC */}
               <Link
                 to="/frameworks/copc"
-                className="group flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/40 transition-all"
+                className="group flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/40 transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
+                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600 border border-brand-100">
                     <FileCheck2Icon className="h-4 w-4" />
                   </div>
                   <div>
@@ -548,7 +548,7 @@ export function Dashboard() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-bold">
+                  <span className="rounded-full bg-brand-50 text-brand-700 px-2 py-0.5 text-[10px] font-bold">
                     {copcRate}%
                   </span>
                   <ChevronRightIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700" />
@@ -584,10 +584,10 @@ export function Dashboard() {
               {/* Pillar 4: ISO 9001 & PQA */}
               <Link
                 to="/frameworks/iso"
-                className="group flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/40 transition-all"
+                className="group flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/40 transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
+                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600 border border-brand-100">
                     <AwardIcon className="h-4 w-4" />
                   </div>
                   <div>
@@ -600,7 +600,7 @@ export function Dashboard() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-[10px] font-bold">
+                  <span className="rounded-full bg-brand-50 text-brand-700 px-2 py-0.5 text-[10px] font-bold">
                     {isoSummary.conforming}/{isoSummary.campuses} Conforming
                   </span>
                   <ChevronRightIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700" />
@@ -784,11 +784,11 @@ export function Dashboard() {
         {/* RIGHT (4 Cols): ACTION CENTER & ACCESS REQUESTS */}
         <div className="space-y-4 lg:col-span-4 flex flex-col">
           {/* ACCESS REQUESTS */}
-          <div className="panel p-4 shadow-soft border-l-4 border-l-amber-500 flex flex-col justify-between">
+          <div className="panel p-4 shadow-soft border-l-4 border-l-brand-500 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  <span className="h-2 w-2 rounded-full bg-brand-500" />
                   <h3 className="text-xs font-bold text-ink">Access Requests</h3>
                 </div>
                 <Badge tone={pendingAccessRequests.length > 0 ? 'warning' : 'success'}>
@@ -802,7 +802,7 @@ export function Dashboard() {
                     <li
                       key={req.id}
                       onClick={() => setAccessModalOpen(true)}
-                      className="py-2 hover:bg-amber-50/50 rounded-lg px-1.5 transition-colors cursor-pointer group"
+                      className="py-2 hover:bg-brand-50/50 rounded-lg px-1.5 transition-colors cursor-pointer group"
                     >
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="font-bold text-ink truncate">{req.requesterName}</span>
@@ -816,7 +816,7 @@ export function Dashboard() {
                 </ul>
               ) : (
                 <div className="py-4 text-center text-xs text-ink-muted">
-                  <CheckCircle2Icon className="h-5 w-5 mx-auto text-emerald-600 mb-1" />
+                  <CheckCircle2Icon className="h-5 w-5 mx-auto text-brand-600 mb-1" />
                   <p className="font-semibold text-ink">All Clear</p>
                   <p className="text-[11px] text-ink-subtle">No pending authorization requests.</p>
                 </div>
@@ -895,7 +895,7 @@ export function Dashboard() {
             <div className="rounded-xl border border-slate-200 p-3 bg-white">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-ink">AACCUP</span>
-                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-800">
+                <span className="rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-800">
                   Academic Programs
                 </span>
               </div>
@@ -912,7 +912,7 @@ export function Dashboard() {
             <div className="rounded-xl border border-slate-200 p-3 bg-white">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-ink">CHED COPC</span>
-                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                <span className="rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-800">
                   Regulatory Mandate
                 </span>
               </div>
@@ -946,7 +946,7 @@ export function Dashboard() {
             <div className="rounded-xl border border-slate-200 p-3 bg-white">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-ink">PQA</span>
-                <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-800">
+                <span className="rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-800">
                   Performance Excellence
                 </span>
               </div>

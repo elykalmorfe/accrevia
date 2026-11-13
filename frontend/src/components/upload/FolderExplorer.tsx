@@ -332,7 +332,7 @@ export function FolderExplorer({
       <UploadDropzone variant="area" onFiles={ingest} disabled={!canEdit} targetLabel={target.label} className="min-h-[300px]">
         {creatingFolder && canEdit && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-brand-200 bg-white p-2 shadow-sm">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-500">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-500">
               <FolderPlusIcon className="h-[18px] w-[18px]" />
             </span>
             <input
@@ -367,7 +367,7 @@ export function FolderExplorer({
 
         {isEmpty ? (
           <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-white/70 px-6 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-lg shadow-brand-500/30">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-500 text-white shadow-lg shadow-brand-500/30">
               <CloudUploadIcon className="h-7 w-7" />
             </span>
             <p className="mt-4 text-[15px] font-bold text-ink">{q ? 'No matches' : 'This folder is empty'}</p>

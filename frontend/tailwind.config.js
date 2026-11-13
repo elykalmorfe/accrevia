@@ -27,24 +27,25 @@ export default {
         '3xl': '20px',
       },
       colors: {
+        // Institutional blue brand centered on #005A9C.
         brand: {
-          50: '#EFF6FF',
-          100: '#DBEAFE',
-          200: '#BFDBFE',
-          300: '#93C5FD',
-          400: '#60A5FA',
-          500: '#3B82F6',
-          600: '#2563EB', // Electric Royal Blue (Reference primary)
-          700: '#1D4ED8',
-          800: '#1E40AF',
-          900: '#1E3A8A',
-          950: '#172554',
+          50: '#F0F6FB',
+          100: '#D9E8F5',
+          200: '#B3D1EB',
+          300: '#7CB3DC',
+          400: '#3D8FC7',
+          500: '#1A74B5',
+          600: '#005A9C',
+          700: '#004A82',
+          800: '#003B68',
+          900: '#002F54',
+          950: '#001A30',
         },
         gold: {
-          100: '#FEF3C7',
-          200: '#FDE68A',
-          500: '#F59E0B',
-          700: '#B45309',
+          100: '#D9E8F5',
+          200: '#B3D1EB',
+          500: '#1A74B5',
+          700: '#004A82',
         },
         // Theme-aware tokens; values live in index.css (:root and .dark).
         canvas: token('canvas'),
@@ -63,20 +64,20 @@ export default {
           muted: token('ink-muted'),
           subtle: token('ink-subtle'),
         },
-        success: { 50: '#F0FDF4', 100: '#DCFCE7', 600: '#16A34A', 700: '#15803D' },
-        warning: { 50: '#FFFBEB', 100: '#FEF3C7', 600: '#D97706', 700: '#B45309' },
-        danger: { 50: '#FEF2F2', 100: '#FEE2E2', 600: '#DC2626', 700: '#B91C1C' },
+        // Semantic tones stay on the #005A9C family.
+        success: { 50: '#F0F6FB', 100: '#D9E8F5', 600: '#005A9C', 700: '#004A82' },
+        warning: { 50: '#F0F6FB', 100: '#D9E8F5', 600: '#1A74B5', 700: '#003B68' },
+        danger: { 50: '#F0F6FB', 100: '#D9E8F5', 600: '#003B68', 700: '#001A30' },
       },
       boxShadow: {
         '2xs': '0 1px 0 0 rgb(var(--shadow-color) / 0.04)',
         'xs': '0 1px 2px 0 rgb(var(--shadow-color) / 0.06)',
         'soft': '0 4px 20px -2px rgb(var(--shadow-color) / var(--shadow-strength))',
         'soft-lg': '0 12px 32px -6px rgb(var(--shadow-color) / calc(var(--shadow-strength) * 2)), 0 4px 8px -4px rgb(var(--shadow-color) / var(--shadow-strength))',
-        'brand': '0 8px 24px -4px rgba(37, 99, 235, 0.25)',
-        'glow': '0 0 0 1px rgb(59 130 246 / 0.15), 0 6px 20px -4px rgb(59 130 246 / 0.35)',
+        'brand': '0 8px 24px -4px rgba(0, 90, 156, 0.28)',
+        'glow': '0 0 0 1px rgb(0 90 156 / 0.16), 0 4px 14px -4px rgb(0 90 156 / 0.22)',
       }
     },
   },
   plugins: [],
 };
-

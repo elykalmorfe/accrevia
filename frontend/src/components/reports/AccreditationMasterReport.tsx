@@ -3,21 +3,21 @@ import { usePortal } from '../../contexts/PortalContext';
 import { Badge } from '../ui/Badge';
 import { PrinterIcon } from 'lucide-react';
 import { AccreditationReportModal } from '../accreditation/AccreditationReportModal';
-import { CampusId } from '../../types/accreditation';
+import { getReportInstitution } from '../../data/reportTemplates';
 import { isUrl, statusLabel } from '../../utils/programAccreditation';
+import { isoConformance } from '../../utils/reportMetrics';
 
 export function AccreditationMasterReport() {
-  const { campuses, programAccreditations, selectedCampus, setSelectedCampus, selectedCampusObj } = usePortal();
+  const { campuses, filteredPrograms, filteredIsoRecords, selectedCampus, selectedCampusObj } = usePortal();
   const [reportModalOpen, setReportModalOpen] = useState(false);
-
-  const filteredPrograms = useMemo(() => {
-    if (selectedCampus === 'all') return programAccreditations;
-    return programAccreditations.filter((p) => p.campusId === selectedCampus);
-  }, [programAccreditations, selectedCampus]);
+  const university = getReportInstitution().university;
 
   const totalPrograms = filteredPrograms.length;
+  const graduatePrograms = filteredPrograms.filter((p) => p.degreeLevel === 'Graduate').length;
   const compliantCount = filteredPrograms.filter((p) => p.copcStatus === 'Compliant').length;
   const copcPercent = totalPrograms > 0 ? ((compliantCount / totalPrograms) * 100).toFixed(1) : '0';
+  const iso = useMemo(() => isoConformance(filteredIsoRecords), [filteredIsoRecords]);
+  const campusNames = campuses.map((c) => c.shortName);
 
   return (
     <div className="space-y-6">
@@ -33,7 +33,8 @@ export function AccreditationMasterReport() {
               </h2>
             </div>
             <p className="mt-1 text-xs text-ink-muted">
-              Official institutional record of North Eastern Mindanao State University accreditation standing across all 7 campuses.
+              The official list of every program's accreditation level and COPC status at {university}
+              {selectedCampus === 'all' ? `, across all ${campuses.length} campuses.` : `, ${selectedCampusObj?.name}.`}
             </p>
           </div>
 
@@ -57,15 +58,19 @@ export function AccreditationMasterReport() {
             <p className="text-xl font-bold text-ink mt-0.5">
               {selectedCampus === 'all' ? campuses.length : '1'}
             </p>
-            <p className="text-[11px] text-ink-subtle">
-              {selectedCampus === 'all' ? 'Tandag, Cantilan, Cagwait, etc.' : selectedCampusObj?.name || 'Selected Campus'}
+            <p className="text-[11px] text-ink-subtle truncate" title={campusNames.join(', ')}>
+              {selectedCampus === 'all'
+                ? campusNames.length > 3
+                  ? `${campusNames.slice(0, 3).join(', ')} and ${campusNames.length - 3} more`
+                  : campusNames.join(', ')
+                : selectedCampusObj?.name || 'Selected Campus'}
             </p>
           </div>
           <div className="rounded-lg border border-line bg-canvas/60 p-3">
             <span className="text-xs text-ink-muted">Academic Programs</span>
             <p className="text-xl font-bold text-ink mt-0.5">{totalPrograms}</p>
             <p className="text-[11px] text-ink-subtle">
-              {selectedCampus === 'all' ? '64 programs / 80 majors' : `${totalPrograms} programs in this campus`}
+              {totalPrograms - graduatePrograms} undergraduate · {graduatePrograms} graduate
             </p>
           </div>
           <div className="rounded-lg border border-line bg-canvas/60 p-3">
@@ -77,9 +82,11 @@ export function AccreditationMasterReport() {
           </div>
           <div className="rounded-lg border border-line bg-canvas/60 p-3">
             <span className="text-xs text-ink-muted">ISO 9001:2015 QMS</span>
-            <p className="text-xl font-bold text-brand-700 mt-0.5">100%</p>
+            <p className="text-xl font-bold text-brand-700 mt-0.5">{iso.campuses ? `${iso.rate}%` : '—'}</p>
             <p className="text-[11px] text-ink-subtle">
-              {selectedCampus === 'all' ? 'All 7 campuses monitored' : 'Certified surveillance active'}
+              {iso.campuses
+                ? `${iso.conforming} of ${iso.campuses} ${iso.campuses === 1 ? 'campus' : 'campuses'} passed the latest audit`
+                : 'No audit recorded yet'}
             </p>
           </div>
         </div>
@@ -87,25 +94,12 @@ export function AccreditationMasterReport() {
 
       {/* Filter and Table */}
       <div className="panel overflow-hidden">
-        <div className="p-4 border-b border-line flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-canvas/40">
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-ink">Filter by Campus:</label>
-            <select
-              value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value as CampusId | 'all')}
-              className="input h-8 text-xs py-0 w-auto"
-            >
-              <option value="all">All Campuses (Consolidated)</option>
-              {campuses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
+        <div className="p-4 border-b border-line flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between bg-canvas/40">
           <span className="text-xs text-ink-muted">
-            Displaying <strong>{filteredPrograms.length}</strong> programs
+            Use the campus filter at the top of the page to narrow this list.
+          </span>
+          <span className="text-xs text-ink-muted">
+            Showing <strong>{filteredPrograms.length}</strong> programs
           </span>
         </div>
 
@@ -114,14 +108,14 @@ export function AccreditationMasterReport() {
             <thead className="bg-canvas border-b border-line text-ink-muted">
               <tr>
                 <th className="th py-2.5 w-8">#</th>
-                <th className="th py-2.5">Programs Offered</th>
+                <th className="th py-2.5">Program</th>
                 <th className="th py-2.5">Campus</th>
-                <th className="th py-2.5">Initial Op.</th>
-                <th className="th py-2.5">Accreditation Status</th>
-                <th className="th py-2.5">Validity Period</th>
-                <th className="th py-2.5">Certification File</th>
+                <th className="th py-2.5">First offered</th>
+                <th className="th py-2.5">Accreditation level</th>
+                <th className="th py-2.5">Valid from – to</th>
+                <th className="th py-2.5">Certificate</th>
                 <th className="th py-2.5">COPC</th>
-                <th className="th py-2.5">Schedule</th>
+                <th className="th py-2.5">Next survey</th>
                 <th className="th py-2.5">Remarks</th>
               </tr>
             </thead>
@@ -174,6 +168,8 @@ export function AccreditationMasterReport() {
                   <td className="td py-2.5">
                     {p.copcStatus === 'Compliant' ? (
                       <span className="text-success-700 font-medium">Compliant</span>
+                    ) : p.copcStatus === 'Not Applicable' ? (
+                      <span className="text-ink-subtle">Not required</span>
                     ) : (
                       <span className="text-warning-700 font-medium">Pending</span>
                     )}

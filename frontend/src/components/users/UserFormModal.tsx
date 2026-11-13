@@ -117,8 +117,8 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
     >
       <div className="grid gap-4 max-h-[75vh] overflow-y-auto pr-1">
         {error && (
-          <div className="rounded-lg bg-rose-50 border border-rose-200 p-3 flex items-start gap-2.5 text-xs text-rose-800">
-            <AlertTriangleIcon className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
+          <div className="rounded-lg bg-brand-50 border border-brand-200 p-3 flex items-start gap-2.5 text-xs text-brand-800">
+            <AlertTriangleIcon className="h-4 w-4 shrink-0 text-brand-800 mt-0.5" />
             <div>
               <p className="font-semibold">Validation Notice</p>
               <p className="mt-0.5">{error}</p>

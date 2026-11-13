@@ -89,15 +89,7 @@ export function CampusPQAView() {
 
   return (
     <>
-      <PageHeader
-        eyebrow={
-          <span>
-            Accreditation & Frameworks / Quality Excellence
-          </span>
-        }
-        title="Philippine Quality Award (PQA) Framework"
-        description="Campus-level performance excellence evaluation administered and evaluated by the Development Academy of the Philippines (DAP) across 7 Malcolm Baldrige quality dimensions."
-      />
+      <PageHeader title="Philippine Quality Award (PQA) Framework" />
 
       {/* Campus PQA Status Card */}
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
@@ -131,13 +123,13 @@ export function CampusPQAView() {
                 icon: CalendarCheckIcon,
                 label: 'Last Assessment Date',
                 value: readableDate(pqaRecord.lastAssessmentDate),
-                tone: 'bg-emerald-50 text-emerald-600'
+                tone: 'bg-brand-50 text-brand-600'
               },
               {
                 icon: CalendarClockIcon,
                 label: 'Next Cycle Submission',
                 value: pqaRecord.nextAssessmentCycle || '—',
-                tone: 'bg-amber-50 text-amber-600'
+                tone: 'bg-brand-50 text-brand-600'
               }
             ].map((info) => (
               <div key={info.label} className="flex items-start gap-2.5 rounded-xl border border-line bg-canvas/50 p-3">

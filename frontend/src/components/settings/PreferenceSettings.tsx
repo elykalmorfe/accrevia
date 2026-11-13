@@ -17,21 +17,21 @@ export function PreferenceSettings() {
     <div className="space-y-4">
       <SettingsGroup title="Display preferences" description="Saved in this browser.">
         <SettingRow label="Campus on startup" description="Which campus filter is selected when the portal opens.">
-          <select aria-label="Campus on startup" className="input" value={value.startupCampus} onChange={(e) => set({ startupCampus: e.target.value as Preferences['startupCampus'] })}>
+          <select aria-label="Campus on startup" className="input select" value={value.startupCampus} onChange={(e) => set({ startupCampus: e.target.value as Preferences['startupCampus'] })}>
             <option value="remember">Remember my last selection</option>
             <option value="all">All campuses</option>
             {campuses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </SettingRow>
         <SettingRow label="Sidebar on startup" description="On large screens, the menu button next to the logo hides or shows the sidebar.">
-          <select aria-label="Sidebar on startup" className="input" value={value.startupSidebar} onChange={(e) => set({ startupSidebar: e.target.value as Preferences['startupSidebar'] })}>
+          <select aria-label="Sidebar on startup" className="input select" value={value.startupSidebar} onChange={(e) => set({ startupSidebar: e.target.value as Preferences['startupSidebar'] })}>
             <option value="remember">Remember last state</option>
             <option value="expanded">Always shown</option>
             <option value="collapsed">Always hidden</option>
           </select>
         </SettingRow>
         <SettingRow label="Date format">
-          <select aria-label="Date format" className="input" value={value.dateFormat} onChange={(e) => set({ dateFormat: e.target.value as DateFormatOption })}>
+          <select aria-label="Date format" className="input select" value={value.dateFormat} onChange={(e) => set({ dateFormat: e.target.value as DateFormatOption })}>
             {DATE_FORMATS.map((f) => <option key={f} value={f}>{format(today, f)}</option>)}
           </select>
         </SettingRow>

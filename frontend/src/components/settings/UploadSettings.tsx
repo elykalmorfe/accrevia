@@ -75,7 +75,7 @@ export function UploadSettings() {
           </div>
         </SettingRow>
         <SettingRow label="Status of new uploads" description="Pending Review sends files to reviewers first. Approved skips review.">
-          <select aria-label="Status of new uploads" className="input" value={value.newUploadStatus} onChange={(e) => set({ newUploadStatus: e.target.value as UploadReviewStatus })}>
+          <select aria-label="Status of new uploads" className="input select" value={value.newUploadStatus} onChange={(e) => set({ newUploadStatus: e.target.value as UploadReviewStatus })}>
             <option value="Pending Review">Pending Review</option>
             <option value="Approved">Approved automatically</option>
           </select>

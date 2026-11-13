@@ -173,7 +173,7 @@ export function RequestList({
               value={category}
               onChange={(e) => onCategoryChange(e.target.value as RequestCategory | '')}
               aria-label="Filter by request type"
-              className="input h-9 min-h-0 w-auto max-w-[8.5rem] pr-7 text-xs"
+              className="input select select-sm h-9 min-h-0 w-auto max-w-[8.5rem] text-xs hover:border-brand-300"
             >
               <option value="">All types</option>
               {requestCategories.map((c) => (
@@ -250,7 +250,7 @@ export function RequestList({
                           )}
                           <span className="ml-auto flex items-center gap-1.5 text-ink-subtle">
                             {hasAttachments(r) && <PaperclipIcon className="h-3.5 w-3.5" aria-label="Has attachments" />}
-                            {r.starred && <StarIcon className="h-3.5 w-3.5 fill-amber-400 text-amber-500" aria-label="Starred" />}
+                            {r.starred && <StarIcon className="h-3.5 w-3.5 fill-brand-400 text-brand-500" aria-label="Starred" />}
                             {unread && <span className="h-2 w-2 rounded-full bg-brand-600" aria-label="Unread" />}
                           </span>
                         </div>

@@ -187,10 +187,10 @@ export function CertificateFoldersModal({
   };
 
   const summary = (
-    <div className="relative overflow-hidden rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-brand-50 p-4">
-      <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-amber-200/40 blur-2xl" />
+    <div className="relative overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-brand-50 p-4">
+      <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-brand-200/40 blur-2xl" />
       <div className="relative flex flex-wrap items-center gap-x-6 gap-y-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500 text-white shadow-md shadow-amber-500/30">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-500 text-white shadow-md shadow-brand/30">
           <AwardIcon className="h-5 w-5" />
         </span>
         {[

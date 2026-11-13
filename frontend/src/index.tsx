@@ -9,5 +9,5 @@ applyTheme();
 
 const rootEl = document.getElementById("root");
 if (rootEl) {
-  ReactDOM.createRoot(rootEl).render(<App />);
+  ReactDOM.createRoot(rootEl).render(<App viewAs="Superadmin" />);
 }

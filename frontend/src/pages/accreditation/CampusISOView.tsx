@@ -238,7 +238,7 @@ export function CampusISOView() {
                   }`}
                 >
                   {isHistorical ? (
-                    <HistoryIcon className="h-3.5 w-3.5 text-amber-600" />
+                    <HistoryIcon className="h-3.5 w-3.5 text-brand-600" />
                   ) : (
                     <ShieldCheckIcon className="h-3.5 w-3.5 text-brand-600" />
                   )}
@@ -246,7 +246,7 @@ export function CampusISOView() {
                   <span className="text-ink-muted">·</span>
                   <span>{rec.cycle}</span>
                   {isHistorical ? (
-                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                    <span className="rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-800">
                       Preserved
                     </span>
                   ) : (
@@ -263,21 +263,21 @@ export function CampusISOView() {
 
       {/* Preserved Historical Record Callout Banner */}
       {isoRecord.isHistorical && (
-        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50/80 p-4 text-amber-900 shadow-sm flex items-start gap-3.5">
-          <div className="rounded-md bg-amber-100 p-2 text-amber-700 shrink-0">
+        <div className="mb-6 rounded-lg border border-brand-300 bg-brand-50/80 p-4 text-brand-900 shadow-sm flex items-start gap-3.5">
+          <div className="rounded-md bg-brand-100 p-2 text-brand-700 shrink-0">
             <HistoryIcon className="h-5 w-5" />
           </div>
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h4 className="font-bold text-sm text-amber-950">
+              <h4 className="font-bold text-sm text-brand-950">
                 Preserved Historical ISO Standard & Audit Record
               </h4>
               <Badge tone="warning">Preserved · Read-Only</Badge>
-              <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-amber-200/60 text-amber-900">
+              <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-brand-200/60 text-brand-900">
                 {isoRecord.standardVersion || 'ISO 9001:2015'}
               </span>
             </div>
-            <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+            <p className="mt-1 text-xs text-brand-800 leading-relaxed">
               Viewing preserved historical audit record for <strong>{campus.name}</strong> ({isoRecord.cycle}, audited on {isoRecord.auditDate}). As required by quality management policies, all previous ISO standards, surveillance evaluations, and compliance records are retained permanently for institutional accreditation and regulatory audits. Past records are never overwritten or deleted.
             </p>
             {activeRecord && activeRecord.id !== isoRecord.id && (
@@ -285,7 +285,7 @@ export function CampusISOView() {
                 <button
                   type="button"
                   onClick={() => setSelectedRecordId(activeRecord.id)}
-                  className="btn btn-secondary btn-sm text-xs bg-white text-ink border-amber-300 hover:bg-amber-100/50"
+                  className="btn btn-secondary btn-sm text-xs bg-white text-ink border-brand-300 hover:bg-brand-100/50"
                 >
                   Return to Active Audit Cycle ({activeRecord.cycle})
                 </button>
@@ -450,10 +450,10 @@ export function CampusISOView() {
                     {doc.isoStage && (
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border ${
                         doc.isoStage === 'For Surveillance'
-                          ? 'bg-sky-50 text-sky-700 border-sky-200'
+                          ? 'bg-brand-50 text-brand-700 border-brand-200'
                           : doc.isoStage === '2nd Surveillance'
-                          ? 'bg-purple-50 text-purple-700 border-purple-200'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          ? 'bg-brand-50 text-brand-700 border-brand-200'
+                          : 'bg-brand-50 text-brand-700 border-brand-200'
                       }`}>
                         {doc.isoStage}
                       </span>
@@ -600,7 +600,7 @@ export function CampusISOView() {
 
                     {isoRecord.isHistorical ? (
                       <span className="text-xs text-ink-muted italic flex items-center gap-1 shrink-0">
-                        <ArchiveIcon className="h-3.5 w-3.5 text-amber-600" /> Preserved in historical archive
+                        <ArchiveIcon className="h-3.5 w-3.5 text-brand-600" /> Preserved in historical archive
                       </span>
                     ) : !isClosed ? (
                       <button

@@ -13,6 +13,12 @@ dist-ssr
 *.local
 *.timestamp-*
 
+# Imported certificate binaries (regenerate via: npm run import:certs)
+public/certificates/
+.tmp-aaccup-extract/
+.tmp-copc-xlsx/
+.tmp-ratings-extract/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

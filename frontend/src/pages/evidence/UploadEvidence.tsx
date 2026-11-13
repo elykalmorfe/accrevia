@@ -44,12 +44,12 @@ import { usePortalSettings } from '../../settings/portalSettings';
 import { toast } from 'sonner';
 
 const FOLDER_THEMES: Record<FolderColor, { iconBg: string; iconColor: string; tagBg: string; tagText: string; borderHover: string }> = {
-  blue: { iconBg: 'bg-blue-50 text-blue-600 border border-blue-100', iconColor: 'text-blue-600', tagBg: 'bg-blue-50/80', tagText: 'text-blue-700', borderHover: 'hover:border-blue-300' },
-  purple: { iconBg: 'bg-purple-50 text-purple-600 border border-purple-100', iconColor: 'text-purple-600', tagBg: 'bg-purple-50/80', tagText: 'text-purple-700', borderHover: 'hover:border-purple-300' },
-  emerald: { iconBg: 'bg-emerald-50 text-emerald-600 border border-emerald-100', iconColor: 'text-emerald-600', tagBg: 'bg-emerald-50/80', tagText: 'text-emerald-700', borderHover: 'hover:border-emerald-300' },
-  amber: { iconBg: 'bg-amber-50 text-amber-600 border border-amber-100', iconColor: 'text-amber-600', tagBg: 'bg-amber-50/80', tagText: 'text-amber-700', borderHover: 'hover:border-amber-300' },
-  indigo: { iconBg: 'bg-indigo-50 text-indigo-600 border border-indigo-100', iconColor: 'text-indigo-600', tagBg: 'bg-indigo-50/80', tagText: 'text-indigo-700', borderHover: 'hover:border-indigo-300' },
-  rose: { iconBg: 'bg-rose-50 text-rose-600 border border-rose-100', iconColor: 'text-rose-600', tagBg: 'bg-rose-50/80', tagText: 'text-rose-700', borderHover: 'hover:border-rose-300' },
+  blue: { iconBg: 'bg-brand-50 text-brand-600 border border-blue-100', iconColor: 'text-brand-600', tagBg: 'bg-brand-50/80', tagText: 'text-brand-700', borderHover: 'hover:border-brand-300' },
+  purple: { iconBg: 'bg-brand-50 text-brand-600 border border-brand-100', iconColor: 'text-brand-600', tagBg: 'bg-brand-50/80', tagText: 'text-brand-700', borderHover: 'hover:border-brand-300' },
+  emerald: { iconBg: 'bg-brand-50 text-brand-600 border border-brand-100', iconColor: 'text-brand-600', tagBg: 'bg-brand-50/80', tagText: 'text-brand-700', borderHover: 'hover:border-brand-300' },
+  amber: { iconBg: 'bg-brand-50 text-brand-600 border border-brand-100', iconColor: 'text-brand-600', tagBg: 'bg-brand-50/80', tagText: 'text-brand-700', borderHover: 'hover:border-brand-300' },
+  indigo: { iconBg: 'bg-brand-50 text-brand-600 border border-brand-100', iconColor: 'text-brand-600', tagBg: 'bg-brand-50/80', tagText: 'text-brand-700', borderHover: 'hover:border-brand-300' },
+  rose: { iconBg: 'bg-brand-50 text-brand-800 border border-brand-100', iconColor: 'text-brand-800', tagBg: 'bg-brand-50/80', tagText: 'text-brand-900', borderHover: 'hover:border-brand-300' },
   cyan: { iconBg: 'bg-cyan-50 text-cyan-600 border border-cyan-100', iconColor: 'text-cyan-600', tagBg: 'bg-cyan-50/80', tagText: 'text-cyan-700', borderHover: 'hover:border-cyan-300' },
   slate: { iconBg: 'bg-slate-100 text-slate-600 border border-slate-200', iconColor: 'text-slate-600', tagBg: 'bg-slate-100', tagText: 'text-slate-700', borderHover: 'hover:border-slate-300' }
 };
@@ -519,28 +519,28 @@ export function UploadEvidence() {
     const t = (fileType || '').toLowerCase();
     if (t.includes('pdf')) {
       return (
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-rose-50 text-rose-600 font-bold text-[10px] uppercase border border-rose-100 shrink-0">
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-800 font-bold text-[10px] uppercase border border-brand-100 shrink-0">
           PDF
         </span>
       );
     }
     if (t.includes('xls') || t.includes('csv') || t.includes('sheet')) {
       return (
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 text-emerald-600 font-bold text-[10px] uppercase border border-emerald-100 shrink-0">
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600 font-bold text-[10px] uppercase border border-brand-100 shrink-0">
           XLSX
         </span>
       );
     }
     if (t.includes('doc') || t.includes('word')) {
       return (
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50 text-blue-600 font-bold text-[10px] uppercase border border-blue-100 shrink-0">
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600 font-bold text-[10px] uppercase border border-blue-100 shrink-0">
           DOCX
         </span>
       );
     }
     if (t.includes('ppt') || t.includes('presentation')) {
       return (
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-amber-50 text-amber-600 font-bold text-[10px] uppercase border border-amber-100 shrink-0">
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600 font-bold text-[10px] uppercase border border-brand-100 shrink-0">
           PPTX
         </span>
       );
@@ -633,8 +633,8 @@ export function UploadEvidence() {
                     {currentFolder.code}
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-200">
-                  <FolderIcon className="h-3 w-3 text-amber-600" />
+                <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-800 border border-brand-200">
+                  <FolderIcon className="h-3 w-3 text-brand-600" />
                   <span>Subfolder</span>
                 </span>
               </div>
@@ -741,7 +741,7 @@ export function UploadEvidence() {
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs transition-all duration-200 hover:border-slate-300 hover:shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Evidence Folders</span>
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100/70 shadow-2xs">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-600 border border-blue-100/70 shadow-2xs">
                   <FolderIcon className="h-4.5 w-4.5" />
                 </span>
               </div>
@@ -757,7 +757,7 @@ export function UploadEvidence() {
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs transition-all duration-200 hover:border-slate-300 hover:shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Indexed Documents</span>
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100/70 shadow-2xs">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-600 border border-brand-100/70 shadow-2xs">
                   <FileTextIcon className="h-4.5 w-4.5" />
                 </span>
               </div>
@@ -778,7 +778,7 @@ export function UploadEvidence() {
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs transition-all duration-200 hover:border-slate-300 hover:shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Storage Volume</span>
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-purple-50 text-purple-600 border border-purple-100/70 shadow-2xs">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-50 text-brand-600 border border-brand-100/70 shadow-2xs">
                   <HardDriveIcon className="h-4.5 w-4.5" />
                 </span>
               </div>
@@ -802,7 +802,7 @@ export function UploadEvidence() {
                 <span
                   className={`grid h-9 w-9 place-items-center rounded-xl border shadow-2xs ${
                     selectedCampus === 'all'
-                      ? 'bg-amber-50 text-amber-600 border-amber-100/70'
+                      ? 'bg-brand-50 text-brand-600 border-brand-100/70'
                       : 'bg-brand-50 text-brand-600 border-brand-100/70'
                   }`}
                 >
@@ -947,7 +947,7 @@ export function UploadEvidence() {
                         onClick={() => setFolder(folder.id)}
                         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-canvas"
                       >
-                        <FolderIcon className="h-8 w-8 shrink-0 fill-amber-100 text-amber-400" strokeWidth={1.5} />
+                        <FolderIcon className="h-8 w-8 shrink-0 fill-brand-100 text-brand-400" strokeWidth={1.5} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-semibold text-ink">{folder.name}</span>
                           <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-muted">
@@ -985,7 +985,7 @@ export function UploadEvidence() {
                         >
                           <td>
                             <div className="flex items-center gap-3">
-                              <FolderIcon className="h-7 w-7 shrink-0 fill-amber-100 text-amber-400" strokeWidth={1.5} />
+                              <FolderIcon className="h-7 w-7 shrink-0 fill-brand-100 text-brand-400" strokeWidth={1.5} />
                               <div className="min-w-0">
                                 <p className="font-semibold text-ink text-xs sm:text-[13px] truncate">{folder.name}</p>
                                 <p className="text-[11px] text-ink-muted truncate max-w-sm">{folder.description}</p>
@@ -1067,13 +1067,13 @@ export function UploadEvidence() {
                     </span>
                   )}
                   {isCurrentRoot ? (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
-                      <CheckCircle2Icon className="h-3 w-3 text-emerald-600" />
+                    <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 border border-brand-200">
+                      <CheckCircle2Icon className="h-3 w-3 text-brand-600" />
                       <span>Active Repository</span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-200">
-                      <FolderIcon className="h-3 w-3 text-amber-600" />
+                    <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-800 border border-brand-200">
+                      <FolderIcon className="h-3 w-3 text-brand-600" />
                       <span>Subfolder</span>
                     </span>
                   )}
@@ -1120,13 +1120,13 @@ export function UploadEvidence() {
             {/* Quick Switchers: Campus & Framework/Subfolder Jump */}
             <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
               {/* Quick Campus Switcher inside folder */}
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg text-xs">
-                <Building2Icon className="h-3.5 w-3.5 text-slate-400" />
-                <span className="text-slate-400 hidden md:inline">Campus:</span>
+              <div className="relative">
+                <Building2Icon className="pointer-events-none absolute left-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" />
                 <select
                   value={selectedCampus}
                   onChange={(e) => setSelectedCampus(e.target.value as any)}
-                  className="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer"
+                  aria-label="Filter by campus"
+                  className="input select select-sm h-9 w-auto min-w-[9rem] pl-8 text-xs font-semibold hover:border-brand-300"
                 >
                   <option value="all">All Campuses</option>
                   {campuses.map((c) => (
@@ -1147,7 +1147,7 @@ export function UploadEvidence() {
                       setActiveSubfolderFilter('all');
                       setFolder(e.target.value);
                     }}
-                    className="input h-8.5 text-xs py-1 pr-7 w-full sm:w-52 bg-slate-50 border-slate-200 rounded-lg font-medium"
+                    className="input select select-sm h-9 w-full text-xs font-medium hover:border-brand-300 sm:w-52"
                   >
                     {rootFrameworkFolders.map((f) => (
                       <option key={f.id} value={f.id}>
@@ -1162,7 +1162,7 @@ export function UploadEvidence() {
                   <select
                     value={currentFolder.id}
                     onChange={(e) => setFolder(e.target.value)}
-                    className="input h-8.5 text-xs py-1 pr-7 w-full sm:w-56 bg-slate-50 border-slate-200 rounded-lg font-medium"
+                    className="input select select-sm h-9 w-full text-xs font-medium hover:border-brand-300 sm:w-56"
                   >
                     {siblingSubfolders.map((sib) => (
                       <option key={sib.id} value={sib.id}>
@@ -1214,7 +1214,7 @@ export function UploadEvidence() {
                   onClick={() => setRepoFilter('folders')}
                   className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
                     repoFilter === 'folders'
-                      ? 'bg-amber-600 text-white shadow-2xs font-bold'
+                      ? 'bg-brand-600 text-white shadow-2xs font-bold'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
                   }`}
                 >
@@ -1288,7 +1288,7 @@ export function UploadEvidence() {
             <div className="space-y-3">
               <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-2 w-2 rounded-full bg-amber-500" />
+                  <span className="flex h-2 w-2 rounded-full bg-brand-500" />
                   <span className="text-xs font-bold text-slate-800 tracking-wide uppercase">
                     Subfolders in {parentFrameworkFolder?.code || currentFolder.code} ({insideSubfolders.length})
                   </span>
@@ -1423,7 +1423,7 @@ export function UploadEvidence() {
                   <select
                     value={docSort}
                     onChange={(e) => setDocSort(e.target.value as any)}
-                    className="input h-8.5 text-xs pr-7 py-1 w-full sm:w-48 bg-slate-50 border-slate-200 rounded-lg shrink-0 font-medium"
+                    className="input select select-sm h-9 w-full shrink-0 text-xs font-medium hover:border-brand-300 sm:w-48"
                   >
                     <option value="newest">Sort: Newest First</option>
                     <option value="oldest">Sort: Oldest First</option>
@@ -1689,7 +1689,7 @@ export function UploadEvidence() {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <FolderArchiveIcon className="h-4 w-4 text-amber-600" />
+                <FolderArchiveIcon className="h-4 w-4 text-brand-600" />
                 <span>Entire Folder</span>
               </button>
             </div>
@@ -1704,7 +1704,7 @@ export function UploadEvidence() {
                 <select
                   value={selectedDestinationFolderId}
                   onChange={(e) => setSelectedDestinationFolderId(e.target.value)}
-                  className="input text-xs w-full bg-white border-slate-300"
+                  className="input select h-9 w-full text-xs hover:border-brand-300"
                 >
                   <option value={currentFolder?.id || ''}>
                     Root {currentFolder?.name || 'Framework Repository'} (General Repository)
@@ -1829,7 +1829,7 @@ export function UploadEvidence() {
                 <select
                   value={editDocType}
                   onChange={(e) => setEditDocType(e.target.value as DocumentType)}
-                  className="input text-xs w-full bg-white"
+                  className="input select w-full text-xs hover:border-brand-300"
                 >
                   <option value="Report">Report</option>
                   <option value="Certificate">Certificate</option>
@@ -1866,7 +1866,7 @@ export function UploadEvidence() {
                 <select
                   value={editDocFolderId}
                   onChange={(e) => setEditDocFolderId(e.target.value)}
-                  className="input text-xs w-full bg-white"
+                  className="input select w-full text-xs hover:border-brand-300"
                 >
                   <option value={currentFolder?.id || editingDoc?.folderId || ''}>
                     Root {currentFolder?.name || 'Framework Repository'} (General Repository)

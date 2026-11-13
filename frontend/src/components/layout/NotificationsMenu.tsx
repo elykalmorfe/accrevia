@@ -27,11 +27,11 @@ export function NotificationsMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Notifications, ${notifications.length} new`}
-        className="btn btn-ghost btn-icon relative h-9 w-9 min-h-0 min-w-0 text-ink-muted hover:text-ink">
+        className="btn btn-ghost btn-icon relative h-9 w-9 min-h-0 min-w-0">
         
         <BellIcon className="h-[18px] w-[18px]" />
         {notifications.length > 0 && (
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger-600 ring-2 ring-surface" aria-hidden="true" />
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-600 ring-2 ring-surface" aria-hidden="true" />
         )}
       </button>
       <AnimatePresence>
