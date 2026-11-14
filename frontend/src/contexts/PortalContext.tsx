@@ -5,7 +5,8 @@ import { seedMockDocuments } from '../data/mockDocuments';
 import { areas as initialAreas } from '../data/areas';
 import { criteria as initialCriteria } from '../data/criteria';
 import { indicators as initialIndicators } from '../data/indicators';
-import { users as initialUsers } from '../data/users';
+import { users as initialUsers, PORTAL_USERS_SEED_VERSION } from '../data/users';
+import { DEFAULT_SUPERADMIN_ID } from '../utils/auth';
 import {
   campuses as initialCampuses,
   initialCampusIA,
@@ -176,13 +177,13 @@ interface PortalContextValue {
 const PortalContext = createContext<PortalContextValue | null>(null);
 
 const viewAsUserId: Record<PortalViewRole, string> = {
-  Superadmin: 'u-00',
-  Administrator: 'u-01',
-  'QA Personnel': 'u-02',
-  Faculty: 'u-07',
-  Staff: 'u-13',
-  Accreditor: 'u-11',
-  User: 'u-16'
+  Superadmin: DEFAULT_SUPERADMIN_ID,
+  Administrator: DEFAULT_SUPERADMIN_ID,
+  'QA Personnel': DEFAULT_SUPERADMIN_ID,
+  Faculty: DEFAULT_SUPERADMIN_ID,
+  Staff: DEFAULT_SUPERADMIN_ID,
+  Accreditor: DEFAULT_SUPERADMIN_ID,
+  User: DEFAULT_SUPERADMIN_ID
 };
 
 function upsert<T extends { id: string }>(list: T[], item: T): T[] {
@@ -237,7 +238,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   });
   const [pending, setPending] = useState<PendingDocument[]>([]);
   const [users, setUsers] = useState<PortalUser[]>(() => {
-    return loadStorage<PortalUser[]>('portal_users', initialUsers);
+    return loadVersionedStorage('portal_users', initialUsers, PORTAL_USERS_SEED_VERSION);
   });
 
   useEffect(() => {
@@ -249,7 +250,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   );
   const [notifications, setNotifications] = useState<PortalNotification[]>(() => loadStorage('notifications', []));
   const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>(() =>
-    loadStorage<DocumentRequest[]>('document_requests', initialDocumentRequests)
+    loadVersionedStorage('document_requests', initialDocumentRequests, 'document-requests-v2-empty')
   );
   const [accessLog, setAccessLog] = useState<AccessLogEntry[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -477,7 +478,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   }, [isoRecords, selectedCampus]);
 
   const [activeUserId, setActiveUserId] = useState<string>(() => {
-    return loadStorage<string>('active_user_id', viewAsUserId[viewAs] || 'u-01');
+    return loadStorage<string>('active_user_id', viewAsUserId[viewAs] || DEFAULT_SUPERADMIN_ID);
   });
 
   const session = useSessionAccount();

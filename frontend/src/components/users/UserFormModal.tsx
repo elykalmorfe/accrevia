@@ -4,6 +4,7 @@ import { TextField } from '../ui/TextField';
 import { SelectField } from '../ui/SelectField';
 import { PortalUser, UserRole, UserStatus } from '../../types/user';
 import { SYSTEM_FEATURES, ALL_FEATURE_IDS } from '../../data/features';
+import { managedAdminRoles } from '../../data/options';
 import {
   AlertCircleIcon,
   CheckIcon,
@@ -118,10 +119,10 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
 
   const handleRoleChange = (role: UserRole) => {
     setForm((f) => ({ ...f, role }));
-    if (role === 'Superadmin') {
-      setSelectedFeatures(ALL_FEATURE_IDS);
-    }
   };
+
+  const roleOptions =
+    user?.role === 'Superadmin' ? (['Superadmin'] as UserRole[]) : [...managedAdminRoles];
 
   const handleCopyPassword = () => {
     if (!form.password) return;
@@ -213,11 +214,11 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
       open={open}
       onClose={onClose}
       size="lg"
-      title={user ? 'Edit User & Permissions' : 'Register / Add User'}
+      title={user ? 'Edit Administrator' : 'Add Administrator'}
       description={
         user
-          ? 'Update credentials, administrative role, and permitted system features.'
-          : 'Create a new institutional administrator with verified credentials and tailored feature access.'
+          ? 'Update credentials, role, and permitted system features.'
+          : 'Create an Administrator account. Faculty and Staff must self-register and wait for approval.'
       }
       footer={
         <>
@@ -429,7 +430,7 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
           required
           value={form.role}
           onChange={(role) => handleRoleChange(role as UserRole)}
-          options={['Administrator', 'Superadmin']}
+          options={roleOptions}
         />
 
         {/* 5. Module & Feature Permissions */}

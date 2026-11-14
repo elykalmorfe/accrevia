@@ -24,6 +24,7 @@ import { Badge, BadgeTone } from '../components/ui/Badge';
 import { RowActionsMenu, RowAction } from '../components/ui/RowActionsMenu';
 import { Modal } from '../components/ui/Modal';
 import { UserFormModal } from '../components/users/UserFormModal';
+import { provisionManagedAccount, syncAccountApproval } from '../utils/auth';
 
 const statusTone: Record<UserStatus, BadgeTone> = {
   Active: 'success',
@@ -34,7 +35,8 @@ const statusTone: Record<UserStatus, BadgeTone> = {
 };
 
 export function UserManagement() {
-  const { users: list, saveUser, setUserStatus: updateUserStatus, switchUser } = usePortal();
+  const { users: list, saveUser, setUserStatus: updateUserStatus, switchUser, currentUser } = usePortal();
+  const isSuperadmin = currentUser.role === 'Superadmin';
   const [activeTab, setActiveTab] = useState<'users' | 'approvals'>('users');
   const [text, setText] = useState('');
   const [role, setRole] = useState('');
@@ -71,30 +73,55 @@ export function UserManagement() {
 
   const save = (user: PortalUser) => {
     const exists = list.some((u) => u.id === user.id);
-    saveUser(user);
-    const featureCount = user.allowedFeatures?.length ?? 13;
-    toast.success(
-      exists
-        ? `User "${user.name}" updated`
-        : `Account created for ${user.name}`,
-      {
-        description: user.temporaryPassword
-          ? `Temporary password: ${user.temporaryPassword} · ${featureCount} features permitted`
-          : `${featureCount} features permitted`,
-        duration: 9000,
-        action: {
-          label: 'Sign In As User',
-          onClick: () => {
-            switchUser(user.id);
-            toast.success(`Active workspace switched to ${user.name}`);
+    const finish = () => {
+      saveUser(user);
+      const featureCount = user.allowedFeatures?.length ?? 13;
+      toast.success(
+        exists
+          ? `Administrator "${user.name}" updated`
+          : `Administrator account created for ${user.name}`,
+        {
+          description: user.temporaryPassword
+            ? `Temporary password: ${user.temporaryPassword} · ${featureCount} features permitted`
+            : `${featureCount} features permitted`,
+          duration: 9000,
+          action: {
+            label: 'Sign In As User',
+            onClick: () => {
+              switchUser(user.id);
+              toast.success(`Active workspace switched to ${user.name}`);
+            }
           }
         }
-      }
-    );
+      );
+    };
+
+    if (
+      (user.role === 'Administrator' || user.role === 'Superadmin') &&
+      user.temporaryPassword
+    ) {
+      void provisionManagedAccount({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role === 'Superadmin' ? 'Superadmin' : 'Administrator',
+        temporaryPassword: user.temporaryPassword
+      })
+        .then(finish)
+        .catch(() => {
+          toast.error('Could not provision login credentials. Please try again.');
+        });
+      return;
+    }
+
+    finish();
   };
 
   const setUserStatus = (user: PortalUser, next: UserStatus) => {
     updateUserStatus(user.id, next);
+    if (next === 'Active') syncAccountApproval(user.email, 'approved');
+    if (next === 'Rejected') syncAccountApproval(user.email, 'rejected');
+    if (next === 'Pending Approval') syncAccountApproval(user.email, 'pending');
     toast(
       next === 'Deactivated'
         ? `${user.name} has been deactivated`
@@ -109,9 +136,11 @@ export function UserManagement() {
       ...user,
       status: 'Active',
       affiliationVerified: true,
+      approvedBy: currentUser.name,
       approvedAt: new Date().toISOString()
     };
     saveUser(updated);
+    syncAccountApproval(user.email, 'approved');
     toast.success(`NEMSU Affiliation Verified: ${user.name} is now approved and active`);
   };
 
@@ -121,6 +150,7 @@ export function UserManagement() {
       status: 'Rejected'
     };
     saveUser(updated);
+    syncAccountApproval(user.email, 'rejected');
     toast.error(`Registration for ${user.name} was rejected`);
   };
 
@@ -133,14 +163,19 @@ export function UserManagement() {
           switchUser(u.id);
           toast.success(`Active workspace switched to ${u.name}`);
         }
-      },
-      { label: 'Edit user & permissions', icon: PencilIcon, onSelect: () => setModal({ open: true, user: u }) },
-      {
-        label: 'Reset password',
-        icon: KeyRoundIcon,
-        onSelect: () => toast.success(`Password reset instructions sent to ${u.email}`)
       }
     ];
+
+    if (isSuperadmin && (u.role === 'Administrator' || u.role === 'Superadmin')) {
+      actions.push(
+        { label: 'Edit administrator', icon: PencilIcon, onSelect: () => setModal({ open: true, user: u }) },
+        {
+          label: 'Reset password',
+          icon: KeyRoundIcon,
+          onSelect: () => toast.success(`Password reset instructions sent to ${u.email}`)
+        }
+      );
+    }
 
     if (u.status === 'Pending Approval') {
       actions.unshift({
@@ -160,7 +195,7 @@ export function UserManagement() {
         icon: UserCheckIcon,
         onSelect: () => setUserStatus(u, 'Active')
       });
-    } else if (u.status === 'Active') {
+    } else if (u.status === 'Active' && u.role !== 'Superadmin') {
       actions.push({
         label: 'Deactivate user',
         icon: UserXIcon,
@@ -179,15 +214,17 @@ export function UserManagement() {
         title="User management"
         description="Manage your people, review registrations, and keep workspace access secure."
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setModal({ open: true, user: null })}
-            >
-              <PlusIcon className="h-4 w-4" /> Add User
-            </button>
-          </div>
+          isSuperadmin ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setModal({ open: true, user: null })}
+              >
+                <PlusIcon className="h-4 w-4" /> Add Administrator
+              </button>
+            </div>
+          ) : undefined
         }
       />
 

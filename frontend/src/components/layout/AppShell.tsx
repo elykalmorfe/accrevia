@@ -10,7 +10,7 @@ import { easeOut } from '../../utils/motion';
 import { usePortal } from '../../contexts/PortalContext';
 import { usePortalSettings } from '../../settings/portalSettings';
 import { useTheme } from '../../hooks/useTheme';
-import { useSessionAccount } from '../../utils/auth';
+import { DEFAULT_SUPERADMIN_ID, useSessionAccount } from '../../utils/auth';
 
 export function AppShell() {
   const { sidebarCollapsed, toggleSidebar, currentUser, switchUser } = usePortal();
@@ -113,7 +113,7 @@ export function AppShell() {
         </AnimatePresence>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {currentUser.id !== 'u-01' && currentUser.id !== 'u-00' && (
+          {currentUser.id !== DEFAULT_SUPERADMIN_ID && (
             <div className="bg-brand-700 text-white text-xs py-1.5 px-4 flex items-center justify-between shadow-xs z-30">
               <div className="flex items-center gap-2 truncate">
                 <span className="font-semibold">Active Session:</span>
@@ -126,12 +126,12 @@ export function AppShell() {
               <button
                 type="button"
                 onClick={() => {
-                  switchUser('u-01');
-                  toast.success('Returned to Administrator account');
+                  switchUser(DEFAULT_SUPERADMIN_ID);
+                  toast.success('Returned to Superadmin account');
                 }}
                 className="text-xs py-0.5 px-2.5 rounded bg-white/15 hover:bg-white/25 text-white transition-colors shrink-0 font-medium ml-2"
               >
-                Return to Admin
+                Return to Superadmin
               </button>
             </div>
           )}

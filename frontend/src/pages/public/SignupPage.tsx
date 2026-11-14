@@ -9,14 +9,12 @@ import {
 } from '../../components/auth/AuthLayout';
 import {
   addAccount,
-  defaultPostLoginPath,
   findAccountByEmail,
   hashPassword,
   initializeAuthStore,
   isSelfRegisterRole,
   sanitizeSelfRegisterRole,
   SELF_REGISTER_ROLES,
-  startSession,
   upsertPortalUserFromAccount
 } from '../../utils/auth';
 
@@ -47,10 +45,10 @@ const STEPS = [
 ] as const;
 
 const passwordFieldClass =
-  'block h-11 w-full rounded-[11px] border border-slate-200 bg-slate-50 py-0 pl-3 pr-11 text-sm text-[#0F172A] placeholder:text-slate-400 transition focus:border-[#1D4ED8] focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100';
+  'input h-11 rounded-[11px] border-line bg-canvas py-0 pl-3 pr-11 text-sm text-ink placeholder:text-ink-subtle focus:bg-surface';
 
 const secondaryButtonClass =
-  'inline-flex h-12 flex-1 items-center justify-center gap-1.5 rounded-[12px] border border-slate-200 bg-white px-4 text-[15px] font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
+  'btn btn-secondary inline-flex h-12 flex-1 items-center justify-center gap-1.5 rounded-[12px] text-[15px] font-semibold disabled:cursor-not-allowed disabled:opacity-50';
 
 export function SignupPage() {
   const navigate = useNavigate();
@@ -222,6 +220,7 @@ export function SignupPage() {
           email: normalizedEmail,
           passwordHash: await hashPassword(form.password),
           role,
+          approvalStatus: 'pending' as const,
           createdAt: new Date().toISOString(),
           acceptedTermsVersion: TERMS_VERSION,
           acceptedTermsTimestamp: new Date().toISOString()
@@ -229,9 +228,14 @@ export function SignupPage() {
 
         addAccount(userRecord);
         upsertPortalUserFromAccount(userRecord);
-        startSession(userRecord);
         setIsSubmitting(false);
-        navigate(defaultPostLoginPath(role), { replace: true });
+        navigate('/login', {
+          replace: true,
+          state: {
+            registrationPending:
+              'Your account was submitted for approval. A Superadmin or Administrator must approve it before you can sign in.'
+          }
+        });
       } catch {
         setErrors({ general: 'We could not create your account right now. Please try again.' });
         setIsSubmitting(false);
@@ -242,12 +246,12 @@ export function SignupPage() {
   return (
     <AuthLayout>
       <header className="mb-5">
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]">Join ACCREVIA</p>
-        <h1 className="mt-1.5 text-[1.65rem] font-bold tracking-tight text-[#0F172A] sm:text-[1.8rem]">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-700">Join ACCREVIA</p>
+        <h1 className="mt-1.5 text-[1.65rem] font-bold tracking-tight text-ink sm:text-[1.8rem]">
           Create your account
         </h1>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-[#64748B] sm:text-sm">
-          Register using your official NEMSU institutional email to access accreditation resources.
+        <p className="mt-1.5 text-[13px] leading-relaxed text-ink-muted sm:text-sm">
+          Register with your official NEMSU email as Faculty or Staff. Your account must be approved before you can sign in.
         </p>
       </header>
 
@@ -272,17 +276,17 @@ export function SignupPage() {
                   <span
                     className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-bold transition ${
                       completed
-                        ? 'bg-[#1D4ED8] text-white'
+                        ? 'bg-brand-600 text-white'
                         : active
-                          ? 'bg-[#1D4ED8] text-white ring-4 ring-blue-100'
-                          : 'border border-slate-200 bg-slate-50 text-slate-500'
+                          ? 'bg-brand-600 text-white ring-4 ring-brand-500/20'
+                          : 'border border-line bg-canvas text-ink-subtle'
                     }`}
                   >
                     {completed ? <Check className="h-4 w-4" strokeWidth={2.5} /> : item.short}
                   </span>
                   <span
                     className={`truncate text-[11px] font-semibold ${
-                      active || completed ? 'text-[#1D4ED8]' : 'text-slate-500'
+                      active || completed ? 'text-brand-700' : 'text-ink-subtle'
                     }`}
                   >
                     {item.label}
@@ -292,7 +296,7 @@ export function SignupPage() {
                   <span
                     aria-hidden="true"
                     className={`mx-1 mb-5 h-0.5 w-full max-w-[2.75rem] shrink rounded-full sm:max-w-[3.5rem] ${
-                      item.id < step ? 'bg-[#1D4ED8]' : 'bg-slate-200'
+                      item.id < step ? 'bg-brand-600' : 'bg-line'
                     }`}
                   />
                 )}
@@ -482,14 +486,14 @@ export function SignupPage() {
                     setAcceptedTerms(e.target.checked);
                     setErrors((current) => ({ ...current, general: undefined }));
                   }}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#1D4ED8] focus:ring-[#1D4ED8]"
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-700 focus:ring-[#1D4ED8]"
                 />
                 <span>
                   I agree to the{' '}
                   <button
                     type="button"
                     onClick={() => setShowTermsModal(true)}
-                    className="font-semibold text-[#1D4ED8] underline underline-offset-2"
+                    className="font-semibold text-brand-700 underline underline-offset-2"
                   >
                     Terms and Conditions
                   </button>{' '}
@@ -497,7 +501,7 @@ export function SignupPage() {
                   <button
                     type="button"
                     onClick={() => setShowTermsModal(true)}
-                    className="font-semibold text-[#1D4ED8] underline underline-offset-2"
+                    className="font-semibold text-brand-700 underline underline-offset-2"
                   >
                     Privacy Policy
                   </button>
@@ -550,31 +554,31 @@ export function SignupPage() {
         </div>
       </form>
 
-      <p className="mt-5 text-center text-[13px] text-[#64748B]">
+      <p className="mt-5 text-center text-[13px] text-ink-muted">
         Already have an account?{' '}
-        <Link to="/login" className="font-semibold text-[#1D4ED8] transition hover:text-[#163A75]">
+        <Link to="/login" className="font-semibold text-brand-700 transition hover:text-brand-800">
           Sign In
         </Link>
       </p>
 
       {showTermsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-[1.25rem] bg-white p-6 shadow-2xl">
+          <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-[1.25rem] border border-line bg-surface p-6 shadow-soft-lg">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#1D4ED8]">Terms & Privacy</p>
-                <h3 className="mt-2 text-2xl font-bold text-[#0F172A]">Accrevia Terms and Conditions</h3>
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">Terms & Privacy</p>
+                <h3 className="mt-2 text-2xl font-bold text-ink">Accrevia Terms and Conditions</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowTermsModal(false)}
-                className="rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                className="rounded-full border border-line px-3 py-1.5 text-sm font-medium text-ink-muted transition hover:border-line-strong hover:text-ink"
               >
                 Close
               </button>
             </div>
 
-            <div className="mt-6 space-y-5 text-sm leading-7 text-slate-600">
+            <div className="mt-6 space-y-5 text-sm leading-7 text-ink-muted">
               <p>
                 <strong>Version:</strong> {TERMS_VERSION}
               </p>
@@ -583,7 +587,7 @@ export function SignupPage() {
               </p>
 
               <div>
-                <p className="font-semibold text-slate-900">1. Account Registration and Eligibility</p>
+                <p className="font-semibold text-ink">1. Account Registration and Eligibility</p>
                 <p>
                   Users must be authorized personnel, faculty members, staff, or designated institutional evaluators of
                   North Eastern Mindanao State University (NEMSU), or other approved stakeholders involved in
@@ -592,7 +596,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">2. User Responsibilities</p>
+                <p className="font-semibold text-ink">2. User Responsibilities</p>
                 <p>
                   Users are responsible for maintaining the integrity of their account credentials, ensuring accurate
                   information, and using the platform for authorized institutional purposes only.
@@ -600,7 +604,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">3. Acceptable Use of the System</p>
+                <p className="font-semibold text-ink">3. Acceptable Use of the System</p>
                 <p>
                   Accrevia must be used only for institutional accreditation evidence management, document retrieval, and
                   other quality assurance functions approved by NEMSU.
@@ -608,7 +612,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">4. Document Uploading and Management</p>
+                <p className="font-semibold text-ink">4. Document Uploading and Management</p>
                 <p>
                   Users may upload and manage documents related to accreditation and institutional quality assurance,
                   provided such materials are accurate, relevant, and aligned with official policies.
@@ -616,7 +620,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">5. Confidentiality of Accreditation Evidence</p>
+                <p className="font-semibold text-ink">5. Confidentiality of Accreditation Evidence</p>
                 <p>
                   Accreditation documents and supporting records may contain institutional, personal, or sensitive
                   information. Users must handle them in accordance with relevant institutional rules and confidentiality
@@ -625,7 +629,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">6. Data Privacy and Personal Information</p>
+                <p className="font-semibold text-ink">6. Data Privacy and Personal Information</p>
                 <p>
                   Accrevia is designed to support the secure management of accreditation-related information in compliance
                   with the Data Privacy Act of 2012 (Republic Act No. 10173) and related implementing rules and
@@ -635,7 +639,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">7. Account Security</p>
+                <p className="font-semibold text-ink">7. Account Security</p>
                 <p>
                   Users must not share their credentials, allow unauthorized access, or attempt to circumvent system
                   security controls. NEMSU reserves the right to suspend or revoke access for policy violations.
@@ -643,7 +647,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">8. Intellectual Property</p>
+                <p className="font-semibold text-ink">8. Intellectual Property</p>
                 <p>
                   Documents, templates, and records uploaded to Accrevia remain subject to applicable institutional
                   ownership, data governance, and intellectual property policies unless otherwise indicated.
@@ -651,7 +655,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">9. Unauthorized Access and Prohibited Activities</p>
+                <p className="font-semibold text-ink">9. Unauthorized Access and Prohibited Activities</p>
                 <p>
                   Any attempt to access, modify, or distribute evidence outside authorized roles, or to interfere with
                   system services, is strictly prohibited.
@@ -659,7 +663,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">10. Account Suspension or Termination</p>
+                <p className="font-semibold text-ink">10. Account Suspension or Termination</p>
                 <p>
                   NEMSU may suspend, restrict, or terminate an account when there is evidence of misuse, non-compliance,
                   or reports of unauthorized access.
@@ -667,7 +671,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">11. System Availability and Limitations</p>
+                <p className="font-semibold text-ink">11. System Availability and Limitations</p>
                 <p>
                   The system is provided on an as-available basis, and while reasonable service levels are maintained,
                   NEMSU does not guarantee uninterrupted access or error-free operation.
@@ -675,7 +679,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">12. Amendments to the Terms and Conditions</p>
+                <p className="font-semibold text-ink">12. Amendments to the Terms and Conditions</p>
                 <p>
                   These terms may be updated from time to time to reflect institutional policy, legal requirements, system
                   changes, or user needs. Continued use of the platform after updates constitutes acceptance of the
@@ -684,7 +688,7 @@ export function SignupPage() {
               </div>
 
               <div>
-                <p className="font-semibold text-slate-900">13. Contact Information</p>
+                <p className="font-semibold text-ink">13. Contact Information</p>
                 <p>
                   For privacy concerns, account support, or policy clarification, contact the NEMSU Quality Assurance
                   Office at qa-office@nemsu.edu.ph or the designated institutional admin contact.
@@ -700,7 +704,7 @@ export function SignupPage() {
                   setErrors((current) => ({ ...current, general: undefined }));
                   setShowTermsModal(false);
                 }}
-                className="inline-flex items-center gap-2 rounded-full bg-[#1D4ED8] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/15 transition hover:bg-[#163A75]"
+                className="btn btn-primary inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold"
               >
                 <UserRound className="h-4 w-4" />
                 I agree to these terms

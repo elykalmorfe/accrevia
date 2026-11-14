@@ -1,4 +1,4 @@
-﻿/* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
+/* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap');
 
 /* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
@@ -583,14 +583,30 @@ body {
    ========================================= */
 
 .landing-header {
-  border-color: rgba(226, 232, 240, 0.9);
-  background-color: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  border-color: rgb(var(--line) / 0.9);
+  background-color: rgb(var(--surface) / 0.96);
+  box-shadow: 0 1px 3px 0 rgb(var(--shadow-color) / var(--shadow-strength));
+}
+
+.landing-header--glass {
+  border-color: rgba(255, 255, 255, 0.14);
+  background-color: rgba(8, 24, 56, 0.28);
+  box-shadow: none;
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+}
+
+.landing-header--solid {
+  border-color: rgb(var(--line) / 0.9);
+  background-color: rgb(var(--surface) / 0.96);
+  box-shadow: 0 1px 3px 0 rgb(var(--shadow-color) / var(--shadow-strength));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .landing-hero {
   isolation: isolate;
-  min-height: max(700px, calc(100svh - 76px));
+  min-height: max(700px, 100svh);
   background-color: #071839;
 }
 
@@ -1150,9 +1166,14 @@ body {
 
 .landing-about {
   background:
-    linear-gradient(180deg, #ffffff 0%, #f5f8fc 55%, #eef3f9 100%);
-  border-top: 1px solid rgba(226, 232, 240, 0.9);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.75);
+    linear-gradient(
+      180deg,
+      rgb(var(--surface)) 0%,
+      rgb(var(--canvas)) 55%,
+      rgb(var(--brand-tint)) 100%
+    );
+  border-top: 1px solid rgb(var(--line) / 0.9);
+  border-bottom: 1px solid rgb(var(--line) / 0.75);
 }
 
 .landing-about-inner {
@@ -1198,7 +1219,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #1d4ed8;
+  color: rgb(var(--brand));
 }
 
 .landing-about-heading {
@@ -1208,7 +1229,7 @@ body {
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.03em;
-  color: #0b1f44;
+  color: rgb(var(--ink));
 }
 
 .landing-about-copy {
@@ -1216,7 +1237,7 @@ body {
   max-width: 36rem;
   font-size: clamp(1rem, 0.2vw + 0.95rem, 1.125rem);
   line-height: 1.7;
-  color: #475569;
+  color: rgb(var(--ink-muted));
 }
 
 .landing-about-highlights {
@@ -1225,7 +1246,7 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid rgb(var(--line));
 }
 
 .landing-about-highlight {
@@ -1234,7 +1255,7 @@ body {
   gap: 1rem;
   align-items: flex-start;
   padding: 1.35rem 0;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid rgb(var(--line));
 }
 
 @media (min-width: 768px) {
@@ -1251,10 +1272,10 @@ body {
   height: 2.75rem;
   flex-shrink: 0;
   border-radius: 0.85rem;
-  border: 1.5px solid #93c5fd;
-  background: #f8fbff;
-  color: #1d4ed8;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  border: 1.5px solid rgb(var(--brand) / 0.35);
+  background: rgb(var(--brand-tint));
+  color: rgb(var(--brand-icon));
+  box-shadow: 0 1px 2px rgb(var(--shadow-color) / 0.04);
 }
 
 .landing-about-icon svg {
@@ -1267,14 +1288,14 @@ body {
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.015em;
-  color: #0f172a;
+  color: rgb(var(--ink));
 }
 
 .landing-about-highlight p {
   margin: 0.4rem 0 0;
   font-size: 0.98rem;
   line-height: 1.65;
-  color: #64748b;
+  color: rgb(var(--ink-muted));
 }
 
 @media (max-width: 639px) {
@@ -1404,11 +1425,11 @@ body {
   gap: 0.85rem;
   width: 100%;
   padding: 0.9rem 0.95rem;
-  border: 1px solid rgba(226, 232, 240, 0.7);
+  border: 1px solid rgb(var(--line) / 0.7);
   border-radius: 1rem;
-  background: #ffffff;
+  background: rgb(var(--surface));
   text-align: left;
-  color: #0f172a;
+  color: rgb(var(--ink));
   cursor: pointer;
   transition:
     background 0.22s ease,
@@ -1416,21 +1437,33 @@ body {
     box-shadow 0.22s ease;
 }
 
+.dark .landing-features .feature-nav-item {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
 .feature-nav-item:hover {
-  background: #ffffff;
-  border-color: #93c5fd;
-  box-shadow: 0 8px 20px -16px rgba(15, 23, 42, 0.45);
+  background: rgb(var(--surface));
+  border-color: rgb(var(--brand) / 0.45);
+  box-shadow: 0 8px 20px -16px rgb(var(--shadow-color) / 0.45);
 }
 
 .feature-nav-item:focus-visible {
-  outline: 2px solid #93c5fd;
+  outline: 2px solid rgb(var(--brand-soft));
   outline-offset: 2px;
 }
 
 .feature-nav-item.is-active {
-  background: #ffffff;
-  border-color: #60a5fa;
-  box-shadow: 0 10px 24px -14px rgba(15, 23, 42, 0.45);
+  background: rgb(var(--surface));
+  border-color: rgb(var(--brand));
+  box-shadow: 0 10px 24px -14px rgb(var(--shadow-color) / 0.45);
+}
+
+.dark .landing-features .feature-nav-item:hover,
+.dark .landing-features .feature-nav-item.is-active {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(147, 197, 253, 0.55);
 }
 
 .feature-nav-icon {
@@ -1903,8 +1936,8 @@ body {
    ========================================= */
 
 .landing-activities {
-  background: #ffffff;
-  border-top: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgb(var(--surface));
+  border-top: 1px solid rgb(var(--line) / 0.9);
 }
 
 .landing-activities-inner {
@@ -1952,7 +1985,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #1d4ed8;
+  color: rgb(var(--brand));
 }
 
 .landing-activities-heading {
@@ -1961,7 +1994,7 @@ body {
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.03em;
-  color: #0b1f44;
+  color: rgb(var(--ink));
 }
 
 .landing-activities-copy {
@@ -1969,7 +2002,7 @@ body {
   max-width: 40rem;
   font-size: clamp(1rem, 0.2vw + 0.95rem, 1.125rem);
   line-height: 1.7;
-  color: #475569;
+  color: rgb(var(--ink-muted));
 }
 
 .activities-showcase {

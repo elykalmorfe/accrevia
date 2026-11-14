@@ -9,16 +9,32 @@ const SESSION_EVENT = 'accrevia-session-change';
 const PORTAL_USERS_KEY = 'accrevia_portal_users';
 const BCRYPT_ROUNDS = 12;
 
-export const DEFAULT_ADMIN_ID = 'u-admin';
-export const DEFAULT_ADMIN_EMAIL = 'admin@nemsu.edu.ph';
-/** Development-only seeded QA administrator. Not a shared faculty account. */
-export const DEFAULT_ADMIN_PASSWORD = 'Admin@Accrevia2026';
+export const DEFAULT_SUPERADMIN_ID = 'u-superadmin';
+export const DEFAULT_SUPERADMIN_EMAIL = 'superadmin@nemsu.edu.ph';
+/** Seeded Superadmin password (exact value required by institutional setup). */
+export const DEFAULT_SUPERADMIN_PASSWORD = 'superadmin123';
 
-/** Roles that self-registration may assign. Never includes QA/admin privileges. */
+/** @deprecated Use DEFAULT_SUPERADMIN_* — kept for older imports during transition. */
+export const DEFAULT_ADMIN_ID = DEFAULT_SUPERADMIN_ID;
+export const DEFAULT_ADMIN_EMAIL = DEFAULT_SUPERADMIN_EMAIL;
+export const DEFAULT_ADMIN_PASSWORD = DEFAULT_SUPERADMIN_PASSWORD;
+
+/** Roles that self-registration may assign. Never includes admin privileges. */
 export const SELF_REGISTER_ROLES = ['Faculty', 'Staff'] as const;
 export type SelfRegisterRole = (typeof SELF_REGISTER_ROLES)[number];
 
-export const PRIVILEGED_AUTH_ROLES = ['Superadmin', 'Administrator', 'QA Personnel'] as const;
+export const PRIVILEGED_AUTH_ROLES = ['Superadmin', 'Administrator'] as const;
+
+export type AuthDenialReason = 'invalid' | 'pending' | 'rejected' | 'deactivated';
+
+export class AuthDeniedError extends Error {
+  readonly reason: AuthDenialReason;
+  constructor(reason: AuthDenialReason, message: string) {
+    super(message);
+    this.name = 'AuthDeniedError';
+    this.reason = reason;
+  }
+}
 
 export interface StoredAccount {
   id?: string;
@@ -31,8 +47,11 @@ export interface StoredAccount {
   /** Legacy plain-text password written by older builds; replaced by `passwordHash` on initialization. */
   password?: string;
   isDefaultAdmin?: boolean;
+  isDefaultSuperadmin?: boolean;
   /** Marked when created by local Vite DEV seeding. Never a production account. */
   isDevDemoAccount?: boolean;
+  /** Self-registered accounts stay pending until Superadmin/Admin approval. */
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
   mustChangePassword?: boolean;
   createdAt?: string;
   passwordChangedAt?: string;
@@ -61,7 +80,16 @@ export function defaultPostLoginPath(role: string | undefined | null): string {
  * Sync a registered/signed-in account into the portal user directory used by PortalContext.
  * Prototype-only localStorage bridge — replace with server user provisioning.
  */
-export function upsertPortalUserFromAccount(account: SessionAccount | StoredAccount): void {
+function portalStatusForAccount(account: SessionAccount | StoredAccount): 'Active' | 'Pending Approval' | 'Rejected' {
+  if (account.approvalStatus === 'pending') return 'Pending Approval';
+  if (account.approvalStatus === 'rejected') return 'Rejected';
+  return 'Active';
+}
+
+export function upsertPortalUserFromAccount(
+  account: SessionAccount | StoredAccount,
+  options?: { preserveExistingStatus?: boolean }
+): void {
   if (typeof window === 'undefined') return;
   const id = account.id || `u-reg-${Date.now()}`;
   const name = [account.firstName, account.middleName, account.lastName].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || account.email;
@@ -71,25 +99,50 @@ export function upsertPortalUserFromAccount(account: SessionAccount | StoredAcco
     const raw = window.localStorage.getItem(PORTAL_USERS_KEY);
     const list: Array<Record<string, unknown>> = raw ? (JSON.parse(raw) as Array<Record<string, unknown>>) : [];
     const email = normalizeEmail(account.email);
+    const idx = list.findIndex(
+      (u) => String(u.id) === id || normalizeEmail(String(u.email ?? '')) === email
+    );
+    const existing = idx >= 0 ? list[idx] : null;
+    const status =
+      options?.preserveExistingStatus && existing?.status
+        ? String(existing.status)
+        : portalStatusForAccount(account);
+
     const nextUser = {
       id,
       name,
       email: account.email,
       role,
-      office: role === 'Faculty' || role === 'Staff' ? 'Academic / Administrative Unit' : 'Quality Assurance Office',
-      status: 'Active',
-      lastLogin: new Date().toISOString(),
-      affiliationVerified: false,
-      registeredAt: account.createdAt || new Date().toISOString()
+      office:
+        role === 'Faculty' || role === 'Staff'
+          ? 'Academic / Administrative Unit'
+          : role === 'Superadmin'
+            ? 'Office of the University President'
+            : 'Quality Assurance Office',
+      status,
+      lastLogin: status === 'Active' ? new Date().toISOString() : existing?.lastLogin ?? null,
+      affiliationVerified: status === 'Active' && isPrivilegedAuthRole(role),
+      registeredAt: account.createdAt || (existing?.registeredAt as string) || new Date().toISOString()
     };
-    const idx = list.findIndex(
-      (u) => String(u.id) === id || normalizeEmail(String(u.email ?? '')) === email
-    );
     if (idx >= 0) list[idx] = { ...list[idx], ...nextUser, id: String(list[idx].id || id) };
     else list.unshift(nextUser);
     window.localStorage.setItem(PORTAL_USERS_KEY, JSON.stringify(list));
   } catch {
     // Ignore storage failures in the prototype bridge.
+  }
+}
+
+function readPortalUserStatus(email: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(PORTAL_USERS_KEY);
+    if (!raw) return null;
+    const list = JSON.parse(raw) as Array<{ email?: string; status?: string }>;
+    const target = normalizeEmail(email);
+    const match = list.find((u) => normalizeEmail(String(u.email ?? '')) === target);
+    return match?.status ? String(match.status) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -166,90 +219,53 @@ function sanitizeStoredSession() {
   }
 }
 
-const hasDefaultAdmin = (accounts: StoredAccount[]) =>
-  accounts.some((a) => a.isDefaultAdmin || a.id === DEFAULT_ADMIN_ID || normalizeEmail(String(a.email ?? '')) === DEFAULT_ADMIN_EMAIL);
+async function ensureDefaultSuperadmin() {
+  const passwordHash = await hashPassword(DEFAULT_SUPERADMIN_PASSWORD);
+  // Drop legacy default-admin seed so only Superadmin remains as the bootstrap account.
+  let accounts = readAccounts().filter(
+    (a) =>
+      !(
+        a.isDefaultAdmin ||
+        a.id === 'u-admin' ||
+        normalizeEmail(String(a.email ?? '')) === 'admin@nemsu.edu.ph'
+      )
+  );
 
-async function ensureDefaultAdmin() {
-  if (hasDefaultAdmin(readAccounts())) return;
-  const passwordHash = await hashPassword(DEFAULT_ADMIN_PASSWORD);
-  // Re-check after the async hash: another tab may have seeded it in the meantime.
-  const accounts = readAccounts();
-  if (hasDefaultAdmin(accounts)) return;
-  writeAccounts([
-    ...accounts,
-    {
-      id: DEFAULT_ADMIN_ID,
-      firstName: 'System',
-      lastName: 'Administrator',
-      email: DEFAULT_ADMIN_EMAIL,
-      role: 'Administrator',
-      passwordHash,
-      isDefaultAdmin: true,
-      mustChangePassword: true,
-      createdAt: new Date().toISOString()
-    }
-  ]);
-}
+  const idx = accounts.findIndex(
+    (a) =>
+      a.isDefaultSuperadmin ||
+      a.id === DEFAULT_SUPERADMIN_ID ||
+      normalizeEmail(String(a.email ?? '')) === DEFAULT_SUPERADMIN_EMAIL
+  );
 
-/**
- * Development-only role test accounts.
- * Gated by Vite `import.meta.env.DEV` so production builds do not seed or ship these credentials.
- * Idempotent: existing emails are left untouched (no password/role overwrite, no duplicates).
- */
-async function ensureDevDemoAccounts() {
-  if (!import.meta.env.DEV) return;
-
-  type DemoSeed = {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    role: UserRole;
-    password: string;
+  const superadmin: StoredAccount = {
+    ...(idx >= 0 ? accounts[idx] : {}),
+    id: DEFAULT_SUPERADMIN_ID,
+    firstName: idx >= 0 ? accounts[idx].firstName || 'System' : 'System',
+    lastName: idx >= 0 ? accounts[idx].lastName || 'Superadmin' : 'Superadmin',
+    email: DEFAULT_SUPERADMIN_EMAIL,
+    role: 'Superadmin',
+    passwordHash,
+    isDefaultSuperadmin: true,
+    approvalStatus: 'approved',
+    mustChangePassword: false,
+    createdAt: idx >= 0 ? accounts[idx].createdAt || new Date().toISOString() : new Date().toISOString()
   };
 
-  // Plaintext passwords exist only in this DEV-gated block for local testing.
-  const demos: DemoSeed[] = [
-    {
-      id: 'u-demo-faculty',
-      firstName: 'Demo',
-      lastName: 'Faculty',
-      email: 'faculty.demo@accrevia.local',
-      role: 'Faculty',
-      password: 'FacultyDemo@2026!'
-    },
-    {
-      id: 'u-demo-qa',
-      firstName: 'Demo',
-      lastName: 'QA',
-      email: 'qa.demo@accrevia.local',
-      role: 'QA Personnel',
-      password: 'QADemo@2026!'
-    }
-  ];
-
-  for (const demo of demos) {
-    if (findAccountByEmail(demo.email)) continue;
-
-    const passwordHash = await hashPassword(demo.password);
-    // Re-check after async hash so parallel tabs cannot create duplicates.
-    if (findAccountByEmail(demo.email)) continue;
-
-    const account: StoredAccount = {
-      id: demo.id,
-      firstName: demo.firstName,
-      lastName: demo.lastName,
-      email: demo.email,
-      role: demo.role,
-      passwordHash,
-      isDevDemoAccount: true,
-      mustChangePassword: false,
-      createdAt: new Date().toISOString()
-    };
-
-    addAccount(account);
-    upsertPortalUserFromAccount(account);
+  if (idx >= 0) {
+    accounts = accounts.map((a, i) => (i === idx ? superadmin : a));
+  } else {
+    accounts = [...accounts, superadmin];
   }
+  writeAccounts(accounts);
+  upsertPortalUserFromAccount(superadmin, { preserveExistingStatus: idx >= 0 });
+}
+
+/** Remove previously seeded development demo logins from local storage. */
+function purgeDevDemoAccounts() {
+  const accounts = readAccounts();
+  const kept = accounts.filter((a) => !a.isDevDemoAccount);
+  if (kept.length !== accounts.length) writeAccounts(kept);
 }
 
 let initialization: Promise<void> | null = null;
@@ -261,8 +277,8 @@ export function initializeAuthStore(): Promise<void> {
     initialization = (async () => {
       sanitizeStoredSession();
       await migratePlainTextPasswords();
-      await ensureDefaultAdmin();
-      await ensureDevDemoAccounts();
+      purgeDevDemoAccounts();
+      await ensureDefaultSuperadmin();
     })().catch((error) => {
       initialization = null;
       throw error;
@@ -275,11 +291,78 @@ export function initializeAuthStore(): Promise<void> {
 // Authentication
 // ---------------------------------------------------------------------------
 
-export async function authenticate(email: string, password: string): Promise<SessionAccount | null> {
+export async function authenticate(email: string, password: string): Promise<SessionAccount> {
   await initializeAuthStore();
   const account = findAccountByEmail(email);
-  if (!account?.passwordHash) return null;
-  return (await bcrypt.compare(password, account.passwordHash)) ? toSession(account) : null;
+  if (!account?.passwordHash) {
+    throw new AuthDeniedError('invalid', 'We could not find an account matching these credentials.');
+  }
+  const ok = await bcrypt.compare(password, account.passwordHash);
+  if (!ok) {
+    throw new AuthDeniedError('invalid', 'We could not find an account matching these credentials.');
+  }
+
+  const status = readPortalUserStatus(account.email) || portalStatusForAccount(account);
+  if (status === 'Pending Approval' || account.approvalStatus === 'pending') {
+    throw new AuthDeniedError(
+      'pending',
+      'Your registration is waiting for Superadmin or Administrator approval. You can sign in after it is approved.'
+    );
+  }
+  if (status === 'Rejected' || account.approvalStatus === 'rejected') {
+    throw new AuthDeniedError('rejected', 'This registration was not approved. Contact the Quality Assurance Office for help.');
+  }
+  if (status === 'Deactivated') {
+    throw new AuthDeniedError('deactivated', 'This account has been deactivated. Contact an administrator for help.');
+  }
+
+  return toSession(account);
+}
+
+/**
+ * Create or update a login account for an Administrator provisioned by Superadmin.
+ */
+export async function provisionManagedAccount(input: {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Administrator' | 'Superadmin';
+  temporaryPassword: string;
+}): Promise<void> {
+  const email = normalizeEmail(input.email);
+  const parts = input.name.trim().split(/\s+/);
+  const firstName = parts[0] || 'Admin';
+  const lastName = parts.slice(1).join(' ') || 'User';
+  const passwordHash = await hashPassword(input.temporaryPassword);
+  const existing = findAccountByEmail(email);
+  const next: StoredAccount = {
+    ...(existing || {}),
+    id: existing?.id || input.id,
+    firstName,
+    lastName,
+    email,
+    role: input.role,
+    passwordHash,
+    approvalStatus: 'approved',
+    mustChangePassword: true,
+    createdAt: existing?.createdAt || new Date().toISOString()
+  };
+  if (existing) {
+    writeAccounts(readAccounts().map((a) => (normalizeEmail(String(a.email ?? '')) === email ? next : a)));
+  } else {
+    addAccount(next);
+  }
+  upsertPortalUserFromAccount(next);
+}
+
+/** Keep auth-store approval flag aligned when Superadmin/Admin approve or reject a registration. */
+export function syncAccountApproval(email: string, decision: 'approved' | 'rejected' | 'pending'): void {
+  const target = normalizeEmail(email);
+  writeAccounts(
+    readAccounts().map((a) =>
+      normalizeEmail(String(a.email ?? '')) === target ? { ...a, approvalStatus: decision } : a
+    )
+  );
 }
 
 export const PASSWORD_MIN_LENGTH = 12;
@@ -326,7 +409,11 @@ export function startSession(account: StoredAccount | SessionAccount) {
   const session = toSession(account as StoredAccount);
   window.localStorage.setItem(AUTH_KEY, 'true');
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  upsertPortalUserFromAccount(session);
+  // Login is only allowed for approved/active accounts — refresh directory without reopening pending status.
+  upsertPortalUserFromAccount(
+    { ...session, approvalStatus: session.approvalStatus || 'approved' },
+    { preserveExistingStatus: true }
+  );
   notifySessionChange();
 }
 

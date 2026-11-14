@@ -12,6 +12,7 @@ const itemFeatureMap: Record<string, string> = {
   'Requests': 'requests',
   'Reports & Analytics': 'reports',
   'My Profile': 'account',
+  'User Management': 'users',
   'Settings': 'settings',
   'Shared with Me': 'documents',
   'Saved Documents': 'documents',

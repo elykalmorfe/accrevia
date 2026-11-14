@@ -121,59 +121,45 @@ export function CampusIAView() {
 
   return (
     <>
-      <PageHeader title="Institutional Accreditation (IA)" />
-
-      {/* Campus Selector Bar */}
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-ink-subtle">Campuses</span>
-        {canMutate && (
-          <button
-            type="button"
-            onClick={() => setIsEditAllOpen(true)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-800 transition-colors"
-          >
-            <PencilIcon className="h-3 w-3" />
-            Edit All Statuses
-          </button>
-        )}
-      </div>
-
-      {/* Campus Selector Pills */}
-      <div className="mb-6 grid grid-flow-col auto-cols-[minmax(140px,1fr)] lg:auto-cols-fr overflow-x-auto no-scrollbar gap-2 border-b border-line p-0.5 pb-4">
-        {campuses.map((c) => {
-          const rec = iaRecords.find((r) => r.campusId === c.id);
-          const isSelected = c.id === selectedCampusId;
-          const statusText = rec?.status || 'Level I Accredited';
-          return (
-            <button
-              key={c.id}
-              type="button"
-              title={`${c.name} · ${statusText}`}
-              aria-pressed={isSelected}
-              onClick={() => {
-                setSelectedCampusId(c.id);
-                setSelectedCampus(c.id);
+      <PageHeader
+        title="Institutional Accreditation (IA)"
+        actions={
+          <>
+            <select
+              id="ia-campus-select"
+              value={selectedCampusId}
+              onChange={(e) => {
+                const next = e.target.value as CampusId;
+                setSelectedCampusId(next);
+                setSelectedCampus(next);
               }}
-              className={`flex min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-all ${
-                isSelected
-                  ? 'border-brand-300 bg-brand-50/70 shadow-sm ring-2 ring-brand-500/20'
-                  : 'border-line bg-white hover:border-line-strong hover:bg-canvas'
-              }`}
+              aria-label="Select campus"
+              className="input select select-sm h-9 w-auto min-w-[12rem] text-xs font-semibold hover:border-brand-300"
             >
-              <Building2Icon className={`hidden h-4 w-4 shrink-0 2xl:block ${isSelected ? 'text-brand-600' : 'text-ink-subtle'}`} />
-              <div className="min-w-0">
-                <p className={`truncate text-[13px] font-semibold ${isSelected ? 'text-brand-800' : 'text-ink'}`}>
-                  {c.shortName} {c.isMain && <span className="text-brand-500">★</span>}
-                </p>
-                <p className="mt-0.5 flex items-center gap-1.5 text-[11.5px] font-medium text-ink-muted">
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${levelTone(statusText)}`} />
-                  {shortLevel(statusText)}
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              {campuses.map((c) => {
+                const rec = iaRecords.find((r) => r.campusId === c.id);
+                const statusText = rec?.status || 'Level I Accredited';
+                return (
+                  <option key={c.id} value={c.id}>
+                    {c.shortName}
+                    {c.isMain ? ' ★' : ''} — {shortLevel(statusText)}
+                  </option>
+                );
+              })}
+            </select>
+            {canMutate && (
+              <button
+                type="button"
+                onClick={() => setIsEditAllOpen(true)}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-xs font-semibold text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-50"
+              >
+                <PencilIcon className="h-3.5 w-3.5" />
+                Edit All Statuses
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Campus Accreditation Status Card */}
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
@@ -246,7 +232,6 @@ export function CampusIAView() {
             isAdmin={canMutate}
             onOpen={() => setCertificatesOpen(true)}
             onPreview={setPreviewCertificate}
-            fallbackUrl={iaRecord.certificateUrl}
           />
         </div>
 

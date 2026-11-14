@@ -3,7 +3,7 @@ import { seedTechnicalReviewAccessRequests } from './seedAccessRequests';
 
 const STORAGE_KEY = 'accrevia_tr_access_requests_demo';
 const VERSION_KEY = 'accrevia_tr_access_requests_demo_version';
-const SEED_VERSION = 2;
+const SEED_VERSION = 3;
 
 function readRaw(): TechnicalReviewAccessRequest[] {
   if (typeof window === 'undefined') return [...seedTechnicalReviewAccessRequests];

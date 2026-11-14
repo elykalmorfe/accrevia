@@ -107,7 +107,6 @@ import {
   Trash2Icon,
   CheckCircle2Icon,
   PrinterIcon,
-  Building2Icon,
   GraduationCapIcon,
   BookOpenIcon,
   ClockIcon,
@@ -155,7 +154,6 @@ export function ProgramAccreditationView() {
   const [higherLevelFilter, setHigherLevelFilter] = useState<HigherLevelFilter>('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const activeSelectFilters = [
-    selectedCampus !== 'all',
     selectedStatus !== 'all' || ['level-1', 'level-2', 'level-3', 'level-4', 'candidate'].includes(overviewFilter),
     selectedDegree !== 'all',
     validityFilter !== 'all',
@@ -446,85 +444,50 @@ export function ProgramAccreditationView() {
 
   return (
     <>
-      <PageHeader title="AACCUP Program Accreditation Status" />
+      <PageHeader
+        title="AACCUP Program Accreditation Status"
+        actions={
+          <>
+            <select
+              value={selectedCampus}
+              onChange={(e) => setSelectedCampus(e.target.value)}
+              aria-label="Filter by campus"
+              className="input select select-sm h-9 w-auto min-w-[12rem] text-xs font-semibold hover:border-brand-300"
+            >
+              <option value="all">All Campuses ({totalInstitutionalPrograms})</option>
+              {campuses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.shortName} ({campusProgramCounts[c.id] || 0})
+                </option>
+              ))}
+            </select>
+            {canMutate && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setReportModal({ open: true, type: 'summary' })}
+                  className="btn btn-secondary btn-sm"
+                >
+                  <PrinterIcon className="h-4 w-4" /> Print Summary Report
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingProgram(null);
+                    setFormModalOpen(true);
+                  }}
+                  className="btn btn-primary btn-sm"
+                >
+                  <PlusIcon className="h-4 w-4" /> Add Academic Program
+                </button>
+              </>
+            )}
+          </>
+        }
+      />
 
       {/* Quick Action Overview Section */}
       <section className="mb-6 space-y-4" aria-label="Quick Action Overview">
-        {/* Campus scope pills + header actions */}
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto py-1 no-scrollbar">
-            {/* All Campuses Button (Default) */}
-          <button
-            type="button"
-              onClick={() => setSelectedCampus('all')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                selectedCampus === 'all'
-                  ? 'bg-brand-700 text-white shadow-xs ring-2 ring-brand-700/20'
-                  : 'bg-canvas text-ink-muted hover:text-ink hover:bg-slate-100 border border-line/70'
-              }`}
-            >
-              <Building2Icon className="h-3.5 w-3.5" />
-              <span>All Campuses</span>
-              <span
-                className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                  selectedCampus === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-ink-muted'
-                }`}
-              >
-                {totalInstitutionalPrograms}
-              </span>
-          </button>
-
-            {/* Individual Campus Buttons */}
-            {campuses.map((c) => {
-              const isSelected = selectedCampus === c.id;
-              const count = campusProgramCounts[c.id] || 0;
-              return (
-          <button
-                  key={c.id}
-            type="button"
-                  onClick={() => setSelectedCampus(c.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-brand-700 text-white shadow-xs ring-2 ring-brand-700/20'
-                      : 'bg-canvas text-ink-muted hover:text-ink hover:bg-slate-100 border border-line/70'
-                  }`}
-                >
-                  <span>{c.shortName}</span>
-                  <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                      isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-ink-muted'
-                    }`}
-                  >
-                    {count}
-                  </span>
-          </button>
-              );
-            })}
-          </div>
-
-          {canMutate && (
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setReportModal({ open: true, type: 'summary' })}
-                className="btn btn-secondary btn-sm"
-              >
-                <PrinterIcon className="h-4 w-4" /> Print Summary Report
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingProgram(null);
-                  setFormModalOpen(true);
-                }}
-                className="btn btn-primary btn-sm"
-              >
-                <PlusIcon className="h-4 w-4" /> Add Academic Program
-              </button>
-            </div>
-          )}
-        </div>
-
         {/* Active Filter Notification Banner */}
         {overviewFilter !== 'none' && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gradient-to-r from-brand-50 via-brand-50/40 to-surface border border-brand-200/90 p-3 text-xs text-brand-950 shadow-2xs">
@@ -893,19 +856,6 @@ export function ProgramAccreditationView() {
 
           <div className={`${filtersOpen ? 'grid' : 'hidden'} grid-cols-1 gap-2 xs:grid-cols-2 md:flex md:flex-wrap md:items-center [&>select]:w-full md:[&>select]:w-auto`}>
             <select
-              value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value)}
-              className="input select select-sm h-9 w-auto text-xs hover:border-brand-300"
-            >
-              <option value="all">All Campuses (7)</option>
-              {campuses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-
-            <select
               value={
                 ['level-1', 'level-2', 'level-3', 'level-4', 'candidate'].includes(overviewFilter)
                   ? overviewFilter === 'level-1'
@@ -1241,24 +1191,6 @@ export function ProgramAccreditationView() {
                               ) : !(isUrl(prog.certificationFile) || isLocalCertificatePath(prog.certificationFile) || localCertificationFileFor(prog)) ? (
                                 <span className="text-ink-subtle">—</span>
                               ) : null}
-                              {(() => {
-                                const linked =
-                                  (isLocalCertificatePath(prog.certificationFile) && prog.certificationFile) ||
-                                  localCertificationFileFor(prog) ||
-                                  (isUrl(prog.certificationFile) ? prog.certificationFile : undefined);
-                                if (!linked) return null;
-                                return (
-                                <a
-                                  href={linked}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 text-[10.5px] font-medium text-ink-subtle hover:text-brand-700"
-                                  title="Open linked certificate"
-                                >
-                                  <ExternalLinkIcon className="h-2.5 w-2.5" /> Linked file
-                                </a>
-                                );
-                              })()}
                             </div>
                           );
                         })()}

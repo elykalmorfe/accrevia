@@ -27,6 +27,7 @@ import { AccreditationAreas } from './pages/criteria/AccreditationAreas';
 import { CriteriaExplorer } from './pages/criteria/CriteriaExplorer';
 import { Indicators } from './pages/criteria/Indicators';
 import { EvidenceRequirements } from './pages/criteria/EvidenceRequirements';
+import { UserManagement } from './pages/UserManagement';
 import { AccessRequests } from './pages/AccessRequests';
 import { TechnicalReviewAccessManagement } from './pages/qa/TechnicalReviewAccessManagement';
 import { RequestLogs } from './pages/RequestLogs';
@@ -122,6 +123,7 @@ function ProtectedAppRoutes() {
               <Route path="technical-review-access" element={<TechnicalReviewAccessManagement />} />
               <Route path="request-logs" element={<RequestLogs />} />
               <Route path="reports" element={<ReportsAnalytics />} />
+              <Route path="users" element={<UserManagement />} />
               <Route path="settings" element={<SystemSettings />} />
               <Route path="account" element={<Account />} />
             </>
@@ -147,6 +149,7 @@ function ProtectedAppRoutes() {
               {/* Explicit management routes → Access Denied for Faculty/Staff */}
               <Route path="evidence/upload" element={<Navigate to="/open" replace />} />
               <Route path="reports" element={<Navigate to="/open" replace />} />
+              <Route path="users" element={<Navigate to="/open" replace />} />
               <Route path="settings" element={<Navigate to="/open" replace />} />
               <Route path="access-requests" element={<Navigate to="/open" replace />} />
             </>

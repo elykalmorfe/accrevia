@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   MapPin,
@@ -79,40 +79,86 @@ const navItems = [
 
 export function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [navSolid, setNavSolid] = useState(false);
+  const heroRef = useRef<HTMLElement | null>(null);
   const reduceMotion = useReducedMotion();
+  const glass = !navSolid;
+
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Solid once the hero is mostly out of view / we've entered the next section
+        setNavSolid(!entry.isIntersecting || entry.intersectionRatio < 0.45);
+      },
+      { threshold: [0, 0.45, 0.7, 1], rootMargin: '-64px 0px 0px 0px' }
+    );
+
+    observer.observe(hero);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="landing-page min-h-screen bg-[#f4f7fc] text-slate-900">
-      <header className="landing-header sticky top-0 z-40 border-b backdrop-blur-md">
+    <div className="landing-page min-h-screen bg-canvas text-ink">
+      <header
+        className={`landing-header fixed inset-x-0 top-0 z-40 border-b transition-[background-color,border-color,box-shadow,backdrop-filter,color] duration-300 ${
+          glass ? 'landing-header--glass' : 'landing-header--solid'
+        }`}
+      >
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8" aria-label="Main navigation">
           <Link to="/" className="flex items-center gap-3" aria-label="Accrevia home">
             <img src="/nemsu-logo.png" alt="NEMSU logo" className="h-10 w-10 shrink-0 object-contain sm:h-11 sm:w-11" />
             <div>
-              <div className="text-lg font-bold tracking-tight text-slate-900">Accrevia</div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Quality Assurance Management</div>
+              <div className={`text-lg font-bold tracking-tight transition-colors ${glass ? 'text-white' : 'text-ink'}`}>
+                Accrevia
+              </div>
+              <div
+                className={`text-[10px] font-semibold uppercase tracking-[0.2em] transition-colors ${
+                  glass ? 'text-white/65' : 'text-ink-subtle'
+                }`}
+              >
+                Quality Assurance Management
+              </div>
             </div>
           </Link>
 
           <div className="hidden items-center gap-8 lg:flex">
             {navItems.map((item) => (
-              <a key={item.label} href={item.href} className="text-sm font-semibold text-slate-600 transition hover:text-blue-600">
+              <a
+                key={item.label}
+                href={item.href}
+                className={`text-sm font-semibold transition ${
+                  glass ? 'text-white/80 hover:text-white' : 'text-ink-muted hover:text-brand-700'
+                }`}
+              >
                 {item.label}
               </a>
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
-            <Link to="/login" className="hidden rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-xs transition hover:border-slate-400 hover:bg-slate-50 sm:inline-flex">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <Link
+              to="/login"
+              className={`hidden rounded-full border px-4 py-2 text-sm font-semibold shadow-xs transition sm:inline-flex ${
+                glass
+                  ? 'border-white/35 bg-white/10 text-white hover:border-white/55 hover:bg-white/20'
+                  : 'border-line bg-surface text-ink hover:border-line-strong hover:bg-canvas'
+              }`}
+            >
               Login
             </Link>
-            <Link to="/register" className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-500">
+            <Link to="/register" className="btn btn-primary inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold">
               Get Started
               <ArrowRight className="h-4 w-4" />
             </Link>
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="inline-flex items-center justify-center rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
+              className={`inline-flex items-center justify-center rounded-lg p-2 transition lg:hidden ${
+                glass ? 'text-white/85 hover:bg-white/10 hover:text-white' : 'text-ink-muted hover:bg-canvas hover:text-ink'
+              }`}
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -122,23 +168,23 @@ export function LandingPage() {
 
         {/* Mobile Navigation Dropdown */}
         {mobileMenuOpen && (
-          <div className="border-t border-slate-200 bg-white px-4 py-4 lg:hidden shadow-lg">
+          <div className="border-t border-line bg-surface px-4 py-4 shadow-lg lg:hidden">
             <div className="flex flex-col gap-3">
               {navItems.map((item) => (
                 <a
                   key={item.label}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-lg px-3 py-2 text-base font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-600"
+                  className="rounded-lg px-3 py-2 text-base font-semibold text-ink transition hover:bg-brand-tint hover:text-brand-700"
                 >
                   {item.label}
                 </a>
               ))}
-              <div className="mt-2 border-t border-slate-100 pt-3">
+              <div className="mt-2 border-t border-line pt-3">
                 <Link
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex w-full items-center justify-center rounded-full border border-slate-300 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="flex w-full items-center justify-center rounded-full border border-line bg-surface py-2.5 text-sm font-semibold text-ink transition hover:bg-canvas"
                 >
                   Login
                 </Link>
@@ -149,7 +195,7 @@ export function LandingPage() {
       </header>
 
       <main id="home">
-        <section className="landing-hero relative overflow-hidden flex items-center">
+        <section ref={heroRef} className="landing-hero relative flex items-center overflow-hidden">
           <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 px-4 py-16 pb-20 sm:px-6 lg:grid-cols-12 lg:gap-8 lg:py-20 lg:pb-24 lg:px-8 xl:gap-12">
             <div className="z-10 flex flex-col justify-center lg:col-span-5">
               <p className="hero-eyebrow text-sm font-semibold uppercase tracking-[0.24em] text-blue-200">

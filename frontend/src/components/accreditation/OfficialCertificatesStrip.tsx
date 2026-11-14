@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { BadgeCheckIcon, ExternalLinkIcon, EyeIcon, FileCheck2Icon, FileCheckIcon, UploadIcon } from 'lucide-react';
+import { BadgeCheckIcon, EyeIcon, FileCheck2Icon, FileCheckIcon, UploadIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { pluralize } from '../../utils/format';
 import type { EvidenceDocument } from '../../types/evidence';
@@ -64,8 +64,6 @@ interface OfficialCertificatesStripProps {
   isAdmin: boolean;
   onOpen: () => void;
   onPreview: (doc: EvidenceDocument) => void;
-  /** Legacy external link shown while nothing has been uploaded. */
-  fallbackUrl?: string;
   className?: string;
 }
 
@@ -77,7 +75,6 @@ export function OfficialCertificatesStrip({
   isAdmin,
   onOpen,
   onPreview,
-  fallbackUrl,
   className = 'mt-3'
 }: OfficialCertificatesStripProps) {
   const tone = activeCertificate ? 'active' : certificates.length > 0 ? 'inactive' : 'empty';
@@ -114,16 +111,6 @@ export function OfficialCertificatesStrip({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        {certificates.length === 0 && fallbackUrl && (
-          <a
-            href={fallbackUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-ink-muted hover:text-brand-700 hover:underline"
-          >
-            Linked file <ExternalLinkIcon className="h-3 w-3" />
-          </a>
-        )}
         {activeCertificate && (
           <button
             type="button"

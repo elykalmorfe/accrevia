@@ -13,7 +13,7 @@ export function nowIso(): string {
 export const recipientRoles: RecipientRole[] = ['Faculty', 'Staff', 'Accreditor', 'User'];
 
 export function isAdminRole(role: UserRole): boolean {
-  return role === 'Superadmin' || role === 'Administrator' || role === 'QA Personnel';
+  return role === 'Superadmin' || role === 'Administrator';
 }
 
 export function isRecipientRole(role: string): role is RecipientRole {

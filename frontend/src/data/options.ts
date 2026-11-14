@@ -87,7 +87,11 @@ export const offices = [
 
 export const confidentialityLevels: Confidentiality[] = ['Public', 'Internal', 'Confidential'];
 
-export const userRoles: UserRole[] = ['Superadmin', 'Administrator', 'QA Personnel', 'Faculty', 'Staff', 'Accreditor'];
+/** Roles shown in administration filters. End users are Faculty or Staff. */
+export const userRoles: UserRole[] = ['Superadmin', 'Administrator', 'Faculty', 'Staff'];
+
+/** Roles Superadmin may assign when creating managed accounts. */
+export const managedAdminRoles: UserRole[] = ['Administrator'];
 
 export const searchSuggestions = [
 'faculty development activities',

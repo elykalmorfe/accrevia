@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AuthLayout,
@@ -8,7 +8,7 @@ import {
   authLabelClass,
   authPrimaryButtonClass
 } from '../../components/auth/AuthLayout';
-import { authenticate, defaultPostLoginPath, startSession } from '../../utils/auth';
+import { AuthDeniedError, authenticate, defaultPostLoginPath, startSession } from '../../utils/auth';
 
 type LoginFormState = {
   email: string;
@@ -24,7 +24,12 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const redirectFrom = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
+  const locationState = location.state as {
+    from?: { pathname?: string; search?: string };
+    registrationPending?: string;
+  } | null;
+  const redirectFrom = locationState?.from;
+  const registrationPending = locationState?.registrationPending;
 
   const handleChange = (field: keyof LoginFormState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -53,51 +58,60 @@ export function LoginPage() {
     setIsSubmitting(true);
 
     window.setTimeout(async () => {
-      let matchedUser;
       try {
-        matchedUser = await authenticate(form.email, form.password);
-      } catch {
-        setErrors({ general: 'Sign-in is temporarily unavailable. Please try again.' });
+        const matchedUser = await authenticate(form.email, form.password);
+        startSession(matchedUser);
         setIsSubmitting(false);
-        return;
-      }
-
-      if (!matchedUser) {
-        setErrors({ general: 'We could not find an account matching these credentials.' });
+        const fallback = defaultPostLoginPath(matchedUser.role);
+        const requested =
+          redirectFrom?.pathname && redirectFrom.pathname !== '/login' && redirectFrom.pathname !== '/register'
+            ? `${redirectFrom.pathname}${redirectFrom.search || ''}`
+            : fallback;
+        navigate(requested, { replace: true });
+      } catch (error) {
+        const message =
+          error instanceof AuthDeniedError
+            ? error.message
+            : 'Sign-in is temporarily unavailable. Please try again.';
+        setErrors({ general: message });
         setIsSubmitting(false);
-        return;
       }
-
-      startSession(matchedUser);
-      setIsSubmitting(false);
-      const fallback = defaultPostLoginPath(matchedUser.role);
-      const requested =
-        redirectFrom?.pathname && redirectFrom.pathname !== '/login' && redirectFrom.pathname !== '/register'
-          ? `${redirectFrom.pathname}${redirectFrom.search || ''}`
-          : fallback;
-      navigate(requested, { replace: true });
     }, 900);
   };
 
   return (
-    <AuthLayout>
+    <>
+      <Link
+        to="/"
+        className="absolute left-4 top-4 z-20 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[13px] font-semibold text-ink-muted shadow-xs transition hover:border-brand-300 hover:text-brand-700 sm:left-6 sm:top-6"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </Link>
+      <AuthLayout>
       <header className="mb-5">
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#1D4ED8]">Welcome back</p>
-        <h1 className="mt-1.5 text-[1.75rem] font-bold tracking-tight text-[#0F172A] sm:text-[1.9rem]">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-700">Welcome back</p>
+        <h1 className="mt-1.5 text-[1.75rem] font-bold tracking-tight text-ink sm:text-[1.9rem]">
           Sign in to ACCREVIA
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-[#64748B]">
+        <p className="mt-2 text-sm leading-relaxed text-ink-muted">
           Access and manage institutional accreditation documents securely.
         </p>
       </header>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-3.5">
+        {registrationPending && (
+          <div className="rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+            {registrationPending}
+          </div>
+        )}
+
         <div>
           <label htmlFor="email" className={authLabelClass}>
             Enter Email Address
           </label>
           <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-subtle" />
             <input
               id="email"
               name="email"
@@ -118,7 +132,7 @@ export function LoginPage() {
             Password
           </label>
           <div className="relative">
-            <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-subtle" />
             <input
               id="password"
               name="password"
@@ -133,7 +147,7 @@ export function LoginPage() {
             <button
               type="button"
               onClick={() => setShowPassword((value) => !value)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-200/80 hover:text-slate-700"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-ink-subtle transition hover:bg-canvas hover:text-ink"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -143,23 +157,23 @@ export function LoginPage() {
         </div>
 
         <div className="flex items-center justify-between gap-3 pt-0.5">
-          <label className="inline-flex items-center gap-2 text-[13px] text-[#64748B]">
+          <label className="inline-flex items-center gap-2 text-[13px] text-ink-muted">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-[#1D4ED8] focus:ring-[#1D4ED8]"
+              className="h-4 w-4 rounded border-line text-brand-600 focus:ring-brand-500"
             />
             Remember Me
           </label>
           <button
             type="button"
-            className="text-[13px] font-semibold text-[#1D4ED8] transition hover:text-[#163A75]"
+            className="text-[13px] font-semibold text-brand-700 transition hover:text-brand-800"
           >
             Forgot Password?
           </button>
         </div>
 
         {errors.general && (
-          <div className="rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+          <div className="rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
             {errors.general}
           </div>
         )}
@@ -176,12 +190,13 @@ export function LoginPage() {
         </button>
       </form>
 
-      <p className="mt-5 text-center text-[13px] text-[#64748B]">
+      <p className="mt-5 text-center text-[13px] text-ink-muted">
         New to ACCREVIA?{' '}
-        <Link to="/register" className="font-semibold text-[#1D4ED8] transition hover:text-[#163A75]">
+        <Link to="/register" className="font-semibold text-brand-700 transition hover:text-brand-800">
           Create an account
         </Link>
       </p>
-    </AuthLayout>
+      </AuthLayout>
+    </>
   );
 }
