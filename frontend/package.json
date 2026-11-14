@@ -13,6 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "date-fns": "^4.0.0",
     "docx-preview": "^0.4.1",
     "framer-motion": "^11.5.4",

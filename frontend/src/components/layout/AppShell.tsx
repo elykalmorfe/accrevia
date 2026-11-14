@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, ShieldAlertIcon, XIcon } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
@@ -10,11 +10,14 @@ import { easeOut } from '../../utils/motion';
 import { usePortal } from '../../contexts/PortalContext';
 import { usePortalSettings } from '../../settings/portalSettings';
 import { useTheme } from '../../hooks/useTheme';
+import { useSessionAccount } from '../../utils/auth';
 
 export function AppShell() {
   const { sidebarCollapsed, toggleSidebar, currentUser, switchUser } = usePortal();
   usePortalSettings();
   const { resolved: theme } = useTheme();
+  const session = useSessionAccount();
+  const [passwordBannerDismissed, setPasswordBannerDismissed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
   const fullBleed = pathname.startsWith('/requests');
@@ -135,6 +138,23 @@ export function AppShell() {
           <Header onOpenMenu={() => setMobileOpen(true)} />
           <main id="main" className="min-w-0 flex-1">
             <div className={`mx-auto px-3.5 py-5 xs:px-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 ${fullBleed ? 'max-w-none' : 'max-w-[1440px]'}`}>
+              {session?.mustChangePassword && !passwordBannerDismissed &&
+              <div role="alert" className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border border-warning-100 bg-warning-50 px-4 py-3 text-[13px] text-warning-700">
+                  <ShieldAlertIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <p className="flex-1">You are using the default administrator password. Change it now to secure the system.</p>
+                  <div className="flex items-center gap-1.5">
+                    <Link to="/account?tab=settings" className="btn btn-primary btn-sm">Change password</Link>
+                    <button
+                      type="button"
+                      onClick={() => setPasswordBannerDismissed(true)}
+                      className="grid h-8 w-8 place-items-center rounded-md text-warning-700 transition-colors hover:bg-warning-100"
+                      aria-label="Dismiss password reminder"
+                      title="Dismiss">
+                      <XIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              }
               <Outlet />
             </div>
           </main>

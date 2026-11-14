@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArchiveIcon,
@@ -13,15 +13,20 @@ import {
   CheckCircle2Icon,
   AlertTriangleIcon,
   ClockIcon,
-  Building2Icon
+  DatabaseIcon,
+  HourglassIcon,
+  Loader2Icon,
+  XCircleIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import { useSharingDialogs } from '../../contexts/SharingDialogsContext';
 import { useLookup } from '../../hooks/useLookup';
-import { EvidenceDocument } from '../../types/evidence';
+import { useAccess } from '../../hooks/useAccess';
+import { downloadStoredFile } from '../../utils/fileStore';
+import { DocumentBulkActions } from './DocumentBulkActions';
+import { DocumentStatus, EvidenceDocument } from '../../types/evidence';
 import { formatDate } from '../../utils/format';
-import { StatusBadge } from '../ui/StatusBadge';
 import { FrameworkTag } from '../ui/FrameworkTag';
 import { RowActionsMenu, RowAction } from '../ui/RowActionsMenu';
 import { SharingStatusBadge } from '../sharing/SharingStatusBadge';
@@ -33,9 +38,56 @@ interface EvidenceTableProps {
   onEdit: (doc: EvidenceDocument) => void;
 }
 
+const processingStatusStyle: Partial<Record<DocumentStatus, { icon: React.ElementType; tone: string; spin?: boolean }>> = {
+  Indexed: { icon: DatabaseIcon, tone: 'text-emerald-600' },
+  Processing: { icon: Loader2Icon, tone: 'text-brand-600', spin: true },
+  'Pending Classification': { icon: HourglassIcon, tone: 'text-amber-600' },
+  Failed: { icon: XCircleIcon, tone: 'text-danger-600' }
+};
+
+function processingIndicator(doc: EvidenceDocument) {
+  const style = doc.status ? processingStatusStyle[doc.status] : undefined;
+  if (!style) return null;
+  const Icon = style.icon;
+  return (
+    <p className="mt-1 inline-flex items-center gap-1 text-[11px] leading-4 text-slate-500" title="Document processing status">
+      <Icon className={`h-3 w-3 shrink-0 ${style.tone} ${style.spin ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />
+      <span className="sr-only">Processing status:</span>
+      {doc.status}
+    </p>
+  );
+}
+
+const emptyCell = (
+  <span className="text-slate-400" aria-label="Not assigned">
+    —
+  </span>
+);
+
+function fileTypeIcon(doc: EvidenceDocument) {
+  const type = doc.fileType?.toLowerCase() ?? '';
+  const tone =
+    type === 'pdf'
+      ? 'border-rose-200/90 bg-rose-50 text-rose-700'
+      : type.includes('doc')
+      ? 'border-blue-200/90 bg-blue-50 text-blue-700'
+      : type.includes('xls')
+      ? 'border-emerald-200/90 bg-emerald-50 text-emerald-700'
+      : 'border-slate-200/90 bg-slate-50 text-slate-700';
+  return (
+    <span
+      className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg border text-[10px] font-black uppercase ${tone}`}
+      title={type ? `${type.toUpperCase()} file` : 'File'}
+    >
+      {type.toUpperCase() || 'FILE'}
+    </span>
+  );
+}
+
 export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTableProps) {
   const navigate = useNavigate();
-  const { updateDocument, logAccess } = usePortal();
+  const { updateDocument, logAccess, isAdmin } = usePortal();
+  const { rightsFor } = useAccess();
   const { openShare, openManageAccess } = useSharingDialogs();
   const lookup = useLookup();
   const { pageSize } = usePortalSettings().general;
@@ -45,73 +97,161 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
   const firstIndex = (currentPage - 1) * pageSize;
   const docs = allDocs.slice(firstIndex, firstIndex + pageSize);
 
-  const renderApprovalBadge = (doc: EvidenceDocument) => {
-    const isApproved = doc.approvalStatus === 'Approved';
-    const isNeedsRevision = doc.approvalStatus === 'Needs Revision';
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const visible = new Set(allDocs.map((d) => d.id));
+      const kept = [...prev].filter((id) => visible.has(id));
+      return kept.length === prev.size ? prev : new Set(kept);
+    });
+  }, [allDocs]);
+  const selectedDocs = useMemo(() => allDocs.filter((d) => selectedIds.has(d.id)), [allDocs, selectedIds]);
+  const pageSelectedCount = docs.filter((d) => selectedIds.has(d.id)).length;
+  const pageAllSelected = docs.length > 0 && pageSelectedCount === docs.length;
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = pageSelectedCount > 0 && !pageAllSelected;
+  }, [pageSelectedCount, pageAllSelected]);
 
-    if (isApproved) {
+  const toggleSelected = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const togglePage = () =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      docs.forEach((d) => (pageAllSelected ? next.delete(d.id) : next.add(d.id)));
+      return next;
+    });
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const rowCheckbox = (doc: EvidenceDocument) => (
+    <input
+      type="checkbox"
+      className="h-4 w-4 cursor-pointer rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+      checked={selectedIds.has(doc.id)}
+      onChange={() => toggleSelected(doc.id)}
+      aria-label={`Select ${doc.title}`}
+    />
+  );
+
+  const renderApprovalBadge = (doc: EvidenceDocument) => {
+    const badge = 'inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold';
+    if (doc.approvalStatus === 'Approved') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 border border-brand-200/90 shadow-2xs whitespace-nowrap">
-          <CheckCircle2Icon className="h-3 w-3 text-brand-600" />
-          <span>Approved</span>
+        <span className={`${badge} border-emerald-200 bg-emerald-50 text-emerald-700`}>
+          <CheckCircle2Icon className="h-3 w-3 text-emerald-600" aria-hidden="true" />
+          Approved
         </span>
       );
     }
-    if (isNeedsRevision) {
+    if (doc.approvalStatus === 'Needs Revision') {
       return (
         <span
-          className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-800 border border-brand-200/90 shadow-2xs whitespace-nowrap cursor-help"
+          className={`${badge} cursor-help border-orange-200 bg-orange-50 text-orange-700`}
           title={doc.revisionNotes ? 'Revision: ' + doc.revisionNotes : 'Requires revision'}
         >
-          <AlertTriangleIcon className="h-3 w-3 text-brand-600" />
-          <span>Needs Revision</span>
+          <AlertTriangleIcon className="h-3 w-3 text-orange-600" aria-hidden="true" />
+          Needs Revision
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 border border-brand-200/90 shadow-2xs whitespace-nowrap">
-        <ClockIcon className="h-3 w-3 text-brand-600" />
-        <span>Pending Review</span>
+      <span className={`${badge} border-blue-200 bg-blue-50 text-brand-700`}>
+        <ClockIcon className="h-3 w-3 text-brand-600" aria-hidden="true" />
+        Pending Review
       </span>
     );
   };
 
-  const actionsFor = (doc: EvidenceDocument): RowAction[] => [
-  { label: 'View document', icon: FileTextIcon, onSelect: () => navigate(`/documents/${doc.id}`) },
-  { label: 'Preview', icon: EyeIcon, onSelect: () => onPreview(doc) },
-  { label: 'Edit metadata', icon: PencilIcon, onSelect: () => onEdit(doc) },
-  { label: 'Share', icon: Share2Icon, onSelect: () => openShare(doc.id) },
-  { label: 'Manage access', icon: ShieldCheckIcon, onSelect: () => openManageAccess(doc.id) },
-  {
-    label: 'Download',
-    icon: DownloadIcon,
-    onSelect: () => {
-      logAccess('Downloaded', doc.id);
-      toast.success(`Downloading ${doc.title}`);
+  const fileDetails = (doc: EvidenceDocument) =>
+    [
+      doc.pages ? `${doc.pages} ${doc.pages === 1 ? 'page' : 'pages'}` : null,
+      doc.sizeMb ? `${doc.sizeMb} MB` : null,
+      doc.campus || null
+    ].filter(Boolean) as string[];
+
+  const actionsFor = (doc: EvidenceDocument): RowAction[] => {
+    const rights = rightsFor(doc.id);
+    const actions: RowAction[] = [];
+    if (rights.canView) actions.push({ label: 'View document', icon: FileTextIcon, onSelect: () => navigate(`/documents/${doc.id}`) });
+    if (isAdmin) {
+      actions.push(
+        { label: 'Edit metadata', icon: PencilIcon, onSelect: () => onEdit(doc) },
+        { label: 'Manage access', icon: ShieldCheckIcon, onSelect: () => openManageAccess(doc.id) }
+      );
     }
-  },
-  {
-    label: 'Archive',
-    icon: ArchiveIcon,
-    tone: 'danger',
-    onSelect: () => {
-      const previous = doc.status;
-      updateDocument(doc.id, { status: 'Archived' });
-      toast('Moved to Archived Documents', {
-        description: doc.title,
-        action: { label: 'Undo', onClick: () => updateDocument(doc.id, { status: previous }) }
+    if (rights.canDownload) {
+      actions.push({
+        label: 'Download',
+        icon: DownloadIcon,
+        onSelect: async () => {
+          logAccess('Downloaded', doc.id);
+          const saved = await downloadStoredFile(doc.id, doc.title);
+          toast.success(saved ? `Downloading ${doc.title}` : `No original file stored for ${doc.title}`);
+        }
       });
     }
-  }];
+    if (isAdmin) {
+      actions.push({
+        label: 'Archive',
+        icon: ArchiveIcon,
+        tone: 'danger',
+        onSelect: () => {
+          const previous = doc.status;
+          updateDocument(doc.id, { status: 'Archived' });
+          toast('Moved to Archived Documents', {
+            description: doc.title,
+            action: { label: 'Undo', onClick: () => updateDocument(doc.id, { status: previous }) }
+          });
+        }
+      });
+    }
+    return actions;
+  };
 
 
   return (
     <>
+      {selectedDocs.length > 0 && (
+        <DocumentBulkActions
+          selected={selectedDocs}
+          totalCount={allDocs.length}
+          onSelectAll={() => setSelectedIds(new Set(allDocs.map((d) => d.id)))}
+          onClear={clearSelection}
+        />
+      )}
+
       <div className="hidden overflow-x-auto lg:block">
-        <table className="w-full min-w-[1440px]">
-          <thead className="bg-slate-50/90 border-b border-line text-xs font-bold text-slate-700">
-            <tr>
-              <th className="th">Document Title & Details</th>
+        <table className="w-full min-w-[1240px] table-fixed text-left">
+          <colgroup>
+            <col className="w-[3%]" />
+            <col className="w-[22.5%]" />
+            <col className="w-[11.5%]" />
+            <col className="w-[7.5%]" />
+            <col className="w-[9%]" />
+            <col className="w-[8.5%]" />
+            <col className="w-[8.5%]" />
+            <col className="w-[9.5%]" />
+            <col className="w-[9.5%]" />
+            <col className="w-[10.5%]" />
+          </colgroup>
+          <thead className="border-b border-line bg-slate-50/90 text-xs font-bold text-slate-700">
+            <tr className="[&>th:first-child]:pl-4 [&>th:first-child]:pr-0 [&>th]:whitespace-normal [&>th]:px-2.5 [&>th]:align-bottom">
+              <th className="th">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  className="h-4 w-4 cursor-pointer rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                  checked={pageAllSelected}
+                  onChange={togglePage}
+                  aria-label={pageAllSelected ? 'Deselect all documents on this page' : 'Select all documents on this page'}
+                />
+              </th>
+              <th className="th">Document Title &amp; Details</th>
               <th className="th">Accreditation Status</th>
               <th className="th">Framework</th>
               <th className="th">Area / Standard</th>
@@ -119,165 +259,155 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
               <th className="th">Type</th>
               <th className="th">Office / Unit</th>
               <th className="th">Sharing</th>
-              <th className="th">System Status</th>
-              <th className="th">Date Added</th>
-              <th className="th text-right"><span className="sr-only">Actions</span></th>
+              <th className="th">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {docs.map((doc) => (
-              <tr key={doc.id} className="hover:bg-slate-50/80 transition-colors">
-                {/* Title & Document Avatar */}
-                <td className="td min-w-[320px] max-w-[380px]">
-                  <div className="flex items-start gap-2.5">
-                    <span
-                      className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg border text-[10px] font-black uppercase shadow-2xs ${
-                        doc.fileType?.toLowerCase() === 'pdf'
-                          ? 'bg-brand-50 text-brand-900 border-brand-200/90'
-                          : doc.fileType?.toLowerCase().includes('doc')
-                          ? 'bg-brand-50 text-brand-700 border-brand-200/90'
-                          : doc.fileType?.toLowerCase().includes('xls')
-                          ? 'bg-brand-50 text-brand-700 border-brand-200/90'
-                          : 'bg-slate-50 text-slate-700 border-slate-200/90'
-                      }`}
-                      title={`${doc.fileType?.toUpperCase()} document`}
-                    >
-                      {doc.fileType?.toUpperCase() || 'FILE'}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        to={`/documents/${doc.id}`}
-                        className="font-bold text-xs text-slate-900 hover:text-brand-700 hover:underline line-clamp-1 transition-colors block"
-                        title={doc.title}
-                      >
-                        {doc.title}
-                      </Link>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                        <span>{doc.pages} pages</span>
-                        <span>·</span>
-                        <span>{doc.sizeMb || 1.2} MB</span>
-                        {doc.campus && (
-                          <>
-                            <span>·</span>
-                            <span className="inline-flex items-center gap-0.5 text-slate-600 font-medium">
-                              <Building2Icon className="h-3 w-3 text-slate-400" />
-                              {doc.campus}
-                            </span>
-                          </>
-                        )}
-                        {doc.isoStage && (
-                          <span className="rounded bg-brand-100 text-brand-800 font-bold px-1.5 py-0.2 text-[9.5px]">
-                            {doc.isoStage}
-                          </span>
-                        )}
+            {docs.map((doc) => {
+              const area = lookup.area(doc.areaId);
+              const criterion = lookup.criterion(doc.criterionId);
+              const indicator = lookup.indicator(doc.indicatorId);
+              const details = fileDetails(doc);
+              return (
+                <tr
+                  key={doc.id}
+                  className={`transition-colors [&>td:first-child]:pl-4 [&>td:first-child]:pr-0 [&>td:last-child]:pl-1.5 [&>td:last-child]:pr-2 [&>td]:px-2.5 ${
+                    selectedIds.has(doc.id) ? 'bg-brand-50/50 hover:bg-brand-50/70' : 'hover:bg-slate-50/80'
+                  }`}
+                >
+                  <td className="td">{rowCheckbox(doc)}</td>
+                  <td className="td">
+                    <div className="flex items-start gap-2.5">
+                      {fileTypeIcon(doc)}
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          to={`/documents/${doc.id}`}
+                          className="line-clamp-2 break-words text-[13px] font-bold leading-snug text-slate-900 transition-colors hover:text-brand-700 hover:underline"
+                          title={doc.title}
+                        >
+                          {doc.title}
+                        </Link>
+                        <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-4 text-slate-500">
+                          {details.map((d, i) => (
+                            <React.Fragment key={d}>
+                              {i > 0 && <span aria-hidden="true">·</span>}
+                              <span>{d}</span>
+                            </React.Fragment>
+                          ))}
+                          {details.length > 0 && <span aria-hidden="true">·</span>}
+                          <span>Added {formatDate(doc.dateAdded)}</span>
+                          {doc.isoStage && (
+                            <span className="rounded bg-purple-100 px-1.5 text-[10px] font-bold text-purple-800">{doc.isoStage}</span>
+                          )}
+                        </p>
+                        {processingIndicator(doc)}
                       </div>
                     </div>
-                  </div>
-                </td>
+                  </td>
 
-                {/* Accreditation Review Status */}
-                <td className="td whitespace-nowrap">
-                  {renderApprovalBadge(doc)}
-                </td>
+                  <td className="td">{renderApprovalBadge(doc)}</td>
 
-                {/* Framework */}
-                <td className="td whitespace-nowrap">
-                  <FrameworkTag frameworkId={doc.frameworkId} />
-                </td>
+                  <td className="td">{doc.frameworkId ? <FrameworkTag frameworkId={doc.frameworkId} /> : emptyCell}</td>
 
-                {/* Area / Standard */}
-                <td className="td whitespace-nowrap text-xs font-medium text-slate-700">
-                  {lookup.area(doc.areaId)?.shortName || lookup.area(doc.areaId)?.name || 'General'}
-                </td>
+                  <td className="td text-xs font-medium text-slate-700">
+                    {area ? (
+                      <span className="line-clamp-2 break-words" title={area.name}>
+                        {area.shortName || area.name}
+                      </span>
+                    ) : (
+                      emptyCell
+                    )}
+                  </td>
 
-                {/* Criterion · Indicator */}
-                <td className="td whitespace-nowrap text-xs text-slate-600">
-                  {lookup.criterion(doc.criterionId)?.code || '—'}
-                  {lookup.indicator(doc.indicatorId)?.code ? ` · ${lookup.indicator(doc.indicatorId)?.code}` : ''}
-                </td>
+                  <td className="td text-xs">
+                    {criterion ? (
+                      <>
+                        <span className="block truncate font-medium text-slate-800" title={`${criterion.code} – ${criterion.name}`}>
+                          {criterion.code}
+                        </span>
+                        {indicator && (
+                          <span className="block truncate text-[11px] text-slate-500" title={`${indicator.code} – ${indicator.name}`}>
+                            Indicator {indicator.code}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      emptyCell
+                    )}
+                  </td>
 
-                {/* Document Type */}
-                <td className="td whitespace-nowrap text-xs text-slate-600">
-                  <span className="inline-block bg-slate-100 text-slate-700 rounded-md px-2 py-0.5 text-[11px] font-medium border border-slate-200/60">
-                    {doc.docType}
-                  </span>
-                </td>
+                  <td className="td">
+                    <span
+                      className="inline-block max-w-full break-words rounded-md border border-slate-200/70 bg-slate-100 px-2 py-0.5 align-middle text-[11px] font-medium leading-4 text-slate-700"
+                    >
+                      {doc.docType}
+                    </span>
+                  </td>
 
-                {/* Office / Unit */}
-                <td className="td max-w-[180px] truncate text-xs text-slate-600" title={doc.office}>
-                  {doc.office}
-                </td>
+                  <td className="td text-xs text-slate-600">
+                    {doc.office ? (
+                      <span className="line-clamp-2 break-words" title={doc.office}>
+                        {doc.office}
+                      </span>
+                    ) : (
+                      emptyCell
+                    )}
+                  </td>
 
-                {/* Sharing Access */}
-                <td className="td whitespace-nowrap">
-                  <button
-                    type="button"
-                    onClick={() => openManageAccess(doc.id)}
-                    className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-                    aria-label={`Manage access for ${doc.title}`}
-                  >
-                    <SharingStatusBadge documentId={doc.id} />
-                  </button>
-                </td>
-
-                {/* System Processing Status */}
-                <td className="td whitespace-nowrap">
-                  <StatusBadge status={doc.status} />
-                </td>
-
-                {/* Date Added */}
-                <td className="td whitespace-nowrap text-xs text-slate-500">
-                  {formatDate(doc.dateAdded)}
-                </td>
-
-                {/* Row Quick Actions */}
-                <td className="td">
-                  <div className="flex items-center justify-end gap-1">
+                  <td className="td">
                     <button
                       type="button"
-                      className="btn btn-ghost btn-xs h-7 w-7 p-0 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg"
-                      aria-label={`Preview ${doc.title}`}
-                      title="Quick Preview"
-                      onClick={() => onPreview(doc)}
+                      onClick={() => openManageAccess(doc.id)}
+                      className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                      aria-label={`Manage access for ${doc.title}`}
+                      title="Manage access"
                     >
-                      <EyeIcon className="h-3.5 w-3.5" />
+                      <SharingStatusBadge documentId={doc.id} />
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-xs h-7 w-7 p-0 text-slate-500 hover:text-brand-700 hover:bg-brand-50 rounded-lg"
-                      aria-label={`Share ${doc.title}`}
-                      title="Share Document"
-                      onClick={() => openShare(doc.id)}
-                    >
-                      <Share2Icon className="h-3.5 w-3.5" />
-                    </button>
-                    <RowActionsMenu label={`More actions for ${doc.title}`} actions={actionsFor(doc)} />
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+
+                  <td className="td">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        className="btn btn-ghost h-7 min-h-0 w-7 shrink-0 rounded-lg p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                        aria-label={`Preview ${doc.title}`}
+                        title="Quick preview"
+                        onClick={() => onPreview(doc)}
+                      >
+                        <EyeIcon className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost h-7 min-h-0 w-7 shrink-0 rounded-lg p-0 text-slate-500 hover:bg-brand-50 hover:text-brand-700"
+                        aria-label={`Share ${doc.title}`}
+                        title="Share document"
+                        onClick={() => openShare(doc.id)}
+                      >
+                        <Share2Icon className="h-3.5 w-3.5" />
+                      </button>
+                      <RowActionsMenu label={`More actions for ${doc.title}`} actions={actionsFor(doc)} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       <ul className="divide-y divide-line lg:hidden">
         {docs.map((doc) => (
-          <li key={doc.id} className="p-4 space-y-3 hover:bg-slate-50/60 transition-colors">
+          <li
+            key={doc.id}
+            className={`p-4 space-y-3 transition-colors ${selectedIds.has(doc.id) ? 'bg-brand-50/50' : 'hover:bg-slate-50/60'}`}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-2.5 min-w-0">
-                <span
-                  className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg border text-[10px] font-black uppercase shadow-2xs ${
-                    doc.fileType?.toLowerCase() === 'pdf'
-                      ? 'bg-brand-50 text-brand-900 border-brand-200/90'
-                      : doc.fileType?.toLowerCase().includes('doc')
-                      ? 'bg-brand-50 text-brand-700 border-brand-200/90'
-                      : doc.fileType?.toLowerCase().includes('xls')
-                      ? 'bg-brand-50 text-brand-700 border-brand-200/90'
-                      : 'bg-slate-50 text-slate-700 border-slate-200/90'
-                  }`}
-                >
-                  {doc.fileType?.toUpperCase() || 'FILE'}
-                </span>
+                <span className="flex h-8 shrink-0 items-center">{rowCheckbox(doc)}</span>
+                {fileTypeIcon(doc)}
                 <div className="min-w-0">
                   <Link to={`/documents/${doc.id}`} className="text-sm font-bold text-slate-900 hover:text-brand-700 block">
                     {doc.title}
@@ -285,8 +415,8 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     {renderApprovalBadge(doc)}
                     <FrameworkTag frameworkId={doc.frameworkId} />
-                    <StatusBadge status={doc.status} />
                   </div>
+                  {processingIndicator(doc)}
                 </div>
               </div>
               <RowActionsMenu label={`Actions for ${doc.title}`} actions={actionsFor(doc)} />
@@ -295,7 +425,7 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
             <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50/80 p-2.5 rounded-lg border border-slate-200/70">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Area</span>
-                <span className="font-medium text-slate-800">{lookup.area(doc.areaId)?.shortName || 'General'}</span>
+                <span className="font-medium text-slate-800">{lookup.area(doc.areaId)?.shortName || emptyCell}</span>
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Type</span>

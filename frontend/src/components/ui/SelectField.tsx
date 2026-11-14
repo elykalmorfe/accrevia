@@ -11,6 +11,7 @@ interface SelectFieldProps {
   hideLabel?: boolean;
   disabled?: boolean;
   className?: string;
+  labelClassName?: string;
   compact?: boolean;
   required?: boolean;
 }
@@ -24,6 +25,7 @@ export function SelectField({
   hideLabel = false,
   disabled = false,
   className = '',
+  labelClassName = 'label',
   compact = false,
   required = false
 }: SelectFieldProps) {
@@ -33,7 +35,7 @@ export function SelectField({
 
   return (
     <div className={className}>
-      <label htmlFor={id} className={hideLabel ? 'sr-only' : 'label'}>
+      <label htmlFor={id} className={hideLabel ? 'sr-only' : labelClassName}>
         {label}
         {required && <span className="ml-0.5 text-brand-700">*</span>}
       </label>

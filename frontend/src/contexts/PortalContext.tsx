@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { frameworks as initialFrameworks } from '../data/frameworks';
 import { initialFolders } from '../data/folders';
+import { seedMockDocuments } from '../data/mockDocuments';
 import { areas as initialAreas } from '../data/areas';
 import { criteria as initialCriteria } from '../data/criteria';
 import { indicators as initialIndicators } from '../data/indicators';
@@ -68,8 +69,10 @@ import {
   prefetchRatingsDocuments
 } from '../utils/ratingsDocuments';
 import { getSettings } from '../settings/portalSettings';
+import { useSessionAccount } from '../utils/auth';
 
 purgeLegacySampleData();
+seedMockDocuments();
 
 export interface PortalNotification {
   id: string;
@@ -247,7 +250,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   );
   const [accessLog, setAccessLog] = useState<AccessLogEntry[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [savedIds, setSavedIds] = useState<string[]>(() => loadStorage<string[]>('saved_ids', []));
 
   // Global Campus Filter State
   const [selectedCampus, setSelectedCampusState] = useState<CampusId | 'all'>(() => {
@@ -287,6 +290,10 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   useEffect(() => {
     saveStorage('documents', documents);
   }, [documents]);
+
+  useEffect(() => {
+    saveStorage('saved_ids', savedIds);
+  }, [savedIds]);
 
   // Accreditation & QA State
   const [campuses, setCampuses] = useState<Campus[]>(() => {
@@ -465,15 +472,17 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     return loadStorage<string>('active_user_id', viewAsUserId[viewAs] || 'u-01');
   });
 
+  const session = useSessionAccount();
   const currentUser = useMemo(() => {
+    const sessionUser = session?.id ? users.find((u) => u.id === session.id) : undefined;
+    if (sessionUser) return sessionUser;
     return users.find((u) => u.id === activeUserId) ?? users.find((u) => u.id === viewAsUserId[viewAs]) ?? users[0];
-  }, [users, activeUserId, viewAs]);
+  }, [users, activeUserId, viewAs, session]);
 
   const switchUser = useCallback((userId: string) => {
     setActiveUserId(userId);
     saveStorage('active_user_id', userId);
   }, []);
-
   const isAdmin = isAdminRole(currentUser.role);
 
   const saveFramework = useCallback((f: Framework) => setFrameworks((prev) => upsert(prev, f)), []);

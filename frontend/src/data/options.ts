@@ -95,3 +95,10 @@ export const searchSuggestions = [
 'Criterion 2.1',
 'ISO internal audit',
 'faculty development evidence for institutional accreditation 2025'];
+
+export const evidenceSearchExamples = [
+'Faculty development activities',
+'Documents supporting Area I – Vision, Mission, Goals, and Objectives',
+'Evidence for Criterion 2.1',
+'Research publications for accreditation',
+'Community extension program documentation'];

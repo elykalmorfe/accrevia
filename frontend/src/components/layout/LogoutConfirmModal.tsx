@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Modal } from '../ui/Modal';
 import { usePortal } from '../../contexts/PortalContext';
 import { initials } from '../../utils/format';
+import { endSession } from '../../utils/auth';
 
 export function LogoutConfirmModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { currentUser } = usePortal();
@@ -12,8 +13,9 @@ export function LogoutConfirmModal({ open, onClose }: { open: boolean; onClose: 
 
   const confirm = () => {
     onClose();
+    endSession();
     toast.success('You have been logged out.');
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   return createPortal(

@@ -24,6 +24,7 @@ import { usePortal } from '../contexts/PortalContext';
 import { resizeAvatar, useProfile, type ProfileDetails } from '../hooks/useProfile';
 import { useTheme, type ThemeMode } from '../hooks/useTheme';
 import { formatDate, formatDateTime, initials } from '../utils/format';
+import { changePassword, useSessionAccount } from '../utils/auth';
 
 type AccountTab = 'profile' | 'settings';
 
@@ -410,7 +411,9 @@ function PasswordField({ label, value, onChange, autoComplete }: { label: string
 }
 
 function PasswordCard() {
-  const [editing, setEditing] = useState(false);
+  const session = useSessionAccount();
+  const [editing, setEditing] = useState(() => !!session?.mustChangePassword);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ current: '', next: '', confirm: '' });
   const passed = PASSWORD_RULES.filter((r) => r.test(form.next)).length;
   const strength = STRENGTH[form.next ? passed : 0];
@@ -420,12 +423,22 @@ function PasswordCard() {
     setForm({ current: '', next: '', confirm: '' });
     setEditing(false);
   };
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return;
+    if (!session) return toast.error('Your session has expired. Please sign in again.');
     if (!form.current) return toast.error('Enter your current password.');
     if (passed < PASSWORD_RULES.length) return toast.error('The new password does not meet all requirements.');
     if (form.next !== form.confirm) return toast.error('The new passwords do not match.');
-    toast.success('Password changed');
-    close();
+    setSaving(true);
+    try {
+      await changePassword(session.email, form.current, form.next);
+      toast.success('Password changed');
+      close();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Password could not be changed.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -433,6 +446,11 @@ function PasswordCard() {
       title="Password"
       description="Use a strong password you don't use anywhere else."
       actions={<EditActions editing={editing} onEdit={() => setEditing(true)} onCancel={close} onSave={handleSave} variant="primary" />}>
+      {session?.mustChangePassword && (
+        <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+          You are signed in with the default administrator password. Set a new password to secure this account.
+        </p>
+      )}
       {editing ? (
         <div className="space-y-4">
           <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">

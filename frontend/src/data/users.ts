@@ -1,6 +1,19 @@
-import { PortalUser } from '../types/user';
+﻿import { PortalUser } from '../types/user';
+import { DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_ID } from '../utils/auth';
 
 export const users: PortalUser[] = [
+  {
+    id: DEFAULT_ADMIN_ID,
+    name: 'System Administrator',
+    email: DEFAULT_ADMIN_EMAIL,
+    role: 'Administrator',
+    office: 'Management Information Systems Office',
+    status: 'Active',
+    lastLogin: null,
+    employeeId: 'NEMSU-SYSADMIN',
+    personnelClassification: 'Staff (Technical)',
+    affiliationVerified: true
+  },
   {
     id: 'u-00',
     name: 'Dr. Maria L. Santos',

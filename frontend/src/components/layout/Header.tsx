@@ -11,6 +11,9 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { isAdmin } = usePortal();
   const [searchOpen, setSearchOpen] = useState(false);
   const { pathname } = useLocation();
+  // The admin Dashboard and Search Results render their own search in the page; All Documents relies on its repository search.
+  const hideHeaderSearch =
+    (isAdmin && pathname === '/dashboard') || pathname === '/search' || pathname === '/evidence';
 
   useEffect(() => setSearchOpen(false), [pathname]);
 
@@ -34,27 +37,31 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           </span>
         </div>
 
-        <div className="hidden min-w-0 max-w-lg flex-1 px-2 sm:flex">
-          <GlobalSearch />
-        </div>
+        {!hideHeaderSearch && (
+          <div className="hidden min-w-0 max-w-lg flex-1 px-2 sm:flex">
+            <GlobalSearch />
+          </div>
+        )}
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          <button
-            type="button"
-            onClick={() => setSearchOpen((v) => !v)}
-            className="btn btn-ghost btn-icon h-9 w-9 min-h-0 min-w-0 sm:hidden"
-            aria-label={searchOpen ? 'Close search' : 'Search'}
-            aria-expanded={searchOpen}
-          >
-            {searchOpen ? <XIcon className="h-[18px] w-[18px]" /> : <SearchIcon className="h-[18px] w-[18px]" />}
-          </button>
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+          {!hideHeaderSearch && (
+            <button
+              type="button"
+              onClick={() => setSearchOpen((v) => !v)}
+              className="btn btn-ghost btn-icon h-9 w-9 min-h-0 min-w-0 text-ink-muted hover:text-ink sm:hidden"
+              aria-label={searchOpen ? 'Close search' : 'Search'}
+              aria-expanded={searchOpen}
+            >
+              {searchOpen ? <XIcon className="h-[18px] w-[18px]" /> : <SearchIcon className="h-[18px] w-[18px]" />}
+            </button>
+          )}
           {isAdmin && <NotificationsMenu />}
           <ProfileMenu />
         </div>
       </div>
 
       <AnimatePresence>
-        {searchOpen && (
+        {searchOpen && !hideHeaderSearch && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}

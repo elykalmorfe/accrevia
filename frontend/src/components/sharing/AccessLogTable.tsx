@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { DownloadIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
-import { AccessAction } from '../../types/sharing';
+import { AccessAction, AccessLogEntry } from '../../types/sharing';
 import { formatDateTime } from '../../utils/format';
 import { SelectField } from '../ui/SelectField';
 import { Badge, BadgeTone } from '../ui/Badge';
@@ -22,27 +22,38 @@ const actionTone: Record<AccessAction, BadgeTone> = {
   'Access rejected': 'danger'
 };
 
-export function AccessLogTable() {
+export type LogTableEntry = AccessLogEntry & { documentTitle?: string };
+
+interface AccessLogTableProps {
+  /** Rows to show instead of the session access log. */
+  entries?: LogTableEntry[];
+  actions?: AccessAction[];
+  label?: string;
+}
+
+export function AccessLogTable({ entries, actions, label = 'Access log' }: AccessLogTableProps = {}) {
   const { accessLog, documents } = usePortal();
   const [action, setAction] = useState('');
   const [text, setText] = useState('');
+  const source: LogTableEntry[] = entries ?? accessLog;
 
-  const titleOf = (id: string) => documents.find((d) => d.id === id)?.title ?? 'Unknown document';
+  const titleOf = (l: LogTableEntry) =>
+    documents.find((d) => d.id === l.documentId)?.title ?? l.documentTitle ?? 'Unknown document';
 
   const rows = useMemo(() => {
     const needle = text.trim().toLowerCase();
-    return accessLog.filter(
-      (l) => (!action || l.action === action) && (!needle || `${l.actor} ${titleOf(l.documentId)} ${l.detail ?? ''}`.toLowerCase().includes(needle))
+    return source.filter(
+      (l) => (!action || l.action === action) && (!needle || `${l.actor} ${titleOf(l)} ${l.detail ?? ''}`.toLowerCase().includes(needle))
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessLog, documents, action, text]);
+  }, [source, documents, action, text]);
 
   return (
-    <section className="panel overflow-hidden" aria-label="Access log">
+    <section className="panel overflow-hidden" aria-label={label}>
       <div className="flex flex-col gap-2 border-b border-line p-4 sm:flex-row sm:items-center">
-        <input aria-label="Filter access log" value={text} onChange={(e) => setText(e.target.value)} placeholder="Filter by user or document" className="input h-8 text-[13px] sm:w-72" />
-        <SelectField compact hideLabel label="Action" value={action} onChange={setAction} placeholder="All actions" options={Object.keys(actionTone)} className="sm:w-52" />
-        <button type="button" className="btn btn-ghost btn-sm sm:ml-auto" onClick={() => toast.success('Access log exported as CSV')}>
+        <input aria-label={`Filter ${label.toLowerCase()}`} value={text} onChange={(e) => setText(e.target.value)} placeholder="Filter by user or document" className="input h-8 text-[13px] sm:w-72" />
+        <SelectField compact hideLabel label="Action" value={action} onChange={setAction} placeholder="All actions" options={actions ?? Object.keys(actionTone)} className="sm:w-52" />
+        <button type="button" className="btn btn-ghost btn-sm sm:ml-auto" onClick={() => toast.success(`${label} exported as CSV`)}>
           <DownloadIcon className="h-3.5 w-3.5" /> Export log
         </button>
       </div>
@@ -66,7 +77,7 @@ export function AccessLogTable() {
                 </td>
                 <td className="td"><Badge tone={actionTone[l.action]}>{l.action}</Badge></td>
                 <td className="td max-w-[280px]">
-                  <Link to={`/documents/${l.documentId}`} className="text-ink hover:text-brand-700 hover:underline">{titleOf(l.documentId)}</Link>
+                  <Link to={`/documents/${l.documentId}`} className="text-ink hover:text-brand-700 hover:underline">{titleOf(l)}</Link>
                 </td>
                 <td className="td max-w-[320px] text-ink-muted">{l.detail ?? '—'}</td>
                 <td className="td whitespace-nowrap text-ink-muted">{formatDateTime(l.at)}</td>

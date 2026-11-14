@@ -3,9 +3,15 @@
 export interface SearchResult {
   doc: EvidenceDocument;
   score: number;
+  /** Every matched term, including related terms; used for highlighting. */
   terms: string[];
   passages: string[];
-  reason: string;
+  /** Query terms found in the document. */
+  keywords: string[];
+  /** Related terms (not typed by the user) that contributed to the match. */
+  relatedTerms: string[];
+  /** Document fields the terms were found in, e.g. title, keywords, document text. */
+  fields: string[];
 }
 
 export interface QueryIntent {
@@ -155,27 +161,16 @@ export function searchEvidence(query: string, docs: EvidenceDocument[], lookup: 
       score: pct,
       terms: matchedTerms,
       passages: rankedPassages,
-      reason: buildReason(Array.from(primaryMatched), Array.from(fields), doc, lookup)
+      keywords: Array.from(primaryMatched),
+      relatedTerms: matchedTerms.filter((t) => !primaryMatched.has(t)),
+      fields: Array.from(fields)
     });
   }
 
   return results.sort((a, b) => b.score - a.score);
 }
 
-function buildReason(terms: string[], fields: string[], doc: EvidenceDocument, lookup: Lookup): string {
-  const criterion = lookup.criterion(doc.criterionId);
-  const indicator = lookup.indicator(doc.indicatorId);
-  const framework = lookup.framework(doc.frameworkId);
-  const termText = terms.slice(0, 3).map((t) => `“${t}”`).join(', ');
-  const where = joinNatural(fields.slice(0, 3));
-  const lead = termText ? `Matches ${termText} in the ${where}.` : 'Matched through its accreditation classification.';
-  const support = criterion ?
-  ` Supports ${criterion.code}${indicator ? `, Indicator ${indicator.code}` : ''} (${indicator?.name ?? criterion.name}) under ${framework?.shortName ?? 'its framework'}.` :
-  '';
-  return lead + support;
-}
-
-function joinNatural(items: string[]): string {
+export function joinNatural(items: string[]): string {
   if (items.length <= 1) return items[0] ?? 'document';
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }

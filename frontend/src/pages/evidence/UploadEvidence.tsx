@@ -830,21 +830,22 @@ export function UploadEvidence() {
       {!currentFolder ? (
         <section className="space-y-4" aria-label="Folder Directory">
           {/* Controls Bar: Search, Campus Filter Pills, Grid/List Switcher */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white rounded-xl border border-slate-200/80 p-2.5 shadow-xs">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between bg-white rounded-xl border border-slate-200/80 p-2.5 shadow-xs">
             {/* Search Input */}
-            <div className="relative flex-1 max-w-sm">
-              <SearchIcon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <div className="relative w-full sm:max-w-md xl:min-w-[220px] xl:max-w-sm xl:flex-1">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
               <input
                 type="text"
                 value={folderSearch}
                 onChange={(e) => setFolderSearch(e.target.value)}
                 placeholder="Search folders by name or code..."
-                className="input pl-8.5 h-8.5 text-xs bg-slate-50/50 border-slate-200 rounded-lg focus:bg-white"
+                aria-label="Search folders by name or code"
+                className="input pl-9 text-xs bg-slate-50/50 border-slate-200 rounded-lg focus:bg-white"
               />
             </div>
 
             {/* Campus Filter Pills (All Campuses + 7 Campuses) */}
-            <div className="flex flex-wrap items-center gap-2 justify-between sm:justify-end">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 justify-between xl:justify-end">
               <div className="flex items-center gap-1 rounded-xl bg-slate-100/90 p-1 text-xs overflow-x-auto no-scrollbar max-w-full border border-slate-200/80 shadow-2xs">
                 <button
                   type="button"
@@ -1399,13 +1400,14 @@ export function UploadEvidence() {
               {/* Search & Sorting Toolbar */}
               <div className="flex flex-col gap-3 rounded-xl border border-slate-200/90 bg-white p-3 shadow-xs lg:flex-row lg:items-center lg:justify-between">
                 <div className="relative flex-1 max-w-md">
-                  <SearchIcon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                   <input
                     type="text"
                     value={docSearch}
                     onChange={(e) => setDocSearch(e.target.value)}
                     placeholder={`Search within ${currentFolder.name}...`}
-                    className="input pl-8.5 h-8.5 text-xs w-full bg-slate-50/70 border-slate-200 rounded-lg focus:bg-white"
+                    aria-label={`Search within ${currentFolder.name}`}
+                    className="input pl-9 text-xs w-full bg-slate-50/70 border-slate-200 rounded-lg focus:bg-white"
                   />
                   {docSearch && (
                     <button
