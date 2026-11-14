@@ -10,6 +10,8 @@
     "gen:dark": "node scripts/gen-dark-css.mjs",
     "import:certs": "node scripts/import-certificates.mjs",
     "import:ratings": "node scripts/import-ratings.mjs",
+    "generate:verified-catalog": "node scripts/generate-verified-catalog.mjs",
+    "generate:demo-pdfs": "node scripts/generate-demo-pdfs.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

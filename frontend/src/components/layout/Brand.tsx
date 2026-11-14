@@ -1,13 +1,22 @@
 import { Link } from 'react-router-dom';
 import { logoSrc, usePortalSettings } from '../../settings/portalSettings';
 
-export function Brand({ showSubtitle = true, compact = false }: { showSubtitle?: boolean; compact?: boolean }) {
+export function Brand({
+  showSubtitle = true,
+  compact = false,
+  to = '/'
+}: {
+  showSubtitle?: boolean;
+  compact?: boolean;
+  /** Home link target. Public portal passes `/open`; authenticated shell keeps `/`. */
+  to?: string;
+}) {
   const settings = usePortalSettings();
   const { systemName, institution } = settings.general;
 
   return (
     <Link
-      to="/"
+      to={to}
       className="group flex shrink-0 items-center gap-2.5 sm:gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
       title={`${systemName} - ${institution}`}
     >

@@ -13,6 +13,7 @@ import { DocumentPreviewModal } from '../../components/documents/DocumentPreview
 import { institutionalCertificateAreaKey } from '../../utils/programAccreditation';
 import { formatDate, pluralize } from '../../utils/format';
 import { Building2Icon, CalendarCheckIcon, CalendarClockIcon, PencilIcon, ShieldCheckIcon } from 'lucide-react';
+import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 
 const IA_CERTIFICATE_LEVELS: CertificateLevel[] = IA_LEVEL_OPTIONS.map((opt) => ({
   code: opt.value,
@@ -62,7 +63,8 @@ function validityState(end?: string): { label: string; className: string } | nul
 }
 
 export function CampusIAView() {
-  const { campuses, iaRecords, isAdmin, updateCampusIA, updateIARequirement, selectedCampus, setSelectedCampus } = usePortal();
+  const { campuses, iaRecords, updateCampusIA, updateIARequirement, selectedCampus, setSelectedCampus } = usePortal();
+  const { canMutate } = useInstitutionalMutationAccess();
   const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
     return selectedCampus !== 'all' ? selectedCampus : 'tandag';
   });
@@ -124,14 +126,16 @@ export function CampusIAView() {
       {/* Campus Selector Bar */}
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-bold uppercase tracking-wider text-ink-subtle">Campuses</span>
-        <button
-          type="button"
-          onClick={() => setIsEditAllOpen(true)}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-800 transition-colors"
-        >
-          <PencilIcon className="h-3 w-3" />
-          Edit All Statuses
-        </button>
+        {canMutate && (
+          <button
+            type="button"
+            onClick={() => setIsEditAllOpen(true)}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-800 transition-colors"
+          >
+            <PencilIcon className="h-3 w-3" />
+            Edit All Statuses
+          </button>
+        )}
       </div>
 
       {/* Campus Selector Pills */}
@@ -239,7 +243,7 @@ export function CampusIAView() {
             activeCertificate={activeCertificate}
             activeLevel={activeLevel}
             levelCount={levelCount}
-            isAdmin={isAdmin}
+            isAdmin={canMutate}
             onOpen={() => setCertificatesOpen(true)}
             onPreview={setPreviewCertificate}
             fallbackUrl={iaRecord.certificateUrl}
@@ -304,14 +308,19 @@ export function CampusIAView() {
         campusId={selectedCampusId}
         campusName={campus.name}
         iaRequirements={iaRecord.requirements}
-        onRequirementUpdated={(reqId, docName, docUrl) => {
-          updateIARequirement(selectedCampusId, reqId, {
-            documentName: docName,
-            documentUrl: docUrl,
-            status: 'Approved',
-            isSubmitted: true
-          });
-        }}
+        readOnly={!canMutate}
+        onRequirementUpdated={
+          canMutate
+            ? (reqId, docName, docUrl) => {
+                updateIARequirement(selectedCampusId, reqId, {
+                  documentName: docName,
+                  documentUrl: docUrl,
+                  status: 'Approved',
+                  isSubmitted: true
+                });
+              }
+            : undefined
+        }
       />
 
       <CertificateFoldersModal
@@ -332,10 +341,14 @@ export function CampusIAView() {
           { label: 'Current level', value: iaRecord.status },
           { label: 'Validity', value: `${iaRecord.validityStart} – ${iaRecord.validityEnd}` }
         ]}
-        onActivate={(doc, code) => {
-          if (code) updateCampusIA(selectedCampusId, { status: code as IALevel });
-          toast.success(code ? `"${doc.title}" activated · campus set to ${shortLevel(code)}` : `"${doc.title}" activated`);
-        }}
+        onActivate={
+          canMutate
+            ? (doc, code) => {
+                if (code) updateCampusIA(selectedCampusId, { status: code as IALevel });
+                toast.success(code ? `"${doc.title}" activated · campus set to ${shortLevel(code)}` : `"${doc.title}" activated`);
+              }
+            : undefined
+        }
       />
       <DocumentPreviewModal doc={previewCertificate} onClose={() => setPreviewCertificate(null)} grantAccess />
 

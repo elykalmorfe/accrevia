@@ -48,6 +48,7 @@ import { metadataToPatch } from '../utils/metadata';
 import { isAdminRole, isRecipientRole, nowIso, permissionLabel, shareStatus } from '../utils/sharing';
 import { formatDate } from '../utils/format';
 import { isCampusMatch } from '../utils/campus';
+import { normalizeDocumentsPublishingFields, normalizePublishingFields } from '../utils/publicDocuments';
 import { deleteStoredFile } from '../utils/fileStore';
 import { applyLevelChange, ensureLevelHistory, normalizeLegacyStatus } from '../utils/programAccreditation';
 import { purgeLegacySampleData } from '../utils/samplePurge';
@@ -225,7 +226,9 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const [areas, setAreas] = useState(initialAreas);
   const [criteria, setCriteria] = useState(initialCriteria);
   const [indicators, setIndicators] = useState(initialIndicators);
-  const [documents, setDocuments] = useState<EvidenceDocument[]>(() => loadStorage<EvidenceDocument[]>('documents', []));
+  const [documents, setDocuments] = useState<EvidenceDocument[]>(() =>
+    normalizeDocumentsPublishingFields(loadStorage<EvidenceDocument[]>('documents', []))
+  );
   const [folders, setFolders] = useState<EvidenceFolder[]>(() => {
     const stored = loadStorage<EvidenceFolder[]>('folders', initialFolders);
     const existingIds = new Set(stored.map((f) => f.id));
@@ -368,7 +371,9 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
             (d) =>
               !(d.frameworkId === 'pa' && areaIds.has(d.areaId) && (d.id.startsWith('doc-cert-') || seededIds.has(d.id)))
           );
-          return refreshLinkedCertificateMeta([...kept, ...seededDocs], programAccreditations);
+          return normalizeDocumentsPublishingFields(
+            refreshLinkedCertificateMeta([...kept, ...seededDocs], programAccreditations)
+          );
         });
         void clearGeneratedLinkedCertificateFiles(programAccreditations)
           .then(() => prefetchCertificateFiles(seededDocs))
@@ -414,7 +419,10 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
         const kept = prev.filter(
           (d) => !(d.frameworkId === 'pa' && typeof d.areaId === 'string' && d.areaId.startsWith('trba-') && areaIds.has(d.areaId))
         );
-        return [...kept, ...seededDocs.filter((d) => !kept.some((p) => p.id === d.id))];
+        return normalizeDocumentsPublishingFields([
+          ...kept,
+          ...seededDocs.filter((d) => !kept.some((p) => p.id === d.id))
+        ]);
       });
       // Point technicalReviewLink at the newest local ratings file.
       setProgramAccreditations((prev) => {
@@ -474,8 +482,26 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
   const session = useSessionAccount();
   const currentUser = useMemo(() => {
-    const sessionUser = session?.id ? users.find((u) => u.id === session.id) : undefined;
-    if (sessionUser) return sessionUser;
+    if (session?.email) {
+      const byId = session.id ? users.find((u) => u.id === session.id) : undefined;
+      if (byId) return byId;
+      const email = session.email.trim().toLowerCase();
+      const byEmail = users.find((u) => u.email.trim().toLowerCase() === email);
+      if (byEmail) return byEmail;
+      // Session exists but portal directory has not synced yet — never fall back to a seeded admin.
+      const role = (session.role as PortalUser['role']) || 'Faculty';
+      const name =
+        [session.firstName, session.middleName, session.lastName].filter(Boolean).join(' ').trim() || session.email;
+      return {
+        id: session.id || `session-${email}`,
+        name,
+        email: session.email,
+        role,
+        office: '',
+        status: 'Active' as const,
+        lastLogin: null
+      };
+    }
     return users.find((u) => u.id === activeUserId) ?? users.find((u) => u.id === viewAsUserId[viewAs]) ?? users[0];
   }, [users, activeUserId, viewAs, session]);
 
@@ -499,10 +525,22 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     []
   );
   const updateDocument = useCallback(
-    (id: string, patch: Partial<EvidenceDocument>) => setDocuments((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d))),
+    (id: string, patch: Partial<EvidenceDocument>) =>
+      setDocuments((prev) => prev.map((d) => (d.id === id ? normalizePublishingFields({ ...d, ...patch }) : d))),
     []
   );
-  const addDocument = useCallback((doc: EvidenceDocument) => setDocuments((prev) => [doc, ...prev]), []);
+  const addDocument = useCallback(
+    (doc: EvidenceDocument) =>
+      setDocuments((prev) => [
+        normalizePublishingFields({
+          ...doc,
+          isPubliclyPublished: doc.isPubliclyPublished ?? false,
+          publicPublishedAt: doc.publicPublishedAt ?? null
+        }),
+        ...prev
+      ]),
+    []
+  );
   const deleteDocument = useCallback((id: string) => {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
     deleteStoredFile(id).catch(() => undefined);
@@ -554,7 +592,9 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
         pages: source.pages,
         sizeMb: source.sizeMb,
         uploadedBy: source.uploadedBy,
-        passages: [source.excerpt]
+        passages: [source.excerpt],
+        isPubliclyPublished: false,
+        publicPublishedAt: null
       };
       if (!newDoc.documentDate) newDoc.documentDate = today;
       setDocuments((prev) => [newDoc, ...prev]);

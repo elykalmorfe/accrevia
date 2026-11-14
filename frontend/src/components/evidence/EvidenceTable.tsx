@@ -6,7 +6,9 @@ import {
   ChevronRightIcon,
   DownloadIcon,
   EyeIcon,
+  EyeOffIcon,
   FileTextIcon,
+  GlobeIcon,
   PencilIcon,
   Share2Icon,
   ShieldCheckIcon,
@@ -31,6 +33,12 @@ import { FrameworkTag } from '../ui/FrameworkTag';
 import { RowActionsMenu, RowAction } from '../ui/RowActionsMenu';
 import { SharingStatusBadge } from '../sharing/SharingStatusBadge';
 import { usePortalSettings } from '../../settings/portalSettings';
+import {
+  canPublishToPublicPortal,
+  canUnpublishFromPublicPortal,
+  publishToPublicPortalPatch,
+  unpublishFromPublicPortalPatch
+} from '../../utils/publicDocuments';
 
 interface EvidenceTableProps {
   docs: EvidenceDocument[];
@@ -196,6 +204,36 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
       });
     }
     if (isAdmin) {
+      const published = doc.isPubliclyPublished === true;
+      if (published) {
+        actions.push({
+          label: 'Unpublish from Public Portal',
+          icon: EyeOffIcon,
+          onSelect: () => {
+            const check = canUnpublishFromPublicPortal(doc);
+            if (!check.ok) {
+              toast.error(check.message);
+              return;
+            }
+            updateDocument(doc.id, unpublishFromPublicPortalPatch());
+            toast.success('Unpublished from Public Portal', { description: doc.title });
+          }
+        });
+      } else {
+        actions.push({
+          label: 'Publish to Public Portal',
+          icon: GlobeIcon,
+          onSelect: () => {
+            const check = canPublishToPublicPortal(doc);
+            if (!check.ok) {
+              toast.error(check.message);
+              return;
+            }
+            updateDocument(doc.id, publishToPublicPortalPatch());
+            toast.success('Published to Public Portal', { description: doc.title });
+          }
+        });
+      }
       actions.push({
         label: 'Archive',
         icon: ArchiveIcon,

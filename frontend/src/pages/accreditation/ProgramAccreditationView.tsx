@@ -124,6 +124,7 @@ import {
   ChevronDownIcon
 } from 'lucide-react';
 import { CardField, MobileCard } from '../../components/ui/ResponsiveTable';
+import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 
 function programBadgeTone(status: string): BadgeTone {
   if (status.includes('Level 4')) return 'gold';
@@ -140,9 +141,9 @@ export function ProgramAccreditationView() {
     programAccreditations,
     deleteProgramAccreditation,
     documents,
-    folders,
-    isAdmin
+    folders
   } = usePortal();
+  const { canMutate } = useInstitutionalMutationAccess();
 
   // Search & Filters
   const [search, setSearch] = useState('');
@@ -314,6 +315,7 @@ export function ProgramAccreditationView() {
   ]);
 
   const handleDelete = (id: string, name: string) => {
+    if (!canMutate) return;
     if (confirm(`Are you sure you want to remove "${name}" from accreditation tracking?`)) {
       deleteProgramAccreditation(id);
       toast.success('Program removed from accreditation registry');
@@ -500,25 +502,27 @@ export function ProgramAccreditationView() {
             })}
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <button
-            type="button"
-              onClick={() => setReportModal({ open: true, type: 'summary' })}
-              className="btn btn-secondary btn-sm"
-            >
-              <PrinterIcon className="h-4 w-4" /> Print Summary Report
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingProgram(null);
-                setFormModalOpen(true);
-              }}
-              className="btn btn-primary btn-sm"
-            >
-              <PlusIcon className="h-4 w-4" /> Add Academic Program
-          </button>
-          </div>
+          {canMutate && (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setReportModal({ open: true, type: 'summary' })}
+                className="btn btn-secondary btn-sm"
+              >
+                <PrinterIcon className="h-4 w-4" /> Print Summary Report
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingProgram(null);
+                  setFormModalOpen(true);
+                }}
+                className="btn btn-primary btn-sm"
+              >
+                <PlusIcon className="h-4 w-4" /> Add Academic Program
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Active Filter Notification Banner */}
@@ -1048,7 +1052,7 @@ export function ProgramAccreditationView() {
                         <LayersIcon className="h-3.5 w-3.5" />
                         Areas ({prog.requirements?.length || 10})
                       </button>
-                      {(certCount > 0 || isAdmin) && (
+                      {(certCount > 0 || canMutate) && (
                         <button type="button" onClick={() => setCertificateProgramId(prog.id)} className="btn btn-secondary btn-sm h-8 flex-1 text-xs">
                           {certCount > 0 ? (
                             <FileCheckIcon className={`h-3.5 w-3.5 ${cert?.active ? 'text-success-600' : 'text-warning-600'}`} />
@@ -1066,18 +1070,20 @@ export function ProgramAccreditationView() {
                         <button type="button" onClick={() => setFindingsProgramId(prog.id)} className="btn btn-ghost btn-icon h-8 w-8 min-h-0 min-w-0" aria-label="Summary of findings">
                           <PrinterIcon className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingProgram(prog);
-                            setFormModalOpen(true);
-                          }}
-                          className="btn btn-ghost btn-icon h-8 w-8 min-h-0 min-w-0"
-                          aria-label="Edit program"
-                        >
-                          <PencilIcon className="h-3.5 w-3.5" />
-                        </button>
-                        {isAdmin && (
+                        {canMutate && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingProgram(prog);
+                              setFormModalOpen(true);
+                            }}
+                            className="btn btn-ghost btn-icon h-8 w-8 min-h-0 min-w-0"
+                            aria-label="Edit program"
+                          >
+                            <PencilIcon className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {canMutate && (
                           <button
                             type="button"
                             onClick={() => handleDelete(prog.id, prog.programName)}
@@ -1217,12 +1223,12 @@ export function ProgramAccreditationView() {
                                   type="button"
                                   onClick={() => setCertificateProgramId(prog.id)}
                                   className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-warning-100 bg-warning-50 px-2 py-0.5 text-[11.5px] font-semibold text-warning-700 transition hover:border-warning-600"
-                                  title={isAdmin ? 'No certificate is switched on. Open to choose the current one.' : 'No current certificate has been set yet.'}
+                                  title={canMutate ? 'No certificate is switched on. Open to choose the current one.' : 'No current certificate has been set yet.'}
                                 >
                                   <FileCheckIcon className="h-3 w-3 shrink-0" />
                                   None active ({count})
                                 </button>
-                              ) : isAdmin ? (
+                              ) : canMutate ? (
                                 <button
                                   type="button"
                                   onClick={() => setCertificateProgramId(prog.id)}
@@ -1333,14 +1339,16 @@ export function ProgramAccreditationView() {
 
                       <td className="td py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setFindingsProgramId(prog.id)}
-                            className="btn btn-ghost btn-sm h-7 w-7 p-0"
-                            title="Print Summary of Findings & Recommendation"
-                          >
-                            <PrinterIcon className="h-3.5 w-3.5 text-ink-muted" />
-                          </button>
+                          {canMutate ? (
+                            <button
+                              type="button"
+                              onClick={() => setFindingsProgramId(prog.id)}
+                              className="btn btn-ghost btn-sm h-7 w-7 p-0"
+                              title="Print Summary of Findings & Recommendation"
+                            >
+                              <PrinterIcon className="h-3.5 w-3.5 text-ink-muted" />
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => setDetailsModalProgram(prog)}
@@ -1349,18 +1357,20 @@ export function ProgramAccreditationView() {
                           >
                             Areas ({prog.requirements?.length || 10})
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingProgram(prog);
-                              setFormModalOpen(true);
-                            }}
-                            className="btn btn-ghost btn-sm h-7 w-7 p-0"
-                            title="Edit Program Details"
-                          >
-                            <PencilIcon className="h-3.5 w-3.5 text-ink-muted" />
-                          </button>
-                          {isAdmin && (
+                          {canMutate && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingProgram(prog);
+                                setFormModalOpen(true);
+                              }}
+                              className="btn btn-ghost btn-sm h-7 w-7 p-0"
+                              title="Edit Program Details"
+                            >
+                              <PencilIcon className="h-3.5 w-3.5 text-ink-muted" />
+                            </button>
+                          )}
+                          {canMutate && (
                             <button
                               type="button"
                               onClick={() => handleDelete(prog.id, prog.programName)}
@@ -1452,13 +1462,13 @@ export function ProgramAccreditationView() {
                   <p className="font-semibold text-ink-subtle">No certificate uploaded</p>
                   );
                 })()}
-                {(isAdmin || detailsCertificates.length > 0) && (
+                {(canMutate || detailsCertificates.length > 0) && (
                   <button
                     type="button"
                     onClick={() => setCertificateProgramId(detailsModalProgram.id)}
                     className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:underline"
                   >
-                    <FolderOpenIcon className="h-3 w-3" /> {isAdmin ? 'Manage certificates' : 'Browse certificates'}
+                    <FolderOpenIcon className="h-3 w-3" /> {canMutate ? 'Manage certificates' : 'Browse certificates'}
                   </button>
                 )}
               </div>
@@ -1545,15 +1555,17 @@ export function ProgramAccreditationView() {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setRepositoryReqId(req.id)}
-                        className="btn btn-secondary btn-sm h-7 px-2"
-                      >
-                        <UploadIcon className="h-3.5 w-3.5" /> Upload / Verify
-                      </button>
-                    </div>
+                    {canMutate && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRepositoryReqId(req.id)}
+                          className="btn btn-secondary btn-sm h-7 px-2"
+                        >
+                          <UploadIcon className="h-3.5 w-3.5" /> Upload / Verify
+                        </button>
+                      </div>
+                    )}
                   </div>
                   );
                 })}

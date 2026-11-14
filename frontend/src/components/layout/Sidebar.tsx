@@ -12,7 +12,6 @@ const itemFeatureMap: Record<string, string> = {
   'Requests': 'requests',
   'Reports & Analytics': 'reports',
   'My Profile': 'account',
-  'User Management': 'users',
   'Settings': 'settings',
   'Shared with Me': 'documents',
   'Saved Documents': 'documents',
@@ -259,7 +258,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
         </div>
       )}
 
-      <div className="mt-auto border-t border-line-subtle pt-3">
+      <div className="mt-auto space-y-1 border-t border-line-subtle pt-3">
         <button
           type="button"
           onClick={() => setLogoutOpen(true)}

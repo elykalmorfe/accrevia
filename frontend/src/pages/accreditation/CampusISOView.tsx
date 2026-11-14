@@ -21,6 +21,7 @@ import {
   ExternalLinkIcon,
   LayersIcon
 } from 'lucide-react';
+import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 
 const DEFAULT_ISO_TITLE = 'ISO 9001:2015 Surveillance, Monitoring & Compliance';
 const DEFAULT_ISO_DESCRIPTION =
@@ -28,6 +29,7 @@ const DEFAULT_ISO_DESCRIPTION =
 
 export function CampusISOView() {
   const { campuses, isoRecords, documents, updateISOCorrectiveAction, currentUser, selectedCampus, setSelectedCampus } = usePortal();
+  const { canMutate } = useInstitutionalMutationAccess();
   const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
     return selectedCampus !== 'all' ? selectedCampus : 'tandag';
   });
@@ -80,6 +82,7 @@ export function CampusISOView() {
   const [modalDescValue, setModalDescValue] = useState(sectionDescription);
 
   const handleSaveModalHeader = (e?: React.FormEvent) => {
+    if (!canMutate) return;
     if (e) e.preventDefault();
     const trimmedTitle = modalTitleValue.trim();
     if (!trimmedTitle) {
@@ -115,6 +118,7 @@ export function CampusISOView() {
   };
 
   const handleVerifyCar = () => {
+    if (!canMutate) return;
     if (!selectedCar) return;
     updateISOCorrectiveAction(isoRecord.id, selectedCar.id, {
       status: 'Closed / Verified',
@@ -148,27 +152,29 @@ export function CampusISOView() {
         title={sectionTitle}
         description={sectionDescription}
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setModalTitleValue(sectionTitle);
-                setModalDescValue(sectionDescription);
-                setHeaderModalOpen(true);
-              }}
-              className="btn btn-secondary btn-sm"
-              title="Edit Section Title & Header"
-            >
-              <PencilIcon className="h-4 w-4" /> Edit Header
-            </button>
-            <button
-              type="button"
-              onClick={() => setAuditModalOpen(true)}
-              className="btn btn-primary btn-sm"
-            >
-              <PlusIcon className="h-4 w-4" /> Conduct Surveillance Audit
-            </button>
-          </div>
+          canMutate ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setModalTitleValue(sectionTitle);
+                  setModalDescValue(sectionDescription);
+                  setHeaderModalOpen(true);
+                }}
+                className="btn btn-secondary btn-sm"
+                title="Edit Section Title & Header"
+              >
+                <PencilIcon className="h-4 w-4" /> Edit Header
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuditModalOpen(true)}
+                className="btn btn-primary btn-sm"
+              >
+                <PlusIcon className="h-4 w-4" /> Conduct Surveillance Audit
+              </button>
+            </div>
+          ) : undefined
         }
       />
 
@@ -602,7 +608,7 @@ export function CampusISOView() {
                       <span className="text-xs text-ink-muted italic flex items-center gap-1 shrink-0">
                         <ArchiveIcon className="h-3.5 w-3.5 text-brand-600" /> Preserved in historical archive
                       </span>
-                    ) : !isClosed ? (
+                    ) : !isClosed && canMutate ? (
                       <button
                         type="button"
                         onClick={() => setSelectedCar(car)}

@@ -24,6 +24,7 @@ import {
 import { getStoredFile, persistUpload } from '../../utils/fileStore';
 import { UploadDropzone } from '../../components/upload/UploadDropzone';
 import { FileList, FileRow, FileRowAction } from '../../components/upload/FileRow';
+import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 
 /** Starting zoom so the 640px-wide paper preview fits narrow screens. */
 function fitPaperZoom(): number {
@@ -40,6 +41,7 @@ export function COPCView() {
     selectedCampus,
     setSelectedCampus
   } = usePortal();
+  const { canMutate } = useInstitutionalMutationAccess();
 
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -211,6 +213,7 @@ export function COPCView() {
   }, [viewingCertificateCopc, activePdfDoc, uploadCopc, editingCopc]);
 
   const handleOpenUpload = (copc: COPCRecord, defaultCode?: string) => {
+    if (!canMutate) return;
     setUploadCopc(copc);
     const target = defaultCode
       ? (defaultCode === 'COPC-CERT' ? null : copc.requirements.find((r) => r.code === defaultCode))
@@ -381,6 +384,7 @@ export function COPCView() {
   };
 
   const handleSaveUploadRequirement = () => {
+    if (!canMutate) return;
     if (!uploadCopc) return;
 
     // Handle Official Certificate tab save
@@ -476,6 +480,7 @@ export function COPCView() {
 
   // Open Edit Modal with full support for editing Certificate and 5/5 Requirements Audit
   const handleOpenEdit = (copc: COPCRecord) => {
+    if (!canMutate) return;
     setEditingCopc(copc);
     setEditActiveTab('details');
     setEditForm({
@@ -547,6 +552,7 @@ export function COPCView() {
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
+    if (!canMutate) return;
     e.preventDefault();
     if (!editingCopc) return;
 
@@ -941,7 +947,7 @@ export function COPCView() {
                           <AwardIcon className="h-3.5 w-3.5 text-brand-600 shrink-0" />
                           <span>{copc.certificateNumber}</span>
                         </button>
-                      ) : (
+                      ) : canMutate ? (
                         <button
                           type="button"
                           onClick={() => handleOpenUpload(copc, 'COPC-CERT')}
@@ -951,6 +957,8 @@ export function COPCView() {
                           <UploadIcon className="h-3 w-3" />
                           <span>Upload Certificate</span>
                         </button>
+                      ) : (
+                        <span className="text-ink-subtle text-xs">—</span>
                       )}
                     </td>
 
@@ -989,22 +997,26 @@ export function COPCView() {
                         >
                           <EyeIcon className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenUpload(copc)}
-                          className="flex h-7 w-7 items-center justify-center text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
-                          title="Upload / Verify Requirement Evidence & Certificate"
-                        >
-                          <UploadIcon className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(copc)}
-                          className="flex h-7 w-7 items-center justify-center text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
-                          title="Edit COPC Record, Certificate & 5/5 Requirements"
-                        >
-                          <PencilIcon className="h-3.5 w-3.5" />
-                        </button>
+                        {canMutate && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenUpload(copc)}
+                            className="flex h-7 w-7 items-center justify-center text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
+                            title="Upload / Verify Requirement Evidence & Certificate"
+                          >
+                            <UploadIcon className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {canMutate && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(copc)}
+                            className="flex h-7 w-7 items-center justify-center text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
+                            title="Edit COPC Record, Certificate & 5/5 Requirements"
+                          >
+                            <PencilIcon className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1063,7 +1075,7 @@ export function COPCView() {
                         >
                           {copc.certificateNumber}
                         </button>
-                      ) : (
+                      ) : canMutate ? (
                         <button
                           type="button"
                           onClick={() => handleOpenUpload(copc, 'COPC-CERT')}
@@ -1073,6 +1085,8 @@ export function COPCView() {
                           <UploadIcon className="h-3 w-3" />
                           <span>Upload Certificate</span>
                         </button>
+                      ) : (
+                        <p className="font-medium text-ink-subtle mt-0.5">—</p>
                       )}
                     </div>
                     <div>
@@ -1113,24 +1127,28 @@ export function COPCView() {
                         <EyeIcon className="h-3.5 w-3.5" />
                         <span>View</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenUpload(copc)}
-                        className="flex h-8 px-2.5 items-center gap-1.5 text-xs text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
-                        title="Upload Evidence"
-                      >
-                        <UploadIcon className="h-3.5 w-3.5" />
-                        <span>Upload</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(copc)}
-                        className="flex h-8 px-2.5 items-center gap-1.5 text-xs text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
-                        title="Edit COPC Record"
-                      >
-                        <PencilIcon className="h-3.5 w-3.5" />
-                        <span>Edit</span>
-                      </button>
+                      {canMutate && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenUpload(copc)}
+                          className="flex h-8 px-2.5 items-center gap-1.5 text-xs text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
+                          title="Upload Evidence"
+                        >
+                          <UploadIcon className="h-3.5 w-3.5" />
+                          <span>Upload</span>
+                        </button>
+                      )}
+                      {canMutate && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(copc)}
+                          className="flex h-8 px-2.5 items-center gap-1.5 text-xs text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
+                          title="Edit COPC Record"
+                        >
+                          <PencilIcon className="h-3.5 w-3.5" />
+                          <span>Edit</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1160,20 +1178,22 @@ export function COPCView() {
           size="xl"
           footer={
             <div className="flex w-full items-center justify-between gap-2">
-              <div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const target = viewingCertificateCopc;
-                    setViewingCertificateCopc(null);
-                    handleOpenUpload(target, viewModalTab === 'certificate' ? 'COPC-CERT' : undefined);
-                  }}
-                  className="btn btn-primary btn-sm inline-flex items-center gap-1.5 shadow-2xs font-semibold cursor-pointer"
-                >
-                  <UploadIcon className="h-3.5 w-3.5" />
-                  <span>{viewModalTab === 'certificate' ? 'Upload / Replace Certificate' : 'Upload Evidence'}</span>
-                </button>
-              </div>
+              {canMutate && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = viewingCertificateCopc;
+                      setViewingCertificateCopc(null);
+                      handleOpenUpload(target, viewModalTab === 'certificate' ? 'COPC-CERT' : undefined);
+                    }}
+                    className="btn btn-primary btn-sm inline-flex items-center gap-1.5 shadow-2xs font-semibold cursor-pointer"
+                  >
+                    <UploadIcon className="h-3.5 w-3.5" />
+                    <span>{viewModalTab === 'certificate' ? 'Upload / Replace Certificate' : 'Upload Evidence'}</span>
+                  </button>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <button
                   type="button"

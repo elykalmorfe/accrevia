@@ -2,6 +2,7 @@
 import { toast } from 'sonner';
 import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
+import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 import {
   AccreditationLevel,
   AccreditationResult,
@@ -27,7 +28,8 @@ interface ProgramFormModalProps {
 }
 
 export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', onClose }: ProgramFormModalProps) {
-  const { campuses, saveProgramAccreditation, isAdmin, currentUser } = usePortal();
+  const { campuses, saveProgramAccreditation, currentUser } = usePortal();
+  const { canMutate } = useInstitutionalMutationAccess();
 
   const [campusId, setCampusId] = useState<CampusId>(defaultCampusId);
   const [programName, setProgramName] = useState('');
@@ -96,6 +98,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
   const validityYears = getSettings().accreditation.levelValidityYears[status as ValidityLevel];
 
   const handleAddHistory = () => {
+    if (!canMutate) return;
     const year = Number(historyYear);
     if (!Number.isInteger(year) || year < 1950 || year > 2100) {
       setError('Enter a valid 4-digit year for the accreditation result.');
@@ -112,6 +115,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canMutate) return;
     if (!programName.trim()) {
       setError('Please provide a valid program name.');
       return;
@@ -170,15 +174,17 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
       footer={
         <div className="flex w-full items-center justify-between">
           <span className="text-xs text-ink-subtle">
-            {isAdmin ? 'Administrator full authorization active' : 'QA Personnel access'}
+            {canMutate ? 'Administrator full authorization active' : 'View-only — changes cannot be saved'}
           </span>
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="btn btn-secondary">
               Cancel
             </button>
-            <button type="button" onClick={handleSubmit} className="btn btn-primary">
-              {program ? 'Save Changes' : 'Create Program'}
-            </button>
+            {canMutate && (
+              <button type="button" onClick={handleSubmit} className="btn btn-primary">
+                {program ? 'Save Changes' : 'Create Program'}
+              </button>
+            )}
           </div>
         </div>
       }
@@ -344,7 +350,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
                     </Badge>
                     {entry.remarks && <span className="text-ink-muted">· {entry.remarks}</span>}
                     {entry.recordedBy && <span className="text-ink-subtle">· {entry.recordedBy}</span>}
-                    {isAdmin && (
+                    {canMutate && (
                       <button
                         type="button"
                         onClick={() => setHistory((prev) => prev.filter((e) => e.id !== entry.id))}
@@ -359,25 +365,27 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
               )}
             </div>
 
-            <div className="mt-3 grid gap-2 sm:grid-cols-[90px_1fr_1fr_2fr_auto] sm:items-end">
-              <TextField label="Year" type="number" value={historyYear} onChange={setHistoryYear} />
-              <SelectField
-                label="Level"
-                value={historyLevel}
-                onChange={(val) => setHistoryLevel(val as AccreditationLevel)}
-                options={HISTORY_LEVEL_OPTIONS.map((l) => ({ value: l, label: formatLevel(l) }))}
-              />
-              <SelectField
-                label="Result"
-                value={historyResult}
-                onChange={(val) => setHistoryResult(val as AccreditationResult)}
-                options={RESULT_OPTIONS}
-              />
-              <TextField label="Remarks" value={historyRemarks} onChange={setHistoryRemarks} placeholder="e.g. Formal survey visit" />
-              <button type="button" onClick={handleAddHistory} className="btn btn-secondary h-10">
-                <PlusIcon className="h-4 w-4" /> Add
-              </button>
-            </div>
+            {canMutate && (
+              <div className="mt-3 grid gap-2 sm:grid-cols-[90px_1fr_1fr_2fr_auto] sm:items-end">
+                <TextField label="Year" type="number" value={historyYear} onChange={setHistoryYear} />
+                <SelectField
+                  label="Level"
+                  value={historyLevel}
+                  onChange={(val) => setHistoryLevel(val as AccreditationLevel)}
+                  options={HISTORY_LEVEL_OPTIONS.map((l) => ({ value: l, label: formatLevel(l) }))}
+                />
+                <SelectField
+                  label="Result"
+                  value={historyResult}
+                  onChange={(val) => setHistoryResult(val as AccreditationResult)}
+                  options={RESULT_OPTIONS}
+                />
+                <TextField label="Remarks" value={historyRemarks} onChange={setHistoryRemarks} placeholder="e.g. Formal survey visit" />
+                <button type="button" onClick={handleAddHistory} className="btn btn-secondary h-10">
+                  <PlusIcon className="h-4 w-4" /> Add
+                </button>
+              </div>
+            )}
           </div>
         )}
 

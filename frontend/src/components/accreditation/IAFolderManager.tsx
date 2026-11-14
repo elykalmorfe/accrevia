@@ -55,6 +55,8 @@ interface IAFolderManagerProps {
   framework?: FolderFramework;
   iaRequirements?: IARequirementItem[];
   onRequirementUpdated?: (reqId: string, docName: string, docUrl: string) => void;
+  /** Faculty/Staff (and Faculty portal) read-only mode — browse/preview/download only. */
+  readOnly?: boolean;
 }
 
 const AREA_STATUS_STYLE: Record<string, { tile: string }> = {
@@ -88,7 +90,14 @@ function folderDeadlineText(folder: EvidenceFolder): string {
   return `Created ${folder.createdAt}`;
 }
 
-export function IAFolderManager({ campusId, campusName, framework: frameworkProp, iaRequirements = [], onRequirementUpdated }: IAFolderManagerProps) {
+export function IAFolderManager({
+  campusId,
+  campusName,
+  framework: frameworkProp,
+  iaRequirements = [],
+  onRequirementUpdated,
+  readOnly = false
+}: IAFolderManagerProps) {
   const { folders, saveFolder, deleteFolder, documents, addDocument, deleteDocument, updateDocument, updateIARequirement, currentUser } = usePortal();
   const settings = usePortalSettings();
   // IA area names are editable in Settings → Accreditation Setup
@@ -99,7 +108,8 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
   const areaLabel = (area: IAAreaTemplate) => framework.areaNoun + ' ' + area.number;
   const areaRangeLabel = framework.areaNounPlural + ' 1–' + OFFICIAL_IA_AREAS.length;
   const { approverRoles, requireRevisionNote, autoVerifyArea } = settings.workflow;
-  const canReview = approverRoles.includes(currentUser.role);
+  const canMutate = !readOnly;
+  const canReview = !readOnly && approverRoles.includes(currentUser.role);
   const uploadSettings = { defaultYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
 
   // Active view tab: 'areas' | 'folders'
@@ -272,6 +282,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
   };
 
   const handleApproveDocument = (doc: EvidenceDocument) => {
+    if (!canMutate) return;
     updateDocument(doc.id, {
       approvalStatus: 'Approved',
       revisionNotes: undefined,
@@ -300,6 +311,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
   };
 
   const handleSubmitRevision = () => {
+    if (!canMutate) return;
     if (!revisionModalDoc || (requireRevisionNote && !revisionRemarks.trim())) return;
     setIsSubmittingRevision(true);
     updateDocument(revisionModalDoc.id, {
@@ -601,7 +613,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
     );
 
     // If no folder exists yet, immediately prompt to create the first folder for this Area
-    if (existing.length === 0) {
+    if (existing.length === 0 && canMutate) {
       const area = OFFICIAL_IA_AREAS.find((a) => a.code === areaCode);
       setEditingFolder(null);
       setFolderFormParentId(undefined);
@@ -654,6 +666,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
     targetAreaCode: string,
     targetParentFolderId?: string
   ) => {
+    if (!canMutate) return;
     const targetAreaObj = OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaCode) || OFFICIAL_IA_AREAS[0];
     const targetAreaId = targetAreaCode.toLowerCase();
 
@@ -730,6 +743,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
 
   // Execute Upload Commit
   const handleExecuteUpload = () => {
+    if (!canMutate) return;
     // Mode 1: Custom Folder upload into an Area or active folder
     if (uploadMode === 'from-custom') {
       if (!selectedCustomFolderToUpload) {
@@ -947,6 +961,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
   };
 
   const handleRemoveDoc = (doc: EvidenceDocument) => {
+    if (!canMutate) return;
     if (!window.confirm(`Are you sure you want to remove "${doc.title}"?`)) return;
     deleteDocument(doc.id);
     toast.success(`Removed "${doc.title}"`);
@@ -990,7 +1005,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
           </div>
 
           {/* If inside a Custom Folder, provide direct action to upload/move it to a Specific Area */}
-          {framework.customFolders && !currentActiveFolder.areaId && (
+          {canMutate && framework.customFolders && !currentActiveFolder.areaId && (
             <button
               type="button"
               onClick={() => setUploadingCustomFolder(currentActiveFolder)}
@@ -1053,39 +1068,40 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
             </div>
           </div>
 
-          {/* Action Buttons on the Right Row: Upload Files / Folder & New Subfolder */}
-          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsTopUploadSource(false);
-                setSelectedTargetFolder(currentActiveFolder.id);
-                setUploadModalOpen(true);
-              }}
-              className="btn btn-primary btn-sm h-9 px-3.5 text-xs gap-1.5 shadow-xs"
-              title="Upload individual files or an entire folder"
-            >
-              <UploadIcon className="h-3.5 w-3.5" />
-              <span>Upload Files / Folder</span>
-            </button>
+          {canMutate && (
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsTopUploadSource(false);
+                  setSelectedTargetFolder(currentActiveFolder.id);
+                  setUploadModalOpen(true);
+                }}
+                className="btn btn-primary btn-sm h-9 px-3.5 text-xs gap-1.5 shadow-xs"
+                title="Upload individual files or an entire folder"
+              >
+                <UploadIcon className="h-3.5 w-3.5" />
+                <span>Upload Files / Folder</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setEditingFolder(null);
-                setFolderFormParentId(currentActiveFolder.id);
-                setFolderFormAreaId(currentActiveFolder.areaId);
-                setFolderFormInitialName('');
-                setFolderFormInitialCode('');
-                setFolderFormOpen(true);
-              }}
-              className="btn btn-secondary btn-sm h-9 px-3.5 text-xs gap-1.5 shadow-2xs"
-              title="Create a subfolder inside this folder"
-            >
-              <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
-              <span>New Subfolder</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingFolder(null);
+                  setFolderFormParentId(currentActiveFolder.id);
+                  setFolderFormAreaId(currentActiveFolder.areaId);
+                  setFolderFormInitialName('');
+                  setFolderFormInitialCode('');
+                  setFolderFormOpen(true);
+                }}
+                className="btn btn-secondary btn-sm h-9 px-3.5 text-xs gap-1.5 shadow-2xs"
+                title="Create a subfolder inside this folder"
+              >
+                <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
+                <span>New Subfolder</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1250,8 +1266,9 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
           </div>
 
           {/* Top upload button only appears when outside any area or custom folder to eliminate redundancy */}
-          {((activeTab === 'areas' && !selectedAreaCode && !activeFolderId) ||
-            (activeTab === 'folders' && !activeFolderId)) && (
+          {canMutate &&
+            ((activeTab === 'areas' && !selectedAreaCode && !activeFolderId) ||
+              (activeTab === 'folders' && !activeFolderId)) && (
             <button
               type="button"
               onClick={() => {
@@ -1360,36 +1377,38 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsTopUploadSource(false);
-                      setSelectedTargetFolder(areaFolders[0]?.id || '');
-                      setUploadModalOpen(true);
-                    }}
-                    className="btn btn-primary btn-sm text-xs gap-1.5 shadow-xs"
-                    title={`Upload individual files, an entire folder, or a custom folder into this ${framework.areaNoun}`}
-                  >
-                    <UploadIcon className="h-3.5 w-3.5" />
-                    <span>Upload Files / Folder</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingFolder(null);
-                      setFolderFormParentId(undefined);
-                      setFolderFormAreaId(currentArea.code.toLowerCase());
-                      setFolderFormInitialName(`${currentArea.name} Portfolio`);
-                      setFolderFormInitialCode(currentArea.code);
-                      setFolderFormOpen(true);
-                    }}
-                    className="btn btn-secondary btn-sm text-xs gap-1.5"
-                  >
-                    <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
-                    <span>Create Folder</span>
-                  </button>
-                </div>
+                {canMutate && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsTopUploadSource(false);
+                        setSelectedTargetFolder(areaFolders[0]?.id || '');
+                        setUploadModalOpen(true);
+                      }}
+                      className="btn btn-primary btn-sm text-xs gap-1.5 shadow-xs"
+                      title={`Upload individual files, an entire folder, or a custom folder into this ${framework.areaNoun}`}
+                    >
+                      <UploadIcon className="h-3.5 w-3.5" />
+                      <span>Upload Files / Folder</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingFolder(null);
+                        setFolderFormParentId(undefined);
+                        setFolderFormAreaId(currentArea.code.toLowerCase());
+                        setFolderFormInitialName(`${currentArea.name} Portfolio`);
+                        setFolderFormInitialCode(currentArea.code);
+                        setFolderFormOpen(true);
+                      }}
+                      className="btn btn-secondary btn-sm text-xs gap-1.5"
+                    >
+                      <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
+                      <span>Create Folder</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* AREA APPROVAL NOTIFICATION BANNER */}
@@ -1462,35 +1481,37 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                       Create an evidence folder with a start date and optional deadline (or set to no deadline) to organize portfolios for {currentArea.name}.
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingFolder(null);
-                        setFolderFormParentId(undefined);
-                        setFolderFormAreaId(currentArea.code.toLowerCase());
-                        setFolderFormInitialName(`${currentArea.name} Evidence Portfolio`);
-                        setFolderFormInitialCode(currentArea.code);
-                        setFolderFormOpen(true);
-                      }}
-                      className="btn btn-primary btn-sm text-xs gap-1.5"
-                    >
-                      <FolderPlusIcon className="h-4 w-4" />
-                      <span>Create First Folder with Start & Expired Date</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsTopUploadSource(false);
-                        setSelectedTargetFolder('');
-                        setUploadModalOpen(true);
-                      }}
-                      className="btn btn-secondary btn-sm text-xs gap-1.5"
-                    >
-                      <UploadIcon className="h-4 w-4 text-brand-600" />
-                      <span>Upload Files / Folder</span>
-                    </button>
-                  </div>
+                  {canMutate && (
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingFolder(null);
+                          setFolderFormParentId(undefined);
+                          setFolderFormAreaId(currentArea.code.toLowerCase());
+                          setFolderFormInitialName(`${currentArea.name} Evidence Portfolio`);
+                          setFolderFormInitialCode(currentArea.code);
+                          setFolderFormOpen(true);
+                        }}
+                        className="btn btn-primary btn-sm text-xs gap-1.5"
+                      >
+                        <FolderPlusIcon className="h-4 w-4" />
+                        <span>Create First Folder with Start & Expired Date</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsTopUploadSource(false);
+                          setSelectedTargetFolder('');
+                          setUploadModalOpen(true);
+                        }}
+                        className="btn btn-secondary btn-sm text-xs gap-1.5"
+                      >
+                        <UploadIcon className="h-4 w-4 text-brand-600" />
+                        <span>Upload Files / Folder</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* Grid of Folders for this Area */
@@ -1520,25 +1541,27 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                           meta={`${pluralize(docCount, 'file')}${subCount > 0 ? ` · ${pluralize(subCount, 'subfolder')}` : ''}`}
                           status={FOLDER_STATUS[getFolderApprovalStatus(folder).status]}
                           actions={
-                            <>
-                              <FolderAction
-                                icon={UploadIcon}
-                                label="Upload into folder"
-                                onClick={() => {
-                                  setIsTopUploadSource(false);
-                                  setSelectedTargetFolder(folder.id);
-                                  setUploadModalOpen(true);
-                                }}
-                              />
-                              <FolderAction
-                                icon={PencilIcon}
-                                label="Edit folder"
-                                onClick={() => {
-                                  setEditingFolder(folder);
-                                  setFolderFormOpen(true);
-                                }}
-                              />
-                            </>
+                            canMutate ? (
+                              <>
+                                <FolderAction
+                                  icon={UploadIcon}
+                                  label="Upload into folder"
+                                  onClick={() => {
+                                    setIsTopUploadSource(false);
+                                    setSelectedTargetFolder(folder.id);
+                                    setUploadModalOpen(true);
+                                  }}
+                                />
+                                <FolderAction
+                                  icon={PencilIcon}
+                                  label="Edit folder"
+                                  onClick={() => {
+                                    setEditingFolder(folder);
+                                    setFolderFormOpen(true);
+                                  }}
+                                />
+                              </>
+                            ) : undefined
                           }
                         />
                       );
@@ -1709,31 +1732,33 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                       ? `No items matching "${searchQuery}" inside ${currentActiveFolder.name}.`
                       : `"${currentActiveFolder.name}" is currently empty.`}
                   </p>
-                  <div className="flex items-center justify-center gap-2 mt-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsTopUploadSource(false);
-                        setSelectedTargetFolder(currentActiveFolder.id);
-                        setUploadModalOpen(true);
-                      }}
-                      className="btn btn-primary btn-xs text-xs gap-1"
-                    >
-                      <UploadIcon className="h-3 w-3" /> Upload Files Now
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingFolder(null);
-                        setFolderFormParentId(currentActiveFolder.id);
-                        setFolderFormAreaId(currentActiveFolder.areaId);
-                        setFolderFormOpen(true);
-                      }}
-                      className="btn btn-secondary btn-xs text-xs gap-1"
-                    >
-                      <FolderPlusIcon className="h-3 w-3 text-brand-600" /> Create Subfolder
-                    </button>
-                  </div>
+                  {canMutate && (
+                    <div className="flex items-center justify-center gap-2 mt-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsTopUploadSource(false);
+                          setSelectedTargetFolder(currentActiveFolder.id);
+                          setUploadModalOpen(true);
+                        }}
+                        className="btn btn-primary btn-xs text-xs gap-1"
+                      >
+                        <UploadIcon className="h-3 w-3" /> Upload Files Now
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingFolder(null);
+                          setFolderFormParentId(currentActiveFolder.id);
+                          setFolderFormAreaId(currentActiveFolder.areaId);
+                          setFolderFormOpen(true);
+                        }}
+                        className="btn btn-secondary btn-xs text-xs gap-1"
+                      >
+                        <FolderPlusIcon className="h-3 w-3 text-brand-600" /> Create Subfolder
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1759,27 +1784,29 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                           meta={pluralize(count, 'file')}
                           status={FOLDER_STATUS[getFolderApprovalStatus(sub).status]}
                           actions={
-                            <>
-                              <FolderAction
-                                icon={UploadIcon}
-                                label="Upload into subfolder"
-                                onClick={() => {
-                                  setIsTopUploadSource(false);
-                                  setSelectedTargetFolder(sub.id);
-                                  setUploadModalOpen(true);
-                                }}
-                              />
-                              <FolderAction
-                                icon={PencilIcon}
-                                label="Rename / edit subfolder"
-                                onClick={() => {
-                                  setEditingFolder(sub);
-                                  setFolderFormParentId(activeFolderId || undefined);
-                                  setFolderFormAreaId(selectedAreaCode?.toLowerCase());
-                                  setFolderFormOpen(true);
-                                }}
-                              />
-                            </>
+                            canMutate ? (
+                              <>
+                                <FolderAction
+                                  icon={UploadIcon}
+                                  label="Upload into subfolder"
+                                  onClick={() => {
+                                    setIsTopUploadSource(false);
+                                    setSelectedTargetFolder(sub.id);
+                                    setUploadModalOpen(true);
+                                  }}
+                                />
+                                <FolderAction
+                                  icon={PencilIcon}
+                                  label="Rename / edit subfolder"
+                                  onClick={() => {
+                                    setEditingFolder(sub);
+                                    setFolderFormParentId(activeFolderId || undefined);
+                                    setFolderFormAreaId(selectedAreaCode?.toLowerCase());
+                                    setFolderFormOpen(true);
+                                  }}
+                                />
+                              </>
+                            ) : undefined
                           }
                         />
                       );
@@ -1912,7 +1939,9 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
 
                               <span className="mx-1 hidden h-4 w-px bg-line sm:block" />
                               <FileRowAction icon={DownloadIcon} label={`Download ${doc.title}`} onClick={() => handleDownloadDoc(doc)} />
-                              <FileRowAction icon={Trash2Icon} label={`Delete ${doc.title}`} danger onClick={() => handleRemoveDoc(doc)} />
+                              {canMutate && (
+                                <FileRowAction icon={Trash2Icon} label={`Delete ${doc.title}`} danger onClick={() => handleRemoveDoc(doc)} />
+                              )}
                               </>
                             }
                           >
@@ -1978,21 +2007,23 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                     Custom evidence folders and portfolios strictly isolated to {campusName}. Folders can be uploaded directly to specific {framework.label} {areaRangeLabel}.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingFolder(null);
-                    setFolderFormParentId(undefined);
-                    setFolderFormAreaId(undefined);
-                    setFolderFormInitialName('');
-                    setFolderFormInitialCode('');
-                    setFolderFormOpen(true);
-                  }}
-                  className="btn btn-secondary btn-xs gap-1"
-                >
-                  <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
-                  <span>New Folder</span>
-                </button>
+                {canMutate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingFolder(null);
+                      setFolderFormParentId(undefined);
+                      setFolderFormAreaId(undefined);
+                      setFolderFormInitialName('');
+                      setFolderFormInitialCode('');
+                      setFolderFormOpen(true);
+                    }}
+                    className="btn btn-secondary btn-xs gap-1"
+                  >
+                    <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
+                    <span>New Folder</span>
+                  </button>
+                )}
               </div>
 
               {rootCustomFolders.length === 0 ? (
@@ -2024,30 +2055,32 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                       meta={`${pluralize(docCount, 'file')}${subCount > 0 ? ` · ${pluralize(subCount, 'subfolder')}` : ''}`}
                       status={FOLDER_STATUS[getFolderApprovalStatus(folder).status]}
                       actions={
-                        <>
-                          <FolderAction
-                            icon={Share2Icon}
-                            label={`Move into an official ${framework.label} ${framework.areaNoun}`}
-                            onClick={() => setUploadingCustomFolder(folder)}
-                          />
-                          <FolderAction
-                            icon={UploadIcon}
-                            label="Upload into folder"
-                            onClick={() => {
-                              setIsTopUploadSource(false);
-                              setSelectedTargetFolder(folder.id);
-                              setUploadModalOpen(true);
-                            }}
-                          />
-                          <FolderAction
-                            icon={PencilIcon}
-                            label="Rename folder"
-                            onClick={() => {
-                              setEditingFolder(folder);
-                              setFolderFormOpen(true);
-                            }}
-                          />
-                        </>
+                        canMutate ? (
+                          <>
+                            <FolderAction
+                              icon={Share2Icon}
+                              label={`Move into an official ${framework.label} ${framework.areaNoun}`}
+                              onClick={() => setUploadingCustomFolder(folder)}
+                            />
+                            <FolderAction
+                              icon={UploadIcon}
+                              label="Upload into folder"
+                              onClick={() => {
+                                setIsTopUploadSource(false);
+                                setSelectedTargetFolder(folder.id);
+                                setUploadModalOpen(true);
+                              }}
+                            />
+                            <FolderAction
+                              icon={PencilIcon}
+                              label="Rename folder"
+                              onClick={() => {
+                                setEditingFolder(folder);
+                                setFolderFormOpen(true);
+                              }}
+                            />
+                          </>
+                        ) : undefined
                       }
                     />
                   );
@@ -2149,31 +2182,33 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                       ? `No items matching "${searchQuery}" inside ${currentActiveFolder.name}.`
                       : `"${currentActiveFolder.name}" is currently empty.`}
                   </p>
-                  <div className="flex items-center justify-center gap-2 mt-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsTopUploadSource(false);
-                        setSelectedTargetFolder(currentActiveFolder.id);
-                        setUploadModalOpen(true);
-                      }}
-                      className="btn btn-primary btn-xs text-xs gap-1"
-                    >
-                      <UploadIcon className="h-3 w-3" /> Upload Files Now
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingFolder(null);
-                        setFolderFormParentId(currentActiveFolder.id);
-                        setFolderFormAreaId(currentActiveFolder.areaId);
-                        setFolderFormOpen(true);
-                      }}
-                      className="btn btn-secondary btn-xs text-xs gap-1"
-                    >
-                      <FolderPlusIcon className="h-3 w-3 text-brand-600" /> Create Subfolder
-                    </button>
-                  </div>
+                  {canMutate && (
+                    <div className="flex items-center justify-center gap-2 mt-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsTopUploadSource(false);
+                          setSelectedTargetFolder(currentActiveFolder.id);
+                          setUploadModalOpen(true);
+                        }}
+                        className="btn btn-primary btn-xs text-xs gap-1"
+                      >
+                        <UploadIcon className="h-3 w-3" /> Upload Files Now
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingFolder(null);
+                          setFolderFormParentId(currentActiveFolder.id);
+                          setFolderFormAreaId(currentActiveFolder.areaId);
+                          setFolderFormOpen(true);
+                        }}
+                        className="btn btn-secondary btn-xs text-xs gap-1"
+                      >
+                        <FolderPlusIcon className="h-3 w-3 text-brand-600" /> Create Subfolder
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2199,16 +2234,18 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                           meta={pluralize(count, 'file')}
                           status={FOLDER_STATUS[getFolderApprovalStatus(sub).status]}
                           actions={
-                            <FolderAction
-                              icon={PencilIcon}
-                              label="Rename / edit subfolder"
-                              onClick={() => {
-                                setEditingFolder(sub);
-                                setFolderFormParentId(activeFolderId || undefined);
-                                setFolderFormAreaId(selectedAreaCode?.toLowerCase());
-                                setFolderFormOpen(true);
-                              }}
-                            />
+                            canMutate ? (
+                              <FolderAction
+                                icon={PencilIcon}
+                                label="Rename / edit subfolder"
+                                onClick={() => {
+                                  setEditingFolder(sub);
+                                  setFolderFormParentId(activeFolderId || undefined);
+                                  setFolderFormAreaId(selectedAreaCode?.toLowerCase());
+                                  setFolderFormOpen(true);
+                                }}
+                              />
+                            ) : undefined
                           }
                         />
                       );
@@ -2241,7 +2278,9 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
                           <>
                             <FileRowAction icon={EyeIcon} label={`Preview ${doc.title}`} onClick={() => setPreviewDoc(doc)} />
                             <FileRowAction icon={DownloadIcon} label={`Download ${doc.title}`} onClick={() => handleDownloadDoc(doc)} />
-                            <FileRowAction icon={Trash2Icon} label={`Delete ${doc.title}`} danger onClick={() => handleRemoveDoc(doc)} />
+                            {canMutate && (
+                              <FileRowAction icon={Trash2Icon} label={`Delete ${doc.title}`} danger onClick={() => handleRemoveDoc(doc)} />
+                            )}
                           </>
                         }
                       />
@@ -2255,7 +2294,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
       )}
 
       {/* MODAL: TRANSFER A CUSTOM FOLDER TO AN OFFICIAL IA AREA */}
-      {uploadingCustomFolder && (
+      {canMutate && uploadingCustomFolder && (
         <Modal
           open={!!uploadingCustomFolder}
           onClose={() => setUploadingCustomFolder(null)}
@@ -2375,7 +2414,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
       )}
 
       {/* UPLOAD INDIVIDUAL FILES, ENTIRE FOLDERS & CUSTOM FOLDERS MODAL */}
-      {uploadModalOpen && (
+      {canMutate && uploadModalOpen && (
         <Modal
           open={uploadModalOpen}
           size="lg"
@@ -2812,6 +2851,7 @@ export function IAFolderManager({ campusId, campusName, framework: frameworkProp
           setFolderFormInitialCode(undefined);
         }}
         onSave={(f) => {
+          if (!canMutate) return;
           const assignedAreaId = f.areaId || folderFormAreaId || undefined;
           const finalFolder: EvidenceFolder = {
             ...f,

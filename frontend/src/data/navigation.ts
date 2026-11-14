@@ -8,8 +8,7 @@ import {
   InboxIcon,
   LucideIcon,
   SettingsIcon,
-  UserIcon,
-  UsersIcon
+  UserIcon
 } from 'lucide-react';
 
 export interface NavChild {
@@ -47,8 +46,9 @@ const navIcon = {
 export const navigation: NavItem[] = [
   {
     label: 'Dashboard',
-    to: '/',
+    to: '/dashboard',
     icon: LayoutDashboardIcon,
+    matchPrefix: '/dashboard',
     color: navIcon
   },
   {
@@ -99,13 +99,6 @@ export const navigation: NavItem[] = [
     color: navIcon
   },
   {
-    label: 'User Management',
-    to: '/users',
-    icon: UsersIcon,
-    section: 'account',
-    color: navIcon
-  },
-  {
     label: 'Settings',
     to: '/settings',
     icon: SettingsIcon,
@@ -117,8 +110,9 @@ export const navigation: NavItem[] = [
 export const userNavigation: NavItem[] = [
   {
     label: 'Dashboard',
-    to: '/',
+    to: '/dashboard',
     icon: LayoutDashboardIcon,
+    matchPrefix: '/dashboard',
     color: navIcon
   },
   {

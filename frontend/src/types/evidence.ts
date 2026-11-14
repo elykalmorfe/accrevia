@@ -135,6 +135,16 @@ export interface EvidenceDocument {
   revisionNotes?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  /**
+   * QA Office has explicitly published this document to the Public Document Portal.
+   * Older stored records may omit this field; treat missing as `false`.
+   */
+  isPubliclyPublished?: boolean;
+  /**
+   * ISO timestamp when the document was last published to the public portal.
+   * `null` / missing when unpublished or never published.
+   */
+  publicPublishedAt?: string | null;
   /** Certificates only: the one certificate currently in force for its owner. */
   isActive?: boolean;
 }

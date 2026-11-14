@@ -13,6 +13,12 @@ interface OriginalDocumentViewProps {
   canDownload?: boolean;
   /** Tailwind height class for embedded viewers (PDF, text, spreadsheets). */
   heightClass?: string;
+  /**
+   * When the original file is missing:
+   * - `summary` (default): internal generated DocumentPage fallback
+   * - `notice`: public-safe message only (no internal passages/summary)
+   */
+  missingFallback?: 'summary' | 'notice';
 }
 
 type Kind = 'pdf' | 'image' | 'docx' | 'xlsx' | 'csv' | 'text' | 'unsupported';
@@ -269,7 +275,8 @@ export function OriginalDocumentView({
   terms = [],
   activePassage = null,
   canDownload = true,
-  heightClass = 'h-[70vh]'
+  heightClass = 'h-[70vh]',
+  missingFallback = 'summary'
 }: OriginalDocumentViewProps) {
   const [state, setState] = useState<{ status: 'loading' | 'ready' | 'missing'; file?: StoredFile; url?: string }>({
     status: 'loading'
@@ -313,6 +320,15 @@ export function OriginalDocumentView({
   }
 
   if (state.status === 'missing' || !state.file || !state.url) {
+    if (missingFallback === 'notice') {
+      return (
+        <UnsupportedNotice
+          name={doc.title}
+          canDownload={false}
+          message="The original file for this document is not available for preview. If download is permitted, use the Download action below."
+        />
+      );
+    }
     return (
       <div className="space-y-3">
         <div className="mx-auto flex max-w-[760px] items-start gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-sans text-[12px] text-ink-muted">

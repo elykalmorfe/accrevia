@@ -1,18 +1,22 @@
 ﻿import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CornerDownLeftIcon, FileTextIcon, HistoryIcon, SearchIcon, XIcon } from 'lucide-react';
+import { CornerDownLeftIcon, FileSpreadsheetIcon, FileTextIcon, HistoryIcon, SearchIcon, XIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { useLookup } from '../../hooks/useLookup';
 import { useDismiss } from '../../hooks/useDismiss';
 import { useAccess } from '../../hooks/useAccess';
 import { evidenceSearchExamples } from '../../data/options';
 import { searchEvidence } from '../../utils/search';
+import { searchVerifiedCatalog } from '../../services/repository/verifiedCatalogSearch';
+import { searchDemoDocuments } from '../../services/repository/demoDocumentSearch';
+import { filterFacultyDiscoverableEvidence } from '../../services/repository/facultyAccessVisibility';
 import { popoverMotion } from '../../utils/motion';
 
 type SuggestionItem =
 {kind: 'query' | 'recent' | 'example';label: string;} |
-{kind: 'doc';label: string;id: string;score: number;meta: string;};
+{kind: 'doc';label: string;id: string;score: number;meta: string;} |
+{kind: 'repo';label: string;id: string;href: string;meta: string;};
 
 const placeholders = [
   'Search evidence...',
@@ -40,6 +44,16 @@ interface GlobalSearchProps {
   /** Clickable example queries shown beneath the input. */
   quickSearches?: string[];
   onDone?: () => void;
+  /**
+   * `faculty` keeps the same search chrome as the admin dashboard but routes to the
+   * Faculty/Staff portal and only suggests publicly published, authorized, or demo docs.
+   * Verified static catalog rows are not assumed discoverable for Faculty/Staff.
+   */
+  portalMode?: 'admin' | 'faculty';
+  /** Results page path (default `/search` for admin, typically `/open/search` for faculty). */
+  searchPath?: string;
+  /** Document detail path prefix (default `/documents`). Unused for faculty demo hits. */
+  documentPathPrefix?: string;
 }
 
 const defaultInput =
@@ -61,14 +75,26 @@ export function GlobalSearch({
   matchInputWidth = false,
   variant = 'default',
   quickSearches,
-  onDone
+  onDone,
+  portalMode = 'admin',
+  searchPath,
+  documentPathPrefix = '/documents'
 }: GlobalSearchProps = {}) {
   const overlay = variant === 'overlay';
+  const isFaculty = portalMode === 'faculty';
+  const resultsPath = searchPath ?? (isFaculty ? '/open/search' : '/search');
   const inputId = useId();
   const navigate = useNavigate();
   const location = useLocation();
-  const { recentSearches, addRecentSearch } = usePortal();
-  const { accessibleDocuments: documents } = useAccess();
+  const { recentSearches, addRecentSearch, currentUser, shares, documents: allDocuments } = usePortal();
+  const { accessibleDocuments } = useAccess();
+  const documents = useMemo(
+    () =>
+      isFaculty
+        ? filterFacultyDiscoverableEvidence(allDocuments, currentUser, shares)
+        : accessibleDocuments,
+    [isFaculty, allDocuments, currentUser, shares, accessibleDocuments]
+  );
   const lookup = useLookup();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -84,8 +110,8 @@ export function GlobalSearch({
   const wrapRef = useDismiss<HTMLDivElement>(open, close);
 
   useEffect(() => {
-    if (location.pathname === '/search') setQuery(new URLSearchParams(location.search).get('q') ?? '');
-  }, [location.pathname, location.search]);
+    if (location.pathname === resultsPath) setQuery(new URLSearchParams(location.search).get('q') ?? '');
+  }, [location.pathname, location.search, resultsPath]);
 
   useEffect(() => {
     if (!overlay) return;
@@ -118,26 +144,47 @@ export function GlobalSearch({
 
   const items = useMemo<SuggestionItem[]>(() => {
     if (trimmed) {
-      const matches = trimmed.length > 1 ? searchEvidence(trimmed, documents, lookup).slice(0, 4) : [];
+      const matches = trimmed.length > 1 ? searchEvidence(trimmed, documents, lookup).slice(0, 3) : [];
+      const repoHits =
+        trimmed.length > 1
+          ? isFaculty
+            ? searchDemoDocuments({ q: trimmed })
+                .slice(0, 3)
+                .map((h) => ({
+                  kind: 'repo' as const,
+                  label: h.title,
+                  id: h.id,
+                  href: h.href,
+                  meta: [h.categoryLabel, h.campus, h.program].filter(Boolean).join(' · ')
+                }))
+            : searchVerifiedCatalog({ q: trimmed }).slice(0, 3).map((h) => ({
+                kind: 'repo' as const,
+                label: h.title,
+                id: h.id,
+                href: h.href,
+                meta: [h.categoryLabel, h.campus, h.program].filter(Boolean).join(' · ')
+              }))
+          : [];
       return [
-      { kind: 'query', label: trimmed },
-      ...matches.map((r) => ({
-        kind: 'doc' as const,
-        label: r.doc.title,
-        id: r.doc.id,
-        score: r.score,
-        meta: [lookup.framework(r.doc.frameworkId)?.shortName, lookup.criterion(r.doc.criterionId)?.code, r.doc.docType].
-        filter(Boolean).
-        join(' · ')
-      }))];
-
+        { kind: 'query', label: trimmed },
+        ...repoHits,
+        ...matches.map((r) => ({
+          kind: 'doc' as const,
+          label: r.doc.title,
+          id: r.doc.id,
+          score: r.score,
+          meta: [lookup.framework(r.doc.frameworkId)?.shortName, lookup.criterion(r.doc.criterionId)?.code, r.doc.docType]
+            .filter(Boolean)
+            .join(' · ')
+        }))
+      ];
     }
     const recent = recentSearches.slice(0, 4).map((label) => ({ kind: 'recent' as const, label }));
-    const examples = evidenceSearchExamples.
-    filter((s) => !recentSearches.slice(0, 4).includes(s)).
-    map((label) => ({ kind: 'example' as const, label }));
+    const examples = evidenceSearchExamples
+      .filter((s) => !recentSearches.slice(0, 4).includes(s))
+      .map((label) => ({ kind: 'example' as const, label }));
     return [...recent, ...examples];
-  }, [trimmed, documents, lookup, recentSearches]);
+  }, [trimmed, documents, lookup, recentSearches, isFaculty]);
 
   useEffect(() => setActive(-1), [trimmed]);
 
@@ -147,7 +194,7 @@ export function GlobalSearch({
     addRecentSearch(q);
     close();
     inputRef.current?.blur();
-    navigate(`/search?q=${encodeURIComponent(q)}`);
+    navigate(`${resultsPath}?q=${encodeURIComponent(q)}`);
     onDone?.();
   };
 
@@ -156,7 +203,19 @@ export function GlobalSearch({
       addRecentSearch(trimmed);
       close();
       inputRef.current?.blur();
-      navigate(`/documents/${item.id}?q=${encodeURIComponent(trimmed)}`);
+      if (isFaculty) {
+        navigate(`${resultsPath}?q=${encodeURIComponent(item.label)}`);
+      } else {
+        navigate(`${documentPathPrefix}/${item.id}?q=${encodeURIComponent(trimmed)}`);
+      }
+      onDone?.();
+      return;
+    }
+    if (item.kind === 'repo') {
+      addRecentSearch(trimmed);
+      close();
+      inputRef.current?.blur();
+      navigate(item.href);
       onDone?.();
       return;
     }
@@ -203,6 +262,17 @@ export function GlobalSearch({
                 <span className="block truncate text-xs text-ink-muted">{item.meta}</span>
               </span>
               <span className="shrink-0 text-xs font-semibold tabular-nums text-brand-700">{item.score}% Match</span>
+            </> :
+          item.kind === 'repo' ?
+          <>
+              <FileSpreadsheetIcon className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-ink">{item.label}</span>
+                <span className="block truncate text-xs text-ink-muted">{item.meta}</span>
+              </span>
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                {isFaculty ? 'Sample' : 'Verified'}
+              </span>
             </> :
           item.kind === 'query' ?
           <>
@@ -285,7 +355,7 @@ export function GlobalSearch({
             type="button"
             onClick={() => {
               setQuery('');
-              if (prominent && location.pathname === '/search' && location.search) navigate('/search');
+              if (prominent && location.pathname === resultsPath && location.search) navigate(resultsPath);
               inputRef.current?.focus();
             }}
             className="grid h-7 w-7 place-items-center rounded-lg text-ink-subtle hover:bg-line hover:text-ink"

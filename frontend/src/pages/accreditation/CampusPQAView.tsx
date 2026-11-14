@@ -13,6 +13,7 @@ import { DocumentPreviewModal } from '../../components/documents/DocumentPreview
 import { pqaCertificateAreaKey } from '../../utils/programAccreditation';
 import { formatDate } from '../../utils/format';
 import { AwardIcon, CalendarCheckIcon, CalendarClockIcon, ShieldCheckIcon } from 'lucide-react';
+import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 
 const PQA_CERTIFICATE_LEVELS: CertificateLevel[] = (
   [
@@ -38,7 +39,8 @@ function readableDate(value?: string): string {
 }
 
 export function CampusPQAView() {
-  const { campuses, pqaRecords, isAdmin, updateCampusPQA, selectedCampus } = usePortal();
+  const { campuses, pqaRecords, updateCampusPQA, selectedCampus } = usePortal();
+  const { canMutate } = useInstitutionalMutationAccess();
   const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
     return selectedCampus !== 'all' ? selectedCampus : 'tandag';
   });
@@ -156,7 +158,7 @@ export function CampusPQAView() {
             activeCertificate={activeCertificate}
             activeLevel={activeLevel}
             levelCount={levelCount}
-            isAdmin={isAdmin}
+            isAdmin={canMutate}
             onOpen={() => setCertificatesOpen(true)}
             onPreview={setPreviewCertificate}
           />
@@ -230,6 +232,7 @@ export function CampusPQAView() {
         campusId={selectedCampusId}
         campusName={campus.name}
         framework={PQA_FOLDER_FRAMEWORK}
+        readOnly={!canMutate}
       />
 
       <CertificateFoldersModal
@@ -251,10 +254,14 @@ export function CampusPQAView() {
           { label: 'Recognition level', value: shortPQALevel(pqaRecord.recognitionLevel) },
           { label: 'Overall score', value: `${pqaRecord.overallScore} / 1,000` }
         ]}
-        onActivate={(doc, code) => {
-          if (code) updateCampusPQA(selectedCampusId, { recognitionLevel: code as PQARecognitionLevel });
-          toast.success(code ? `"${doc.title}" activated · campus set to ${shortPQALevel(code)}` : `"${doc.title}" activated`);
-        }}
+        onActivate={
+          canMutate
+            ? (doc, code) => {
+                if (code) updateCampusPQA(selectedCampusId, { recognitionLevel: code as PQARecognitionLevel });
+                toast.success(code ? `"${doc.title}" activated · campus set to ${shortPQALevel(code)}` : `"${doc.title}" activated`);
+              }
+            : undefined
+        }
       />
       <DocumentPreviewModal doc={previewCertificate} onClose={() => setPreviewCertificate(null)} grantAccess />
     </>

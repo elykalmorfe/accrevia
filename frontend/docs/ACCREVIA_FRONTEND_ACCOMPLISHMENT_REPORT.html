@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ACCREVIA Frontend Development Accomplishment Report</title>
+<style>
+  :root { --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --brand:#0b6e99; --bg:#ffffff; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Calibri, Arial, sans-serif; color: var(--ink); background: #f8fafc; margin: 0; line-height: 1.55; }
+  .page { max-width: 820px; margin: 24px auto; background: var(--bg); padding: 40px 48px; border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(15,23,42,.06); }
+  h1 { font-size: 1.55rem; margin: 0 0 .35rem; color: var(--brand); }
+  h2 { font-size: 1.2rem; margin: 1.75rem 0 .65rem; padding-bottom: .35rem; border-bottom: 2px solid var(--brand); color: var(--ink); }
+  h3 { font-size: 1.05rem; margin: 1.25rem 0 .5rem; color: var(--ink); }
+  h4 { font-size: .95rem; margin: 1rem 0 .4rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  p { margin: .45rem 0; color: var(--ink); }
+  p.section-label { margin-top: 1rem; font-size: 1rem; }
+  ul { margin: .4rem 0 .8rem 1.2rem; padding: 0; }
+  li { margin: .3rem 0; }
+  code { font-family: Consolas, "Courier New", monospace; background: #f1f5f9; padding: .1rem .35rem; border-radius: 4px; font-size: .9em; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.25rem; font-size: .92rem; }
+  th, td { border: 1px solid var(--line); padding: .55rem .65rem; text-align: left; vertical-align: top; }
+  th { background: #eef6fa; color: var(--brand); }
+  @media print {
+    body { background: white; }
+    .page { margin: 0; border: none; box-shadow: none; max-width: none; padding: 12mm; }
+  }
+</style>
+</head>
+<body>
+  <article class="page">
+    <h1>ACCREVIA Frontend Development Accomplishment Report</h1>
+<h2>Faculty/Staff and System Administrator Portals</h2>
+<h2>1. INTRODUCTION</h2>
+<p>ACCREVIA is a web-based accreditation document portal for North Eastern Mindanao State University (NEMSU). It helps the Quality Assurance Office, administrators, and Faculty/Staff find and work with accreditation records.</p>
+<p>Recent frontend work focused on making the Faculty/Staff Portal and System Administrator Portal clearer, more consistent, and easier to use. Navigation was simplified, search and accreditation layouts were aligned, and Faculty/Staff access was limited to viewing authorized materials while administrators keep full management tools.</p>
+<h2>2. FACULTY/STAFF PORTAL</h2>
+<h3>A. Changes Made</h3>
+<p>The following improvements are present in the current Faculty/Staff Portal (<code>/open</code>):</p>
+<ul>
+<li><strong>Sidebar cleanup.</strong> Older top-level items such as Document Search, Accreditation Repository, Accreditation Areas, and Academic Programs were removed from the sidebar. Related pages may still exist as deep links when needed.</li>
+<li><strong>Dashboard search.</strong> The main dashboard uses the same featured search style as the System Administrator dashboard, with filters and suggestions oriented to Faculty/Staff use.</li>
+<li><strong>Accreditation section.</strong> An expandable Accreditation menu was added with the same subsection names as the administrator portal.</li>
+<li><strong>Document visibility.</strong> Search and browse focus on publicly published documents, materials shared with the user, and clearly labeled demonstration samples. Verified catalog rows are not treated as automatically public.</li>
+<li><strong>Requests page.</strong> Faculty/Staff Requests reuse the same layout pattern as administrator Requests, but only show the signed-in user’s own requests.</li>
+<li><strong>My Profile and Settings.</strong> Both were added to the Faculty/Staff sidebar.</li>
+<li><strong>Read-only institutional access.</strong> Faculty/Staff cannot create, edit, upload, delete, or generate reports for institutional accreditation data. Submitting and tracking their own access requests remains allowed.</li>
+</ul>
+<h3>B. Sidebar Sections and Their Purposes</h3>
+<p>Current Faculty/Staff sidebar order (from <code>openNavigation</code>):</p>
+<h4>Main Menu</h4>
+<p class="section-label"><strong>DASHBOARD</strong></p>
+<p>Purpose: Home page for Faculty/Staff. It provides search, quick links, and recently published public documents.</p>
+<p class="section-label"><strong>ACCREDITATION</strong></p>
+<p>Purpose: Lets Faculty/Staff browse accreditation status views in a layout that matches the administrator portal, in read-only mode.</p>
+<p>Subsections:</p>
+<ul>
+<li><strong>Institutional (IA)</strong> — View campus institutional accreditation status and related authorized materials.</li>
+<li><strong>Program (AACCUP)</strong> — Browse program accreditation records under AACCUP.</li>
+<li><strong>CHED COPC</strong> — View Certificate of Program Compliance information.</li>
+<li><strong>PQA Standards</strong> — View Philippine Quality Award–related campus standards views.</li>
+<li><strong>ISO 9001</strong> — View ISO 9001 campus quality-management views.</li>
+</ul>
+<p class="section-label"><strong>REQUESTS</strong></p>
+<p>Purpose: Submit document requests to the QA Office and track the status of your own requests.</p>
+<h4>Information</h4>
+<p class="section-label"><strong>ABOUT &amp; HELP</strong></p>
+<p>Purpose: Provides basic information and guidance for using the Faculty/Staff portal.</p>
+<p>Subsections:</p>
+<ul>
+<li><strong>About QA Office</strong> — Short information about the Quality Assurance Office and the portal’s role.</li>
+<li><strong>Help &amp; Guidelines</strong> — Simple guidance for searching, viewing, and requesting documents.</li>
+</ul>
+<h4>Account</h4>
+<p class="section-label"><strong>MY PROFILE</strong></p>
+<p>Purpose: Shows the signed-in Faculty/Staff user’s account details in view-only form.</p>
+<p class="section-label"><strong>SETTINGS</strong></p>
+<p>Purpose: Personal portal preferences only (such as campus defaults, sidebar, dates, density, and search display). It does not include administrator system setup.</p>
+<h4>Footer actions (not main menu items)</h4>
+<ul>
+<li><strong>Logout</strong> — Signs the user out of the portal.</li>
+<li><strong>TR Access Management / QA Dashboard</strong> — Shown only for privileged QA/admin accounts when they open the Faculty portal; regular Faculty/Staff users do not see these.</li>
+</ul>
+<h3>C. Faculty/Staff User Restrictions</h3>
+<p class="section-label"><strong>Allowed</strong></p>
+<ul>
+<li>Search and browse authorized or public documents and labeled sample documents.</li>
+<li>View and preview authorized document details.</li>
+<li>Download when the system already marks download as permitted.</li>
+<li>Submit and track their own document access requests.</li>
+<li>View their profile and adjust personal preference settings.</li>
+</ul>
+<p class="section-label"><strong>Not allowed</strong></p>
+<ul>
+<li>Create, edit, update, upload, or delete institutional documents.</li>
+<li>Generate or export institutional reports.</li>
+<li>Manage document permissions for others.</li>
+<li>Approve or deny other users’ requests.</li>
+<li>Open administrator management pages (upload, reports, system settings, and similar routes).</li>
+</ul>
+<p>The Faculty/Staff Portal is designed mainly for <strong>searching, browsing, and viewing</strong> authorized materials. Requesting access is allowed because it asks the QA Office for permission; it does not let Faculty/Staff change institutional records themselves.</p>
+<h2>3. SYSTEM ADMINISTRATOR PORTAL</h2>
+<h3>A. Changes Made</h3>
+<p>Based on the current administrator sidebar and routes:</p>
+<ul>
+<li>The <strong>System Administrator sidebar</strong> is focused on Dashboard, Documents, Accreditation, Requests, Reports &amp; Analytics, My Profile, and Settings.</li>
+<li><strong>TR Access Management</strong> is <strong>not</strong> listed in the System Administrator sidebar. The page still exists for privileged QA workflows and can appear as a shortcut when a privileged user is inside the Faculty/Staff portal.</li>
+<li><strong>Faculty &amp; Staff Portal</strong> is <strong>not</strong> a System Administrator sidebar item. Faculty/Staff enter through `/open` after login.</li>
+<li><strong>User Management</strong> is <strong>not</strong> present in the current System Administrator sidebar or active admin routes.</li>
+<li>The <strong>Requests</strong> section remains available for administrators to review and fulfill faculty/staff document requests.</li>
+<li>There is <strong>no separate “Document Permissions” sidebar item</strong> in the current navigation. Document sharing and access controls remain part of administrator document workflows in the application, not a standalone sidebar section.</li>
+</ul>
+<h3>B. Sidebar Sections and Their Purposes</h3>
+<p>Current System Administrator sidebar order (from <code>navigation</code>):</p>
+<p class="section-label"><strong>DASHBOARD</strong></p>
+<p>Purpose: Administrator home page with institutional overview and a prominent document search bar.</p>
+<p class="section-label"><strong>DOCUMENTS</strong></p>
+<p>Purpose: Manage the accreditation evidence library used by the QA Office and administrators.</p>
+<p>Subsections:</p>
+<ul>
+<li><strong>All Documents</strong> — Browse and manage the full evidence document list.</li>
+<li><strong>Upload Documents</strong> — Add new evidence files to the system.</li>
+</ul>
+<p class="section-label"><strong>ACCREDITATION</strong></p>
+<p>Purpose: Manage and view accreditation frameworks and campus/program records.</p>
+<p>Subsections:</p>
+<ul>
+<li><strong>Institutional (IA)</strong> — Manage institutional accreditation status, areas, and related certificates.</li>
+<li><strong>Program (AACCUP)</strong> — Manage academic program accreditation under AACCUP.</li>
+<li><strong>CHED COPC</strong> — Manage Certificate of Program Compliance records.</li>
+<li><strong>PQA Standards</strong> — Manage Philippine Quality Award–related campus records.</li>
+<li><strong>ISO 9001</strong> — Manage ISO 9001 campus records and related audit views.</li>
+</ul>
+<p class="section-label"><strong>REQUESTS</strong></p>
+<p>Purpose: Receive, review, and fulfill document requests from Faculty and Staff.</p>
+<p class="section-label"><strong>REPORTS &amp; ANALYTICS</strong></p>
+<p>Purpose: View institutional reports and analytics related to accreditation activity.</p>
+<p class="section-label"><strong>MY PROFILE</strong></p>
+<p>Purpose: View and manage the administrator’s personal account details.</p>
+<p class="section-label"><strong>SETTINGS</strong></p>
+<p>Purpose: Configure portal and institutional options (general settings, accreditation setup, workflows, uploads, security, and related controls).</p>
+<h2>4. DIFFERENCES BETWEEN THE TWO PORTALS</h2>
+<table>
+<tr><th>Feature</th><th>Faculty/Staff</th><th>System Administrator</th></tr>
+<tr><td>**Dashboard**</td><td>Faculty home with search, quick links, and published documents</td><td>Admin overview with institutional search and management entry points</td></tr>
+<tr><td>**Document search**</td><td>Same search style; results limited to public, shared, or demo sources</td><td>Full institutional search across evidence and verified catalog helpers</td></tr>
+<tr><td>**Accreditation**</td><td>Same subsection names; read-only browsing</td><td>Same subsections with create/edit/upload/manage controls</td></tr>
+<tr><td>**Requests**</td><td>Own requests only; can submit and track</td><td>All incoming requests; can reply and fulfill</td></tr>
+<tr><td>**Document permissions**</td><td>Cannot manage permissions for others</td><td>Managed through administrator document/sharing workflows (not a separate sidebar item)</td></tr>
+<tr><td>**Document management**</td><td>View/browse only</td><td>Full document library with upload and management</td></tr>
+<tr><td>**Report generation**</td><td>Not available</td><td>Available under Reports &amp; Analytics and related admin tools</td></tr>
+<tr><td>**My Profile**</td><td>View-only profile information</td><td>Editable personal account details</td></tr>
+<tr><td>**Settings**</td><td>Personal preferences only</td><td>Full institutional and system settings</td></tr>
+</table>
+<h2>5. OVERALL PURPOSE OF THE CHANGES</h2>
+<p>These updates make ACCREVIA easier to navigate by giving Faculty/Staff and administrators clear, role-based sidebars. Shared Accreditation labels and similar search layouts keep the interface consistent, while document organization stays grouped by accreditation type. Responsibilities are separated so Faculty/Staff can find and request materials safely, and administrators keep control of uploads, permissions, reports, and configuration. This makes the prototype clearer to demonstrate and simpler for users to understand.</p>
+<h2>6. CURRENT LIMITATIONS</h2>
+<ul>
+<li>The frontend still uses <strong>static verified catalogs</strong> and <strong>demonstration data</strong> for many repository features.</li>
+<li><strong>Backend integration</strong> (live authorization, APIs, and storage) is handled by another team.</li>
+<li>Some <strong>individual document previews and Drive file links</strong> are still unavailable or waiting for approved mappings.</li>
+<li>Client-side role checks are for <strong>UI demonstration only</strong>. Production document permissions and write restrictions must be enforced by the backend.</li>
+</ul>
+<h2>7. NOTES FOR PRESENTATION</h2>
+<ul>
+<li>This report reflects the <strong>current frontend implementation</strong>, not planned or unfinished work.</li>
+<li>Faculty/Staff portal path: `/open`</li>
+<li>System Administrator portal path: `/dashboard` and related AppShell routes</li>
+<li>Completed: Faculty/Staff navigation alignment, read-only institutional controls, restricted search visibility, Requests/My Profile/Settings, administrator sidebar focus on core management areas</li>
+<li>Pending / external: live backend authorization, full publication-approved individual file links, production security</li>
+</ul>
+<p>*Report generated from inspection of the ACCREVIA frontend navigation, routes, capabilities, and portal pages.*</p>
+  </article>
+</body>
+</html>

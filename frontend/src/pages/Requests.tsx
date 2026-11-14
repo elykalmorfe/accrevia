@@ -10,11 +10,18 @@ import { ComposeRequestModal } from '../components/requests/ComposeRequestModal'
 import { RequestCategory } from '../types/request';
 import { isUnreadFor, lastMessage } from '../utils/requests';
 
-export function Requests() {
+export interface RequestsProps {
+  /** Base path for list/detail navigation (Faculty/Staff portal uses `/open/requests`). */
+  basePath?: string;
+  /** Force the signed-in user scope even if the portal session is an administrator. */
+  forceUserScope?: boolean;
+}
+
+export function Requests({ basePath = '/requests', forceUserScope = false }: RequestsProps = {}) {
   const { requestId } = useParams<{ requestId?: string }>();
   const navigate = useNavigate();
   const { documentRequests, currentUser, isAdmin, markDocumentRequestRead } = usePortal();
-  const asAdmin = isAdmin;
+  const asAdmin = forceUserScope ? false : isAdmin;
   const folders = asAdmin ? adminFolders : userFolders;
 
   const [folder, setFolder] = useState<RequestFolderId>(folders[0].id);
@@ -53,7 +60,7 @@ export function Requests() {
     if (selected && selectedUnread) markDocumentRequestRead(selected.id);
   }, [selected, selectedUnread, markDocumentRequestRead]);
 
-  const openRequest = (id: string) => navigate(`/requests/${id}`);
+  const openRequest = (id: string) => navigate(`${basePath}/${id}`);
   const unreadTotal = visible.filter((r) => isUnreadFor(r, asAdmin)).length;
 
   return (
@@ -101,7 +108,7 @@ export function Requests() {
 
         <section className={`${selected ? 'flex' : 'hidden md:flex'} min-w-0 flex-1 flex-col`} aria-label="Request conversation">
           {selected ? (
-            <RequestThread request={selected} asAdmin={asAdmin} onBack={() => navigate('/requests')} />
+            <RequestThread request={selected} asAdmin={asAdmin} onBack={() => navigate(basePath)} />
           ) : (
             <div className="grid flex-1 place-items-center bg-canvas/40">
               <EmptyState

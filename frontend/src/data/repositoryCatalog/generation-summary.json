@@ -1,0 +1,14 @@
+{
+  "certificates": {
+    "campusCount": 7,
+    "verifiedDocumentFiles": 151,
+    "rootFiles": 3,
+    "programFoldersDeclared": 77
+  },
+  "copc": {
+    "verifiedRows": 86,
+    "ongoingComplianceNotes": 2,
+    "campuses": 7
+  },
+  "generatedAt": "2026-11-14T12:01:02.054Z"
+}

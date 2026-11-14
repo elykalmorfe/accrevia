@@ -5,7 +5,9 @@ import {
   BookmarkCheckIcon,
   BookmarkIcon,
   DownloadIcon,
+  EyeOffIcon,
   FileQuestionIcon,
+  GlobeIcon,
   PencilIcon,
   Share2Icon,
   ShieldCheckIcon,
@@ -30,13 +32,19 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { AccessRestricted } from '../components/sharing/AccessRestricted';
 import { PermissionIndicator } from '../components/sharing/PermissionIndicator';
 import { EvidenceDocument } from '../types/evidence';
+import {
+  canPublishToPublicPortal,
+  canUnpublishFromPublicPortal,
+  publishToPublicPortalPatch,
+  unpublishFromPublicPortalPatch
+} from '../utils/publicDocuments';
 
 export function DocumentViewer() {
   const { id } = useParams();
   const [params] = useSearchParams();
   const query = params.get('q') ?? '';
   const navigate = useNavigate();
-  const { documents, criteria, savedIds, toggleSaved, isAdmin, shares, logAccess } = usePortal();
+  const { documents, criteria, savedIds, toggleSaved, isAdmin, shares, logAccess, updateDocument } = usePortal();
   const { openShare, openManageAccess } = useSharingDialogs();
   const { rightsFor, accessibleDocuments } = useAccess();
   const lookup = useLookup();
@@ -148,6 +156,39 @@ export function DocumentViewer() {
                 <button type="button" className="btn btn-secondary" onClick={() => openShare(doc.id)}>
                   <Share2Icon className="h-4 w-4" /> Share
                 </button>
+                {doc.isPubliclyPublished ?
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      const check = canUnpublishFromPublicPortal(doc);
+                      if (!check.ok) {
+                        toast.error(check.message);
+                        return;
+                      }
+                      updateDocument(doc.id, unpublishFromPublicPortalPatch());
+                      toast.success('Unpublished from Public Portal', { description: doc.title });
+                    }}
+                  >
+                    <EyeOffIcon className="h-4 w-4" /> Unpublish from Public Portal
+                  </button>
+                :
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      const check = canPublishToPublicPortal(doc);
+                      if (!check.ok) {
+                        toast.error(check.message);
+                        return;
+                      }
+                      updateDocument(doc.id, publishToPublicPortalPatch());
+                      toast.success('Published to Public Portal', { description: doc.title });
+                    }}
+                  >
+                    <GlobeIcon className="h-4 w-4" /> Publish to Public Portal
+                  </button>
+                }
               </>
             }
             <button type="button" className="btn btn-secondary" aria-pressed={saved} onClick={() => toast(toggleSaved(doc.id) ? 'Saved to your documents list' : 'Removed from saved documents')}>

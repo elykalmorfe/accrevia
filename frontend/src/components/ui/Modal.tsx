@@ -19,27 +19,71 @@ const sizes = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
 // Stacked modals: Escape only closes the most recently opened one.
 const openModalStack: string[] = [];
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Modal({ open, onClose, title, description, children, footer, size = 'md', zIndex = 'z-50' }: ModalProps) {
   const titleId = useId();
+  const descriptionId = useId();
   const onCloseRef = useRef(onClose);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
     openModalStack.push(titleId);
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && openModalStack[openModalStack.length - 1] === titleId) onCloseRef.current();
+      if (e.key === 'Escape' && openModalStack[openModalStack.length - 1] === titleId) {
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== 'Tab' || openModalStack[openModalStack.length - 1] !== titleId) return;
+      const root = panelRef.current;
+      if (!root) return;
+      const focusable = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (el) => !el.hasAttribute('disabled') && el.tabIndex !== -1 && el.offsetParent !== null
+      );
+      if (focusable.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
+
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
+
+    const focusTimer = window.setTimeout(() => {
+      const root = panelRef.current;
+      if (!root) return;
+      const preferred =
+        root.querySelector<HTMLElement>('[data-modal-initial-focus]') ||
+        root.querySelector<HTMLElement>('[aria-label="Close dialog"]') ||
+        root.querySelector<HTMLElement>(FOCUSABLE);
+      preferred?.focus();
+    }, 0);
+
     return () => {
+      window.clearTimeout(focusTimer);
       document.removeEventListener('keydown', onKey);
       const idx = openModalStack.lastIndexOf(titleId);
       if (idx !== -1) openModalStack.splice(idx, 1);
-      // Reliably restore body scroll whenever all stacked modals are closed
       if (openModalStack.length === 0) {
         document.body.style.overflow = '';
       }
+      previouslyFocusedRef.current?.focus?.();
     };
   }, [open, titleId]);
 
@@ -58,9 +102,11 @@ export function Modal({ open, onClose, title, description, children, footer, siz
           />
 
           <motion.div
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
-            aria-labelledby={titleId}
+            aria-labelledby={title ? titleId : undefined}
+            aria-describedby={description ? descriptionId : undefined}
             className={`relative flex max-h-[92dvh] sm:max-h-[calc(100dvh-4rem)] w-full min-h-0 flex-col overflow-hidden rounded-t-3xl sm:rounded-2xl border border-line bg-surface-raised shadow-2xl pb-safe sm:pb-0 ${sizes[size]}`}
             initial={{ opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -72,7 +118,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
               <div className="h-1.5 w-12 rounded-full bg-line-strong" />
             </div>
 
-            {(title || description) ? (
+            {title || description ? (
               <div className="flex items-start justify-between gap-3 border-b border-line px-4 sm:px-6 py-3.5 sm:py-4">
                 <div className="min-w-0 flex-1">
                   {title && (
@@ -80,7 +126,11 @@ export function Modal({ open, onClose, title, description, children, footer, siz
                       {title}
                     </h2>
                   )}
-                  {description && <p className="mt-0.5 text-xs sm:text-[13px] text-ink-muted line-clamp-2">{description}</p>}
+                  {description && (
+                    <p id={descriptionId} className="mt-0.5 text-xs sm:text-[13px] text-ink-muted line-clamp-2">
+                      {description}
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -112,6 +162,6 @@ export function Modal({ open, onClose, title, description, children, footer, siz
           </motion.div>
         </div>
       )}
-    </AnimatePresence>);
-
+    </AnimatePresence>
+  );
 }

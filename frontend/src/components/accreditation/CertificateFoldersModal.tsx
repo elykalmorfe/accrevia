@@ -5,6 +5,7 @@ import { Modal } from '../ui/Modal';
 import { Switch } from '../ui/Switch';
 import { FolderExplorer, UploadTarget } from '../upload/FolderExplorer';
 import { usePortal } from '../../contexts/PortalContext';
+import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 import { fileTypeFromName } from '../../utils/fileTypes';
 import { getSettings } from '../../settings/portalSettings';
 import type { CampusId } from '../../types/accreditation';
@@ -65,7 +66,8 @@ export function CertificateFoldersModal({
   stats,
   onActivate
 }: CertificateFoldersModalProps) {
-  const { folders, documents, saveFolder, updateDocument, currentUser, isAdmin } = usePortal();
+  const { folders, documents, saveFolder, updateDocument, currentUser } = usePortal();
+  const { canMutate } = useInstitutionalMutationAccess();
 
   const certFolders = useMemo(
     () => folders.filter((f) => f.frameworkId === frameworkId && f.areaId === areaKey),
@@ -77,7 +79,7 @@ export function CertificateFoldersModal({
   );
 
   useEffect(() => {
-    if (!open || !isAdmin) return;
+    if (!open || !canMutate) return;
     levels.forEach((level, i) => {
       if (certFolders.some((f) => f.isSystem && f.code === level.code)) return;
       saveFolder({
@@ -96,7 +98,7 @@ export function CertificateFoldersModal({
         hasNoDeadline: true
       });
     });
-  }, [open, isAdmin, levels, certFolders, saveFolder, areaKey, frameworkId, subject, campusId, campusName]);
+  }, [open, canMutate, levels, certFolders, saveFolder, areaKey, frameworkId, subject, campusId, campusName]);
 
   const currentFolder = certFolders.find((f) => f.isSystem && f.code === currentLevelCode);
   const currentLabel = levels.find((l) => l.code === currentLevelCode)?.label ?? currentLevelCode;
@@ -130,6 +132,7 @@ export function CertificateFoldersModal({
   const activeLevelFolder = activeDoc ? levelFolderOf(activeDoc.folderId) : undefined;
 
   const activate = (doc: EvidenceDocument) => {
+    if (!canMutate) return;
     certDocs.forEach((d) => {
       const isActive = d.id === doc.id;
       if (!!d.isActive !== isActive) updateDocument(d.id, { isActive });
@@ -138,6 +141,7 @@ export function CertificateFoldersModal({
   };
 
   const deactivate = (doc: EvidenceDocument) => {
+    if (!canMutate) return;
     updateDocument(doc.id, { isActive: false });
     toast.success(`"${doc.title}" deactivated`);
   };
@@ -217,7 +221,7 @@ export function CertificateFoldersModal({
       description={description}
       footer={
         <div className="flex w-full items-center justify-between gap-3">
-          <p className="text-[12px] text-ink-subtle">{isAdmin ? '' : 'View-only access.'}</p>
+          <p className="text-[12px] text-ink-subtle">{canMutate ? '' : 'View-only access.'}</p>
           <button type="button" onClick={onClose} className="btn btn-secondary btn-sm">
             Done
           </button>
@@ -228,7 +232,7 @@ export function CertificateFoldersModal({
         folders={certFolders}
         documents={certDocs}
         rootLabel="Certificates"
-        canEdit={isAdmin}
+        canEdit={canMutate}
         openToViewers
         showApproval={false}
         buildFolder={buildFolder}
@@ -247,7 +251,7 @@ export function CertificateFoldersModal({
         documentStatus={
           !activation
             ? undefined
-            : isAdmin
+            : canMutate
             ? (doc) => (
                 <span className="inline-flex items-center gap-2">
                   <span className={`text-[11px] font-bold ${doc.isActive ? 'text-success-700' : 'text-ink-subtle'}`}>

@@ -25,22 +25,41 @@ import { resizeAvatar, useProfile, type ProfileDetails } from '../hooks/useProfi
 import { useTheme, type ThemeMode } from '../hooks/useTheme';
 import { formatDate, formatDateTime, initials } from '../utils/format';
 import { changePassword, useSessionAccount } from '../utils/auth';
+import { useInstitutionalMutationAccess } from '../hooks/useInstitutionalMutationAccess';
 
 type AccountTab = 'profile' | 'settings';
 
 export function Account() {
   const [params, setParams] = useSearchParams();
-  const tab = (params.get('tab') as AccountTab) || 'profile';
+  const { capabilities, inFacultyPortal, facultyStaffRole } = useInstitutionalMutationAccess();
+  const profileReadOnly = !capabilities.canEditProfile;
+  const facultySurface = inFacultyPortal || facultyStaffRole;
+  const requested = (params.get('tab') as AccountTab) || 'profile';
+  const tab: AccountTab = facultySurface ? 'profile' : requested;
 
   return (
     <div className="w-full">
-      <PageHeader title="My Profile" description="Your personal details, address and how the portal looks for you." />
+      <PageHeader
+        title="My Profile"
+        description={
+          profileReadOnly
+            ? 'Your account details are view-only. Use Settings in the sidebar for personal portal preferences.'
+            : 'Your personal details, address and how the portal looks for you.'
+        }
+      />
       <Tabs<AccountTab>
         label="Account sections"
         value={tab}
         onChange={(t) => setParams({ tab: t }, { replace: true })}
         className="mb-5"
-        tabs={[{ id: 'profile', label: 'My Profile' }, { id: 'settings', label: 'Account Settings' }]}
+        tabs={
+          facultySurface
+            ? [{ id: 'profile', label: 'My Profile' }]
+            : [
+                { id: 'profile', label: 'My Profile' },
+                { id: 'settings', label: 'Account Settings' }
+              ]
+        }
       />
       {tab === 'profile' ? <ProfileTab /> : <SettingsTab />}
     </div>
@@ -61,10 +80,13 @@ function ProfileTab() {
 function ProfileHeaderCard() {
   const { currentUser } = usePortal();
   const { profile, fullName, saveProfile } = useProfile(currentUser);
+  const { capabilities } = useInstitutionalMutationAccess();
+  const canEditProfile = capabilities.canEditProfile;
   const fileRef = useRef<HTMLInputElement>(null);
   const location = [profile.city, profile.country].filter(Boolean).join(', ');
 
   const handleFile = async (file: File | undefined) => {
+    if (!canEditProfile) return;
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       toast.error('Please choose an image file.');
@@ -91,24 +113,28 @@ function ProfileHeaderCard() {
               {initials(fullName)}
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="absolute bottom-0 right-0 grid h-8 w-8 place-items-center rounded-full border-2 border-white bg-brand-600 text-white shadow transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-            aria-label="Change profile photo"
-            title="Change photo">
-            <CameraIcon className="h-4 w-4" />
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              handleFile(e.target.files?.[0]);
-              e.target.value = '';
-            }}
-          />
+          {canEditProfile ? (
+            <>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="absolute bottom-0 right-0 grid h-8 w-8 place-items-center rounded-full border-2 border-white bg-brand-600 text-white shadow transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                aria-label="Change profile photo"
+                title="Change photo">
+                <CameraIcon className="h-4 w-4" />
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  handleFile(e.target.files?.[0]);
+                  e.target.value = '';
+                }}
+              />
+            </>
+          ) : null}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -149,14 +175,14 @@ function ProfileHeaderCard() {
           ))}
         </dl>
       </div>
-      {profile.avatar && (
+      {canEditProfile && profile.avatar ? (
         <div className="mt-4 flex justify-center border-t border-line pt-3 sm:justify-start">
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => saveProfile({ avatar: null })}>
             <Trash2Icon className="h-4 w-4" />
             Remove photo
           </button>
         </div>
-      )}
+      ) : null}
     </ProfileCard>
   );
 }
@@ -187,7 +213,22 @@ function useEditableSection(keys: EditableKey[]) {
   return { editing, draft, start, cancel, value, set, save };
 }
 
-function EditActions({ editing, onEdit, onCancel, onSave, variant }: { editing: boolean; onEdit: () => void; onCancel: () => void; onSave: () => void; variant: 'primary' | 'secondary' }) {
+function EditActions({
+  editing,
+  onEdit,
+  onCancel,
+  onSave,
+  variant,
+  allowEdit = true
+}: {
+  editing: boolean;
+  onEdit: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+  variant: 'primary' | 'secondary';
+  allowEdit?: boolean;
+}) {
+  if (!allowEdit) return null;
   if (editing) {
     return (
       <>
@@ -209,10 +250,14 @@ function EditActions({ editing, onEdit, onCancel, onSave, variant }: { editing: 
 
 function PersonalInfoCard() {
   const { currentUser } = usePortal();
+  const { capabilities } = useInstitutionalMutationAccess();
+  const canEditProfile = capabilities.canEditProfile;
   const section = useEditableSection(['firstName', 'lastName', 'dob', 'email', 'phone']);
   const { editing, value, set } = section;
+  const editingAllowed = canEditProfile && editing;
 
   const handleSave = () => {
+    if (!canEditProfile) return;
     if (!section.draft.firstName?.trim()) {
       toast.error('First name is required.');
       return;
@@ -228,13 +273,22 @@ function PersonalInfoCard() {
   return (
     <ProfileCard
       title="Personal Information"
-      actions={<EditActions editing={editing} onEdit={section.start} onCancel={section.cancel} onSave={handleSave} variant="primary" />}>
+      actions={
+        <EditActions
+          editing={editingAllowed}
+          onEdit={section.start}
+          onCancel={section.cancel}
+          onSave={handleSave}
+          variant="primary"
+          allowEdit={canEditProfile}
+        />
+      }>
       <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-        <InfoField label="First Name" value={value('firstName')} editing={editing} onChange={set('firstName')} />
-        <InfoField label="Last Name" value={value('lastName')} editing={editing} onChange={set('lastName')} />
-        <InfoField label="Date of Birth" type="date" value={dob} editing={editing} onChange={set('dob')} display={dob ? formatDate(dob) : undefined} />
-        <InfoField label="Email Address" type="email" value={value('email')} editing={editing} onChange={set('email')} />
-        <InfoField label="Phone Number" type="tel" value={value('phone')} editing={editing} onChange={set('phone')} placeholder="+63 9XX XXX XXXX" />
+        <InfoField label="First Name" value={value('firstName')} editing={editingAllowed} onChange={set('firstName')} />
+        <InfoField label="Last Name" value={value('lastName')} editing={editingAllowed} onChange={set('lastName')} />
+        <InfoField label="Date of Birth" type="date" value={dob} editing={editingAllowed} onChange={set('dob')} display={dob ? formatDate(dob) : undefined} />
+        <InfoField label="Email Address" type="email" value={value('email')} editing={editingAllowed} onChange={set('email')} />
+        <InfoField label="Phone Number" type="tel" value={value('phone')} editing={editingAllowed} onChange={set('phone')} placeholder="+63 9XX XXX XXXX" />
         <InfoField label="User Role" value={currentUser.role} />
       </div>
     </ProfileCard>
@@ -242,16 +296,28 @@ function PersonalInfoCard() {
 }
 
 function AddressCard() {
+  const { capabilities } = useInstitutionalMutationAccess();
+  const canEditProfile = capabilities.canEditProfile;
   const section = useEditableSection(['country', 'city', 'postalCode']);
   const { editing, value, set } = section;
+  const editingAllowed = canEditProfile && editing;
   return (
     <ProfileCard
       title="Address"
-      actions={<EditActions editing={editing} onEdit={section.start} onCancel={section.cancel} onSave={() => section.save('Address saved')} variant="secondary" />}>
+      actions={
+        <EditActions
+          editing={editingAllowed}
+          onEdit={section.start}
+          onCancel={section.cancel}
+          onSave={() => section.save('Address saved')}
+          variant="secondary"
+          allowEdit={canEditProfile}
+        />
+      }>
       <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-        <InfoField label="Country" value={value('country')} editing={editing} onChange={set('country')} />
-        <InfoField label="City / Municipality" value={value('city')} editing={editing} onChange={set('city')} />
-        <InfoField label="Postal Code" value={value('postalCode')} editing={editing} onChange={set('postalCode')} />
+        <InfoField label="Country" value={value('country')} editing={editingAllowed} onChange={set('country')} />
+        <InfoField label="City / Municipality" value={value('city')} editing={editingAllowed} onChange={set('city')} />
+        <InfoField label="Postal Code" value={value('postalCode')} editing={editingAllowed} onChange={set('postalCode')} />
       </div>
     </ProfileCard>
   );
@@ -330,10 +396,11 @@ function AppearanceCard() {
 }
 
 function SettingsTab() {
+  const { capabilities } = useInstitutionalMutationAccess();
   return (
     <div className="space-y-5">
       <AccountDetailsCard />
-      <PasswordCard />
+      {capabilities.canEditProfile ? <PasswordCard /> : null}
     </div>
   );
 }
