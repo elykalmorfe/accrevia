@@ -190,7 +190,7 @@ export interface COPCRecord {
 
 export type ISOComplianceStatus = 'Compliant' | 'Minor Deficiencies' | 'Major Deficiencies Pending Action' | 'Certified';
 
-export type ISOAuditType = 'Surveillance Audit 1' | 'Surveillance Audit 2' | 'Recertification Audit' | 'Internal Quality Audit' | 'For Surveillance' | '2nd Surveillance' | 'Recertification';
+export type ISOAuditType = '1st Surveillance' | '2nd Surveillance' | 'Recertification' | 'Surveillance Audit 1' | 'Surveillance Audit 2' | 'Recertification Audit' | 'Internal Quality Audit' | 'For Surveillance';
 
 export interface ISOClauseEvaluation {
   clauseNumber: string;
@@ -223,7 +223,7 @@ export interface ISOSurveillanceRecord {
   standardVersion?: string;
   auditDate: string;
   cycle: string;
-  auditType: 'Surveillance Audit 1' | 'Surveillance Audit 2' | 'Recertification Audit' | 'Internal Quality Audit' | 'For Surveillance' | '2nd Surveillance' | 'Recertification';
+  auditType: ISOAuditType;
   leadAuditor: string;
   auditorRole: string;
   scope: string;

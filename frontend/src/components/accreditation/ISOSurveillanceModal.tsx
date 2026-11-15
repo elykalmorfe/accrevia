@@ -27,7 +27,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
   const [standardVersion, setStandardVersion] = useState('ISO 9001:2015');
   const [auditDate, setAuditDate] = useState(new Date().toISOString().slice(0, 10));
   const [cycle, setCycle] = useState('2025 Surveillance Audit 1');
-  const [auditType, setAuditType] = useState<ISOAuditType>('For Surveillance');
+  const [auditType, setAuditType] = useState<ISOAuditType>('1st Surveillance');
   const [leadAuditor, setLeadAuditor] = useState(currentUser.name || 'Lead Quality Auditor');
   const [auditorRole, setAuditorRole] = useState('Certified ISO 9001:2015 Auditor');
   const [scope, setScope] = useState('Higher & Advanced Education, Research, Extension, and Support Operations');
@@ -183,7 +183,7 @@ export function ISOSurveillanceModal({ open, campusId, onClose }: ISOSurveillanc
               value={auditType}
               onChange={(val) => setAuditType(val as ISOAuditType)}
               options={[
-                { value: 'For Surveillance', label: 'For Surveillance' },
+                { value: '1st Surveillance', label: '1st Surveillance' },
                 { value: '2nd Surveillance', label: '2nd Surveillance' },
                 { value: 'Recertification', label: 'Recertification' },
                 { value: 'Surveillance Audit 1', label: 'Surveillance Audit 1' },

@@ -17,7 +17,7 @@ export const documentTypes: DocumentType[] = [
 'Other'];
 
 export const isoDocumentLabels: ISODocumentStage[] = [
-  'For Surveillance',
+  '1st Surveillance',
   '2nd Surveillance',
   'Recertification'
 ];

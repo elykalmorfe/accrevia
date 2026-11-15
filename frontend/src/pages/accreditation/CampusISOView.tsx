@@ -215,7 +215,7 @@ export function CampusISOView() {
     return selectedCampus !== 'all' ? selectedCampus : 'tandag';
   });
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
-  const [selectedStageFilter, setSelectedStageFilter] = useState<'All' | 'For Surveillance' | '2nd Surveillance' | 'Recertification'>('All');
+  const [selectedStageFilter, setSelectedStageFilter] = useState<'All' | '1st Surveillance' | '2nd Surveillance' | 'Recertification'>('All');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [isFolderSectionOpen, setIsFolderSectionOpen] = useState(true);
@@ -418,7 +418,7 @@ export function CampusISOView() {
   const [uploadFolderChoice, setUploadFolderChoice] = useState<'existing' | 'new'>('existing');
   const [uploadSelectedFolderId, setUploadSelectedFolderId] = useState<string>('folder-iso-qm');
   const [uploadNewFolderName, setUploadNewFolderName] = useState('');
-  const [uploadStage, setUploadStage] = useState<ISODocumentStage>('For Surveillance');
+  const [uploadStage, setUploadStage] = useState<ISODocumentStage>('1st Surveillance');
   const [uploadDocType, setUploadDocType] = useState<DocumentType>('Report');
   const [uploadOffice, setUploadOffice] = useState('Quality Management System Office');
   const [uploadAcademicYear, setUploadAcademicYear] = useState('2024–2025');
@@ -586,7 +586,7 @@ export function CampusISOView() {
 
   const [editDocForm, setEditDocForm] = useState({
     title: '',
-    isoStage: 'For Surveillance' as ISODocumentStage,
+    isoStage: '1st Surveillance' as ISODocumentStage,
     folderId: '',
     docType: 'Report' as DocumentType,
     office: '',
@@ -598,7 +598,7 @@ export function CampusISOView() {
     setEditingDoc(doc);
     setEditDocForm({
       title: doc.title,
-      isoStage: doc.isoStage || 'For Surveillance',
+      isoStage: (doc.isoStage === 'For Surveillance' ? '1st Surveillance' : doc.isoStage) || '1st Surveillance',
       folderId: doc.folderId || 'folder-iso-qm',
       docType: doc.docType || 'Report',
       office: doc.office || 'Quality Management System Office',
@@ -651,7 +651,10 @@ export function CampusISOView() {
   });
 
   const filteredIsoDocs = isoDocuments.filter((doc) => {
-    if (selectedStageFilter !== 'All' && doc.isoStage !== selectedStageFilter) return false;
+    if (selectedStageFilter !== 'All') {
+      const docStage = doc.isoStage === 'For Surveillance' ? '1st Surveillance' : doc.isoStage;
+      if (docStage !== selectedStageFilter) return false;
+    }
     if (selectedFolderId && doc.folderId !== selectedFolderId) return false;
     if (docSearchQuery.trim()) {
       const q = docSearchQuery.toLowerCase();
@@ -837,6 +840,11 @@ export function CampusISOView() {
               <p className="mt-1 text-xs text-ink-muted">
                 {campus.location} · ISO Surveillance Cycle: <strong className="text-ink">{isoRecord.cycle}</strong> · Lead Auditor: <strong className="text-ink">{isoRecord.leadAuditor || 'Dr. Evelyn P. Miranda'}</strong>
               </p>
+              {isoRecord.scope && (
+                <p className="mt-0.5 text-xs text-ink-muted">
+                  Audit Scope: <span className="font-medium text-ink">{isoRecord.scope}</span>
+                </p>
+              )}
             </div>
 
             <div className="text-right">
@@ -851,19 +859,19 @@ export function CampusISOView() {
             {[
               {
                 icon: ShieldCheckIcon,
-                label: 'Evaluating Body',
+                label: 'Certifying Body',
                 value: (isoRecord.evaluatingBody && !isoRecord.evaluatingBody.includes('DAP')) ? isoRecord.evaluatingBody : 'TÜV Rheinland (ISO 9001:2015)',
                 tone: 'bg-brand-50 text-brand-600'
               },
               {
                 icon: CalendarCheckIcon,
-                label: 'Last Assessment Date',
+                label: 'Audit Date',
                 value: readableDate(isoRecord.auditDate),
                 tone: 'bg-brand-50 text-brand-600'
               },
               {
                 icon: CalendarClockIcon,
-                label: 'Next Cycle Submission',
+                label: 'Next Surveillance Audit',
                 value: (isoRecord.nextCycleSubmission && !isoRecord.nextCycleSubmission.includes('PQA')) ? isoRecord.nextCycleSubmission : getNextISOCycle(isoRecord.cycle),
                 tone: 'bg-brand-50 text-brand-600'
               }
@@ -882,7 +890,7 @@ export function CampusISOView() {
 
           {isoRecord.summary && (
             <div className="mt-3 rounded-r-xl border-l-4 border-brand-400 bg-brand-50/40 px-3.5 py-2.5">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700">LEAD AUDITOR SUMMARY & ASSESSORS FEEDBACK</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700">LEAD AUDITOR SUMMARY & AUDIT FINDINGS</p>
               <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-muted">{isoRecord.summary}</p>
             </div>
           )}
@@ -983,10 +991,13 @@ export function CampusISOView() {
         {/* Search & Stage Filters Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5">
-            {(['All', 'For Surveillance', '2nd Surveillance', 'Recertification'] as const).map((stage) => {
+            {(['All', '1st Surveillance', '2nd Surveillance', 'Recertification'] as const).map((stage) => {
               const count = stage === 'All'
                 ? isoDocuments.length
-                : isoDocuments.filter((d) => d.isoStage === stage).length;
+                : isoDocuments.filter((d) => {
+                    const docStage = d.isoStage === 'For Surveillance' ? '1st Surveillance' : d.isoStage;
+                    return docStage === stage;
+                  }).length;
               const isActive = selectedStageFilter === stage;
               return (
                 <button
@@ -1193,7 +1204,7 @@ export function CampusISOView() {
 
                       {doc.isoStage && (
                         <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border bg-brand-50 text-brand-700 border-brand-200">
-                          {doc.isoStage}
+                          {doc.isoStage === 'For Surveillance' ? '1st Surveillance' : doc.isoStage}
                         </span>
                       )}
 
@@ -1853,7 +1864,7 @@ export function CampusISOView() {
                   onChange={(e) => setUploadStage(e.target.value as ISODocumentStage)}
                   className="select"
                 >
-                  <option value="For Surveillance">For Surveillance</option>
+                  <option value="1st Surveillance">1st Surveillance</option>
                   <option value="2nd Surveillance">2nd Surveillance</option>
                   <option value="Recertification">Recertification</option>
                 </select>
@@ -1959,7 +1970,7 @@ export function CampusISOView() {
                   onChange={(e) => setEditDocForm({ ...editDocForm, isoStage: e.target.value as ISODocumentStage })}
                   className="select"
                 >
-                  <option value="For Surveillance">For Surveillance</option>
+                  <option value="1st Surveillance">1st Surveillance</option>
                   <option value="2nd Surveillance">2nd Surveillance</option>
                   <option value="Recertification">Recertification</option>
                 </select>
@@ -2254,12 +2265,12 @@ export function CampusISOView() {
         subject={campus.name}
         program="Quality Management & Institutional Excellence"
         cycle={isoRecord.cycle}
-        body={isoRecord.evaluatingBody || 'DAP'}
+        body={isoRecord.evaluatingBody && !isoRecord.evaluatingBody.includes('DAP') ? isoRecord.evaluatingBody : 'TÜV Rheinland'}
         campusId={selectedCampusId}
         campusName={campus.name}
         stats={[
-          { label: 'Application Cycle', value: isoRecord.cycle },
-          { label: 'Assessment Status', value: isoRecord.validationStatus || 'Awarded' }
+          { label: 'Surveillance Cycle', value: isoRecord.cycle },
+          { label: 'Validation Status', value: isoRecord.validationStatus || 'Certified & Signed' }
         ]}
         onActivate={
           canMutate

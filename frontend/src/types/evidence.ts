@@ -84,7 +84,7 @@ export type DocumentType =
 
 export type Confidentiality = 'Public' | 'Internal' | 'Confidential';
 
-export type ISODocumentStage = 'For Surveillance' | '2nd Surveillance' | 'Recertification';
+export type ISODocumentStage = '1st Surveillance' | '2nd Surveillance' | 'Recertification' | 'For Surveillance';
 
 export type FileType = 'PDF' | 'DOCX' | 'XLSX' | 'PPTX' | 'JPG' | 'PNG' | 'TIFF';
 

@@ -125,7 +125,7 @@ export function MetadataForm({ value, onChange }: MetadataFormProps) {
             label="ISO Audit Stage / Label"
             value={value.isoStage || ''}
             onChange={(s) => onChange({ isoStage: (s || undefined) as ISODocumentStage | undefined })}
-            placeholder="Select ISO stage (For Surveillance, 2nd Surveillance, Recertification)"
+            placeholder="Select ISO stage (1st Surveillance, 2nd Surveillance, Recertification)"
             options={isoDocumentLabels}
           />
         )}

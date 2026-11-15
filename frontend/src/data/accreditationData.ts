@@ -749,7 +749,7 @@ export const initialISORecords: ISOSurveillanceRecord[] = [
     standardVersion: 'ISO 9001:2015',
     auditDate: '2023-10-18',
     cycle: '2023 Surveillance Audit 1',
-    auditType: 'For Surveillance',
+    auditType: '1st Surveillance',
     leadAuditor: 'Engr. Nelson V. Carandang (TUV / External)',
     auditorRole: 'Lead ISO Quality Auditor',
     scope: 'Higher and Advanced Education, Research, Extension and General Administrative Operations',
