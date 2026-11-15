@@ -127,6 +127,9 @@ export function IAFolderManager({
   // Upload ISO Stage State (when framework.id === 'iso')
   const [uploadIsoStage, setUploadIsoStage] = useState<ISODocumentStage>('1st Surveillance');
 
+  // ISO Surveillance Stage Filter ('All' | '1st Surveillance' | '2nd Surveillance' | 'Recertification')
+  const [isoStageFilter, setIsoStageFilter] = useState<'All' | '1st Surveillance' | '2nd Surveillance' | 'Recertification'>('All');
+
   // Active view tab: 'areas' | 'folders'
   const [activeTab, setActiveTab] = useState<'folders' | 'areas'>('areas');
   const [searchQuery, setSearchQuery] = useState('');
@@ -424,11 +427,16 @@ export function IAFolderManager({
     const areaFolderIds = new Set(iaFolders.filter(f => (f.areaId || '').toLowerCase() === areaCodeNorm).map(f => f.id));
 
     // Find all documents belonging to this area (either directly or via area folders)
-    const areaDocs = campusIADocs.filter(
-      (d) =>
-        (((d.areaId || '').toLowerCase() === areaCodeNorm) ||
-          (d.folderId ? areaFolderIds.has(d.folderId) : false))
-    );
+    const areaDocs = campusIADocs.filter((d) => {
+      if (framework.id === 'iso' && isoStageFilter !== 'All') {
+        const stage = d.isoStage === 'For Surveillance' ? '1st Surveillance' : d.isoStage;
+        if (stage !== isoStageFilter) return false;
+      }
+      return (
+        ((d.areaId || '').toLowerCase() === areaCodeNorm) ||
+        (d.folderId ? areaFolderIds.has(d.folderId) : false)
+      );
+    });
 
     if (areaFoldersList.length === 0 && areaDocs.length === 0) {
       return {
@@ -500,7 +508,13 @@ export function IAFolderManager({
 
   // Document count per folder
   const getFolderDocCount = (folder: EvidenceFolder) => {
-    return campusIADocs.filter((d) => isDocInFolder(d, folder)).length;
+    return campusIADocs.filter((d) => {
+      if (framework.id === 'iso' && isoStageFilter !== 'All') {
+        const stage = d.isoStage === 'For Surveillance' ? '1st Surveillance' : d.isoStage;
+        if (stage !== isoStageFilter) return false;
+      }
+      return isDocInFolder(d, folder);
+    }).length;
   };
 
   // Subfolder count inside a specific folder
@@ -597,6 +611,14 @@ export function IAFolderManager({
       } else if (approvalStatusFilter === 'pending') {
         list = list.filter((d) => !d.approvalStatus || d.approvalStatus === 'Pending Review');
       }
+    }
+
+    // Filter by ISO Surveillance Stage
+    if (framework.id === 'iso' && isoStageFilter !== 'All') {
+      list = list.filter((d) => {
+        const stage = d.isoStage === 'For Surveillance' ? '1st Surveillance' : d.isoStage;
+        return stage === isoStageFilter;
+      });
     }
 
     if (searchQuery.trim()) {
@@ -1246,56 +1268,95 @@ export function IAFolderManager({
 
       {/* Segmented View Tabs & Action Row */}
       <div className="flex flex-col gap-3 border-b border-line bg-white px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Tabs */}
-        <div className="inline-flex items-center gap-1 self-start rounded-xl border border-line bg-canvas p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('areas');
-              setSelectedAreaCode(null);
-              setActiveFolderId(null);
-            }}
-            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
-              activeTab === 'areas'
-                ? 'bg-white text-brand-700 shadow-sm ring-1 ring-line'
-                : 'text-ink-muted hover:text-ink'
-            }`}
-          >
-            <LayersIcon className="h-3.5 w-3.5" />
-            <span>{framework.areasTabLabel}</span>
-            <span
-              className={`rounded-full px-1.5 text-[10px] font-bold ${
-                activeTab === 'areas' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200/80 text-ink-muted'
-              }`}
-            >
-              {OFFICIAL_IA_AREAS.length}
-            </span>
-          </button>
-
-          {framework.customFolders && (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Tabs */}
+          <div className="inline-flex items-center gap-1 self-start rounded-xl border border-line bg-canvas p-1">
             <button
               type="button"
               onClick={() => {
-                setActiveTab('folders');
+                setActiveTab('areas');
                 setSelectedAreaCode(null);
                 setActiveFolderId(null);
               }}
               className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                activeTab === 'folders'
+                activeTab === 'areas'
                   ? 'bg-white text-brand-700 shadow-sm ring-1 ring-line'
                   : 'text-ink-muted hover:text-ink'
               }`}
             >
-              <FolderIcon className="h-3.5 w-3.5 text-brand-500" />
-              <span>Custom Folders</span>
+              <LayersIcon className="h-3.5 w-3.5" />
+              <span>{framework.areasTabLabel}</span>
               <span
                 className={`rounded-full px-1.5 text-[10px] font-bold ${
-                  activeTab === 'folders' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200/80 text-ink-muted'
+                  activeTab === 'areas' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200/80 text-ink-muted'
                 }`}
               >
-                {rootCustomFolders.length}
+                {OFFICIAL_IA_AREAS.length}
               </span>
             </button>
+
+            {framework.customFolders && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('folders');
+                  setSelectedAreaCode(null);
+                  setActiveFolderId(null);
+                }}
+                className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                  activeTab === 'folders'
+                    ? 'bg-white text-brand-700 shadow-sm ring-1 ring-line'
+                    : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                <FolderIcon className="h-3.5 w-3.5 text-brand-500" />
+                <span>Custom Folders</span>
+                <span
+                  className={`rounded-full px-1.5 text-[10px] font-bold ${
+                    activeTab === 'folders' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200/80 text-ink-muted'
+                  }`}
+                >
+                  {rootCustomFolders.length}
+                </span>
+              </button>
+            )}
+          </div>
+
+          {/* ISO Surveillance Stage Filter Pills */}
+          {framework.id === 'iso' && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(['All', '1st Surveillance', '2nd Surveillance', 'Recertification'] as const).map((stage) => {
+                const count =
+                  stage === 'All'
+                    ? campusIADocs.length
+                    : campusIADocs.filter((d) => {
+                        const docStage = d.isoStage === 'For Surveillance' ? '1st Surveillance' : d.isoStage;
+                        return docStage === stage;
+                      }).length;
+                const isActive = isoStageFilter === stage;
+                return (
+                  <button
+                    key={stage}
+                    type="button"
+                    onClick={() => setIsoStageFilter(stage)}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                      isActive
+                        ? 'bg-brand-600 text-white shadow-xs ring-1 ring-brand-700'
+                        : 'border border-line bg-white text-ink hover:bg-canvas'
+                    }`}
+                  >
+                    <span>{stage}</span>
+                    <span
+                      className={`rounded-full px-1.5 text-[10px] font-bold ${
+                        isActive ? 'bg-brand-800 text-brand-100' : 'bg-slate-100 text-ink-muted'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
 
@@ -1895,6 +1956,19 @@ export function IAFolderManager({
                       <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/60">
                         {insideFiles.length} of {allFolderDocs.length}
                       </span>
+                      {framework.id === 'iso' && isoStageFilter !== 'All' && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 border border-brand-200 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
+                          Stage: {isoStageFilter}
+                          <button
+                            type="button"
+                            onClick={() => setIsoStageFilter('All')}
+                            className="ml-0.5 text-brand-500 hover:text-brand-900 font-bold"
+                            title="Clear stage filter"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       {!isCustomFolder && currentActiveFolder?.areaId ? (

@@ -131,7 +131,7 @@ export const ISO_FOLDER_FRAMEWORK: FolderFramework = {
   title: 'ISO Document & Folder Management',
   description: 'Official ISO 9001:2015 surveillance evidence and quality portfolios — organize clause folders, upload files or entire directories, and track audit review.',
   cycle: '2024 Surveillance Audit',
-  customFolders: true,
+  customFolders: false,
   areas: ISO_CLAUSE_AREAS,
   formatAreaLabel: (area) => (area.code === 'ISO-QM' ? 'Quality Manual' : `Clause ${area.number}`),
   areaRangeLabel: 'Clauses 4–10 & Quality Manual',
