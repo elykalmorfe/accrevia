@@ -238,6 +238,8 @@ export interface ISOSurveillanceRecord {
   };
   clausesEvaluated: ISOClauseEvaluation[];
   correctiveActions: ISOCorrectiveAction[];
+  evaluatingBody?: string;
+  nextCycleSubmission?: string;
   validationStatus?: string;
   validationDate?: string;
   validatedBy?: string;

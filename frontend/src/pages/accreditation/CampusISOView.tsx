@@ -27,6 +27,9 @@ import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
 import { persistUpload, downloadStoredFile } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
 import { filesFromDrop, filesFromInput, PendingUpload } from '../../utils/dropFiles';
+import { CertificateFoldersModal, CertificateLevel } from '../../components/accreditation/CertificateFoldersModal';
+import { OfficialCertificatesStrip, useCampusCertificates } from '../../components/accreditation/OfficialCertificatesStrip';
+import { formatDate } from '../../utils/format';
 import {
   ShieldCheckIcon,
   CheckCircle2Icon,
@@ -50,9 +53,29 @@ import {
   FileUpIcon,
   SearchIcon,
   ChevronRightIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  CalendarCheckIcon,
+  CalendarClockIcon,
+  AwardIcon
 } from 'lucide-react';
 import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
+
+const ISO_CERTIFICATE_LEVELS: CertificateLevel[] = [
+  { code: 'Level 1: Commitment to Quality Management', label: 'Level 1' },
+  { code: 'Level 2: Proficiency in Quality Management', label: 'Level 2' },
+  { code: 'Level 3: Mastery in Quality Management', label: 'Level 3' },
+  { code: 'Level 4: Philippine Quality Award for Performance Excellence', label: 'Level 4' },
+  { code: 'ISO 9001:2015 Certified', label: 'ISO 9001' }
+];
+
+function readableDate(value?: string): string {
+  if (!value) return '—';
+  try {
+    return formatDate(value);
+  } catch {
+    return value;
+  }
+}
 
 const DEFAULT_ISO_TITLE = 'ISO 9001:2015 Surveillance, Monitoring & Compliance';
 const DEFAULT_ISO_DESCRIPTION =
@@ -202,6 +225,11 @@ export function CampusISOView() {
   const activeRecord = campusRecords.find((r) => !r.isHistorical) || campusRecords[0];
   const isoRecord = campusRecords.find((r) => r.id === selectedRecordId) || activeRecord || isoRecords[0];
 
+  const certAreaKey = `cert-iso-${selectedCampusId}`;
+  const { certificates, activeCertificate, activeLevel, levelCount } = useCampusCertificates('iso', certAreaKey);
+  const [certificatesOpen, setCertificatesOpen] = useState(false);
+  const [previewCertificate, setPreviewCertificate] = useState<EvidenceDocument | null>(null);
+
   const handleSelectCampus = (cid: CampusId) => {
     setSelectedCampusId(cid);
     setSelectedRecordId(null);
@@ -309,12 +337,14 @@ export function CampusISOView() {
   const [auditForm, setAuditForm] = useState({
     scope: '',
     standardVersion: 'ISO 9001:2015',
-    cycle: '2024 Surveillance Audit 1',
-    auditDate: '',
+    cycle: '2025 Cycle',
+    evaluatingBody: 'DAP (Development Academy of the Philippines)',
+    lastAssessmentDate: '',
+    nextCycleSubmission: '2026 PQA Application',
     leadAuditor: '',
     auditorRole: '',
     complianceStatus: 'Compliant' as ISOComplianceStatus,
-    validationStatus: 'Certified & Signed',
+    validationStatus: 'Awarded',
     summary: '',
     conformances: 14,
     ofi: 2,
@@ -326,12 +356,14 @@ export function CampusISOView() {
     setAuditForm({
       scope: rec.scope || '',
       standardVersion: rec.standardVersion || 'ISO 9001:2015',
-      cycle: rec.cycle || '2024 Surveillance Audit 1',
-      auditDate: rec.auditDate || new Date().toISOString().slice(0, 10),
+      cycle: rec.cycle || '2025 Cycle',
+      evaluatingBody: rec.evaluatingBody || 'DAP (Development Academy of the Philippines)',
+      lastAssessmentDate: rec.auditDate || new Date().toISOString().slice(0, 10),
+      nextCycleSubmission: rec.nextCycleSubmission || '2026 PQA Application',
       leadAuditor: rec.leadAuditor || '',
       auditorRole: rec.auditorRole || 'Lead Quality Auditor',
       complianceStatus: rec.complianceStatus || 'Compliant',
-      validationStatus: rec.validationStatus || 'Certified & Signed',
+      validationStatus: rec.validationStatus || 'Awarded',
       summary: rec.summary || '',
       conformances: rec.findingsCount?.conformances ?? 14,
       ofi: rec.findingsCount?.ofi ?? 2,
@@ -346,14 +378,16 @@ export function CampusISOView() {
     if (!canMutate) return;
     const updatedRecord: ISOSurveillanceRecord = {
       ...isoRecord,
+      evaluatingBody: auditForm.evaluatingBody.trim() || 'DAP (Development Academy of the Philippines)',
+      auditDate: auditForm.lastAssessmentDate || isoRecord.auditDate,
+      nextCycleSubmission: auditForm.nextCycleSubmission.trim() || '2026 PQA Application',
       scope: auditForm.scope.trim(),
       standardVersion: auditForm.standardVersion.trim() || 'ISO 9001:2015',
-      cycle: auditForm.cycle.trim() || '2024 Surveillance Audit 1',
-      auditDate: auditForm.auditDate,
+      cycle: auditForm.cycle.trim() || '2025 Cycle',
       leadAuditor: auditForm.leadAuditor.trim() || 'Lead Quality Auditor',
       auditorRole: auditForm.auditorRole.trim() || 'Certified ISO Auditor',
       complianceStatus: auditForm.complianceStatus,
-      validationStatus: auditForm.validationStatus.trim() || 'Certified & Signed',
+      validationStatus: auditForm.validationStatus.trim() || 'Awarded',
       summary: auditForm.summary.trim(),
       findingsCount: {
         conformances: Number(auditForm.conformances) || 0,
@@ -670,11 +704,10 @@ export function CampusISOView() {
             <button
               key={c.id}
               onClick={() => handleSelectCampus(c.id)}
-              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${
-                isSelected
-                  ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-1 ring-brand-500'
-                  : 'border-line bg-white hover:bg-canvas'
-              }`}
+              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${isSelected
+                ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-1 ring-brand-500'
+                : 'border-line bg-white hover:bg-canvas'
+                }`}
             >
               <ShieldCheckIcon className={`h-4 w-4 ${isSelected ? 'text-brand-700' : 'text-ink-subtle'}`} />
               <div>
@@ -719,11 +752,10 @@ export function CampusISOView() {
                   key={rec.id}
                   type="button"
                   onClick={() => setSelectedRecordId(rec.id)}
-                  className={`flex shrink-0 items-center gap-2 rounded-md border px-3 py-1.5 text-xs transition-all ${
-                    isCurrent
-                      ? 'border-brand-500 bg-brand-50 font-semibold text-brand-900 shadow-xs ring-1 ring-brand-500'
-                      : 'border-line bg-white text-ink hover:bg-canvas'
-                  }`}
+                  className={`flex shrink-0 items-center gap-2 rounded-md border px-3 py-1.5 text-xs transition-all ${isCurrent
+                    ? 'border-brand-500 bg-brand-50 font-semibold text-brand-900 shadow-xs ring-1 ring-brand-500'
+                    : 'border-line bg-white text-ink hover:bg-canvas'
+                    }`}
                 >
                   {isHistorical ? (
                     <HistoryIcon className="h-3.5 w-3.5 text-brand-600" />
@@ -783,40 +815,32 @@ export function CampusISOView() {
         </div>
       )}
 
-      {/* Active Surveillance Status Card (Editable & Actionable) */}
+      {/* Active Surveillance Status Card (Uniform with PQA & Institutional Frameworks) */}
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
         <div className="panel col-span-2 p-5 shadow-xs transition-shadow">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="text-lg font-bold text-ink">{campus.name}</h2>
-                <Badge tone={
-                  isoRecord.complianceStatus === 'Compliant' || isoRecord.complianceStatus === 'Certified'
-                    ? 'success'
-                    : isoRecord.complianceStatus === 'Minor Deficiencies'
-                    ? 'warning'
-                    : 'danger'
-                }>
-                  {isoRecord.complianceStatus}
-                </Badge>
+                <Badge tone="brand">{isoRecord.complianceStatus}</Badge>
                 {isoRecord.isHistorical && (
                   <Badge tone="warning">Preserved Record</Badge>
                 )}
               </div>
               <p className="mt-1 text-xs text-ink-muted">
-                Audit Scope: <strong className="text-ink">{isoRecord.scope}</strong>
+                {campus.location} · PQA Application Cycle: <strong className="text-ink">{isoRecord.cycle}</strong>
               </p>
             </div>
 
-            <div className="flex flex-col sm:items-end gap-2">
+            <div className="flex flex-col sm:items-end gap-1">
               <div className="sm:text-right">
-                <span className="text-xs text-ink-muted">Standard & Cycle</span>
-                <p className="font-semibold text-brand-700 text-sm">
-                  {isoRecord.standardVersion || 'ISO 9001:2015'} · {isoRecord.cycle}
+                <span className="text-xs text-ink-muted">Assessment Status</span>
+                <p className="mt-0.5 text-sm font-semibold text-brand-700">
+                  {isoRecord.validationStatus || 'Awarded'}
                 </p>
               </div>
               {canMutate && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-1">
                   <button
                     type="button"
                     onClick={() => handleOpenEditAudit(isoRecord)}
@@ -838,34 +862,55 @@ export function CampusISOView() {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div>
-              <span className="text-xs text-ink-muted">ISO Standard</span>
-              <p className="text-xs font-semibold text-ink mt-0.5">
-                {isoRecord.standardVersion || 'ISO 9001:2015'}
-              </p>
-            </div>
-            <div>
-              <span className="text-xs text-ink-muted">Audit Date</span>
-              <p className="text-xs font-semibold text-ink mt-0.5">{isoRecord.auditDate}</p>
-            </div>
-            <div>
-              <span className="text-xs text-ink-muted">Lead ISO Auditor</span>
-              <p className="text-xs font-semibold text-ink mt-0.5">{isoRecord.leadAuditor}</p>
-            </div>
-            <div>
-              <span className="text-xs text-ink-muted">Validation Status</span>
-              <p className="text-xs font-semibold text-success-700 mt-0.5 flex items-center gap-1">
-                <CheckCircle2Icon className="h-3.5 w-3.5" /> {isoRecord.validationStatus || 'Certified & Signed'}
-              </p>
-            </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {[
+              {
+                icon: ShieldCheckIcon,
+                label: 'Evaluating Body',
+                value: isoRecord.evaluatingBody || 'DAP (Development Academy of the Philippines)',
+                tone: 'bg-brand-50 text-brand-600'
+              },
+              {
+                icon: CalendarCheckIcon,
+                label: 'Last Assessment Date',
+                value: readableDate(isoRecord.auditDate),
+                tone: 'bg-brand-50 text-brand-600'
+              },
+              {
+                icon: CalendarClockIcon,
+                label: 'Next Cycle Submission',
+                value: isoRecord.nextCycleSubmission || '2026 PQA Application',
+                tone: 'bg-brand-50 text-brand-600'
+              }
+            ].map((info) => (
+              <div key={info.label} className="flex items-start gap-2.5 rounded-xl border border-line bg-canvas/50 p-3">
+                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${info.tone}`}>
+                  <info.icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium text-ink-subtle">{info.label}</p>
+                  <p className="mt-0.5 text-[12.5px] font-semibold leading-snug text-ink">{info.value}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
-          <div className="mt-4 rounded-md border border-line bg-canvas p-3">
-            <p className="text-xs text-ink-muted">
-              <strong className="text-ink">Lead Auditor Summary:</strong> {isoRecord.summary}
-            </p>
-          </div>
+          {isoRecord.summary && (
+            <div className="mt-3 rounded-r-xl border-l-4 border-brand-400 bg-brand-50/40 px-3.5 py-2.5">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700">DAP ASSESSORS FEEDBACK</p>
+              <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-muted">{isoRecord.summary}</p>
+            </div>
+          )}
+
+          <OfficialCertificatesStrip
+            certificates={certificates}
+            activeCertificate={activeCertificate}
+            activeLevel={activeLevel}
+            levelCount={levelCount}
+            isAdmin={canMutate}
+            onOpen={() => setCertificatesOpen(true)}
+            onPreview={setPreviewCertificate}
+          />
         </div>
 
         {/* Findings Counter */}
@@ -963,11 +1008,10 @@ export function CampusISOView() {
                   key={stage}
                   type="button"
                   onClick={() => setSelectedStageFilter(stage)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    isActive
-                      ? 'bg-brand-600 text-white shadow-xs'
-                      : 'border border-line bg-white text-ink hover:bg-canvas'
-                  }`}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${isActive
+                    ? 'bg-brand-600 text-white shadow-xs'
+                    : 'border border-line bg-white text-ink hover:bg-canvas'
+                    }`}
                 >
                   {stage} <span className={`ml-1 text-[11px] ${isActive ? 'text-brand-100' : 'text-ink-muted'}`}>({count})</span>
                 </button>
@@ -1034,11 +1078,10 @@ export function CampusISOView() {
                 return (
                   <div
                     key={folder.id}
-                    className={`group relative rounded-lg border p-3 transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-brand-500 bg-brand-50/80 shadow-xs ring-2 ring-brand-500/30'
-                        : 'border-line bg-white hover:border-brand-300 hover:bg-canvas/60'
-                    }`}
+                    className={`group relative rounded-lg border p-3 transition-all cursor-pointer ${isSelected
+                      ? 'border-brand-500 bg-brand-50/80 shadow-xs ring-2 ring-brand-500/30'
+                      : 'border-line bg-white hover:border-brand-300 hover:bg-canvas/60'
+                      }`}
                     onClick={() => setSelectedFolderId(isSelected ? null : folder.id)}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -1274,8 +1317,8 @@ export function CampusISOView() {
                         clause.status === 'Conforming'
                           ? 'success'
                           : clause.status === 'Opportunity for Improvement'
-                          ? 'brand'
-                          : 'warning'
+                            ? 'brand'
+                            : 'warning'
                       }
                       dot
                     >
@@ -1317,9 +1360,8 @@ export function CampusISOView() {
               return (
                 <div
                   key={car.id}
-                  className={`panel p-4 border-l-4 ${
-                    isClosed ? 'border-l-success-600 bg-white' : 'border-l-warning-600 bg-warning-50/20'
-                  }`}
+                  className={`panel p-4 border-l-4 ${isClosed ? 'border-l-success-600 bg-white' : 'border-l-warning-600 bg-warning-50/20'
+                    }`}
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1">
@@ -1413,50 +1455,27 @@ export function CampusISOView() {
           }
         >
           <form onSubmit={handleSaveAuditRecord} className="space-y-4">
-            <div>
-              <label className="label">Audit Scope *</label>
-              <input
-                type="text"
-                value={auditForm.scope}
-                onChange={(e) => setAuditForm({ ...auditForm, scope: e.target.value })}
-                className="input"
-                placeholder="e.g. Agricultural Technology, Teacher Education, and Community Training Services"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="label">ISO Standard Version *</label>
+                <label className="label">Evaluating Body *</label>
                 <input
                   type="text"
-                  value={auditForm.standardVersion}
-                  onChange={(e) => setAuditForm({ ...auditForm, standardVersion: e.target.value })}
+                  value={auditForm.evaluatingBody}
+                  onChange={(e) => setAuditForm({ ...auditForm, evaluatingBody: e.target.value })}
                   className="input"
-                  placeholder="e.g. ISO 9001:2015"
+                  placeholder="e.g. DAP (Development Academy of the Philippines)"
                   required
                 />
               </div>
 
               <div>
-                <label className="label">Surveillance Cycle *</label>
+                <label className="label">Assessment Status *</label>
                 <input
                   type="text"
-                  value={auditForm.cycle}
-                  onChange={(e) => setAuditForm({ ...auditForm, cycle: e.target.value })}
+                  value={auditForm.validationStatus}
+                  onChange={(e) => setAuditForm({ ...auditForm, validationStatus: e.target.value })}
                   className="input"
-                  placeholder="e.g. 2024 Surveillance Audit 1"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="label">Audit Date *</label>
-                <input
-                  type="date"
-                  value={auditForm.auditDate}
-                  onChange={(e) => setAuditForm({ ...auditForm, auditDate: e.target.value })}
-                  className="input"
+                  placeholder="e.g. Awarded"
                   required
                 />
               </div>
@@ -1464,14 +1483,88 @@ export function CampusISOView() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="label">Lead ISO Auditor *</label>
+                <label className="label">Last Assessment Date *</label>
+                <input
+                  type="date"
+                  value={auditForm.lastAssessmentDate}
+                  onChange={(e) => setAuditForm({ ...auditForm, lastAssessmentDate: e.target.value })}
+                  className="input"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Next Cycle Submission *</label>
+                <input
+                  type="text"
+                  value={auditForm.nextCycleSubmission}
+                  onChange={(e) => setAuditForm({ ...auditForm, nextCycleSubmission: e.target.value })}
+                  className="input"
+                  placeholder="e.g. 2026 PQA Application"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Audit Scope & Location Context</label>
+              <input
+                type="text"
+                value={auditForm.scope}
+                onChange={(e) => setAuditForm({ ...auditForm, scope: e.target.value })}
+                className="input"
+                placeholder="e.g. Agricultural Technology, Teacher Education, and Community Training Services"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="label">ISO / Framework Standard</label>
+                <input
+                  type="text"
+                  value={auditForm.standardVersion}
+                  onChange={(e) => setAuditForm({ ...auditForm, standardVersion: e.target.value })}
+                  className="input"
+                  placeholder="e.g. ISO 9001:2015"
+                />
+              </div>
+
+              <div>
+                <label className="label">Application Cycle *</label>
+                <input
+                  type="text"
+                  value={auditForm.cycle}
+                  onChange={(e) => setAuditForm({ ...auditForm, cycle: e.target.value })}
+                  className="input"
+                  placeholder="e.g. 2025 Cycle"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Compliance Level / Status</label>
+                <select
+                  value={auditForm.complianceStatus}
+                  onChange={(e) => setAuditForm({ ...auditForm, complianceStatus: e.target.value as ISOComplianceStatus })}
+                  className="select"
+                >
+                  <option value="Compliant">Compliant / Level 2</option>
+                  <option value="Certified">Certified</option>
+                  <option value="Minor Deficiencies">Minor Deficiencies</option>
+                  <option value="Major Deficiencies Pending Action">Major Deficiencies Pending Action</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Lead ISO Auditor / Assessor</label>
                 <input
                   type="text"
                   value={auditForm.leadAuditor}
                   onChange={(e) => setAuditForm({ ...auditForm, leadAuditor: e.target.value })}
                   className="input"
                   placeholder="e.g. Prof. Liza M. Cabrera"
-                  required
                 />
               </div>
 
@@ -1487,40 +1580,13 @@ export function CampusISOView() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="label">Compliance Status *</label>
-                <select
-                  value={auditForm.complianceStatus}
-                  onChange={(e) => setAuditForm({ ...auditForm, complianceStatus: e.target.value as ISOComplianceStatus })}
-                  className="select"
-                >
-                  <option value="Compliant">Compliant</option>
-                  <option value="Certified">Certified</option>
-                  <option value="Minor Deficiencies">Minor Deficiencies</option>
-                  <option value="Major Deficiencies Pending Action">Major Deficiencies Pending Action</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="label">Validation Status</label>
-                <input
-                  type="text"
-                  value={auditForm.validationStatus}
-                  onChange={(e) => setAuditForm({ ...auditForm, validationStatus: e.target.value })}
-                  className="input"
-                  placeholder="e.g. Certified & Signed"
-                />
-              </div>
-            </div>
-
             <div>
-              <label className="label">Lead Auditor Summary</label>
+              <label className="label">DAP ASSESSORS FEEDBACK / SUMMARY</label>
               <textarea
                 value={auditForm.summary}
                 onChange={(e) => setAuditForm({ ...auditForm, summary: e.target.value })}
                 className="textarea h-20 text-[13px]"
-                placeholder="Executive audit summary confirming QMS surveillance findings..."
+                placeholder="Recognized for marine and fisheries quality management and sustainable coastal resource stewardship..."
               />
             </div>
 
@@ -1618,22 +1684,20 @@ export function CampusISOView() {
               <button
                 type="button"
                 onClick={() => setUploadTab('files')}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-md py-1.5 text-xs font-semibold transition-all ${
-                  uploadTab === 'files'
-                    ? 'bg-white text-brand-700 shadow-xs'
-                    : 'text-ink-muted hover:text-ink'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-md py-1.5 text-xs font-semibold transition-all ${uploadTab === 'files'
+                  ? 'bg-white text-brand-700 shadow-xs'
+                  : 'text-ink-muted hover:text-ink'
+                  }`}
               >
                 <FileUpIcon className="h-4 w-4" /> Upload Files
               </button>
               <button
                 type="button"
                 onClick={() => setUploadTab('folder')}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-md py-1.5 text-xs font-semibold transition-all ${
-                  uploadTab === 'folder'
-                    ? 'bg-white text-brand-700 shadow-xs'
-                    : 'text-ink-muted hover:text-ink'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-md py-1.5 text-xs font-semibold transition-all ${uploadTab === 'folder'
+                  ? 'bg-white text-brand-700 shadow-xs'
+                  : 'text-ink-muted hover:text-ink'
+                  }`}
               >
                 <FolderUpIcon className="h-4 w-4" /> Upload Folder (Directory)
               </button>
@@ -1663,11 +1727,10 @@ export function CampusISOView() {
               }}
               onDragLeave={() => setIsDragActive(false)}
               onDrop={handleDrop}
-              className={`rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
-                isDragActive
-                  ? 'border-brand-500 bg-brand-50/70'
-                  : 'border-line bg-canvas/40 hover:bg-canvas/70'
-              }`}
+              className={`rounded-xl border-2 border-dashed p-6 text-center transition-colors ${isDragActive
+                ? 'border-brand-500 bg-brand-50/70'
+                : 'border-line bg-canvas/40 hover:bg-canvas/70'
+                }`}
             >
               <CloudUploadIcon className="mx-auto h-10 w-10 text-brand-600 mb-2" />
               <p className="text-xs font-bold text-ink">
@@ -1750,9 +1813,8 @@ export function CampusISOView() {
             <div className="space-y-2">
               <label className="label">Evidence Folder Destination</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <label className={`flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer ${
-                  uploadFolderChoice === 'existing' ? 'border-brand-500 bg-brand-50/50' : 'border-line'
-                }`}>
+                <label className={`flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer ${uploadFolderChoice === 'existing' ? 'border-brand-500 bg-brand-50/50' : 'border-line'
+                  }`}>
                   <input
                     type="radio"
                     name="folderChoice"
@@ -1761,9 +1823,8 @@ export function CampusISOView() {
                   />
                   <span>Save into existing folder</span>
                 </label>
-                <label className={`flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer ${
-                  uploadFolderChoice === 'new' ? 'border-brand-500 bg-brand-50/50' : 'border-line'
-                }`}>
+                <label className={`flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer ${uploadFolderChoice === 'new' ? 'border-brand-500 bg-brand-50/50' : 'border-line'
+                  }`}>
                   <input
                     type="radio"
                     name="folderChoice"
@@ -2194,6 +2255,42 @@ export function CampusISOView() {
           </form>
         </Modal>
       )}
+
+      {/* 11. Official Certificates Modal */}
+      <CertificateFoldersModal
+        open={certificatesOpen}
+        onClose={() => setCertificatesOpen(false)}
+        title="Recognition & Compliance Certificates"
+        description={`${campus.name} · Institutional Recognition & Standards`}
+        frameworkId="iso"
+        areaKey={certAreaKey}
+        levels={ISO_CERTIFICATE_LEVELS}
+        currentLevelCode={isoRecord.complianceStatus}
+        subject={campus.name}
+        program="Quality Management & Institutional Excellence"
+        cycle={isoRecord.cycle}
+        body={isoRecord.evaluatingBody || 'DAP'}
+        campusId={selectedCampusId}
+        campusName={campus.name}
+        stats={[
+          { label: 'Application Cycle', value: isoRecord.cycle },
+          { label: 'Assessment Status', value: isoRecord.validationStatus || 'Awarded' }
+        ]}
+        onActivate={
+          canMutate
+            ? (doc, code) => {
+                if (code) {
+                  saveISOSurveillanceRecord({
+                    ...isoRecord,
+                    complianceStatus: code as any
+                  });
+                }
+                toast.success(code ? `"${doc.title}" activated` : `"${doc.title}" activated`);
+              }
+            : undefined
+        }
+      />
+      <DocumentPreviewModal doc={previewCertificate} onClose={() => setPreviewCertificate(null)} grantAccess />
     </>
   );
 }
