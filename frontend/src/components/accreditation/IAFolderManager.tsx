@@ -82,7 +82,8 @@ const FOLDER_STATUS: Record<string, FolderStatus> = {
   empty: { label: 'No files yet', tone: 'neutral' }
 };
 
-function folderDeadlineText(folder: EvidenceFolder): string {
+function folderDeadlineText(folder: EvidenceFolder, isIso = false): string {
+  if (isIso) return folder.code || 'ISO';
   if (folder.hasNoDeadline) return 'No deadline';
   if (folder.expiredDate) {
     return new Date(folder.expiredDate) < new Date() ? `Expired ${folder.expiredDate}` : `Due ${folder.expiredDate}`;
@@ -640,6 +641,14 @@ export function IAFolderManager({
 
   // Helper to render start date & expired date badge
   const renderFolderDatesBadge = (folder: EvidenceFolder) => {
+    if (framework.id === 'iso') {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 border border-slate-200 shadow-2xs">
+          <CalendarIcon className="h-3.5 w-3.5 text-slate-500" />
+          <span>Active QMS Portfolio</span>
+        </span>
+      );
+    }
     if (folder.hasNoDeadline) {
       return (
         <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100/90 px-2.5 py-1 text-[11px] font-medium text-slate-600 border border-slate-200 shadow-2xs">
@@ -1367,7 +1376,9 @@ export function IAFolderManager({
                   {framework.areasHeading}
                 </span>
                 <span className="text-[11.5px] text-ink-subtle">
-                  Open {framework.areaNoun === 'Area' ? 'an area' : 'a ' + framework.areaNoun.toLowerCase()} to manage its evidence folders, timelines & deadlines
+                  {framework.id === 'iso'
+                    ? 'Open a clause to manage its evidence folders and compliance portfolios'
+                    : `Open ${framework.areaNoun === 'Area' ? 'an area' : 'a ' + framework.areaNoun.toLowerCase()} to manage its evidence folders, timelines & deadlines`}
                 </span>
               </div>
 
@@ -1534,7 +1545,9 @@ export function IAFolderManager({
                       No Folder Created for {areaLabel(currentArea)} Yet
                     </h4>
                     <p className="text-xs text-ink-muted mt-1 max-w-md mx-auto">
-                      Create an evidence folder with a start date and optional deadline (or set to no deadline) to organize portfolios for {currentArea.name}.
+                      {framework.id === 'iso'
+                        ? `Create an evidence folder to organize portfolios for ${currentArea.name}.`
+                        : `Create an evidence folder with a start date and optional deadline (or set to no deadline) to organize portfolios for ${currentArea.name}.`}
                     </p>
                   </div>
                   {canMutate && (
@@ -1592,7 +1605,7 @@ export function IAFolderManager({
                             setSearchQuery('');
                           }}
                           title={folder.description || 'Open this folder'}
-                          eyebrow={folderDeadlineText(folder)}
+                          eyebrow={folderDeadlineText(folder, framework.id === 'iso')}
                           name={folder.name}
                           meta={`${pluralize(docCount, 'file')}${subCount > 0 ? ` · ${pluralize(subCount, 'subfolder')}` : ''}`}
                           status={FOLDER_STATUS[getFolderApprovalStatus(folder).status]}
@@ -1835,7 +1848,7 @@ export function IAFolderManager({
                             setSearchQuery('');
                           }}
                           title={sub.description || 'Open this subfolder'}
-                          eyebrow={folderDeadlineText(sub)}
+                          eyebrow={folderDeadlineText(sub, framework.id === 'iso')}
                           name={sub.name}
                           meta={pluralize(count, 'file')}
                           status={FOLDER_STATUS[getFolderApprovalStatus(sub).status]}
@@ -2109,7 +2122,7 @@ export function IAFolderManager({
                         setSearchQuery('');
                       }}
                       title={folder.description || 'Open this folder'}
-                      eyebrow={folderDeadlineText(folder)}
+                      eyebrow={folderDeadlineText(folder, framework.id === 'iso')}
                       name={folder.name}
                       meta={`${pluralize(docCount, 'file')}${subCount > 0 ? ` · ${pluralize(subCount, 'subfolder')}` : ''}`}
                       status={FOLDER_STATUS[getFolderApprovalStatus(folder).status]}
@@ -2288,7 +2301,7 @@ export function IAFolderManager({
                             setSearchQuery('');
                           }}
                           title={sub.description || 'Open this subfolder'}
-                          eyebrow={folderDeadlineText(sub)}
+                          eyebrow={folderDeadlineText(sub, framework.id === 'iso')}
                           name={sub.name}
                           meta={pluralize(count, 'file')}
                           status={FOLDER_STATUS[getFolderApprovalStatus(sub).status]}

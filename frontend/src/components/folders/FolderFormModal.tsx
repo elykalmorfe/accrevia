@@ -38,6 +38,7 @@ export function FolderFormModal({
   onClose,
   onSave
 }: FolderFormModalProps) {
+  const isIso = (frameworkId || folder?.frameworkId) === 'iso';
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
@@ -53,17 +54,17 @@ export function FolderFormModal({
       setDescription(folder.description || '');
       setStartDate(folder.startDate || folder.createdAt || new Date().toISOString().slice(0, 10));
       setExpiredDate(folder.expiredDate || '');
-      setHasNoDeadline(folder.hasNoDeadline ?? (folder.expiredDate === null));
+      setHasNoDeadline(isIso ? true : (folder.hasNoDeadline ?? (folder.expiredDate === null)));
     } else {
       setName(initialName || '');
       setCode(initialCode || '');
       setDescription('');
       setStartDate(new Date().toISOString().slice(0, 10));
       setExpiredDate('');
-      setHasNoDeadline(false);
+      setHasNoDeadline(isIso ? true : false);
     }
     setError('');
-  }, [folder, open, initialName, initialCode]);
+  }, [folder, open, initialName, initialCode, isIso]);
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -84,8 +85,8 @@ export function FolderFormModal({
       parentId: folder?.parentId ?? parentId,
       areaId: folder?.areaId ?? initialAreaId,
       startDate: startDate || new Date().toISOString().slice(0, 10),
-      expiredDate: hasNoDeadline ? null : expiredDate || null,
-      hasNoDeadline
+      expiredDate: (hasNoDeadline || isIso) ? null : expiredDate || null,
+      hasNoDeadline: hasNoDeadline || isIso
     };
     onSave(folderToSave);
     onClose();
@@ -98,7 +99,7 @@ export function FolderFormModal({
       size="md"
       title={folder ? 'Edit Evidence Folder' : 'Create Evidence Folder'}
       description={
-        simplified
+        simplified || isIso
           ? (folder ? 'Update folder name, code, and guidelines.' : 'Create a new folder portfolio with guidelines.')
           : (folder ? 'Update folder name, code, timeline dates, and guidelines.' : 'Create a new evidence portfolio with designated start date and deadline.')
       }
@@ -172,8 +173,8 @@ export function FolderFormModal({
           </div>
         </div>
 
-        {/* 2. Timeline & Expiration Card (Hidden in simplified mode) */}
-        {!simplified && (
+        {/* 2. Timeline & Expiration Card (Hidden in simplified mode and for ISO) */}
+        {!simplified && !isIso && (
         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4 space-y-3 shadow-2xs">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
