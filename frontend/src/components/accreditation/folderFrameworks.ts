@@ -19,6 +19,8 @@ export interface FolderFramework {
   customFolders: boolean;
   areas: IAAreaTemplate[];
   criterionFor: (area: IAAreaTemplate) => { criterionId: string; indicatorId: string };
+  formatAreaLabel?: (area: IAAreaTemplate) => string;
+  areaRangeLabel?: string;
 }
 
 export function iaFolderFramework(areas: IAAreaTemplate[]): FolderFramework {
@@ -64,4 +66,74 @@ export const PQA_FOLDER_FRAMEWORK: FolderFramework = {
   customFolders: false,
   areas: PQA_CATEGORY_AREAS,
   criterionFor: (area) => ({ criterionId: `c-pqa-${area.number}`, indicatorId: `i-pqa${area.number}-1` })
+};
+
+export const ISO_CLAUSE_AREAS: IAAreaTemplate[] = [
+  {
+    code: 'ISO-QM',
+    number: 1,
+    name: 'Quality Manual & Mandated Procedures',
+    shortDesc: 'Documented ISO 9001:2015 quality manual, quality policy, and core institutional standard operating procedures.'
+  },
+  {
+    code: 'ISO-C4',
+    number: 4,
+    name: 'Clause 4: Context of the Organization',
+    shortDesc: 'Internal & external issues, stakeholder requirements, and institutional QMS scope boundaries.'
+  },
+  {
+    code: 'ISO-C5',
+    number: 5,
+    name: 'Clause 5: Leadership & Governance',
+    shortDesc: 'Management commitment, quality policy, university organizational roles, and responsibilities.'
+  },
+  {
+    code: 'ISO-C6',
+    number: 6,
+    name: 'Clause 6: Planning & Risk Management',
+    shortDesc: 'Campus risk and opportunity registers, institutional quality objectives, and plans to achieve them.'
+  },
+  {
+    code: 'ISO-C7',
+    number: 7,
+    name: 'Clause 7: Support & Resources',
+    shortDesc: 'Personnel competence, training records, infrastructure, monitoring resources, and documented information.'
+  },
+  {
+    code: 'ISO-C8',
+    number: 8,
+    name: 'Clause 8: Operation & Service Delivery',
+    shortDesc: 'Operational planning, curriculum delivery, student admission, research, and extension.'
+  },
+  {
+    code: 'ISO-C9',
+    number: 9,
+    name: 'Clause 9: Performance Evaluation & IQA',
+    shortDesc: 'Customer satisfaction surveys, Internal Quality Audit (IQA) reports, and Management Review minutes.'
+  },
+  {
+    code: 'ISO-C10',
+    number: 10,
+    name: 'Clause 10: Continual Improvement',
+    shortDesc: 'Nonconformity handling, corrective action implementation, and continual improvement initiatives.'
+  }
+];
+
+export const ISO_FOLDER_FRAMEWORK: FolderFramework = {
+  id: 'iso',
+  label: 'ISO',
+  fullName: 'ISO 9001:2015 Quality Management Framework',
+  category: 'Quality Management',
+  areaNoun: 'Clause',
+  areaNounPlural: 'Clauses',
+  areasTabLabel: 'ISO Clauses',
+  areasHeading: 'ISO 9001:2015 Clauses & Mandated Quality Portfolios',
+  title: 'ISO Document & Folder Management',
+  description: 'Official ISO 9001:2015 surveillance evidence and quality portfolios — organize clause folders, upload files or entire directories, and track audit review.',
+  cycle: '2024 Surveillance Audit',
+  customFolders: true,
+  areas: ISO_CLAUSE_AREAS,
+  formatAreaLabel: (area) => (area.code === 'ISO-QM' ? 'Quality Manual' : `Clause ${area.number}`),
+  areaRangeLabel: 'Clauses 4–10 & Quality Manual',
+  criterionFor: (area) => ({ criterionId: `c-iso-${area.number}`, indicatorId: `i-iso${area.number}-1` })
 };

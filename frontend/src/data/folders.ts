@@ -74,5 +74,91 @@ export const initialFolders: EvidenceFolder[] = [
     isSystem: true,
     color: 'indigo',
     createdAt: '2026-01-15'
+  },
+  // Cantilan Campus ISO Folders
+  {
+    id: 'folder-iso-qm-can',
+    name: 'Quality Manual & Mandated Procedures',
+    code: 'QM',
+    frameworkId: 'iso',
+    areaId: 'iso-qm',
+    category: 'Quality Management',
+    description: 'Documented ISO 9001:2015 quality manual, quality policy, and core institutional SOPs for Cantilan Campus.',
+    color: 'indigo',
+    createdAt: '2026-01-15',
+    campusId: 'cantilan',
+    campus: 'Cantilan Campus',
+    parentId: 'folder-iso'
+  },
+  {
+    id: 'folder-iso-c8-can',
+    name: 'Operation & Laboratory Delivery Evidence',
+    code: 'C8',
+    frameworkId: 'iso',
+    areaId: 'iso-c8',
+    category: 'Quality Management',
+    description: 'Workshop safety logs, instructional laboratory maintenance, and service delivery records.',
+    color: 'emerald',
+    createdAt: '2026-01-15',
+    campusId: 'cantilan',
+    campus: 'Cantilan Campus',
+    parentId: 'folder-iso'
+  },
+  {
+    id: 'folder-iso-c9-can',
+    name: '1st Surveillance Audit & Evaluation Reports',
+    code: 'C9',
+    frameworkId: 'iso',
+    areaId: 'iso-c9',
+    category: 'Quality Management',
+    description: 'Surveillance audit evaluation notes, IQA summaries, and conformance reports.',
+    color: 'rose',
+    createdAt: '2026-01-15',
+    campusId: 'cantilan',
+    campus: 'Cantilan Campus',
+    parentId: 'folder-iso'
+  },
+  // Tandag Campus ISO Folders
+  {
+    id: 'folder-iso-qm-tan',
+    name: 'Quality Manual & Institutional SOPs',
+    code: 'QM',
+    frameworkId: 'iso',
+    areaId: 'iso-qm',
+    category: 'Quality Management',
+    description: 'Documented university quality manual and institutional operational procedures.',
+    color: 'indigo',
+    createdAt: '2026-01-15',
+    campusId: 'tandag',
+    campus: 'Tandag Campus (Main)',
+    parentId: 'folder-iso'
+  },
+  {
+    id: 'folder-iso-c6-tan',
+    name: 'Planning & Risk Management Registers',
+    code: 'C6',
+    frameworkId: 'iso',
+    areaId: 'iso-c6',
+    category: 'Quality Management',
+    description: 'Campus risk and opportunity registers, institutional quality objectives, and plans.',
+    color: 'amber',
+    createdAt: '2026-01-15',
+    campusId: 'tandag',
+    campus: 'Tandag Campus (Main)',
+    parentId: 'folder-iso'
+  },
+  {
+    id: 'folder-iso-c9-tan',
+    name: 'Internal Quality Audit & Surveillance Evaluations',
+    code: 'C9',
+    frameworkId: 'iso',
+    areaId: 'iso-c9',
+    category: 'Quality Management',
+    description: 'Third-party surveillance and IQA audit reports, nonconformity records, and MR documentation.',
+    color: 'rose',
+    createdAt: '2026-01-15',
+    campusId: 'tandag',
+    campus: 'Tandag Campus (Main)',
+    parentId: 'folder-iso'
   }
 ];

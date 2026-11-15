@@ -1,8 +1,8 @@
-import type { ApprovalStatus, DocumentStatus, DocumentType, EvidenceDocument, FileType } from '../types/evidence';
+import type { ApprovalStatus, DocumentStatus, DocumentType, EvidenceDocument, FileType, ISODocumentStage } from '../types/evidence';
 
 const DOCUMENTS_KEY = 'accrevia_documents';
 const MOCK_SEED_KEY = 'accrevia_mock_documents';
-const MOCK_SEED_VERSION = 'v1';
+const MOCK_SEED_VERSION = 'v2';
 
 interface MockSpec {
   id: string;
@@ -30,6 +30,7 @@ interface MockSpec {
   revisionNotes?: string;
   reviewedBy?: string;
   folderId?: string;
+  isoStage?: ISODocumentStage;
   passages: string[];
 }
 
@@ -90,13 +91,67 @@ const specs: MockSpec[] = [
     id: 'mock-doc-05',
     title: 'ISO 9001:2015 Internal Quality Audit Report Q3.pdf',
     description: 'Results of the third-quarter internal quality audit including nonconformities.',
-    keywords: ['ISO 9001', 'internal audit', 'nonconformity'],
-    frameworkId: 'iso', areaId: 'qa', criterionId: 'c-iso-9', docType: 'Report',
-    academicYear: '2025–2026', campusId: 'tandag', campus: 'Tandag Campus (Main)',
+    keywords: ['ISO 9001', 'internal audit', 'nonconformity', 'Tandag', '1st Surveillance'],
+    frameworkId: 'iso', areaId: 'iso-c9', criterionId: 'c-iso-9', docType: 'Report',
+    academicYear: '2024–2025', campusId: 'tandag', campus: 'Tandag Campus (Main)',
     office: 'Quality Management System Office', uploadedBy: 'Jun Carlo P. Esteban',
     daysAgo: 12, fileType: 'PDF', pages: 18, sizeMb: 2.3,
-    folderId: 'folder-iso',
+    folderId: 'folder-iso-c9-tan',
+    approvalStatus: 'Approved',
+    isoStage: '1st Surveillance',
     passages: ['Two minor nonconformities were raised on document control and records retention.']
+  },
+  {
+    id: 'mock-doc-iso-tan-qm',
+    title: 'ISO 9001:2015 Institutional Quality Manual (Rev 4).pdf',
+    description: 'Controlled copy of university-wide quality policy and mandated operational procedures.',
+    keywords: ['ISO 9001', 'Quality Manual', 'Tandag', '1st Surveillance'],
+    frameworkId: 'iso', areaId: 'iso-qm', criterionId: 'c-iso-1', docType: 'Manual',
+    academicYear: '2024–2025', campusId: 'tandag', campus: 'Tandag Campus (Main)',
+    office: 'Quality Management System Office', uploadedBy: 'Dr. Evelyn P. Miranda',
+    daysAgo: 15, fileType: 'PDF', pages: 52, sizeMb: 4.1,
+    approvalStatus: 'Approved', folderId: 'folder-iso-qm-tan',
+    isoStage: '1st Surveillance',
+    passages: ['Mandated QMS procedures and quality policy conform to ISO 9001:2015 standard clauses.']
+  },
+  {
+    id: 'mock-doc-iso-can-1',
+    title: 'Cantilan Campus Quality Manual & Laboratory Operating Procedures.pdf',
+    description: 'Official quality manual, standard operating procedures, and laboratory guidelines for Cantilan Campus.',
+    keywords: ['Quality Manual', 'ISO 9001', 'Cantilan', '1st Surveillance'],
+    frameworkId: 'iso', areaId: 'iso-qm', criterionId: 'c-iso-1', docType: 'Manual',
+    academicYear: '2024–2025', campusId: 'cantilan', campus: 'Cantilan Campus',
+    office: 'Quality Management System Office', uploadedBy: 'Dr. Teresita A. Gonzaga',
+    daysAgo: 10, fileType: 'PDF', pages: 38, sizeMb: 3.2,
+    approvalStatus: 'Approved', folderId: 'folder-iso-qm-can',
+    isoStage: '1st Surveillance',
+    passages: ['Institutional standard operating procedures and laboratory manual for Cantilan campus operations.']
+  },
+  {
+    id: 'mock-doc-iso-can-2',
+    title: 'Cantilan Campus 1st Surveillance Audit Evaluation & Conformance Report.pdf',
+    description: 'External surveillance audit findings, assessor notes, and conformance audit trail.',
+    keywords: ['Surveillance Audit', 'Conformance', 'Cantilan', '1st Surveillance'],
+    frameworkId: 'iso', areaId: 'iso-c9', criterionId: 'c-iso-9', docType: 'Report',
+    academicYear: '2024–2025', campusId: 'cantilan', campus: 'Cantilan Campus',
+    office: 'Quality Management System Office', uploadedBy: 'Dr. Evelyn P. Miranda',
+    daysAgo: 8, fileType: 'PDF', pages: 16, sizeMb: 2.1,
+    approvalStatus: 'Approved', folderId: 'folder-iso-c9-can',
+    isoStage: '1st Surveillance',
+    passages: ['Effective execution of instructional processes and workshop safety. All clauses conforming.']
+  },
+  {
+    id: 'mock-doc-iso-can-3',
+    title: 'Cantilan Campus Workshop Safety & Lab Equipment Maintenance Register.xlsx',
+    description: 'Calibration schedules, preventive maintenance logs, and workshop safety inspections.',
+    keywords: ['Workshop Safety', 'Calibration', 'Cantilan', 'Clause 8'],
+    frameworkId: 'iso', areaId: 'iso-c8', criterionId: 'c-iso-8', docType: 'Statistical Report',
+    academicYear: '2024–2025', campusId: 'cantilan', campus: 'Cantilan Campus',
+    office: 'College of Engineering / Workshop Unit', uploadedBy: 'Engr. Jun Carlo P. Esteban',
+    daysAgo: 5, fileType: 'XLSX', pages: 4, sizeMb: 0.5,
+    approvalStatus: 'Approved', folderId: 'folder-iso-c8-can',
+    isoStage: '1st Surveillance',
+    passages: ['Workshop equipment calibrated and verified on schedule with zero safety incidents.']
   },
   {
     id: 'mock-doc-06',
@@ -195,6 +250,7 @@ function isoDate(base: Date, daysAgo: number) {
 function buildMockDocuments(today: Date): EvidenceDocument[] {
   return specs.map(({ daysAgo, ...s }) => ({
     ...s,
+    isoStage: s.isoStage,
     indicatorId: '',
     cycle: '',
     program: s.program ?? '',

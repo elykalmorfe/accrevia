@@ -29,7 +29,7 @@ import {
   FilterIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
-import { EvidenceFolder, EvidenceDocument } from '../../types/evidence';
+import { EvidenceFolder, EvidenceDocument, DocumentType, ISODocumentStage } from '../../types/evidence';
 import { CampusId, IARequirementItem } from '../../types/accreditation';
 import { Modal } from '../ui/Modal';
 import { FolderFormModal } from '../folders/FolderFormModal';
@@ -105,12 +105,26 @@ export function IAFolderManager({
   const OFFICIAL_IA_AREAS = framework.areas;
   const FIRST_AREA_CODE = OFFICIAL_IA_AREAS[0]?.code ?? '';
   const ROOT_FOLDER_ID = 'folder-' + framework.id;
-  const areaLabel = (area: IAAreaTemplate) => framework.areaNoun + ' ' + area.number;
-  const areaRangeLabel = framework.areaNounPlural + ' 1–' + OFFICIAL_IA_AREAS.length;
+  const areaLabel = (area: IAAreaTemplate) =>
+    framework.formatAreaLabel ? framework.formatAreaLabel(area) : framework.areaNoun + ' ' + area.number;
+  const areaRangeLabel = framework.areaRangeLabel ?? (framework.areaNounPlural + ' 1–' + OFFICIAL_IA_AREAS.length);
   const { approverRoles, requireRevisionNote, autoVerifyArea } = settings.workflow;
   const canMutate = !readOnly;
   const canReview = !readOnly && approverRoles.includes(currentUser.role);
   const uploadSettings = { defaultYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
+
+  // Document Edit Modal State
+  const [editingDoc, setEditingDoc] = useState<EvidenceDocument | null>(null);
+  const [editDocTitle, setEditDocTitle] = useState('');
+  const [editDocDescription, setEditDocDescription] = useState('');
+  const [editDocType, setEditDocType] = useState<DocumentType>('Report');
+  const [editDocFolderId, setEditDocFolderId] = useState('');
+  const [editDocAcademicYear, setEditDocAcademicYear] = useState('2024–2025');
+  const [editDocOffice, setEditDocOffice] = useState('');
+  const [editDocIsoStage, setEditDocIsoStage] = useState<ISODocumentStage>('1st Surveillance');
+
+  // Upload ISO Stage State (when framework.id === 'iso')
+  const [uploadIsoStage, setUploadIsoStage] = useState<ISODocumentStage>('1st Surveillance');
 
   // Active view tab: 'areas' | 'folders'
   const [activeTab, setActiveTab] = useState<'folders' | 'areas'>('areas');
@@ -929,7 +943,8 @@ export function IAFolderManager({
           uploadedBy: currentUser.name,
           passages: ['Institutional evidence registered under ' + (targetFolder?.name || targetAreaObj.name)],
           folderId: destinationFolderId || undefined,
-          approvalStatus: uploadSettings.status
+          approvalStatus: uploadSettings.status,
+          isoStage: framework.id === 'iso' ? uploadIsoStage : undefined
         };
         persistUpload(newDoc.id, file.file);
         addDocument(newDoc);
@@ -953,7 +968,48 @@ export function IAFolderManager({
   };
 
   const fileMeta = (doc: EvidenceDocument) =>
-    [doc.fileType, doc.sizeMb ? formatSize(doc.sizeMb) : null, doc.documentDate, doc.academicYear].filter(Boolean).join(' · ');
+    [
+      doc.isoStage ? (doc.isoStage === 'For Surveillance' ? '1st Surveillance' : doc.isoStage) : null,
+      doc.fileType,
+      doc.sizeMb ? formatSize(doc.sizeMb) : null,
+      doc.documentDate,
+      doc.academicYear
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+  const handleOpenEditDoc = (doc: EvidenceDocument) => {
+    setEditingDoc(doc);
+    setEditDocTitle(doc.title);
+    setEditDocDescription(doc.description || '');
+    setEditDocType(doc.docType || 'Report');
+    setEditDocFolderId(doc.folderId || '');
+    setEditDocAcademicYear(doc.academicYear || '2024–2025');
+    setEditDocOffice(doc.office || '');
+    setEditDocIsoStage(
+      doc.isoStage === 'For Surveillance' ? '1st Surveillance' : doc.isoStage || '1st Surveillance'
+    );
+  };
+
+  const handleSaveEditDoc = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDoc || !canMutate) return;
+    if (!editDocTitle.trim()) {
+      toast.error('Document title cannot be empty.');
+      return;
+    }
+    updateDocument(editingDoc.id, {
+      title: editDocTitle.trim(),
+      description: editDocDescription.trim() || undefined,
+      docType: editDocType,
+      folderId: editDocFolderId || undefined,
+      academicYear: editDocAcademicYear.trim() || undefined,
+      office: editDocOffice.trim() || undefined,
+      isoStage: framework.id === 'iso' ? editDocIsoStage : editingDoc.isoStage
+    });
+    toast.success(`Document "${editDocTitle.trim()}" updated successfully`);
+    setEditingDoc(null);
+  };
 
   const handleDownloadDoc = async (doc: EvidenceDocument) => {
     const ok = await downloadStoredFile(doc.id, doc.title);
@@ -1356,7 +1412,7 @@ export function IAFolderManager({
                       (AREA_STATUS_STYLE[getAreaApprovalStatus(currentArea.code).status] ?? AREA_STATUS_STYLE.needs_evidence).tile
                     }`}
                   >
-                    {currentArea.number}
+                    {currentArea.code === 'ISO-QM' ? 'QM' : currentArea.number}
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1 text-[11px] font-semibold text-ink-subtle">
@@ -1874,6 +1930,9 @@ export function IAFolderManager({
                             actions={
                               <>
                               <FileRowAction icon={EyeIcon} label={`Preview ${doc.title}`} onClick={() => setPreviewDoc(doc)} />
+                              {canMutate && (
+                                <FileRowAction icon={PencilIcon} label={`Edit ${doc.title}`} onClick={() => handleOpenEditDoc(doc)} />
+                              )}
 
                               {/* 2. Review Decision CTAs */}
                               {isOfficialArea && canReview && (
@@ -2277,6 +2336,9 @@ export function IAFolderManager({
                         actions={
                           <>
                             <FileRowAction icon={EyeIcon} label={`Preview ${doc.title}`} onClick={() => setPreviewDoc(doc)} />
+                            {canMutate && (
+                              <FileRowAction icon={PencilIcon} label={`Edit ${doc.title}`} onClick={() => handleOpenEditDoc(doc)} />
+                            )}
                             <FileRowAction icon={DownloadIcon} label={`Download ${doc.title}`} onClick={() => handleDownloadDoc(doc)} />
                             {canMutate && (
                               <FileRowAction icon={Trash2Icon} label={`Delete ${doc.title}`} danger onClick={() => handleRemoveDoc(doc)} />
@@ -2720,6 +2782,24 @@ export function IAFolderManager({
                   </div>
                 )}
 
+                {framework.id === 'iso' && (
+                  <div className="space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                    <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                      <span>ISO Audit Stage:</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Surveillance cycle tag</span>
+                    </label>
+                    <select
+                      value={uploadIsoStage}
+                      onChange={(e) => setUploadIsoStage(e.target.value as ISODocumentStage)}
+                      className="input select h-9 w-full text-xs hover:border-brand-300"
+                    >
+                      <option value="1st Surveillance">1st Surveillance</option>
+                      <option value="2nd Surveillance">2nd Surveillance</option>
+                      <option value="Recertification">Recertification</option>
+                    </select>
+                  </div>
+                )}
+
                 <UploadDropzone
                   key={uploadMode}
                   onFiles={handleStageUploads}
@@ -2929,6 +3009,136 @@ export function IAFolderManager({
               </p>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* EDIT DOCUMENT MODAL */}
+      {editingDoc && (
+        <Modal
+          open={!!editingDoc}
+          onClose={() => setEditingDoc(null)}
+          title="Edit Evidence Document"
+          description={`Update metadata and folder placement for "${editingDoc.title}"`}
+          size="md"
+          footer={
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => setEditingDoc(null)}
+                className="btn btn-secondary w-full sm:w-auto text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditDoc}
+                className="btn btn-primary w-full sm:w-auto text-xs"
+              >
+                Save Changes
+              </button>
+            </div>
+          }
+        >
+          <form onSubmit={handleSaveEditDoc} className="space-y-3.5">
+            <div>
+              <label className="label text-xs">Document Title *</label>
+              <input
+                type="text"
+                value={editDocTitle}
+                onChange={(e) => setEditDocTitle(e.target.value)}
+                className="input text-xs"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label text-xs">Document Type</label>
+                <select
+                  value={editDocType}
+                  onChange={(e) => setEditDocType(e.target.value as DocumentType)}
+                  className="select text-xs"
+                >
+                  <option value="Report">Report</option>
+                  <option value="Manual">Manual</option>
+                  <option value="Policy">Policy</option>
+                  <option value="Certificate">Certificate</option>
+                  <option value="Meeting Minutes">Meeting Minutes</option>
+                  <option value="Plan">Plan</option>
+                  <option value="Faculty Record">Faculty Record</option>
+                  <option value="Student Record">Student Record</option>
+                  <option value="Photo / Documentation">Photo / Documentation</option>
+                  <option value="Curriculum Document">Curriculum Document</option>
+                  <option value="Budget / Financial Document">Budget / Financial Document</option>
+                  <option value="Statistical Report">Statistical Report</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {framework.id === 'iso' ? (
+                <div>
+                  <label className="label text-xs">ISO Audit Stage</label>
+                  <select
+                    value={editDocIsoStage}
+                    onChange={(e) => setEditDocIsoStage(e.target.value as ISODocumentStage)}
+                    className="select text-xs"
+                  >
+                    <option value="1st Surveillance">1st Surveillance</option>
+                    <option value="2nd Surveillance">2nd Surveillance</option>
+                    <option value="Recertification">Recertification</option>
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="label text-xs">Academic Year</label>
+                  <input
+                    type="text"
+                    value={editDocAcademicYear}
+                    onChange={(e) => setEditDocAcademicYear(e.target.value)}
+                    className="input text-xs"
+                    placeholder="2024–2025"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="label text-xs">Destination Folder</label>
+              <select
+                value={editDocFolderId}
+                onChange={(e) => setEditDocFolderId(e.target.value)}
+                className="select text-xs"
+              >
+                <option value="">No folder (Root)</option>
+                {iaFolders.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name} ({f.code || 'Folder'})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="label text-xs">Issuing Office</label>
+              <input
+                type="text"
+                value={editDocOffice}
+                onChange={(e) => setEditDocOffice(e.target.value)}
+                className="input text-xs"
+                placeholder="e.g. Quality Assurance Office"
+              />
+            </div>
+
+            <div>
+              <label className="label text-xs">Description / Summary</label>
+              <textarea
+                value={editDocDescription}
+                onChange={(e) => setEditDocDescription(e.target.value)}
+                className="textarea h-20 text-xs"
+                placeholder="Context or notes about this document..."
+              />
+            </div>
+          </form>
         </Modal>
       )}
 
