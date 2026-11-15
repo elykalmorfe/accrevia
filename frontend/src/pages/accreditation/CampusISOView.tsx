@@ -61,11 +61,11 @@ import {
 import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 
 const ISO_CERTIFICATE_LEVELS: CertificateLevel[] = [
-  { code: 'Level 1: Commitment to Quality Management', label: 'Level 1' },
-  { code: 'Level 2: Proficiency in Quality Management', label: 'Level 2' },
-  { code: 'Level 3: Mastery in Quality Management', label: 'Level 3' },
-  { code: 'Level 4: Philippine Quality Award for Performance Excellence', label: 'Level 4' },
-  { code: 'ISO 9001:2015 Certified', label: 'ISO 9001' }
+  { code: 'ISO 9001:2015 Certified', label: 'ISO 9001:2015' },
+  { code: 'Surveillance Audit 1 Compliant', label: 'Surveillance 1' },
+  { code: 'Surveillance Audit 2 Compliant', label: 'Surveillance 2' },
+  { code: 'Recertification Audit Certified', label: 'Recertification' },
+  { code: 'Compliant', label: 'Compliant' }
 ];
 
 function readableDate(value?: string): string {
@@ -75,6 +75,14 @@ function readableDate(value?: string): string {
   } catch {
     return value;
   }
+}
+
+function getNextISOCycle(cycle?: string): string {
+  if (!cycle) return '2025 Recertification Audit';
+  if (cycle.includes('Surveillance Audit 1')) return '2025 Surveillance Audit 2';
+  if (cycle.includes('Surveillance Audit 2')) return '2025 Recertification Audit';
+  if (cycle.includes('Recertification')) return '2026 Surveillance Audit 1';
+  return '2025 Surveillance Audit';
 }
 
 const DEFAULT_ISO_TITLE = 'ISO 9001:2015 Surveillance, Monitoring & Compliance';
@@ -337,18 +345,18 @@ export function CampusISOView() {
   const [auditForm, setAuditForm] = useState({
     scope: '',
     standardVersion: 'ISO 9001:2015',
-    cycle: '2025 Cycle',
-    evaluatingBody: 'DAP (Development Academy of the Philippines)',
+    cycle: '2024 Surveillance Audit 2',
+    evaluatingBody: 'TÜV Rheinland (ISO 9001:2015)',
     lastAssessmentDate: '',
-    nextCycleSubmission: '2026 PQA Application',
+    nextCycleSubmission: '2025 Recertification Audit',
     leadAuditor: '',
-    auditorRole: '',
+    auditorRole: 'Lead ISO Quality Auditor',
     complianceStatus: 'Compliant' as ISOComplianceStatus,
-    validationStatus: 'Awarded',
+    validationStatus: 'Certified & Signed',
     summary: '',
-    conformances: 14,
+    conformances: 16,
     ofi: 2,
-    minorNC: 0,
+    minorNC: 1,
     majorNC: 0
   });
 
@@ -356,18 +364,18 @@ export function CampusISOView() {
     setAuditForm({
       scope: rec.scope || '',
       standardVersion: rec.standardVersion || 'ISO 9001:2015',
-      cycle: rec.cycle || '2025 Cycle',
-      evaluatingBody: rec.evaluatingBody || 'DAP (Development Academy of the Philippines)',
+      cycle: rec.cycle || '2024 Surveillance Audit 2',
+      evaluatingBody: (rec.evaluatingBody && !rec.evaluatingBody.includes('DAP')) ? rec.evaluatingBody : 'TÜV Rheinland (ISO 9001:2015)',
       lastAssessmentDate: rec.auditDate || new Date().toISOString().slice(0, 10),
-      nextCycleSubmission: rec.nextCycleSubmission || '2026 PQA Application',
-      leadAuditor: rec.leadAuditor || '',
-      auditorRole: rec.auditorRole || 'Lead Quality Auditor',
+      nextCycleSubmission: (rec.nextCycleSubmission && !rec.nextCycleSubmission.includes('PQA')) ? rec.nextCycleSubmission : getNextISOCycle(rec.cycle),
+      leadAuditor: rec.leadAuditor || 'Dr. Evelyn P. Miranda',
+      auditorRole: rec.auditorRole || 'Lead ISO Quality Auditor',
       complianceStatus: rec.complianceStatus || 'Compliant',
-      validationStatus: rec.validationStatus || 'Awarded',
+      validationStatus: (rec.validationStatus && rec.validationStatus !== 'Awarded') ? rec.validationStatus : 'Certified & Signed',
       summary: rec.summary || '',
-      conformances: rec.findingsCount?.conformances ?? 14,
+      conformances: rec.findingsCount?.conformances ?? 16,
       ofi: rec.findingsCount?.ofi ?? 2,
-      minorNC: rec.findingsCount?.minorNC ?? 0,
+      minorNC: rec.findingsCount?.minorNC ?? 1,
       majorNC: rec.findingsCount?.majorNC ?? 0
     });
     setEditAuditModalOpen(true);
@@ -378,16 +386,16 @@ export function CampusISOView() {
     if (!canMutate) return;
     const updatedRecord: ISOSurveillanceRecord = {
       ...isoRecord,
-      evaluatingBody: auditForm.evaluatingBody.trim() || 'DAP (Development Academy of the Philippines)',
+      evaluatingBody: auditForm.evaluatingBody.trim() || 'TÜV Rheinland (ISO 9001:2015)',
       auditDate: auditForm.lastAssessmentDate || isoRecord.auditDate,
-      nextCycleSubmission: auditForm.nextCycleSubmission.trim() || '2026 PQA Application',
+      nextCycleSubmission: auditForm.nextCycleSubmission.trim() || getNextISOCycle(auditForm.cycle),
       scope: auditForm.scope.trim(),
       standardVersion: auditForm.standardVersion.trim() || 'ISO 9001:2015',
-      cycle: auditForm.cycle.trim() || '2025 Cycle',
-      leadAuditor: auditForm.leadAuditor.trim() || 'Lead Quality Auditor',
-      auditorRole: auditForm.auditorRole.trim() || 'Certified ISO Auditor',
+      cycle: auditForm.cycle.trim() || '2024 Surveillance Audit 2',
+      leadAuditor: auditForm.leadAuditor.trim() || 'Dr. Evelyn P. Miranda',
+      auditorRole: auditForm.auditorRole.trim() || 'Lead ISO Quality Auditor',
       complianceStatus: auditForm.complianceStatus,
-      validationStatus: auditForm.validationStatus.trim() || 'Awarded',
+      validationStatus: auditForm.validationStatus.trim() || 'Certified & Signed',
       summary: auditForm.summary.trim(),
       findingsCount: {
         conformances: Number(auditForm.conformances) || 0,
@@ -822,20 +830,28 @@ export function CampusISOView() {
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="text-lg font-bold text-ink">{campus.name}</h2>
-                <Badge tone="brand">{isoRecord.complianceStatus}</Badge>
+                <Badge tone={
+                  isoRecord.complianceStatus === 'Compliant' || isoRecord.complianceStatus === 'Certified'
+                    ? 'success'
+                    : isoRecord.complianceStatus === 'Minor Deficiencies'
+                    ? 'warning'
+                    : 'danger'
+                }>
+                  {isoRecord.complianceStatus}
+                </Badge>
                 {isoRecord.isHistorical && (
                   <Badge tone="warning">Preserved Record</Badge>
                 )}
               </div>
               <p className="mt-1 text-xs text-ink-muted">
-                {campus.location} · PQA Application Cycle: <strong className="text-ink">{isoRecord.cycle}</strong>
+                {campus.location} · ISO Surveillance Cycle: <strong className="text-ink">{isoRecord.cycle}</strong> · Lead Auditor: <strong className="text-ink">{isoRecord.leadAuditor || 'Dr. Evelyn P. Miranda'}</strong>
               </p>
             </div>
 
             <div className="text-right">
-              <span className="text-xs text-ink-muted">Assessment Status</span>
+              <span className="text-xs text-ink-muted">Surveillance Status</span>
               <p className="mt-0.5 text-sm font-semibold text-brand-700">
-                {isoRecord.validationStatus || 'Awarded'}
+                {isoRecord.validationStatus || 'Certified & Signed'}
               </p>
             </div>
           </div>
@@ -845,7 +861,7 @@ export function CampusISOView() {
               {
                 icon: ShieldCheckIcon,
                 label: 'Evaluating Body',
-                value: isoRecord.evaluatingBody || 'DAP (Development Academy of the Philippines)',
+                value: (isoRecord.evaluatingBody && !isoRecord.evaluatingBody.includes('DAP')) ? isoRecord.evaluatingBody : 'TÜV Rheinland (ISO 9001:2015)',
                 tone: 'bg-brand-50 text-brand-600'
               },
               {
@@ -857,7 +873,7 @@ export function CampusISOView() {
               {
                 icon: CalendarClockIcon,
                 label: 'Next Cycle Submission',
-                value: isoRecord.nextCycleSubmission || '2026 PQA Application',
+                value: (isoRecord.nextCycleSubmission && !isoRecord.nextCycleSubmission.includes('PQA')) ? isoRecord.nextCycleSubmission : getNextISOCycle(isoRecord.cycle),
                 tone: 'bg-brand-50 text-brand-600'
               }
             ].map((info) => (
@@ -875,7 +891,7 @@ export function CampusISOView() {
 
           {isoRecord.summary && (
             <div className="mt-3 rounded-r-xl border-l-4 border-brand-400 bg-brand-50/40 px-3.5 py-2.5">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700">DAP ASSESSORS FEEDBACK</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700">LEAD AUDITOR SUMMARY & ASSESSORS FEEDBACK</p>
               <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-muted">{isoRecord.summary}</p>
             </div>
           )}
@@ -1441,19 +1457,19 @@ export function CampusISOView() {
                   value={auditForm.evaluatingBody}
                   onChange={(e) => setAuditForm({ ...auditForm, evaluatingBody: e.target.value })}
                   className="input"
-                  placeholder="e.g. DAP (Development Academy of the Philippines)"
+                  placeholder="e.g. TÜV Rheinland (ISO 9001:2015)"
                   required
                 />
               </div>
 
               <div>
-                <label className="label">Assessment Status *</label>
+                <label className="label">Surveillance Status *</label>
                 <input
                   type="text"
                   value={auditForm.validationStatus}
                   onChange={(e) => setAuditForm({ ...auditForm, validationStatus: e.target.value })}
                   className="input"
-                  placeholder="e.g. Awarded"
+                  placeholder="e.g. Certified & Signed"
                   required
                 />
               </div>
@@ -1478,7 +1494,7 @@ export function CampusISOView() {
                   value={auditForm.nextCycleSubmission}
                   onChange={(e) => setAuditForm({ ...auditForm, nextCycleSubmission: e.target.value })}
                   className="input"
-                  placeholder="e.g. 2026 PQA Application"
+                  placeholder="e.g. 2025 Recertification Audit"
                   required
                 />
               </div>
@@ -1491,13 +1507,13 @@ export function CampusISOView() {
                 value={auditForm.scope}
                 onChange={(e) => setAuditForm({ ...auditForm, scope: e.target.value })}
                 className="input"
-                placeholder="e.g. Agricultural Technology, Teacher Education, and Community Training Services"
+                placeholder="e.g. Academic Instruction, Vocational Teacher Education, and Technical Facilities Management"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="label">ISO / Framework Standard</label>
+                <label className="label">ISO Standard Version</label>
                 <input
                   type="text"
                   value={auditForm.standardVersion}
@@ -1508,25 +1524,25 @@ export function CampusISOView() {
               </div>
 
               <div>
-                <label className="label">Application Cycle *</label>
+                <label className="label">Surveillance Cycle *</label>
                 <input
                   type="text"
                   value={auditForm.cycle}
                   onChange={(e) => setAuditForm({ ...auditForm, cycle: e.target.value })}
                   className="input"
-                  placeholder="e.g. 2025 Cycle"
+                  placeholder="e.g. 2024 Surveillance Audit 2"
                   required
                 />
               </div>
 
               <div>
-                <label className="label">Compliance Level / Status</label>
+                <label className="label">Compliance Status</label>
                 <select
                   value={auditForm.complianceStatus}
                   onChange={(e) => setAuditForm({ ...auditForm, complianceStatus: e.target.value as ISOComplianceStatus })}
                   className="select"
                 >
-                  <option value="Compliant">Compliant / Level 2</option>
+                  <option value="Compliant">Compliant</option>
                   <option value="Certified">Certified</option>
                   <option value="Minor Deficiencies">Minor Deficiencies</option>
                   <option value="Major Deficiencies Pending Action">Major Deficiencies Pending Action</option>
@@ -1536,13 +1552,13 @@ export function CampusISOView() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="label">Lead ISO Auditor / Assessor</label>
+                <label className="label">Lead ISO Auditor</label>
                 <input
                   type="text"
                   value={auditForm.leadAuditor}
                   onChange={(e) => setAuditForm({ ...auditForm, leadAuditor: e.target.value })}
                   className="input"
-                  placeholder="e.g. Prof. Liza M. Cabrera"
+                  placeholder="e.g. Dr. Evelyn P. Miranda"
                 />
               </div>
 
@@ -1553,18 +1569,18 @@ export function CampusISOView() {
                   value={auditForm.auditorRole}
                   onChange={(e) => setAuditForm({ ...auditForm, auditorRole: e.target.value })}
                   className="input"
-                  placeholder="e.g. Certified ISO 9001:2015 Auditor"
+                  placeholder="e.g. Lead ISO Quality Auditor"
                 />
               </div>
             </div>
 
             <div>
-              <label className="label">DAP ASSESSORS FEEDBACK / SUMMARY</label>
+              <label className="label">LEAD AUDITOR SUMMARY & ASSESSORS FEEDBACK</label>
               <textarea
                 value={auditForm.summary}
                 onChange={(e) => setAuditForm({ ...auditForm, summary: e.target.value })}
                 className="textarea h-20 text-[13px]"
-                placeholder="Recognized for marine and fisheries quality management and sustainable coastal resource stewardship..."
+                placeholder="Effective execution of instructional processes and workshop safety. Minor improvements suggested for document change request logging..."
               />
             </div>
 
