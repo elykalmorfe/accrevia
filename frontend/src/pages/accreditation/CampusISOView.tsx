@@ -1,13 +1,32 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
-import { CampusId, ISOCorrectiveAction } from '../../types/accreditation';
+import {
+  CampusId,
+  ISOComplianceStatus,
+  ISOCorrectiveAction,
+  ISOSurveillanceRecord
+} from '../../types/accreditation';
+import {
+  EvidenceDocument,
+  EvidenceFolder,
+  ISODocumentStage,
+  DocumentType,
+  FolderColor
+} from '../../types/evidence';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { ISOSurveillanceModal } from '../../components/accreditation/ISOSurveillanceModal';
 import { Modal } from '../../components/ui/Modal';
 import { TextField } from '../../components/ui/TextField';
+import { SelectField } from '../../components/ui/SelectField';
+import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
+import { FolderFormModal } from '../../components/folders/FolderFormModal';
+import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
+import { persistUpload, downloadStoredFile } from '../../utils/fileStore';
+import { fileTypeFromName } from '../../utils/fileTypes';
+import { filesFromDrop, filesFromInput, PendingUpload } from '../../utils/dropFiles';
 import {
   ShieldCheckIcon,
   CheckCircle2Icon,
@@ -18,8 +37,20 @@ import {
   HistoryIcon,
   FileTextIcon,
   ArchiveIcon,
-  ExternalLinkIcon,
-  LayersIcon
+  LayersIcon,
+  EyeIcon,
+  CloudUploadIcon,
+  FolderPlusIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  Trash2Icon,
+  DownloadIcon,
+  XIcon,
+  FolderUpIcon,
+  FileUpIcon,
+  SearchIcon,
+  ChevronRightIcon,
+  ChevronDownIcon
 } from 'lucide-react';
 import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 
@@ -27,15 +58,138 @@ const DEFAULT_ISO_TITLE = 'ISO 9001:2015 Surveillance, Monitoring & Compliance';
 const DEFAULT_ISO_DESCRIPTION =
   'Campus-level quality management system monitoring, clause surveillance audits, Corrective Action Request (CAR) tracking, and auditor sign-off.';
 
+const DEFAULT_ISO_FOLDERS: Omit<EvidenceFolder, 'createdAt'>[] = [
+  {
+    id: 'folder-iso-qm',
+    name: 'Quality Manual & Mandated Procedures',
+    code: 'QM',
+    frameworkId: 'iso',
+    category: 'Quality Management',
+    description: 'Documented ISO 9001:2015 quality manual, quality policy, and core institutional standard operating procedures.',
+    isSystem: false,
+    color: 'indigo',
+    parentId: 'folder-iso'
+  },
+  {
+    id: 'folder-iso-c4',
+    name: 'Clause 4: Context of the Organization',
+    code: 'C4',
+    frameworkId: 'iso',
+    category: 'Quality Management',
+    description: 'Internal & external issues, stakeholder requirements, and institutional QMS scope boundaries.',
+    isSystem: false,
+    color: 'blue',
+    parentId: 'folder-iso'
+  },
+  {
+    id: 'folder-iso-c5',
+    name: 'Clause 5: Leadership & Governance',
+    code: 'C5',
+    frameworkId: 'iso',
+    category: 'Quality Management',
+    description: 'Management commitment, quality policy, university organizational roles, and responsibilities.',
+    isSystem: false,
+    color: 'purple',
+    parentId: 'folder-iso'
+  },
+  {
+    id: 'folder-iso-c6',
+    name: 'Clause 6: Planning & Risk Management',
+    code: 'C6',
+    frameworkId: 'iso',
+    category: 'Quality Management',
+    description: 'Campus risk and opportunity registers, institutional quality objectives, and plans to achieve them.',
+    isSystem: false,
+    color: 'amber',
+    parentId: 'folder-iso'
+  },
+  {
+    id: 'folder-iso-c7',
+    name: 'Clause 7: Support & Resources',
+    code: 'C7',
+    frameworkId: 'iso',
+    category: 'Quality Management',
+    description: 'Personnel competence, training records, infrastructure, monitoring resources, and documented information.',
+    isSystem: false,
+    color: 'cyan',
+    parentId: 'folder-iso'
+  },
+  {
+    id: 'folder-iso-c8',
+    name: 'Clause 8: Operation & Service Delivery',
+    code: 'C8',
+    frameworkId: 'iso',
+    category: 'Quality Management',
+    description: 'Operational planning, curriculum delivery, student admission, research, extension, and control of externally provided processes.',
+    isSystem: false,
+    color: 'emerald',
+    parentId: 'folder-iso'
+  },
+  {
+    id: 'folder-iso-c9',
+    name: 'Clause 9: Performance Evaluation & IQA',
+    code: 'C9',
+    frameworkId: 'iso',
+    category: 'Quality Management',
+    description: 'Customer satisfaction surveys, Internal Quality Audit (IQA) reports, and Management Review minutes.',
+    isSystem: false,
+    color: 'rose',
+    parentId: 'folder-iso'
+  },
+  {
+    id: 'folder-iso-c10',
+    name: 'Clause 10: Continual Improvement',
+    code: 'C10',
+    frameworkId: 'iso',
+    category: 'Quality Management',
+    description: 'Nonconformity handling, corrective action implementation, and continual improvement initiatives.',
+    isSystem: false,
+    color: 'slate',
+    parentId: 'folder-iso'
+  }
+];
+
+const FOLDER_COLOR_MAP: Record<FolderColor, { bg: string; text: string; border: string; badge: string }> = {
+  indigo: { bg: 'bg-indigo-50/70', text: 'text-indigo-700', border: 'border-indigo-200', badge: 'bg-indigo-100 text-indigo-800' },
+  blue: { bg: 'bg-blue-50/70', text: 'text-blue-700', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-800' },
+  purple: { bg: 'bg-purple-50/70', text: 'text-purple-700', border: 'border-purple-200', badge: 'bg-purple-100 text-purple-800' },
+  emerald: { bg: 'bg-emerald-50/70', text: 'text-emerald-700', border: 'border-emerald-200', badge: 'bg-emerald-100 text-emerald-800' },
+  amber: { bg: 'bg-amber-50/70', text: 'text-amber-700', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-800' },
+  rose: { bg: 'bg-rose-50/70', text: 'text-rose-700', border: 'border-rose-200', badge: 'bg-rose-100 text-rose-800' },
+  cyan: { bg: 'bg-cyan-50/70', text: 'text-cyan-700', border: 'border-cyan-200', badge: 'bg-cyan-100 text-cyan-800' },
+  slate: { bg: 'bg-slate-50/70', text: 'text-slate-700', border: 'border-slate-200', badge: 'bg-slate-100 text-slate-800' }
+};
+
 export function CampusISOView() {
-  const { campuses, isoRecords, documents, updateISOCorrectiveAction, currentUser, selectedCampus, setSelectedCampus } = usePortal();
+  const {
+    campuses,
+    isoRecords,
+    saveISOSurveillanceRecord,
+    documents,
+    addDocument,
+    updateDocument,
+    deleteDocument,
+    folders,
+    saveFolder,
+    deleteFolder,
+    updateISOCorrectiveAction,
+    currentUser,
+    selectedCampus,
+    setSelectedCampus
+  } = usePortal();
+
   const { canMutate } = useInstitutionalMutationAccess();
+
   const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
     return selectedCampus !== 'all' ? selectedCampus : 'tandag';
   });
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [selectedStageFilter, setSelectedStageFilter] = useState<'All' | 'For Surveillance' | '2nd Surveillance' | 'Recertification'>('All');
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [docSearchQuery, setDocSearchQuery] = useState('');
+  const [isFolderSectionOpen, setIsFolderSectionOpen] = useState(true);
 
+  // Auto-sync campus selection
   useEffect(() => {
     if (selectedCampus !== 'all' && selectedCampus !== selectedCampusId) {
       setSelectedCampusId(selectedCampus);
@@ -54,12 +208,22 @@ export function CampusISOView() {
     setSelectedCampus(cid);
   };
 
-  const [auditModalOpen, setAuditModalOpen] = useState(false);
-  const [selectedCar, setSelectedCar] = useState<ISOCorrectiveAction | null>(null);
-  const [verifyDate, setVerifyDate] = useState(new Date().toISOString().slice(0, 10));
-  const [verifyNotes, setVerifyNotes] = useState('');
+  // Auto-seed default ISO folders if no ISO subfolders exist
+  useEffect(() => {
+    const currentIsoFolders = folders.filter((f) => f.frameworkId === 'iso' && f.id !== 'folder-iso');
+    if (currentIsoFolders.length === 0) {
+      DEFAULT_ISO_FOLDERS.forEach((df) => {
+        saveFolder({
+          ...df,
+          createdAt: new Date().toISOString().slice(0, 10),
+          campusId: selectedCampusId,
+          campus: campus.name
+        });
+      });
+    }
+  }, [folders, saveFolder, selectedCampusId, campus.name]);
 
-  // Editable Section Header State
+  // Section Header Editing
   const [sectionTitle, setSectionTitle] = useState<string>(() => {
     try {
       const saved = localStorage.getItem('accrevia_iso_section_title');
@@ -117,9 +281,16 @@ export function CampusISOView() {
     toast.success('Reset to default header');
   };
 
+  // Conduct Surveillance Modal state
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+
+  // Close CAR state
+  const [selectedCar, setSelectedCar] = useState<ISOCorrectiveAction | null>(null);
+  const [verifyDate, setVerifyDate] = useState(new Date().toISOString().slice(0, 10));
+  const [verifyNotes, setVerifyNotes] = useState('');
+
   const handleVerifyCar = () => {
-    if (!canMutate) return;
-    if (!selectedCar) return;
+    if (!canMutate || !selectedCar) return;
     updateISOCorrectiveAction(isoRecord.id, selectedCar.id, {
       status: 'Closed / Verified',
       verificationDate: verifyDate,
@@ -131,15 +302,326 @@ export function CampusISOView() {
 
   const openCars = (isoRecord.correctiveActions || []).filter((c) => c.status !== 'Closed / Verified');
 
-  // ISO Documents filtering
-  const isoDocuments = documents.filter(
-    (d) => d.frameworkId === 'iso' || (d.keywords && d.keywords.some((t) => t.toLowerCase().includes('iso')))
+  // ==========================================
+  // 1. Edit Active Surveillance Record Details Modal State
+  // ==========================================
+  const [editAuditModalOpen, setEditAuditModalOpen] = useState(false);
+  const [auditForm, setAuditForm] = useState({
+    scope: '',
+    standardVersion: 'ISO 9001:2015',
+    cycle: '2024 Surveillance Audit 1',
+    auditDate: '',
+    leadAuditor: '',
+    auditorRole: '',
+    complianceStatus: 'Compliant' as ISOComplianceStatus,
+    validationStatus: 'Certified & Signed',
+    summary: '',
+    conformances: 14,
+    ofi: 2,
+    minorNC: 0,
+    majorNC: 0
+  });
+
+  const handleOpenEditAudit = (rec: ISOSurveillanceRecord) => {
+    setAuditForm({
+      scope: rec.scope || '',
+      standardVersion: rec.standardVersion || 'ISO 9001:2015',
+      cycle: rec.cycle || '2024 Surveillance Audit 1',
+      auditDate: rec.auditDate || new Date().toISOString().slice(0, 10),
+      leadAuditor: rec.leadAuditor || '',
+      auditorRole: rec.auditorRole || 'Lead Quality Auditor',
+      complianceStatus: rec.complianceStatus || 'Compliant',
+      validationStatus: rec.validationStatus || 'Certified & Signed',
+      summary: rec.summary || '',
+      conformances: rec.findingsCount?.conformances ?? 14,
+      ofi: rec.findingsCount?.ofi ?? 2,
+      minorNC: rec.findingsCount?.minorNC ?? 0,
+      majorNC: rec.findingsCount?.majorNC ?? 0
+    });
+    setEditAuditModalOpen(true);
+  };
+
+  const handleSaveAuditRecord = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canMutate) return;
+    const updatedRecord: ISOSurveillanceRecord = {
+      ...isoRecord,
+      scope: auditForm.scope.trim(),
+      standardVersion: auditForm.standardVersion.trim() || 'ISO 9001:2015',
+      cycle: auditForm.cycle.trim() || '2024 Surveillance Audit 1',
+      auditDate: auditForm.auditDate,
+      leadAuditor: auditForm.leadAuditor.trim() || 'Lead Quality Auditor',
+      auditorRole: auditForm.auditorRole.trim() || 'Certified ISO Auditor',
+      complianceStatus: auditForm.complianceStatus,
+      validationStatus: auditForm.validationStatus.trim() || 'Certified & Signed',
+      summary: auditForm.summary.trim(),
+      findingsCount: {
+        conformances: Number(auditForm.conformances) || 0,
+        ofi: Number(auditForm.ofi) || 0,
+        minorNC: Number(auditForm.minorNC) || 0,
+        majorNC: Number(auditForm.majorNC) || 0
+      }
+    };
+    saveISOSurveillanceRecord(updatedRecord);
+    toast.success('Surveillance audit details and compliance status updated');
+    setEditAuditModalOpen(false);
+  };
+
+  // ==========================================
+  // 2. Upload File / Folder Modal State
+  // ==========================================
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadTab, setUploadTab] = useState<'files' | 'folder'>('files');
+  const [stagedFiles, setStagedFiles] = useState<{ file: File; path: string; name: string; sizeMb: number }[]>([]);
+  const [uploadFolderChoice, setUploadFolderChoice] = useState<'existing' | 'new'>('existing');
+  const [uploadSelectedFolderId, setUploadSelectedFolderId] = useState<string>('folder-iso-qm');
+  const [uploadNewFolderName, setUploadNewFolderName] = useState('');
+  const [uploadStage, setUploadStage] = useState<ISODocumentStage>('For Surveillance');
+  const [uploadDocType, setUploadDocType] = useState<DocumentType>('Report');
+  const [uploadOffice, setUploadOffice] = useState('Quality Management System Office');
+  const [uploadAcademicYear, setUploadAcademicYear] = useState('2024–2025');
+  const [uploadDescription, setUploadDescription] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragActive, setIsDragActive] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // Configure directory attributes on folder input
+  useEffect(() => {
+    if (folderInputRef.current) {
+      folderInputRef.current.setAttribute('webkitdirectory', '');
+      folderInputRef.current.setAttribute('directory', '');
+    }
+  }, [uploadTab]);
+
+  const handleStageUploads = (uploads: PendingUpload[]) => {
+    if (!uploads.length) return;
+    const items = uploads.map((u) => ({
+      file: u.file,
+      path: u.path,
+      name: u.file.name,
+      sizeMb: parseFloat((u.file.size / (1024 * 1024)).toFixed(2)) || 0.01
+    }));
+
+    setStagedFiles((prev) => [...prev, ...items]);
+
+    // Check if any file came from a directory path (e.g. "Quality Procedures/sop.pdf")
+    const itemWithPath = items.find((i) => i.path.includes('/'));
+    if (itemWithPath) {
+      const detectedName = itemWithPath.path.split('/')[0];
+      if (detectedName) {
+        setUploadFolderChoice('new');
+        setUploadNewFolderName(detectedName);
+      }
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = filesFromInput(e.target.files);
+    handleStageUploads(files);
+    if (e.target) e.target.value = '';
+  };
+
+  const handleFolderInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = filesFromInput(e.target.files);
+    handleStageUploads(files);
+    if (e.target) e.target.value = '';
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    const uploads = await filesFromDrop(e, true);
+    if (uploads.length) {
+      handleStageUploads(uploads);
+    }
+  };
+
+  const removeStagedFile = (idx: number) => {
+    setStagedFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleExecuteUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canMutate) return;
+    if (stagedFiles.length === 0) {
+      toast.error('Please select or drop at least one file or folder to upload');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      let targetFolderId = uploadSelectedFolderId;
+
+      // If user chose to create a new folder
+      if (uploadFolderChoice === 'new' && uploadNewFolderName.trim()) {
+        const folderName = uploadNewFolderName.trim();
+        const code = (folderName.slice(0, 4) || 'ISO').toUpperCase();
+        const newFolderId = `folder-iso-${Date.now()}`;
+        const newFolder: EvidenceFolder = {
+          id: newFolderId,
+          name: folderName,
+          code,
+          frameworkId: 'iso',
+          category: 'Quality Management',
+          description: `ISO surveillance evidence folder for ${campus.name}`,
+          color: 'indigo',
+          createdAt: new Date().toISOString().slice(0, 10),
+          campusId: selectedCampusId,
+          campus: campus.name,
+          parentId: 'folder-iso'
+        };
+        saveFolder(newFolder);
+        targetFolderId = newFolderId;
+      }
+
+      // Upload each staged file
+      for (let i = 0; i < stagedFiles.length; i++) {
+        const item = stagedFiles[i];
+        const docId = `doc-iso-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`;
+
+        // Save binary blob to IndexedDB
+        persistUpload(docId, item.file, item.file.name);
+
+        const newDoc: EvidenceDocument = {
+          id: docId,
+          title: item.name,
+          description: uploadDescription.trim() || `ISO surveillance documentation (${uploadStage}) for ${campus.name}.`,
+          keywords: ['ISO 9001', 'Surveillance', uploadStage, campus.shortName],
+          frameworkId: 'iso',
+          areaId: 'qa',
+          criterionId: 'c-iso-9',
+          indicatorId: 'ind-iso-surveillance',
+          docType: uploadDocType,
+          isoStage: uploadStage,
+          academicYear: uploadAcademicYear.trim() || '2024–2025',
+          cycle: isoRecord.cycle,
+          program: 'Institutional Quality System',
+          college: 'Administration',
+          department: 'Quality Assurance Office',
+          office: uploadOffice.trim() || 'Quality Management System Office',
+          campus: campus.name,
+          campusId: selectedCampusId,
+          documentDate: new Date().toISOString().slice(0, 10),
+          confidentiality: 'Internal',
+          status: 'Indexed',
+          dateAdded: new Date().toISOString().slice(0, 10),
+          fileType: fileTypeFromName(item.file.name),
+          pages: Math.max(1, Math.ceil(item.file.size / (150 * 1024))),
+          sizeMb: parseFloat((item.file.size / (1024 * 1024)).toFixed(2)) || 0.1,
+          uploadedBy: currentUser.name || 'QA Officer',
+          passages: [`Uploaded evidence for ${uploadStage} under ISO 9001:2015 surveillance audit at ${campus.name}.`],
+          folderId: targetFolderId,
+          approvalStatus: 'Approved'
+        };
+
+        addDocument(newDoc);
+      }
+
+      toast.success(`Successfully uploaded ${stagedFiles.length} file${stagedFiles.length === 1 ? '' : 's'} to ISO evidence repository`);
+      setStagedFiles([]);
+      setUploadModalOpen(false);
+      setUploadNewFolderName('');
+      setUploadDescription('');
+      if (targetFolderId) {
+        setSelectedFolderId(targetFolderId);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to upload files. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // ==========================================
+  // 3. Document Edit, View, and Delete State
+  // ==========================================
+  const [previewDoc, setPreviewDoc] = useState<EvidenceDocument | null>(null);
+  const [editingDoc, setEditingDoc] = useState<EvidenceDocument | null>(null);
+  const [deletingDoc, setDeletingDoc] = useState<EvidenceDocument | null>(null);
+
+  const [editDocForm, setEditDocForm] = useState({
+    title: '',
+    isoStage: 'For Surveillance' as ISODocumentStage,
+    folderId: '',
+    docType: 'Report' as DocumentType,
+    office: '',
+    academicYear: '',
+    description: ''
+  });
+
+  const handleOpenEditDoc = (doc: EvidenceDocument) => {
+    setEditingDoc(doc);
+    setEditDocForm({
+      title: doc.title,
+      isoStage: doc.isoStage || 'For Surveillance',
+      folderId: doc.folderId || 'folder-iso-qm',
+      docType: doc.docType || 'Report',
+      office: doc.office || 'Quality Management System Office',
+      academicYear: doc.academicYear || '2024–2025',
+      description: doc.description || ''
+    });
+  };
+
+  const handleSaveEditDoc = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canMutate || !editingDoc) return;
+    if (!editDocForm.title.trim()) {
+      toast.error('Document title is required');
+      return;
+    }
+    updateDocument(editingDoc.id, {
+      title: editDocForm.title.trim(),
+      isoStage: editDocForm.isoStage,
+      folderId: editDocForm.folderId,
+      docType: editDocForm.docType,
+      office: editDocForm.office.trim(),
+      academicYear: editDocForm.academicYear.trim(),
+      description: editDocForm.description.trim()
+    });
+    toast.success(`Document "${editDocForm.title.trim()}" updated successfully`);
+    setEditingDoc(null);
+  };
+
+  // ==========================================
+  // 4. Folder Creation, Editing, Deletion State
+  // ==========================================
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<EvidenceFolder | null>(null);
+  const [deletingFolder, setDeletingFolder] = useState<EvidenceFolder | null>(null);
+
+  // ISO Folders collection
+  const isoFolders = folders.filter(
+    (f) =>
+      f.id === 'folder-iso' ||
+      f.frameworkId === 'iso' ||
+      f.category === 'Quality Management' ||
+      f.parentId === 'folder-iso'
   );
 
-  const filteredIsoDocs = isoDocuments.filter((doc) => {
-    if (selectedStageFilter === 'All') return true;
-    return doc.isoStage === selectedStageFilter;
+  // ISO Documents filtering
+  const isoDocuments = documents.filter((d) => {
+    const isIso = d.frameworkId === 'iso' || (d.keywords && d.keywords.some((t) => t.toLowerCase().includes('iso')));
+    const isCampus = !d.campusId || d.campusId === selectedCampusId || (selectedCampus as string) === 'all';
+    return isIso && isCampus;
   });
+
+  const filteredIsoDocs = isoDocuments.filter((doc) => {
+    if (selectedStageFilter !== 'All' && doc.isoStage !== selectedStageFilter) return false;
+    if (selectedFolderId && doc.folderId !== selectedFolderId) return false;
+    if (docSearchQuery.trim()) {
+      const q = docSearchQuery.toLowerCase();
+      const matchTitle = doc.title.toLowerCase().includes(q);
+      const matchDesc = doc.description?.toLowerCase().includes(q);
+      const matchOffice = doc.office?.toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc && !matchOffice) return false;
+    }
+    return true;
+  });
+
+  const activeFolder = isoFolders.find((f) => f.id === selectedFolderId);
 
   return (
     <>
@@ -301,14 +783,22 @@ export function CampusISOView() {
         </div>
       )}
 
-      {/* Active Surveillance Status Card */}
+      {/* Active Surveillance Status Card (Editable & Actionable) */}
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
-        <div className="panel col-span-2 p-5">
+        <div className="panel col-span-2 p-5 shadow-xs transition-shadow">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="text-lg font-bold text-ink">{campus.name}</h2>
-                <Badge tone="success">{isoRecord.complianceStatus}</Badge>
+                <Badge tone={
+                  isoRecord.complianceStatus === 'Compliant' || isoRecord.complianceStatus === 'Certified'
+                    ? 'success'
+                    : isoRecord.complianceStatus === 'Minor Deficiencies'
+                    ? 'warning'
+                    : 'danger'
+                }>
+                  {isoRecord.complianceStatus}
+                </Badge>
                 {isoRecord.isHistorical && (
                   <Badge tone="warning">Preserved Record</Badge>
                 )}
@@ -318,11 +808,33 @@ export function CampusISOView() {
               </p>
             </div>
 
-            <div className="text-right">
-              <span className="text-xs text-ink-muted">Standard & Cycle</span>
-              <p className="font-semibold text-brand-700 text-sm">
-                {isoRecord.standardVersion || 'ISO 9001:2015'} · {isoRecord.cycle}
-              </p>
+            <div className="flex flex-col sm:items-end gap-2">
+              <div className="sm:text-right">
+                <span className="text-xs text-ink-muted">Standard & Cycle</span>
+                <p className="font-semibold text-brand-700 text-sm">
+                  {isoRecord.standardVersion || 'ISO 9001:2015'} · {isoRecord.cycle}
+                </p>
+              </div>
+              {canMutate && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditAudit(isoRecord)}
+                    className="btn btn-secondary btn-xs gap-1.5 shadow-xs"
+                    title="Edit Audit Details & Status"
+                  >
+                    <PencilIcon className="h-3.5 w-3.5" /> Edit Details
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadModalOpen(true)}
+                    className="btn btn-primary btn-xs gap-1.5 shadow-xs"
+                    title="Upload Evidence Files or Folder"
+                  >
+                    <CloudUploadIcon className="h-3.5 w-3.5" /> Upload Evidence
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -344,7 +856,7 @@ export function CampusISOView() {
             <div>
               <span className="text-xs text-ink-muted">Validation Status</span>
               <p className="text-xs font-semibold text-success-700 mt-0.5 flex items-center gap-1">
-                <CheckCircle2Icon className="h-3.5 w-3.5" /> Certified & Signed
+                <CheckCircle2Icon className="h-3.5 w-3.5" /> {isoRecord.validationStatus || 'Certified & Signed'}
               </p>
             </div>
           </div>
@@ -400,20 +912,46 @@ export function CampusISOView() {
         </div>
       </div>
 
-      {/* ISO Management Documents & Surveillance Labels Section */}
+      {/* ISO Management Documents & Surveillance Evidence Section */}
       <div className="mb-6 space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-line pb-4">
           <div>
             <div className="flex items-center gap-2">
               <FileTextIcon className="h-4 w-4 text-brand-600" />
               <h3 className="text-sm font-bold text-ink">ISO Management Documents & Surveillance Evidence</h3>
             </div>
-            <p className="text-xs text-ink-muted">
-              Quality manuals, surveillance evidence, and compliance portfolios categorized by ISO audit stages.
+            <p className="text-xs text-ink-muted mt-0.5">
+              Quality manuals, surveillance evidence, and compliance portfolios categorized by ISO audit stages and clause folders.
             </p>
           </div>
 
-          {/* Stage Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            {canMutate && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingFolder(null);
+                    setIsFolderModalOpen(true);
+                  }}
+                  className="btn btn-secondary btn-sm text-xs gap-1.5"
+                >
+                  <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" /> + New ISO Folder
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUploadModalOpen(true)}
+                  className="btn btn-primary btn-sm text-xs gap-1.5"
+                >
+                  <CloudUploadIcon className="h-3.5 w-3.5" /> Upload File / Folder
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Search & Stage Filters Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5">
             {(['All', 'For Surveillance', '2nd Surveillance', 'Recertification'] as const).map((stage) => {
               const count = stage === 'All'
@@ -436,66 +974,284 @@ export function CampusISOView() {
               );
             })}
           </div>
+
+          <div className="relative min-w-[220px]">
+            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-subtle" />
+            <input
+              type="text"
+              value={docSearchQuery}
+              onChange={(e) => setDocSearchQuery(e.target.value)}
+              placeholder="Search ISO evidence..."
+              className="input pl-8 py-1 text-xs w-full"
+            />
+            {docSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setDocSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-subtle hover:text-ink"
+              >
+                <XIcon className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Documents Table / Grid */}
-        {filteredIsoDocs.length === 0 ? (
-          <div className="panel p-6 text-center text-xs text-ink-muted">
-            <FileTextIcon className="mx-auto h-8 w-8 text-ink-subtle mb-1" />
-            No documents found for this surveillance audit stage filter.
-          </div>
-        ) : (
-          <div className="panel divide-y divide-line overflow-hidden">
-            {filteredIsoDocs.map((doc) => (
-              <div key={doc.id} className="p-4 hover:bg-canvas/50 transition-colors flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-xs text-ink hover:text-brand-700">
-                      <Link to={`/documents/${doc.id}`}>{doc.title}</Link>
-                    </span>
-                    {doc.isoStage && (
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border ${
-                        doc.isoStage === 'For Surveillance'
-                          ? 'bg-brand-50 text-brand-700 border-brand-200'
-                          : doc.isoStage === '2nd Surveillance'
-                          ? 'bg-brand-50 text-brand-700 border-brand-200'
-                          : 'bg-brand-50 text-brand-700 border-brand-200'
-                      }`}>
-                        {doc.isoStage}
-                      </span>
-                    )}
-                    <span className="rounded bg-canvas px-1.5 py-0.5 text-[11px] text-ink-muted border border-line">
-                      {doc.fileType} · {doc.pages} p · {doc.sizeMb} MB
-                    </span>
-                  </div>
-                  <p className="text-xs text-ink-muted mt-1 line-clamp-1">{doc.description}</p>
-                  <div className="flex items-center gap-3 mt-1.5 text-[11px] text-ink-subtle">
-                    <span>Office: {doc.office}</span>
-                    <span>·</span>
-                    <span>AY: {doc.academicYear}</span>
-                    <span>·</span>
-                    <span>Date: {doc.documentDate}</span>
-                  </div>
-                </div>
+        {/* ISO Evidence Folders Grid (Collapsible) */}
+        <div className="rounded-lg border border-line bg-canvas/40 p-3.5">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setIsFolderSectionOpen((prev) => !prev)}
+              className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink hover:text-brand-700"
+            >
+              <FolderIcon className="h-4 w-4 text-brand-600" />
+              <span>Evidence Folders & Clause Portfolios ({isoFolders.length})</span>
+              {isFolderSectionOpen ? (
+                <ChevronDownIcon className="h-3.5 w-3.5 text-ink-muted" />
+              ) : (
+                <ChevronRightIcon className="h-3.5 w-3.5 text-ink-muted" />
+              )}
+            </button>
 
-                <div className="shrink-0 flex items-center gap-2">
-                  <Link
-                    to={`/documents/${doc.id}`}
-                    className="btn btn-secondary btn-sm text-xs gap-1"
+            {selectedFolderId && (
+              <button
+                type="button"
+                onClick={() => setSelectedFolderId(null)}
+                className="text-xs font-semibold text-brand-700 hover:text-brand-900 flex items-center gap-1"
+              >
+                <XIcon className="h-3 w-3" /> Clear Folder Filter
+              </button>
+            )}
+          </div>
+
+          {isFolderSectionOpen && (
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+              {isoFolders.map((folder) => {
+                const isSelected = selectedFolderId === folder.id;
+                const folderDocCount = documents.filter((d) => d.folderId === folder.id).length;
+                const theme = FOLDER_COLOR_MAP[folder.color] || FOLDER_COLOR_MAP.indigo;
+
+                return (
+                  <div
+                    key={folder.id}
+                    className={`group relative rounded-lg border p-3 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-brand-500 bg-brand-50/80 shadow-xs ring-2 ring-brand-500/30'
+                        : 'border-line bg-white hover:border-brand-300 hover:bg-canvas/60'
+                    }`}
+                    onClick={() => setSelectedFolderId(isSelected ? null : folder.id)}
                   >
-                    <ExternalLinkIcon className="h-3.5 w-3.5" /> View Document
-                  </Link>
-                </div>
-              </div>
-            ))}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`rounded-md p-1.5 shrink-0 ${theme.bg} ${theme.text}`}>
+                          {isSelected ? (
+                            <FolderOpenIcon className="h-4 w-4" />
+                          ) : (
+                            <FolderIcon className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-semibold truncate ${isSelected ? 'text-brand-950 font-bold' : 'text-ink'}`}>
+                            {folder.name}
+                          </p>
+                          <span className={`inline-block text-[10px] font-mono px-1.5 py-0.2 rounded mt-0.5 ${theme.badge}`}>
+                            {folder.code || 'ISO'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span className="rounded bg-canvas px-1.5 py-0.5 text-[10px] font-bold text-ink-muted border border-line shrink-0">
+                        {folderDocCount}
+                      </span>
+                    </div>
+
+                    {/* Folder Quick Actions */}
+                    {canMutate && !folder.isSystem && (
+                      <div
+                        className="mt-2.5 pt-2 border-t border-line/60 flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingFolder(folder);
+                            setIsFolderModalOpen(true);
+                          }}
+                          className="rounded p-1 text-ink-subtle hover:text-brand-700 hover:bg-brand-50 text-[11px]"
+                          title="Edit Folder"
+                        >
+                          <PencilIcon className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingFolder(folder)}
+                          className="rounded p-1 text-ink-subtle hover:text-danger-700 hover:bg-danger-50 text-[11px]"
+                          title="Delete Folder"
+                        >
+                          <Trash2Icon className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Active Folder Filter Banner */}
+        {activeFolder && (
+          <div className="flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50/70 px-3.5 py-2 text-xs">
+            <div className="flex items-center gap-2">
+              <FolderOpenIcon className="h-4 w-4 text-brand-600" />
+              <span className="text-ink-muted">Filtering by folder:</span>
+              <strong className="text-brand-950">{activeFolder.name}</strong>
+              <span className="rounded bg-brand-200/60 px-1.5 py-0.5 text-[11px] font-bold text-brand-800">
+                {filteredIsoDocs.length} document{filteredIsoDocs.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedFolderId(null)}
+              className="text-xs font-semibold text-brand-700 hover:text-brand-900 hover:underline flex items-center gap-1"
+            >
+              <XIcon className="h-3.5 w-3.5" /> Show All Folders
+            </button>
           </div>
         )}
 
-        <div className="rounded-md border border-line bg-canvas p-3 flex items-center justify-between text-xs text-ink-muted">
+        {/* Documents Table / Grid */}
+        {filteredIsoDocs.length === 0 ? (
+          <div className="panel p-8 text-center text-xs text-ink-muted">
+            <FileTextIcon className="mx-auto h-8 w-8 text-ink-subtle mb-2" />
+            <p className="font-semibold text-ink">No ISO documents found</p>
+            <p className="mt-1">
+              {selectedFolderId
+                ? 'There are no documents in this folder yet. Click "Upload File / Folder" to add evidence.'
+                : 'No evidence documents match your selected filters. Try choosing a different stage or search term.'}
+            </p>
+            {canMutate && (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => setUploadModalOpen(true)}
+                  className="btn btn-primary btn-sm text-xs gap-1.5"
+                >
+                  <CloudUploadIcon className="h-3.5 w-3.5" /> Upload ISO Evidence
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="panel divide-y divide-line overflow-hidden shadow-xs">
+            {filteredIsoDocs.map((doc) => {
+              const docFolder = folders.find((f) => f.id === doc.folderId);
+              return (
+                <div
+                  key={doc.id}
+                  className="p-4 hover:bg-canvas/50 transition-colors flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDoc(doc)}
+                        className="font-semibold text-xs text-ink hover:text-brand-700 text-left cursor-pointer flex items-center gap-1.5 group"
+                        title="Click to view and preview document"
+                      >
+                        <FileTextIcon className="h-3.5 w-3.5 text-brand-600 group-hover:text-brand-700 shrink-0" />
+                        <span className="group-hover:underline">{doc.title}</span>
+                      </button>
+
+                      {doc.isoStage && (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border bg-brand-50 text-brand-700 border-brand-200">
+                          {doc.isoStage}
+                        </span>
+                      )}
+
+                      {docFolder && (
+                        <span className="inline-flex items-center gap-1 rounded bg-canvas px-1.5 py-0.5 text-[11px] text-ink-muted border border-line">
+                          <FolderIcon className="h-3 w-3 text-ink-subtle" />
+                          {docFolder.name}
+                        </span>
+                      )}
+
+                      <span className="rounded bg-canvas px-1.5 py-0.5 text-[11px] text-ink-muted border border-line">
+                        {doc.fileType} · {doc.pages} p · {doc.sizeMb} MB
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-ink-muted mt-1 line-clamp-1">{doc.description}</p>
+
+                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-ink-subtle">
+                      <span>Office: {doc.office}</span>
+                      <span>·</span>
+                      <span>AY: {doc.academicYear}</span>
+                      <span>·</span>
+                      <span>Date: {doc.documentDate}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions: View, Edit, Download, Delete */}
+                  <div className="shrink-0 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewDoc(doc)}
+                      className="btn btn-secondary btn-sm text-xs gap-1.5"
+                      title="View & Preview Document"
+                    >
+                      <EyeIcon className="h-3.5 w-3.5 text-brand-600" /> View Document
+                    </button>
+
+                    {canMutate && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditDoc(doc)}
+                        className="btn btn-ghost btn-sm text-xs p-1.5 text-ink-muted hover:text-brand-700"
+                        title="Edit Document Information"
+                      >
+                        <PencilIcon className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const downloaded = await downloadStoredFile(doc.id, doc.title);
+                        if (!downloaded) {
+                          toast.error(`No stored binary file found for ${doc.title}`);
+                        } else {
+                          toast.success(`Downloaded ${doc.title}`);
+                        }
+                      }}
+                      className="btn btn-ghost btn-sm text-xs p-1.5 text-ink-muted hover:text-brand-700"
+                      title="Download File"
+                    >
+                      <DownloadIcon className="h-3.5 w-3.5" />
+                    </button>
+
+                    {canMutate && (
+                      <button
+                        type="button"
+                        onClick={() => setDeletingDoc(doc)}
+                        className="btn btn-ghost btn-sm text-xs p-1.5 text-ink-muted hover:text-danger-700"
+                        title="Delete Document"
+                      >
+                        <Trash2Icon className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="rounded-md border border-line bg-canvas p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-ink-muted">
           <span>
             <strong className="text-ink">Historical Document Retention:</strong> In accordance with ISO QMS standard requirements, all evidence documents across current and superseded standards are permanently preserved and safeguarded against accidental deletion.
           </span>
-          <span className="text-[11px] font-semibold text-brand-700">ISO 9001:2015 Clause 7.5.3 Compliant</span>
+          <span className="text-[11px] font-semibold text-brand-700 shrink-0">ISO 9001:2015 Clause 7.5.3 Compliant</span>
         </div>
       </div>
 
@@ -625,14 +1381,704 @@ export function CampusISOView() {
         )}
       </div>
 
-      {/* New Surveillance Modal */}
+      {/* ========================================================= */}
+      {/* MODALS */}
+      {/* ========================================================= */}
+
+      {/* 1. Edit Active Surveillance Record Details Modal */}
+      {editAuditModalOpen && (
+        <Modal
+          open={editAuditModalOpen}
+          onClose={() => setEditAuditModalOpen(false)}
+          title={`Edit Surveillance Status · ${campus.name}`}
+          description="Update audit scope, ISO standard version, surveillance cycle, auditor sign-off, and findings."
+          size="lg"
+          footer={
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => setEditAuditModalOpen(false)}
+                className="btn btn-secondary w-full sm:w-auto"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAuditRecord}
+                className="btn btn-primary w-full sm:w-auto"
+              >
+                Save Audit Details
+              </button>
+            </div>
+          }
+        >
+          <form onSubmit={handleSaveAuditRecord} className="space-y-4">
+            <div>
+              <label className="label">Audit Scope *</label>
+              <input
+                type="text"
+                value={auditForm.scope}
+                onChange={(e) => setAuditForm({ ...auditForm, scope: e.target.value })}
+                className="input"
+                placeholder="e.g. Agricultural Technology, Teacher Education, and Community Training Services"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="label">ISO Standard Version *</label>
+                <input
+                  type="text"
+                  value={auditForm.standardVersion}
+                  onChange={(e) => setAuditForm({ ...auditForm, standardVersion: e.target.value })}
+                  className="input"
+                  placeholder="e.g. ISO 9001:2015"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Surveillance Cycle *</label>
+                <input
+                  type="text"
+                  value={auditForm.cycle}
+                  onChange={(e) => setAuditForm({ ...auditForm, cycle: e.target.value })}
+                  className="input"
+                  placeholder="e.g. 2024 Surveillance Audit 1"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Audit Date *</label>
+                <input
+                  type="date"
+                  value={auditForm.auditDate}
+                  onChange={(e) => setAuditForm({ ...auditForm, auditDate: e.target.value })}
+                  className="input"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Lead ISO Auditor *</label>
+                <input
+                  type="text"
+                  value={auditForm.leadAuditor}
+                  onChange={(e) => setAuditForm({ ...auditForm, leadAuditor: e.target.value })}
+                  className="input"
+                  placeholder="e.g. Prof. Liza M. Cabrera"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Auditor Role / Designation</label>
+                <input
+                  type="text"
+                  value={auditForm.auditorRole}
+                  onChange={(e) => setAuditForm({ ...auditForm, auditorRole: e.target.value })}
+                  className="input"
+                  placeholder="e.g. Certified ISO 9001:2015 Auditor"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Compliance Status *</label>
+                <select
+                  value={auditForm.complianceStatus}
+                  onChange={(e) => setAuditForm({ ...auditForm, complianceStatus: e.target.value as ISOComplianceStatus })}
+                  className="select"
+                >
+                  <option value="Compliant">Compliant</option>
+                  <option value="Certified">Certified</option>
+                  <option value="Minor Deficiencies">Minor Deficiencies</option>
+                  <option value="Major Deficiencies Pending Action">Major Deficiencies Pending Action</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Validation Status</label>
+                <input
+                  type="text"
+                  value={auditForm.validationStatus}
+                  onChange={(e) => setAuditForm({ ...auditForm, validationStatus: e.target.value })}
+                  className="input"
+                  placeholder="e.g. Certified & Signed"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Lead Auditor Summary</label>
+              <textarea
+                value={auditForm.summary}
+                onChange={(e) => setAuditForm({ ...auditForm, summary: e.target.value })}
+                className="textarea h-20 text-[13px]"
+                placeholder="Executive audit summary confirming QMS surveillance findings..."
+              />
+            </div>
+
+            <div>
+              <label className="label">Surveillance Findings Distribution</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <span className="text-[11px] text-ink-muted">Conformances</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={auditForm.conformances}
+                    onChange={(e) => setAuditForm({ ...auditForm, conformances: parseInt(e.target.value) || 0 })}
+                    className="input text-xs mt-1"
+                  />
+                </div>
+                <div>
+                  <span className="text-[11px] text-ink-muted">OFI (Opportunities)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={auditForm.ofi}
+                    onChange={(e) => setAuditForm({ ...auditForm, ofi: parseInt(e.target.value) || 0 })}
+                    className="input text-xs mt-1"
+                  />
+                </div>
+                <div>
+                  <span className="text-[11px] text-ink-muted">Minor NC</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={auditForm.minorNC}
+                    onChange={(e) => setAuditForm({ ...auditForm, minorNC: parseInt(e.target.value) || 0 })}
+                    className="input text-xs mt-1"
+                  />
+                </div>
+                <div>
+                  <span className="text-[11px] text-ink-muted">Major NC (CAR)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={auditForm.majorNC}
+                    onChange={(e) => setAuditForm({ ...auditForm, majorNC: parseInt(e.target.value) || 0 })}
+                    className="input text-xs mt-1"
+                  />
+                </div>
+              </div>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* 2. Upload File(s) / Folder Modal */}
+      {uploadModalOpen && (
+        <Modal
+          open={uploadModalOpen}
+          onClose={() => setUploadModalOpen(false)}
+          title={`Upload ISO Evidence · ${campus.name}`}
+          description="Upload files or entire folders into ISO evidence portfolios with automatic stage tagging and original file persistence."
+          size="lg"
+          footer={
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadModalOpen(false);
+                  setStagedFiles([]);
+                }}
+                className="btn btn-secondary w-full sm:w-auto"
+                disabled={isUploading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteUpload}
+                disabled={stagedFiles.length === 0 || isUploading}
+                className="btn btn-primary w-full sm:w-auto gap-2"
+              >
+                {isUploading ? (
+                  <>Uploading...</>
+                ) : (
+                  <>
+                    <CloudUploadIcon className="h-4 w-4" />
+                    Upload {stagedFiles.length} File{stagedFiles.length === 1 ? '' : 's'}
+                  </>
+                )}
+              </button>
+            </div>
+          }
+        >
+          <form onSubmit={handleExecuteUpload} className="space-y-4">
+            {/* Upload Mode Selector */}
+            <div className="flex rounded-lg border border-line bg-canvas p-1">
+              <button
+                type="button"
+                onClick={() => setUploadTab('files')}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-md py-1.5 text-xs font-semibold transition-all ${
+                  uploadTab === 'files'
+                    ? 'bg-white text-brand-700 shadow-xs'
+                    : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                <FileUpIcon className="h-4 w-4" /> Upload Files
+              </button>
+              <button
+                type="button"
+                onClick={() => setUploadTab('folder')}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-md py-1.5 text-xs font-semibold transition-all ${
+                  uploadTab === 'folder'
+                    ? 'bg-white text-brand-700 shadow-xs'
+                    : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                <FolderUpIcon className="h-4 w-4" /> Upload Folder (Directory)
+              </button>
+            </div>
+
+            {/* Hidden native inputs */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              multiple
+              className="hidden"
+              onChange={handleFileInputChange}
+            />
+            <input
+              type="file"
+              ref={folderInputRef}
+              multiple
+              className="hidden"
+              onChange={handleFolderInputChange}
+            />
+
+            {/* Drag & Drop Zone */}
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragActive(true);
+              }}
+              onDragLeave={() => setIsDragActive(false)}
+              onDrop={handleDrop}
+              className={`rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+                isDragActive
+                  ? 'border-brand-500 bg-brand-50/70'
+                  : 'border-line bg-canvas/40 hover:bg-canvas/70'
+              }`}
+            >
+              <CloudUploadIcon className="mx-auto h-10 w-10 text-brand-600 mb-2" />
+              <p className="text-xs font-bold text-ink">
+                {uploadTab === 'files'
+                  ? 'Drag & drop ISO evidence documents here'
+                  : 'Drag & drop an entire evidence folder here'}
+              </p>
+              <p className="text-[11px] text-ink-muted mt-0.5">
+                {uploadTab === 'files'
+                  ? 'Supports PDF, Word (DOCX), Excel (XLSX), PPTX, JPG, PNG'
+                  : 'Folder structure and nested files will be staged automatically'}
+              </p>
+
+              <div className="mt-3.5 flex justify-center gap-2">
+                {uploadTab === 'files' ? (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="btn btn-secondary btn-sm text-xs gap-1.5"
+                  >
+                    <FileUpIcon className="h-3.5 w-3.5" /> Browse Files
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => folderInputRef.current?.click()}
+                    className="btn btn-secondary btn-sm text-xs gap-1.5"
+                  >
+                    <FolderUpIcon className="h-3.5 w-3.5" /> Browse Folder
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Staged Files Preview */}
+            {stagedFiles.length > 0 && (
+              <div className="rounded-lg border border-line bg-white p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-ink">
+                    Staged Files ({stagedFiles.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStagedFiles([])}
+                    className="text-[11px] font-semibold text-danger-600 hover:underline"
+                  >
+                    Clear All
+                  </button>
+                </div>
+
+                <div className="max-h-36 overflow-y-auto divide-y divide-line pr-1 text-xs">
+                  {stagedFiles.map((item, idx) => (
+                    <div key={idx} className="py-1.5 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileTextIcon className="h-3.5 w-3.5 text-brand-600 shrink-0" />
+                        <span className="truncate text-ink font-medium">{item.name}</span>
+                        {item.path.includes('/') && (
+                          <span className="text-[10px] text-ink-muted truncate">
+                            ({item.path})
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[11px] text-ink-muted">{item.sizeMb} MB</span>
+                        <button
+                          type="button"
+                          onClick={() => removeStagedFile(idx)}
+                          className="text-ink-subtle hover:text-danger-600"
+                        >
+                          <XIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Folder Destination Settings */}
+            <div className="space-y-2">
+              <label className="label">Evidence Folder Destination</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <label className={`flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer ${
+                  uploadFolderChoice === 'existing' ? 'border-brand-500 bg-brand-50/50' : 'border-line'
+                }`}>
+                  <input
+                    type="radio"
+                    name="folderChoice"
+                    checked={uploadFolderChoice === 'existing'}
+                    onChange={() => setUploadFolderChoice('existing')}
+                  />
+                  <span>Save into existing folder</span>
+                </label>
+                <label className={`flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer ${
+                  uploadFolderChoice === 'new' ? 'border-brand-500 bg-brand-50/50' : 'border-line'
+                }`}>
+                  <input
+                    type="radio"
+                    name="folderChoice"
+                    checked={uploadFolderChoice === 'new'}
+                    onChange={() => setUploadFolderChoice('new')}
+                  />
+                  <span>Create new folder</span>
+                </label>
+              </div>
+
+              {uploadFolderChoice === 'existing' ? (
+                <select
+                  value={uploadSelectedFolderId}
+                  onChange={(e) => setUploadSelectedFolderId(e.target.value)}
+                  className="select mt-2"
+                >
+                  {isoFolders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} ({f.code || 'ISO'})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={uploadNewFolderName}
+                  onChange={(e) => setUploadNewFolderName(e.target.value)}
+                  placeholder="Enter new folder name (e.g. 2024 Audit Records)"
+                  className="input mt-2"
+                  required
+                />
+              )}
+            </div>
+
+            {/* Metadata Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="label">ISO Audit Stage *</label>
+                <select
+                  value={uploadStage}
+                  onChange={(e) => setUploadStage(e.target.value as ISODocumentStage)}
+                  className="select"
+                >
+                  <option value="For Surveillance">For Surveillance</option>
+                  <option value="2nd Surveillance">2nd Surveillance</option>
+                  <option value="Recertification">Recertification</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Document Type *</label>
+                <select
+                  value={uploadDocType}
+                  onChange={(e) => setUploadDocType(e.target.value as DocumentType)}
+                  className="select"
+                >
+                  <option value="Report">Report</option>
+                  <option value="Manual">Manual</option>
+                  <option value="Policy">Policy</option>
+                  <option value="Certificate">Certificate</option>
+                  <option value="Meeting Minutes">Meeting Minutes</option>
+                  <option value="Plan">Plan</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Academic Year</label>
+                <input
+                  type="text"
+                  value={uploadAcademicYear}
+                  onChange={(e) => setUploadAcademicYear(e.target.value)}
+                  className="input"
+                  placeholder="2024–2025"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Issuing Office / Unit</label>
+              <input
+                type="text"
+                value={uploadOffice}
+                onChange={(e) => setUploadOffice(e.target.value)}
+                className="input"
+                placeholder="e.g. Quality Management System Office"
+              />
+            </div>
+
+            <div>
+              <label className="label">Document Description / Scope</label>
+              <textarea
+                value={uploadDescription}
+                onChange={(e) => setUploadDescription(e.target.value)}
+                className="textarea h-16 text-[13px]"
+                placeholder="Context or clause relevance of the uploaded documents..."
+              />
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* 3. Edit Document Metadata Modal */}
+      {editingDoc && (
+        <Modal
+          open={!!editingDoc}
+          onClose={() => setEditingDoc(null)}
+          title="Edit ISO Evidence Document"
+          description={`Update metadata and folder placement for "${editingDoc.title}"`}
+          size="md"
+          footer={
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => setEditingDoc(null)}
+                className="btn btn-secondary w-full sm:w-auto"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditDoc}
+                className="btn btn-primary w-full sm:w-auto"
+              >
+                Save Changes
+              </button>
+            </div>
+          }
+        >
+          <form onSubmit={handleSaveEditDoc} className="space-y-3.5">
+            <div>
+              <label className="label">Document Title *</label>
+              <input
+                type="text"
+                value={editDocForm.title}
+                onChange={(e) => setEditDocForm({ ...editDocForm, title: e.target.value })}
+                className="input"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">ISO Audit Stage</label>
+                <select
+                  value={editDocForm.isoStage}
+                  onChange={(e) => setEditDocForm({ ...editDocForm, isoStage: e.target.value as ISODocumentStage })}
+                  className="select"
+                >
+                  <option value="For Surveillance">For Surveillance</option>
+                  <option value="2nd Surveillance">2nd Surveillance</option>
+                  <option value="Recertification">Recertification</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Evidence Folder</label>
+                <select
+                  value={editDocForm.folderId}
+                  onChange={(e) => setEditDocForm({ ...editDocForm, folderId: e.target.value })}
+                  className="select"
+                >
+                  {isoFolders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} ({f.code || 'ISO'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Document Type</label>
+                <select
+                  value={editDocForm.docType}
+                  onChange={(e) => setEditDocForm({ ...editDocForm, docType: e.target.value as DocumentType })}
+                  className="select"
+                >
+                  <option value="Report">Report</option>
+                  <option value="Manual">Manual</option>
+                  <option value="Policy">Policy</option>
+                  <option value="Certificate">Certificate</option>
+                  <option value="Meeting Minutes">Meeting Minutes</option>
+                  <option value="Plan">Plan</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Academic Year</label>
+                <input
+                  type="text"
+                  value={editDocForm.academicYear}
+                  onChange={(e) => setEditDocForm({ ...editDocForm, academicYear: e.target.value })}
+                  className="input"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Issuing Office</label>
+              <input
+                type="text"
+                value={editDocForm.office}
+                onChange={(e) => setEditDocForm({ ...editDocForm, office: e.target.value })}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label className="label">Description / Summary</label>
+              <textarea
+                value={editDocForm.description}
+                onChange={(e) => setEditDocForm({ ...editDocForm, description: e.target.value })}
+                className="textarea h-20 text-[13px]"
+              />
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* 4. Delete Document Modal */}
+      {deletingDoc && (
+        <Modal
+          open={!!deletingDoc}
+          onClose={() => setDeletingDoc(null)}
+          title="Delete Evidence Document"
+          description={`Are you sure you want to remove "${deletingDoc.title}" from the ISO evidence repository?`}
+          size="md"
+          footer={
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => setDeletingDoc(null)}
+                className="btn btn-secondary w-full sm:w-auto text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteDocument(deletingDoc.id);
+                  toast.success(`Deleted "${deletingDoc.title}"`);
+                  setDeletingDoc(null);
+                }}
+                className="btn btn-danger w-full sm:w-auto text-xs"
+              >
+                Delete Document
+              </button>
+            </div>
+          }
+        >
+          <div className="rounded-md bg-danger-50 border border-danger-200 p-3 text-xs text-danger-800">
+            This action will permanently delete this document and any associated surveillance audit attachments.
+          </div>
+        </Modal>
+      )}
+
+      {/* 5. Document Preview Modal */}
+      <DocumentPreviewModal
+        doc={previewDoc}
+        onClose={() => setPreviewDoc(null)}
+        grantAccess={true}
+      />
+
+      {/* 6. Folder Create / Edit Modal */}
+      <FolderFormModal
+        open={isFolderModalOpen}
+        folder={editingFolder}
+        frameworkId="iso"
+        category="Quality Management"
+        parentId="folder-iso"
+        onClose={() => {
+          setIsFolderModalOpen(false);
+          setEditingFolder(null);
+        }}
+        onSave={(savedF) => {
+          saveFolder({
+            ...savedF,
+            frameworkId: 'iso',
+            category: 'Quality Management',
+            campusId: selectedCampusId,
+            campus: campus.name
+          });
+          toast.success(editingFolder ? 'Folder updated' : 'ISO Folder created successfully');
+          setIsFolderModalOpen(false);
+          setEditingFolder(null);
+        }}
+      />
+
+      {/* 7. Delete Folder Modal */}
+      <DeleteFolderModal
+        open={!!deletingFolder}
+        folder={deletingFolder}
+        documentCount={documents.filter((d) => d.folderId === deletingFolder?.id).length}
+        onClose={() => setDeletingFolder(null)}
+        onConfirm={(folderId) => {
+          deleteFolder(folderId);
+          toast.success('Folder deleted');
+          setDeletingFolder(null);
+          if (selectedFolderId === folderId) {
+            setSelectedFolderId(null);
+          }
+        }}
+      />
+
+      {/* 8. Conduct Surveillance Modal */}
       <ISOSurveillanceModal
         open={auditModalOpen}
         campusId={selectedCampusId}
         onClose={() => setAuditModalOpen(false)}
       />
 
-      {/* Close CAR Modal */}
+      {/* 9. Close CAR Modal */}
       {selectedCar && (
         <Modal
           open={!!selectedCar}
@@ -681,7 +2127,7 @@ export function CampusISOView() {
         </Modal>
       )}
 
-      {/* Edit Section Header Modal */}
+      {/* 10. Edit Section Header Modal */}
       {headerModalOpen && (
         <Modal
           open={headerModalOpen}
