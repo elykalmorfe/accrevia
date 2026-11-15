@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import {
@@ -17,10 +16,8 @@ import {
 } from '../../types/evidence';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
-import { ISOSurveillanceModal } from '../../components/accreditation/ISOSurveillanceModal';
 import { Modal } from '../../components/ui/Modal';
 import { TextField } from '../../components/ui/TextField';
-import { SelectField } from '../../components/ui/SelectField';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
 import { FolderFormModal } from '../../components/folders/FolderFormModal';
 import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
@@ -33,10 +30,8 @@ import { formatDate } from '../../utils/format';
 import {
   ShieldCheckIcon,
   CheckCircle2Icon,
-  PlusIcon,
   UserCheckIcon,
   PencilIcon,
-  RotateCcwIcon,
   HistoryIcon,
   FileTextIcon,
   ArchiveIcon,
@@ -62,8 +57,8 @@ import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMuta
 
 const ISO_CERTIFICATE_LEVELS: CertificateLevel[] = [
   { code: 'ISO 9001:2015 Certified', label: 'ISO 9001:2015' },
-  { code: 'Surveillance Audit 1 Compliant', label: 'Surveillance 1' },
-  { code: 'Surveillance Audit 2 Compliant', label: 'Surveillance 2' },
+  { code: '1st Surveillance Compliant', label: '1st Surveillance' },
+  { code: '2nd Surveillance Compliant', label: '2nd Surveillance' },
   { code: 'Recertification Audit Certified', label: 'Recertification' },
   { code: 'Compliant', label: 'Compliant' }
 ];
@@ -77,17 +72,9 @@ function readableDate(value?: string): string {
   }
 }
 
-function getNextISOCycle(cycle?: string): string {
-  if (!cycle) return '2025 Recertification Audit';
-  if (cycle.includes('Surveillance Audit 1')) return '2025 Surveillance Audit 2';
-  if (cycle.includes('Surveillance Audit 2')) return '2025 Recertification Audit';
-  if (cycle.includes('Recertification')) return '2026 Surveillance Audit 1';
-  return '2025 Surveillance Audit';
-}
-
-const DEFAULT_ISO_TITLE = 'ISO 9001:2015 Surveillance, Monitoring & Compliance';
+const DEFAULT_ISO_TITLE = 'ISO 9001:2015 Quality Management Framework';
 const DEFAULT_ISO_DESCRIPTION =
-  'Campus-level quality management system monitoring, clause surveillance audits, Corrective Action Request (CAR) tracking, and auditor sign-off.';
+  'Campus-level quality management system monitoring, surveillance audits, Corrective Action Request (CAR) tracking, and auditor sign-off.';
 
 const DEFAULT_ISO_FOLDERS: Omit<EvidenceFolder, 'createdAt'>[] = [
   {
@@ -259,67 +246,6 @@ export function CampusISOView() {
     }
   }, [folders, saveFolder, selectedCampusId, campus.name]);
 
-  // Section Header Editing
-  const [sectionTitle, setSectionTitle] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('accrevia_iso_section_title');
-      return saved ? JSON.parse(saved) : DEFAULT_ISO_TITLE;
-    } catch {
-      return DEFAULT_ISO_TITLE;
-    }
-  });
-  const [sectionDescription, setSectionDescription] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('accrevia_iso_section_description');
-      return saved ? JSON.parse(saved) : DEFAULT_ISO_DESCRIPTION;
-    } catch {
-      return DEFAULT_ISO_DESCRIPTION;
-    }
-  });
-
-  const [headerModalOpen, setHeaderModalOpen] = useState(false);
-  const [modalTitleValue, setModalTitleValue] = useState(sectionTitle);
-  const [modalDescValue, setModalDescValue] = useState(sectionDescription);
-
-  const handleSaveModalHeader = (e?: React.FormEvent) => {
-    if (!canMutate) return;
-    if (e) e.preventDefault();
-    const trimmedTitle = modalTitleValue.trim();
-    if (!trimmedTitle) {
-      toast.error('Title cannot be empty');
-      return;
-    }
-    const trimmedDesc = modalDescValue.trim() || DEFAULT_ISO_DESCRIPTION;
-    setSectionTitle(trimmedTitle);
-    setSectionDescription(trimmedDesc);
-    try {
-      localStorage.setItem('accrevia_iso_section_title', JSON.stringify(trimmedTitle));
-      localStorage.setItem('accrevia_iso_section_description', JSON.stringify(trimmedDesc));
-    } catch {
-      // Ignore storage errors
-    }
-    setHeaderModalOpen(false);
-    toast.success('ISO section header updated');
-  };
-
-  const handleResetHeader = () => {
-    setSectionTitle(DEFAULT_ISO_TITLE);
-    setSectionDescription(DEFAULT_ISO_DESCRIPTION);
-    setModalTitleValue(DEFAULT_ISO_TITLE);
-    setModalDescValue(DEFAULT_ISO_DESCRIPTION);
-    try {
-      localStorage.removeItem('accrevia_iso_section_title');
-      localStorage.removeItem('accrevia_iso_section_description');
-    } catch {
-      // Ignore
-    }
-    setHeaderModalOpen(false);
-    toast.success('Reset to default header');
-  };
-
-  // Conduct Surveillance Modal state
-  const [auditModalOpen, setAuditModalOpen] = useState(false);
-
   // Close CAR state
   const [selectedCar, setSelectedCar] = useState<ISOCorrectiveAction | null>(null);
   const [verifyDate, setVerifyDate] = useState(new Date().toISOString().slice(0, 10));
@@ -339,78 +265,7 @@ export function CampusISOView() {
   const openCars = (isoRecord.correctiveActions || []).filter((c) => c.status !== 'Closed / Verified');
 
   // ==========================================
-  // 1. Edit Active Surveillance Record Details Modal State
-  // ==========================================
-  const [editAuditModalOpen, setEditAuditModalOpen] = useState(false);
-  const [auditForm, setAuditForm] = useState({
-    scope: '',
-    standardVersion: 'ISO 9001:2015',
-    cycle: '2024 Surveillance Audit 2',
-    evaluatingBody: 'TÜV Rheinland (ISO 9001:2015)',
-    lastAssessmentDate: '',
-    nextCycleSubmission: '2025 Recertification Audit',
-    leadAuditor: '',
-    auditorRole: 'Lead ISO Quality Auditor',
-    complianceStatus: 'Compliant' as ISOComplianceStatus,
-    validationStatus: 'Certified & Signed',
-    summary: '',
-    conformances: 16,
-    ofi: 2,
-    minorNC: 1,
-    majorNC: 0
-  });
-
-  const handleOpenEditAudit = (rec: ISOSurveillanceRecord) => {
-    setAuditForm({
-      scope: rec.scope || '',
-      standardVersion: rec.standardVersion || 'ISO 9001:2015',
-      cycle: rec.cycle || '2024 Surveillance Audit 2',
-      evaluatingBody: (rec.evaluatingBody && !rec.evaluatingBody.includes('DAP')) ? rec.evaluatingBody : 'TÜV Rheinland (ISO 9001:2015)',
-      lastAssessmentDate: rec.auditDate || new Date().toISOString().slice(0, 10),
-      nextCycleSubmission: (rec.nextCycleSubmission && !rec.nextCycleSubmission.includes('PQA')) ? rec.nextCycleSubmission : getNextISOCycle(rec.cycle),
-      leadAuditor: rec.leadAuditor || 'Dr. Evelyn P. Miranda',
-      auditorRole: rec.auditorRole || 'Lead ISO Quality Auditor',
-      complianceStatus: rec.complianceStatus || 'Compliant',
-      validationStatus: (rec.validationStatus && rec.validationStatus !== 'Awarded') ? rec.validationStatus : 'Certified & Signed',
-      summary: rec.summary || '',
-      conformances: rec.findingsCount?.conformances ?? 16,
-      ofi: rec.findingsCount?.ofi ?? 2,
-      minorNC: rec.findingsCount?.minorNC ?? 1,
-      majorNC: rec.findingsCount?.majorNC ?? 0
-    });
-    setEditAuditModalOpen(true);
-  };
-
-  const handleSaveAuditRecord = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canMutate) return;
-    const updatedRecord: ISOSurveillanceRecord = {
-      ...isoRecord,
-      evaluatingBody: auditForm.evaluatingBody.trim() || 'TÜV Rheinland (ISO 9001:2015)',
-      auditDate: auditForm.lastAssessmentDate || isoRecord.auditDate,
-      nextCycleSubmission: auditForm.nextCycleSubmission.trim() || getNextISOCycle(auditForm.cycle),
-      scope: auditForm.scope.trim(),
-      standardVersion: auditForm.standardVersion.trim() || 'ISO 9001:2015',
-      cycle: auditForm.cycle.trim() || '2024 Surveillance Audit 2',
-      leadAuditor: auditForm.leadAuditor.trim() || 'Dr. Evelyn P. Miranda',
-      auditorRole: auditForm.auditorRole.trim() || 'Lead ISO Quality Auditor',
-      complianceStatus: auditForm.complianceStatus,
-      validationStatus: auditForm.validationStatus.trim() || 'Certified & Signed',
-      summary: auditForm.summary.trim(),
-      findingsCount: {
-        conformances: Number(auditForm.conformances) || 0,
-        ofi: Number(auditForm.ofi) || 0,
-        minorNC: Number(auditForm.minorNC) || 0,
-        majorNC: Number(auditForm.majorNC) || 0
-      }
-    };
-    saveISOSurveillanceRecord(updatedRecord);
-    toast.success('Surveillance audit details and compliance status updated');
-    setEditAuditModalOpen(false);
-  };
-
-  // ==========================================
-  // 2. Upload File / Folder Modal State
+  // Upload File / Folder Modal State
   // ==========================================
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadTab, setUploadTab] = useState<'files' | 'folder'>('files');
@@ -676,24 +531,8 @@ export function CampusISOView() {
             Accreditation & Frameworks / Quality Management
           </span>
         }
-        title={sectionTitle}
-        description={sectionDescription}
-        actions={
-          canMutate ? (
-            <button
-              type="button"
-              onClick={() => {
-                setModalTitleValue(sectionTitle);
-                setModalDescValue(sectionDescription);
-                setHeaderModalOpen(true);
-              }}
-              className="btn btn-secondary btn-sm"
-              title="Edit Section Title & Header"
-            >
-              <PencilIcon className="h-4 w-4" /> Edit Header
-            </button>
-          ) : undefined
-        }
+        title={DEFAULT_ISO_TITLE}
+        description={DEFAULT_ISO_DESCRIPTION}
       />
 
       {/* Campus Selector Pills */}
@@ -848,9 +687,9 @@ export function CampusISOView() {
             </div>
 
             <div className="text-right">
-              <span className="text-xs text-ink-muted">Surveillance Status</span>
+              <span className="text-xs text-ink-muted">Standard & Cycle</span>
               <p className="mt-0.5 text-sm font-semibold text-brand-700">
-                {isoRecord.validationStatus || 'Certified & Signed'}
+                {isoRecord.standardVersion || 'ISO 9001:2015'} · {isoRecord.cycle}
               </p>
             </div>
           </div>
@@ -859,8 +698,8 @@ export function CampusISOView() {
             {[
               {
                 icon: ShieldCheckIcon,
-                label: 'Certifying Body',
-                value: (isoRecord.evaluatingBody && !isoRecord.evaluatingBody.includes('DAP')) ? isoRecord.evaluatingBody : 'TÜV Rheinland (ISO 9001:2015)',
+                label: 'ISO Standard',
+                value: isoRecord.standardVersion || 'ISO 9001:2015',
                 tone: 'bg-brand-50 text-brand-600'
               },
               {
@@ -870,9 +709,9 @@ export function CampusISOView() {
                 tone: 'bg-brand-50 text-brand-600'
               },
               {
-                icon: CalendarClockIcon,
-                label: 'Next Surveillance Audit',
-                value: (isoRecord.nextCycleSubmission && !isoRecord.nextCycleSubmission.includes('PQA')) ? isoRecord.nextCycleSubmission : getNextISOCycle(isoRecord.cycle),
+                icon: UserCheckIcon,
+                label: 'Lead ISO Auditor',
+                value: isoRecord.leadAuditor || 'Prof. Liza M. Cabrera',
                 tone: 'bg-brand-50 text-brand-600'
               }
             ].map((info) => (
@@ -890,7 +729,7 @@ export function CampusISOView() {
 
           {isoRecord.summary && (
             <div className="mt-3 rounded-r-xl border-l-4 border-brand-400 bg-brand-50/40 px-3.5 py-2.5">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700">LEAD AUDITOR SUMMARY & AUDIT FINDINGS</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-700">LEAD AUDITOR SUMMARY</p>
               <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-muted">{isoRecord.summary}</p>
             </div>
           )}
@@ -1423,219 +1262,7 @@ export function CampusISOView() {
       {/* MODALS */}
       {/* ========================================================= */}
 
-      {/* 1. Edit Active Surveillance Record Details Modal */}
-      {editAuditModalOpen && (
-        <Modal
-          open={editAuditModalOpen}
-          onClose={() => setEditAuditModalOpen(false)}
-          title={`Edit Surveillance Status · ${campus.name}`}
-          description="Update audit scope, ISO standard version, surveillance cycle, auditor sign-off, and findings."
-          size="lg"
-          footer={
-            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
-              <button
-                type="button"
-                onClick={() => setEditAuditModalOpen(false)}
-                className="btn btn-secondary w-full sm:w-auto"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAuditRecord}
-                className="btn btn-primary w-full sm:w-auto"
-              >
-                Save Audit Details
-              </button>
-            </div>
-          }
-        >
-          <form onSubmit={handleSaveAuditRecord} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="label">Evaluating Body *</label>
-                <input
-                  type="text"
-                  value={auditForm.evaluatingBody}
-                  onChange={(e) => setAuditForm({ ...auditForm, evaluatingBody: e.target.value })}
-                  className="input"
-                  placeholder="e.g. TÜV Rheinland (ISO 9001:2015)"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="label">Surveillance Status *</label>
-                <input
-                  type="text"
-                  value={auditForm.validationStatus}
-                  onChange={(e) => setAuditForm({ ...auditForm, validationStatus: e.target.value })}
-                  className="input"
-                  placeholder="e.g. Certified & Signed"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="label">Last Assessment Date *</label>
-                <input
-                  type="date"
-                  value={auditForm.lastAssessmentDate}
-                  onChange={(e) => setAuditForm({ ...auditForm, lastAssessmentDate: e.target.value })}
-                  className="input"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="label">Next Cycle Submission *</label>
-                <input
-                  type="text"
-                  value={auditForm.nextCycleSubmission}
-                  onChange={(e) => setAuditForm({ ...auditForm, nextCycleSubmission: e.target.value })}
-                  className="input"
-                  placeholder="e.g. 2025 Recertification Audit"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="label">Audit Scope & Location Context</label>
-              <input
-                type="text"
-                value={auditForm.scope}
-                onChange={(e) => setAuditForm({ ...auditForm, scope: e.target.value })}
-                className="input"
-                placeholder="e.g. Academic Instruction, Vocational Teacher Education, and Technical Facilities Management"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="label">ISO Standard Version</label>
-                <input
-                  type="text"
-                  value={auditForm.standardVersion}
-                  onChange={(e) => setAuditForm({ ...auditForm, standardVersion: e.target.value })}
-                  className="input"
-                  placeholder="e.g. ISO 9001:2015"
-                />
-              </div>
-
-              <div>
-                <label className="label">Surveillance Cycle *</label>
-                <input
-                  type="text"
-                  value={auditForm.cycle}
-                  onChange={(e) => setAuditForm({ ...auditForm, cycle: e.target.value })}
-                  className="input"
-                  placeholder="e.g. 2024 Surveillance Audit 2"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="label">Compliance Status</label>
-                <select
-                  value={auditForm.complianceStatus}
-                  onChange={(e) => setAuditForm({ ...auditForm, complianceStatus: e.target.value as ISOComplianceStatus })}
-                  className="select"
-                >
-                  <option value="Compliant">Compliant</option>
-                  <option value="Certified">Certified</option>
-                  <option value="Minor Deficiencies">Minor Deficiencies</option>
-                  <option value="Major Deficiencies Pending Action">Major Deficiencies Pending Action</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="label">Lead ISO Auditor</label>
-                <input
-                  type="text"
-                  value={auditForm.leadAuditor}
-                  onChange={(e) => setAuditForm({ ...auditForm, leadAuditor: e.target.value })}
-                  className="input"
-                  placeholder="e.g. Dr. Evelyn P. Miranda"
-                />
-              </div>
-
-              <div>
-                <label className="label">Auditor Role / Designation</label>
-                <input
-                  type="text"
-                  value={auditForm.auditorRole}
-                  onChange={(e) => setAuditForm({ ...auditForm, auditorRole: e.target.value })}
-                  className="input"
-                  placeholder="e.g. Lead ISO Quality Auditor"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="label">LEAD AUDITOR SUMMARY & ASSESSORS FEEDBACK</label>
-              <textarea
-                value={auditForm.summary}
-                onChange={(e) => setAuditForm({ ...auditForm, summary: e.target.value })}
-                className="textarea h-20 text-[13px]"
-                placeholder="Effective execution of instructional processes and workshop safety. Minor improvements suggested for document change request logging..."
-              />
-            </div>
-
-            <div>
-              <label className="label">Surveillance Findings Distribution</label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div>
-                  <span className="text-[11px] text-ink-muted">Conformances</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={auditForm.conformances}
-                    onChange={(e) => setAuditForm({ ...auditForm, conformances: parseInt(e.target.value) || 0 })}
-                    className="input text-xs mt-1"
-                  />
-                </div>
-                <div>
-                  <span className="text-[11px] text-ink-muted">OFI (Opportunities)</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={auditForm.ofi}
-                    onChange={(e) => setAuditForm({ ...auditForm, ofi: parseInt(e.target.value) || 0 })}
-                    className="input text-xs mt-1"
-                  />
-                </div>
-                <div>
-                  <span className="text-[11px] text-ink-muted">Minor NC</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={auditForm.minorNC}
-                    onChange={(e) => setAuditForm({ ...auditForm, minorNC: parseInt(e.target.value) || 0 })}
-                    className="input text-xs mt-1"
-                  />
-                </div>
-                <div>
-                  <span className="text-[11px] text-ink-muted">Major NC (CAR)</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={auditForm.majorNC}
-                    onChange={(e) => setAuditForm({ ...auditForm, majorNC: parseInt(e.target.value) || 0 })}
-                    className="input text-xs mt-1"
-                  />
-                </div>
-              </div>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* 2. Upload File(s) / Folder Modal */}
+      {/* 1. Upload File(s) / Folder Modal */}
       {uploadModalOpen && (
         <Modal
           open={uploadModalOpen}
@@ -2128,14 +1755,7 @@ export function CampusISOView() {
         }}
       />
 
-      {/* 8. Conduct Surveillance Modal */}
-      <ISOSurveillanceModal
-        open={auditModalOpen}
-        campusId={selectedCampusId}
-        onClose={() => setAuditModalOpen(false)}
-      />
-
-      {/* 9. Close CAR Modal */}
+      {/* Close CAR Modal */}
       {selectedCar && (
         <Modal
           open={!!selectedCar}
@@ -2184,75 +1804,7 @@ export function CampusISOView() {
         </Modal>
       )}
 
-      {/* 10. Edit Section Header Modal */}
-      {headerModalOpen && (
-        <Modal
-          open={headerModalOpen}
-          onClose={() => setHeaderModalOpen(false)}
-          title="Edit ISO Section Header"
-          description="Update the title and contextual description for the ISO quality surveillance page."
-          size="md"
-          footer={
-            <div className="flex flex-col-reverse sm:flex-row w-full items-stretch sm:items-center justify-between gap-3">
-              {sectionTitle !== DEFAULT_ISO_TITLE || sectionDescription !== DEFAULT_ISO_DESCRIPTION ? (
-                <button
-                  type="button"
-                  onClick={handleResetHeader}
-                  className="btn btn-ghost btn-sm text-ink-muted hover:text-ink gap-1.5 self-center sm:self-auto"
-                >
-                  <RotateCcwIcon className="h-3.5 w-3.5" /> Reset to Default
-                </button>
-              ) : <div />}
-              <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setHeaderModalOpen(false)}
-                  className="btn btn-secondary w-full sm:w-auto"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveModalHeader}
-                  className="btn btn-primary w-full sm:w-auto"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          }
-        >
-          <form onSubmit={handleSaveModalHeader} className="space-y-4">
-            <div>
-              <label className="label">Section Title</label>
-              <input
-                type="text"
-                value={modalTitleValue}
-                onChange={(e) => setModalTitleValue(e.target.value)}
-                className="input"
-                placeholder="e.g. ISO 9001:2015 Surveillance, Monitoring & Compliance"
-                maxLength={120}
-                required
-              />
-              <p className="mt-1 text-[11px] text-ink-muted">
-                Main heading displayed at the top of the ISO quality management section.
-              </p>
-            </div>
-
-            <div>
-              <label className="label">Section Description</label>
-              <textarea
-                value={modalDescValue}
-                onChange={(e) => setModalDescValue(e.target.value)}
-                className="textarea h-24 text-[13px]"
-                placeholder="Brief description of the quality management surveillance..."
-              />
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* 11. Official Certificates Modal */}
+      {/* Official Certificates Modal */}
       <CertificateFoldersModal
         open={certificatesOpen}
         onClose={() => setCertificatesOpen(false)}
@@ -2265,7 +1817,7 @@ export function CampusISOView() {
         subject={campus.name}
         program="Quality Management & Institutional Excellence"
         cycle={isoRecord.cycle}
-        body={isoRecord.evaluatingBody && !isoRecord.evaluatingBody.includes('DAP') ? isoRecord.evaluatingBody : 'TÜV Rheinland'}
+        body="TÜV Rheinland"
         campusId={selectedCampusId}
         campusName={campus.name}
         stats={[
