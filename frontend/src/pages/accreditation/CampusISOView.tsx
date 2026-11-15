@@ -17,7 +17,6 @@ import {
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
-import { TextField } from '../../components/ui/TextField';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
 import { FolderFormModal } from '../../components/folders/FolderFormModal';
 import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
@@ -29,12 +28,10 @@ import { OfficialCertificatesStrip, useCampusCertificates } from '../../componen
 import { formatDate } from '../../utils/format';
 import {
   ShieldCheckIcon,
-  CheckCircle2Icon,
   UserCheckIcon,
   PencilIcon,
   HistoryIcon,
   FileTextIcon,
-  ArchiveIcon,
   LayersIcon,
   EyeIcon,
   CloudUploadIcon,
@@ -190,7 +187,6 @@ export function CampusISOView() {
     folders,
     saveFolder,
     deleteFolder,
-    updateISOCorrectiveAction,
     currentUser,
     selectedCampus,
     setSelectedCampus
@@ -245,22 +241,6 @@ export function CampusISOView() {
       });
     }
   }, [folders, saveFolder, selectedCampusId, campus.name]);
-
-  // Close CAR state
-  const [selectedCar, setSelectedCar] = useState<ISOCorrectiveAction | null>(null);
-  const [verifyDate, setVerifyDate] = useState(new Date().toISOString().slice(0, 10));
-  const [verifyNotes, setVerifyNotes] = useState('');
-
-  const handleVerifyCar = () => {
-    if (!canMutate || !selectedCar) return;
-    updateISOCorrectiveAction(isoRecord.id, selectedCar.id, {
-      status: 'Closed / Verified',
-      verificationDate: verifyDate,
-      verifiedBy: currentUser.name || 'Lead Quality Auditor'
-    });
-    toast.success(`CAR ${selectedCar.carNumber} marked as Verified and Closed`);
-    setSelectedCar(null);
-  };
 
   const openCars = (isoRecord.correctiveActions || []).filter((c) => c.status !== 'Closed / Verified');
 
@@ -1133,131 +1113,6 @@ export function CampusISOView() {
         </div>
       </div>
 
-      {/* ISO Clauses Surveillance Checklist */}
-      <div className="mb-6 space-y-3">
-        <h3 className="text-sm font-bold text-ink">
-          {isoRecord.standardVersion || 'ISO 9001:2015'} Clause Conformance Audit Trail
-        </h3>
-
-        <div className="panel divide-y divide-line overflow-hidden">
-          {(isoRecord.clausesEvaluated || []).map((clause) => (
-            <div key={clause.clauseNumber} className="p-3.5 hover:bg-canvas/50 transition-colors">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-brand-700">{clause.clauseNumber}</span>
-                    <span className="font-semibold text-ink text-xs">{clause.clauseTitle}</span>
-                    <Badge
-                      tone={
-                        clause.status === 'Conforming'
-                          ? 'success'
-                          : clause.status === 'Opportunity for Improvement'
-                            ? 'brand'
-                            : 'warning'
-                      }
-                      dot
-                    >
-                      {clause.status}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-ink-muted mt-1">{clause.notes}</p>
-                </div>
-
-                <div className="text-right text-xs text-ink-subtle shrink-0">
-                  <span>Auditor: {clause.auditor}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Corrective Action Requests (CARs) Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-ink">Campus Corrective Action Requests (CARs)</h3>
-            <p className="text-xs text-ink-muted">
-              Monitoring and verification of non-conformance corrections and systemic preventive measures.
-            </p>
-          </div>
-        </div>
-
-        {(isoRecord.correctiveActions || []).length === 0 ? (
-          <div className="panel p-6 text-center text-xs text-ink-muted">
-            <CheckCircle2Icon className="mx-auto h-8 w-8 text-success-600 mb-1" />
-            No active or past Corrective Action Requests issued for this audit record. Full conformance maintained.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {(isoRecord.correctiveActions || []).map((car) => {
-              const isClosed = car.status === 'Closed / Verified';
-              return (
-                <div
-                  key={car.id}
-                  className={`panel p-4 border-l-4 ${isClosed ? 'border-l-success-600 bg-white' : 'border-l-warning-600 bg-warning-50/20'
-                    }`}
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-ink">{car.carNumber}</span>
-                        <span className="text-xs text-ink-muted font-medium">({car.clauseRef})</span>
-                        <Badge tone={isClosed ? 'success' : 'warning'} dot>
-                          {car.status}
-                        </Badge>
-                      </div>
-
-                      <h4 className="mt-1 text-sm font-semibold text-ink">{car.deficiencyDescription}</h4>
-
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2 rounded-md bg-canvas/70 p-3 text-xs">
-                        <div>
-                          <strong className="text-ink">Root Cause:</strong>{' '}
-                          <span className="text-ink-muted">{car.rootCause}</span>
-                        </div>
-                        <div>
-                          <strong className="text-ink">Immediate Correction:</strong>{' '}
-                          <span className="text-ink-muted">{car.correction}</span>
-                        </div>
-                        <div>
-                          <strong className="text-ink">Systemic Corrective Action:</strong>{' '}
-                          <span className="text-ink-muted">{car.correctiveAction}</span>
-                        </div>
-                        <div>
-                          <strong className="text-ink">Target Date:</strong>{' '}
-                          <span className="text-ink font-semibold">{car.targetDate}</span>
-                        </div>
-                      </div>
-
-                      {isClosed && (
-                        <div className="mt-2 text-xs text-success-700 font-medium flex items-center gap-1">
-                          <CheckCircle2Icon className="h-3.5 w-3.5" />
-                          Verified and closed on {car.verificationDate} by {car.verifiedBy}
-                        </div>
-                      )}
-                    </div>
-
-                    {isoRecord.isHistorical ? (
-                      <span className="text-xs text-ink-muted italic flex items-center gap-1 shrink-0">
-                        <ArchiveIcon className="h-3.5 w-3.5 text-brand-600" /> Preserved in historical archive
-                      </span>
-                    ) : !isClosed && canMutate ? (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCar(car)}
-                        className="btn btn-secondary btn-sm text-xs shrink-0"
-                      >
-                        <UserCheckIcon className="h-3.5 w-3.5" /> Verify & Close CAR
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
       {/* ========================================================= */}
       {/* MODALS */}
       {/* ========================================================= */}
@@ -1754,55 +1609,6 @@ export function CampusISOView() {
           }
         }}
       />
-
-      {/* Close CAR Modal */}
-      {selectedCar && (
-        <Modal
-          open={!!selectedCar}
-          onClose={() => setSelectedCar(null)}
-          title={`Verify & Close ${selectedCar.carNumber}`}
-          description={selectedCar.deficiencyDescription}
-          size="md"
-          footer={
-            <div className="flex flex-col-reverse sm:flex-row gap-2 justify-end w-full">
-              <button
-                type="button"
-                onClick={() => setSelectedCar(null)}
-                className="btn btn-secondary w-full sm:w-auto"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleVerifyCar}
-                className="btn btn-primary w-full sm:w-auto"
-              >
-                Sign Off & Close
-              </button>
-            </div>
-          }
-        >
-          <div className="space-y-3">
-            <TextField
-              label="Verification Date"
-              type="date"
-              value={verifyDate}
-              onChange={setVerifyDate}
-              required
-            />
-
-            <div>
-              <label className="label">Auditor Verification Remarks</label>
-              <textarea
-                value={verifyNotes}
-                onChange={(e) => setVerifyNotes(e.target.value)}
-                className="textarea h-20 text-[13px]"
-                placeholder="Confirm that corrective action was evaluated in place and effectiveness was verified..."
-              />
-            </div>
-          </div>
-        </Modal>
-      )}
 
       {/* Official Certificates Modal */}
       <CertificateFoldersModal
