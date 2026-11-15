@@ -832,33 +832,11 @@ export function CampusISOView() {
               </p>
             </div>
 
-            <div className="flex flex-col sm:items-end gap-1">
-              <div className="sm:text-right">
-                <span className="text-xs text-ink-muted">Assessment Status</span>
-                <p className="mt-0.5 text-sm font-semibold text-brand-700">
-                  {isoRecord.validationStatus || 'Awarded'}
-                </p>
-              </div>
-              {canMutate && (
-                <div className="flex items-center gap-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditAudit(isoRecord)}
-                    className="btn btn-secondary btn-xs gap-1.5 shadow-xs"
-                    title="Edit Audit Details & Status"
-                  >
-                    <PencilIcon className="h-3.5 w-3.5" /> Edit Details
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUploadModalOpen(true)}
-                    className="btn btn-primary btn-xs gap-1.5 shadow-xs"
-                    title="Upload Evidence Files or Folder"
-                  >
-                    <CloudUploadIcon className="h-3.5 w-3.5" /> Upload Evidence
-                  </button>
-                </div>
-              )}
+            <div className="text-right">
+              <span className="text-xs text-ink-muted">Assessment Status</span>
+              <p className="mt-0.5 text-sm font-semibold text-brand-700">
+                {isoRecord.validationStatus || 'Awarded'}
+              </p>
             </div>
           </div>
 
@@ -2279,14 +2257,14 @@ export function CampusISOView() {
         onActivate={
           canMutate
             ? (doc, code) => {
-                if (code) {
-                  saveISOSurveillanceRecord({
-                    ...isoRecord,
-                    complianceStatus: code as any
-                  });
-                }
-                toast.success(code ? `"${doc.title}" activated` : `"${doc.title}" activated`);
+              if (code) {
+                saveISOSurveillanceRecord({
+                  ...isoRecord,
+                  complianceStatus: code as any
+                });
               }
+              toast.success(code ? `"${doc.title}" activated` : `"${doc.title}" activated`);
+            }
             : undefined
         }
       />
