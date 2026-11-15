@@ -677,27 +677,18 @@ export function CampusISOView() {
         description={sectionDescription}
         actions={
           canMutate ? (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setModalTitleValue(sectionTitle);
-                  setModalDescValue(sectionDescription);
-                  setHeaderModalOpen(true);
-                }}
-                className="btn btn-secondary btn-sm"
-                title="Edit Section Title & Header"
-              >
-                <PencilIcon className="h-4 w-4" /> Edit Header
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuditModalOpen(true)}
-                className="btn btn-primary btn-sm"
-              >
-                <PlusIcon className="h-4 w-4" /> Conduct Surveillance Audit
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setModalTitleValue(sectionTitle);
+                setModalDescValue(sectionDescription);
+                setHeaderModalOpen(true);
+              }}
+              className="btn btn-secondary btn-sm"
+              title="Edit Section Title & Header"
+            >
+              <PencilIcon className="h-4 w-4" /> Edit Header
+            </button>
           ) : undefined
         }
       />
