@@ -5,7 +5,7 @@ import { uploadAcceptAttribute } from '../../utils/uploadRules';
 import { getSettings } from '../../settings/portalSettings';
 
 /** Drag state for any element that accepts dropped files; a depth counter keeps nested children from flickering it. */
-export function useFileDrop(onFiles: (uploads: PendingUpload[]) => void, { allowFolders = true, disabled = false } = {}) {
+function useFileDrop(onFiles: (uploads: PendingUpload[]) => void, { allowFolders = true, disabled = false } = {}) {
   const [dragActive, setDragActive] = useState(false);
   const depth = useRef(0);
 

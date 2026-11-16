@@ -123,10 +123,11 @@ export function listVerifiedCampusOptions(): Array<{ value: string; label: strin
     if (doc.campusId && doc.campus) map.set(doc.campusId, doc.campus);
   }
   for (const row of copcRecords) {
-    if (!row.campus) continue;
-    const already = [...map.values()].some((n) => n.toLowerCase() === row.campus!.toLowerCase());
+    const campusName = row.campus;
+    if (!campusName) continue;
+    const already = [...map.values()].some((n) => n.toLowerCase() === campusName.toLowerCase());
     if (already) continue;
-    map.set(row.campus.toLowerCase().replace(/\s+/g, '-'), row.campus);
+    map.set(campusName.toLowerCase().replace(/\s+/g, '-'), campusName);
   }
   return [...map.entries()]
     .map(([value, label]) => ({ value, label }))

@@ -28,6 +28,7 @@ import { Badge, BadgeTone } from '../../components/ui/Badge';
 import { usePortal } from '../../contexts/PortalContext';
 import { DocumentType, EvidenceDocument, EvidenceFolder, FolderColor } from '../../types/evidence';
 import { CampusId } from '../../types/accreditation';
+import { isCampusMatch } from '../../utils/campus';
 import { initialFolders, isRootFrameworkFolder } from '../../data/folders';
 import { FolderFormModal } from '../../components/folders/FolderFormModal';
 import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
@@ -61,6 +62,40 @@ interface PreparedUploadItem {
   file?: File;
 }
 
+// Campus Isolation Matchers (Strictly isolates Tandag to Tandag, Cantilan to Cantilan, etc.)
+function isDocCampusMatch(doc: EvidenceDocument, target: CampusId | 'all') {
+  if (target === 'all') return true;
+  if (doc.campusId) return doc.campusId === target;
+  if (doc.campus) {
+    const cNorm = doc.campus.toLowerCase();
+    const idNorm = target.toLowerCase();
+    if (idNorm === 'tandag' && (cNorm.includes('tandag') || cNorm.includes('main campus'))) {
+      return true;
+    }
+    return cNorm.includes(idNorm) || isCampusMatch(doc.campus, target);
+  }
+  return target === 'tandag';
+}
+
+function isFolderCampusMatch(folder: EvidenceFolder, target: CampusId | 'all') {
+  if (target === 'all') return true;
+  if (isRootFrameworkFolder(folder)) return true;
+  if (folder.campusId) return folder.campusId === target;
+  if (folder.campus) {
+    const cNorm = folder.campus.toLowerCase();
+    const idNorm = target.toLowerCase();
+    if (idNorm === 'tandag' && (cNorm.includes('tandag') || cNorm.includes('main campus'))) {
+      return true;
+    }
+    return cNorm.includes(idNorm) || isCampusMatch(folder.campus, target);
+  }
+  // Shared starter subfolders for non-IA frameworks (PA, COPC, PQA, ISO)
+  if (folder.frameworkId && folder.frameworkId !== 'ia') {
+    return true;
+  }
+  return target === 'tandag';
+}
+
 export function UploadEvidence() {
   const [searchParams, setSearchParams] = useSearchParams();
   const folderParam = searchParams.get('folder');
@@ -77,7 +112,6 @@ export function UploadEvidence() {
     selectedCampus,
     setSelectedCampus,
     selectedCampusObj,
-    isCampusMatch,
     currentUser
   } = usePortal();
   const settings = usePortalSettings();
@@ -131,40 +165,6 @@ export function UploadEvidence() {
     } else {
       setSearchParams({});
     }
-  };
-
-  // Campus Isolation Matchers (Strictly isolates Tandag to Tandag, Cantilan to Cantilan, etc.)
-  const isDocCampusMatch = (doc: EvidenceDocument, target: CampusId | 'all') => {
-    if (target === 'all') return true;
-    if (doc.campusId) return doc.campusId === target;
-    if (doc.campus) {
-      const cNorm = doc.campus.toLowerCase();
-      const idNorm = target.toLowerCase();
-      if (idNorm === 'tandag' && (cNorm.includes('tandag') || cNorm.includes('main campus'))) {
-        return true;
-      }
-      return cNorm.includes(idNorm) || isCampusMatch(doc.campus, target);
-    }
-    return target === 'tandag';
-  };
-
-  const isFolderCampusMatch = (folder: EvidenceFolder, target: CampusId | 'all') => {
-    if (target === 'all') return true;
-    if (isRootFrameworkFolder(folder)) return true;
-    if (folder.campusId) return folder.campusId === target;
-    if (folder.campus) {
-      const cNorm = folder.campus.toLowerCase();
-      const idNorm = target.toLowerCase();
-      if (idNorm === 'tandag' && (cNorm.includes('tandag') || cNorm.includes('main campus'))) {
-        return true;
-      }
-      return cNorm.includes(idNorm) || isCampusMatch(folder.campus, target);
-    }
-    // Shared starter subfolders for non-IA frameworks (PA, COPC, PQA, ISO)
-    if (folder.frameworkId && folder.frameworkId !== 'ia') {
-      return true;
-    }
-    return target === 'tandag';
   };
 
   // The 5 Canonical Framework Root Repositories: IA, PA, COPC, PQA, ISO ONLY (EXACTLY 5 AT ALL CAMPUSES AND AT EACH CAMPUS)
@@ -1125,7 +1125,7 @@ export function UploadEvidence() {
                 <Building2Icon className="pointer-events-none absolute left-2.5 top-1/2 z-[1] h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" />
                 <select
                   value={selectedCampus}
-                  onChange={(e) => setSelectedCampus(e.target.value as any)}
+                  onChange={(e) => setSelectedCampus(e.target.value as CampusId | 'all')}
                   aria-label="Filter by campus"
                   className="input select select-sm h-9 w-auto min-w-[9rem] pl-8 text-xs font-semibold hover:border-brand-300"
                 >
@@ -1424,7 +1424,7 @@ export function UploadEvidence() {
                   <ArrowUpDownIcon className="h-3.5 w-3.5 text-slate-400 hidden sm:inline shrink-0" />
                   <select
                     value={docSort}
-                    onChange={(e) => setDocSort(e.target.value as any)}
+                    onChange={(e) => setDocSort(e.target.value as 'newest' | 'oldest' | 'title-asc' | 'title-desc' | 'size-desc')}
                     className="input select select-sm h-9 w-full shrink-0 text-xs font-medium hover:border-brand-300 sm:w-48"
                   >
                     <option value="newest">Sort: Newest First</option>

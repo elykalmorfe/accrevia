@@ -5,6 +5,7 @@ import { pluralize } from '../../utils/format';
 import type { EvidenceDocument } from '../../types/evidence';
 
 /** Certificates stored under `areaKey`, newest first, plus the active one and its level folder name. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCampusCertificates(frameworkId: string, areaKey: string) {
   const { documents, folders } = usePortal();
 

@@ -123,11 +123,11 @@ export function CertificatesBrowser({
       setBrowse(null);
       setSearchDocs(null);
     }
-  }, [pathIds, filters, reloadKey, isDocumentSearch]);
+  }, [pathIds, filters, isDocumentSearch]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, reloadKey]);
 
   useEffect(() => {
     try {
@@ -137,8 +137,8 @@ export function CertificatesBrowser({
     }
   }, [viewMode]);
 
-  const folders: RepoFolderNode[] = browse?.current.folders ?? [];
-  const documents: RepoDocumentItem[] = browse?.current.documents ?? [];
+  const folders: RepoFolderNode[] = useMemo(() => browse?.current.folders ?? [], [browse]);
+  const documents: RepoDocumentItem[] = useMemo(() => browse?.current.documents ?? [], [browse]);
 
   useEffect(() => {
     if (!focusDocumentId || loadState !== 'ready') return;

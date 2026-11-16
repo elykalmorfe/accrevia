@@ -140,11 +140,13 @@ export async function prefetchRatingsDocuments(documents: EvidenceDocument[]): P
     if (!isLocalCertificatePath(doc.documentUrl)) continue;
     const existing = await getStoredFile(doc.id).catch(() => undefined);
     if (existing) continue;
+    const docUrl = doc.documentUrl;
+    if (!docUrl) continue;
     try {
-      const res = await fetch(doc.documentUrl!);
+      const res = await fetch(docUrl);
       if (!res.ok) continue;
       const blob = await res.blob();
-      const name = doc.documentUrl!.split('/').pop() || `${doc.id}.pdf`;
+      const name = docUrl.split('/').pop() || `${doc.id}.pdf`;
       await saveStoredFile(doc.id, blob, name);
       stored += 1;
     } catch {

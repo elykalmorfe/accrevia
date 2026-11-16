@@ -87,9 +87,10 @@ export function TechnicalReviewReviewModal({
 
   const onApprove = async (e: FormEvent) => {
     e.preventDefault();
+    if (!request) return;
     await run(
       () =>
-        accessRequestService.approveRequest(request!.id, {
+        accessRequestService.approveRequest(request.id, {
           expiresAt,
           remarks,
           reviewerName
@@ -100,9 +101,10 @@ export function TechnicalReviewReviewModal({
 
   const onDeny = async (e: FormEvent) => {
     e.preventDefault();
+    if (!request) return;
     await run(
       () =>
-        accessRequestService.denyRequest(request!.id, {
+        accessRequestService.denyRequest(request.id, {
           reason,
           reviewerName
         }),
@@ -112,9 +114,10 @@ export function TechnicalReviewReviewModal({
 
   const onRevoke = async (e: FormEvent) => {
     e.preventDefault();
+    if (!request) return;
     await run(
       () =>
-        accessRequestService.revokeRequest(request!.id, {
+        accessRequestService.revokeRequest(request.id, {
           reason,
           reviewerName
         }),

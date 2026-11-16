@@ -412,7 +412,9 @@ export function CopcRecordsPanel({ initialQuery = '' }: { initialQuery?: string 
                             <button
                               type="button"
                               className="inline-flex items-center gap-1.5 text-ink-subtle hover:text-ink"
-                              onClick={() => toggleSort(col.key!)}
+                              onClick={() => {
+                                if (col.key) toggleSort(col.key);
+                              }}
                               aria-label={`Sort by ${col.label}`}
                             >
                               {col.label}

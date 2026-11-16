@@ -1,21 +1,22 @@
 import { EvidenceFolder } from '../types/evidence';
 
-export const ROOT_FRAMEWORK_FOLDER_IDS = [
+export const ROOT_FRAMEWORK_FOLDER_IDS: readonly string[] = [
   'folder-ia',
   'folder-pa',
   'folder-copc',
   'folder-pqa',
   'folder-iso'
-] as const;
+];
 
-export const ROOT_FRAMEWORK_CODES = ['IA', 'PA', 'COPC', 'PQA', 'ISO'] as const;
+export const ROOT_FRAMEWORK_CODES: readonly string[] = ['IA', 'PA', 'COPC', 'PQA', 'ISO'];
 
 export function isRootFrameworkFolder(folder?: EvidenceFolder | null): boolean {
   if (!folder) return false;
+  const upperCode = folder.code?.toUpperCase() ?? '';
   return (
-    ROOT_FRAMEWORK_FOLDER_IDS.includes(folder.id as any) ||
-    (folder.isSystem && ROOT_FRAMEWORK_CODES.includes(folder.code?.toUpperCase() as any)) ||
-    (!folder.parentId && !folder.areaId && ROOT_FRAMEWORK_CODES.includes(folder.code?.toUpperCase() as any))
+    ROOT_FRAMEWORK_FOLDER_IDS.includes(folder.id) ||
+    (folder.isSystem && ROOT_FRAMEWORK_CODES.includes(upperCode)) ||
+    (!folder.parentId && !folder.areaId && ROOT_FRAMEWORK_CODES.includes(upperCode))
   );
 }
 

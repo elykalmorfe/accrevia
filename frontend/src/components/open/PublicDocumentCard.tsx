@@ -87,4 +87,5 @@ export function PublicDocumentCard({ doc, onPreview }: PublicDocumentCardProps) 
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { formatPublishedAt };

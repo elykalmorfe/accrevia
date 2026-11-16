@@ -24,6 +24,7 @@ export interface RequestFolder {
   icon: LucideIcon;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const adminFolders: RequestFolder[] = [
   { id: 'inbox', label: 'Inbox', icon: InboxIcon },
   { id: 'unread', label: 'Unread', icon: MailOpenIcon },
@@ -32,6 +33,7 @@ export const adminFolders: RequestFolder[] = [
   { id: 'closed', label: 'Closed', icon: ArchiveIcon }
 ];
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const userFolders: RequestFolder[] = [
   { id: 'all', label: 'My Requests', icon: InboxIcon },
   { id: 'inbox', label: 'Awaiting reply', icon: ClockIcon },
@@ -39,6 +41,7 @@ export const userFolders: RequestFolder[] = [
   { id: 'closed', label: 'Closed', icon: ArchiveIcon }
 ];
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function inFolder(request: DocumentRequest, folder: RequestFolderId, asAdmin: boolean): boolean {
   switch (folder) {
     case 'inbox':
