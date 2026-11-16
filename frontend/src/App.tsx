@@ -1,8 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
-import { PortalProvider, usePortal } from './contexts/PortalContext';
+import { PortalProvider, usePortalSafe } from './contexts/PortalContext';
 import { SharingDialogsProvider } from './contexts/SharingDialogsContext';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { AppShell } from './components/layout/AppShell';
 import { RequireAuth } from './components/auth/RequireAuth';
 import { Dashboard } from './pages/Dashboard';
@@ -80,7 +81,9 @@ function HomeRoute() {
 }
 
 function ProtectedAppRoutes() {
-  const { isAdmin } = usePortal();
+  const portal = usePortalSafe();
+  const session = getSessionAccount();
+  const isAdmin = portal?.isAdmin ?? (session?.role === 'Superadmin' || session?.role === 'Administrator');
   const location = useLocation();
 
   if (!isAuthenticated()) {
@@ -172,85 +175,87 @@ export function App({ viewAs = 'Administrator' }: AppProps) {
       <MotionConfig reducedMotion="user">
         <PortalProvider viewAs={viewAs}>
           <SharingDialogsProvider>
-            <Routes>
-              <Route path="/" element={<HomeRoute />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<SignupPage />} />
-              <Route path="/signup" element={<Navigate to="/register" replace />} />
-              <Route
-                path="/open"
-                element={
-                  <RequireAuth>
-                    <PublicPortalShell />
-                  </RequireAuth>
-                }
-              >
-                <Route index element={<OpenHome />} />
-                <Route path="search" element={<OpenSearch />} />
-                <Route path="browse" element={<OpenBrowse />} />
-                <Route path="areas" element={<OpenAreas />} />
-                <Route path="programs" element={<OpenPrograms />} />
-                <Route path="featured" element={<OpenFeatured />} />
-                <Route path="recent" element={<OpenRecent />} />
-                <Route path="about" element={<OpenAbout />} />
-                <Route path="help" element={<OpenHelp />} />
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<HomeRoute />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<SignupPage />} />
+                <Route path="/signup" element={<Navigate to="/register" replace />} />
                 <Route
-                  path="requests"
-                  element={<Requests basePath="/open/requests" forceUserScope />}
-                />
-                <Route
-                  path="requests/:requestId"
-                  element={<Requests basePath="/open/requests" forceUserScope />}
-                />
-                {/* Deep-link preserved for Technical Review access-request tracking */}
-                <Route path="access-requests" element={<OpenAccessRequests />} />
-                <Route path="frameworks" element={<Navigate to="/open/frameworks/ia" replace />} />
-                <Route
-                  path="frameworks/ia"
+                  path="/open"
                   element={
-                    <FacultyAccreditationShell>
-                      <CampusIAView />
-                    </FacultyAccreditationShell>
+                    <RequireAuth>
+                      <PublicPortalShell />
+                    </RequireAuth>
                   }
-                />
-                <Route
-                  path="frameworks/pa"
-                  element={
-                    <FacultyAccreditationShell>
-                      <ProgramAccreditationView />
-                    </FacultyAccreditationShell>
-                  }
-                />
-                <Route
-                  path="frameworks/copc"
-                  element={
-                    <FacultyAccreditationShell>
-                      <COPCView />
-                    </FacultyAccreditationShell>
-                  }
-                />
-                <Route
-                  path="frameworks/pqa"
-                  element={
-                    <FacultyAccreditationShell>
-                      <CampusPQAView />
-                    </FacultyAccreditationShell>
-                  }
-                />
-                <Route
-                  path="frameworks/iso"
-                  element={
-                    <FacultyAccreditationShell>
-                      <CampusISOView />
-                    </FacultyAccreditationShell>
-                  }
-                />
-                <Route path="account" element={<Account />} />
-                <Route path="settings" element={<FacultySettings />} />
-                <Route path="*" element={<Navigate to="/open" replace />} />
-              </Route>
-              <Route path="/*" element={<ProtectedAppRoutes />} />
-            </Routes>
+                >
+                  <Route index element={<OpenHome />} />
+                  <Route path="search" element={<OpenSearch />} />
+                  <Route path="browse" element={<OpenBrowse />} />
+                  <Route path="areas" element={<OpenAreas />} />
+                  <Route path="programs" element={<OpenPrograms />} />
+                  <Route path="featured" element={<OpenFeatured />} />
+                  <Route path="recent" element={<OpenRecent />} />
+                  <Route path="about" element={<OpenAbout />} />
+                  <Route path="help" element={<OpenHelp />} />
+                  <Route
+                    path="requests"
+                    element={<Requests basePath="/open/requests" forceUserScope />}
+                  />
+                  <Route
+                    path="requests/:requestId"
+                    element={<Requests basePath="/open/requests" forceUserScope />}
+                  />
+                  {/* Deep-link preserved for Technical Review access-request tracking */}
+                  <Route path="access-requests" element={<OpenAccessRequests />} />
+                  <Route path="frameworks" element={<Navigate to="/open/frameworks/ia" replace />} />
+                  <Route
+                    path="frameworks/ia"
+                    element={
+                      <FacultyAccreditationShell>
+                        <CampusIAView />
+                      </FacultyAccreditationShell>
+                    }
+                  />
+                  <Route
+                    path="frameworks/pa"
+                    element={
+                      <FacultyAccreditationShell>
+                        <ProgramAccreditationView />
+                      </FacultyAccreditationShell>
+                    }
+                  />
+                  <Route
+                    path="frameworks/copc"
+                    element={
+                      <FacultyAccreditationShell>
+                        <COPCView />
+                      </FacultyAccreditationShell>
+                    }
+                  />
+                  <Route
+                    path="frameworks/pqa"
+                    element={
+                      <FacultyAccreditationShell>
+                        <CampusPQAView />
+                      </FacultyAccreditationShell>
+                    }
+                  />
+                  <Route
+                    path="frameworks/iso"
+                    element={
+                      <FacultyAccreditationShell>
+                        <CampusISOView />
+                      </FacultyAccreditationShell>
+                    }
+                  />
+                  <Route path="account" element={<Account />} />
+                  <Route path="settings" element={<FacultySettings />} />
+                  <Route path="*" element={<Navigate to="/open" replace />} />
+                </Route>
+                <Route path="/*" element={<ProtectedAppRoutes />} />
+              </Routes>
+            </ErrorBoundary>
           </SharingDialogsProvider>
         </PortalProvider>
       </MotionConfig>

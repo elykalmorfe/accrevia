@@ -7,7 +7,17 @@ interface SharingDialogsValue {
   openManageAccess: (documentId: string) => void;
 }
 
-const SharingDialogsContext = createContext<SharingDialogsValue | null>(null);
+const globalForSharingDialogs = globalThis as unknown as {
+  __accrevia_sharing_dialogs_context__?: React.Context<SharingDialogsValue | null>;
+};
+
+export const SharingDialogsContext =
+  globalForSharingDialogs.__accrevia_sharing_dialogs_context__ ??
+  createContext<SharingDialogsValue | null>(null);
+
+if (process.env.NODE_ENV !== 'production' || typeof window !== 'undefined') {
+  globalForSharingDialogs.__accrevia_sharing_dialogs_context__ = SharingDialogsContext;
+}
 
 export function SharingDialogsProvider({ children }: {children: ReactNode;}) {
   const [shareId, setShareId] = useState<string | null>(null);

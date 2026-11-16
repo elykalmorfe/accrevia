@@ -12,7 +12,17 @@ export type FacultyPortalContextValue = {
   institutionalReadOnly: true;
 };
 
-const FacultyPortalContext = createContext<FacultyPortalContextValue | null>(null);
+const globalForFacultyPortal = globalThis as unknown as {
+  __accrevia_faculty_portal_context__?: React.Context<FacultyPortalContextValue | null>;
+};
+
+export const FacultyPortalContext =
+  globalForFacultyPortal.__accrevia_faculty_portal_context__ ??
+  createContext<FacultyPortalContextValue | null>(null);
+
+if (process.env.NODE_ENV !== 'production' || typeof window !== 'undefined') {
+  globalForFacultyPortal.__accrevia_faculty_portal_context__ = FacultyPortalContext;
+}
 
 export function FacultyPortalProvider({ children }: { children: ReactNode }) {
   return (

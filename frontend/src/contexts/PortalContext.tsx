@@ -174,7 +174,17 @@ interface PortalContextValue {
   updateISOCorrectiveAction: (recordId: string, carId: string, patch: Partial<ISOCorrectiveAction>) => void;
 }
 
-const PortalContext = createContext<PortalContextValue | null>(null);
+const globalForPortal = globalThis as unknown as {
+  __accrevia_portal_context__?: React.Context<PortalContextValue | null>;
+};
+
+export const PortalContext =
+  globalForPortal.__accrevia_portal_context__ ??
+  createContext<PortalContextValue | null>(null);
+
+if (process.env.NODE_ENV !== 'production' || typeof window !== 'undefined') {
+  globalForPortal.__accrevia_portal_context__ = PortalContext;
+}
 
 const viewAsUserId: Record<PortalViewRole, string> = {
   Superadmin: DEFAULT_SUPERADMIN_ID,
@@ -1282,6 +1292,10 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   );
 
   return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
+}
+
+export function usePortalSafe(): PortalContextValue | null {
+  return useContext(PortalContext);
 }
 
 export function usePortal(): PortalContextValue {

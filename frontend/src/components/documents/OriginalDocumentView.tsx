@@ -300,7 +300,7 @@ export function OriginalDocumentView({
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [doc.id, doc.documentUrl]);
+  }, [doc]);
 
   if (state.status === 'loading') return <Loading />;
 

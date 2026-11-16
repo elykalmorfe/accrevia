@@ -5,6 +5,7 @@ type PublicBrandingPanelProps = {
   showSignupSubtext?: boolean;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function PublicBrandingPanel(_props: PublicBrandingPanelProps = {}) {
   return (
     <div className="relative flex h-full min-h-[18rem] items-center justify-center overflow-hidden bg-[#0B1B47] p-8 lg:min-h-0 lg:p-9">

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
   Building2Icon,
@@ -95,7 +95,6 @@ export function IAFolderManager({
   campusName,
   framework: frameworkProp,
   iaRequirements = [],
-  onRequirementUpdated,
   readOnly = false
 }: IAFolderManagerProps) {
   const { folders, saveFolder, deleteFolder, documents, addDocument, deleteDocument, updateDocument, updateIARequirement, currentUser } = usePortal();
@@ -286,11 +285,11 @@ export function IAFolderManager({
 
   // STRICT FILE ISOLATION: A document belongs to a folder IF AND ONLY IF doc.folderId === folder.id
   // (or if unassigned initial doc in the framework's default system folder)
-  const isDocInFolder = (doc: EvidenceDocument, folder: EvidenceFolder) => {
+  const isDocInFolder = useCallback((doc: EvidenceDocument, folder: EvidenceFolder) => {
     if (doc.folderId === folder.id) return true;
     if (!doc.folderId && folder.id === ROOT_FOLDER_ID) return true;
     return false;
-  };
+  }, [ROOT_FOLDER_ID]);
 
   // --- DOCUMENT APPROVAL & REVISION WORKFLOW ---
   const areaRequirement = (doc: EvidenceDocument) => {
@@ -601,7 +600,7 @@ export function IAFolderManager({
   const allFolderDocs = useMemo(() => {
     if (!currentActiveFolder) return [];
     return campusIADocs.filter((d) => isDocInFolder(d, currentActiveFolder));
-  }, [campusIADocs, currentActiveFolder]);
+  }, [campusIADocs, currentActiveFolder, isDocInFolder]);
 
   // Counts by approval status for current active folder
   const folderApprovalCounts = useMemo(() => {
@@ -651,7 +650,7 @@ export function IAFolderManager({
       const cmp = a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
       return sortDirection === 'asc' ? cmp : -cmp;
     });
-  }, [allFolderDocs, currentActiveFolder, isCustomFolder, approvalStatusFilter, searchQuery, sortDirection]);
+  }, [allFolderDocs, currentActiveFolder, isCustomFolder, approvalStatusFilter, framework.id, isoStageFilter, searchQuery, sortDirection]);
 
   // Click handler for Area cards (Areas 1–9)
   const handleSelectArea = (areaCode: string) => {

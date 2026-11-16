@@ -110,14 +110,12 @@ import {
   GraduationCapIcon,
   BookOpenIcon,
   ClockIcon,
-  AwardIcon,
   SparklesIcon,
   RotateCcwIcon,
   FolderOpenIcon,
   UploadIcon,
   XIcon,
   ShieldCheckIcon,
-  FilterIcon,
   LayersIcon,
   SlidersHorizontalIcon,
   ChevronDownIcon
@@ -320,9 +318,6 @@ export function ProgramAccreditationView() {
     }
   };
 
-  // Summary view mode: AACCUP or COPC
-  const [summaryMode, setSummaryMode] = useState<'aaccup' | 'copc'>('aaccup');
-
   // Campus-scoped dataset (Strict Campus Scope: All Campuses vs Specific Campus)
   const totalInstitutionalPrograms = programAccreditations.length;
 
@@ -387,13 +382,6 @@ export function ProgramAccreditationView() {
   // Total Accredited Programs (Levels 1–4)
   const accreditedCount = level1Count + level2Count + level3Count + level4Count;
 
-  // Non-accreditable programs (e.g. recent or awaiting initial operating requirements)
-  const notAccreditableCount = useMemo(
-    () => campusScopedPrograms.filter((p) => !['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Candidate'].includes(p.status)).length,
-    [campusScopedPrograms]
-  );
-  const candidateOrNotAccreditableCount = candidateCount + notAccreditableCount;
-
   // 8. Accreditation Rate (Strictly differentiated: Institutional vs Campus)
   const accreditationRate =
     totalProgramsScoped > 0
@@ -430,17 +418,6 @@ export function ProgramAccreditationView() {
     setValidityFilter('all');
     setHigherLevelFilter('all');
   };
-
-  // COPC metrics (Scoped)
-  const copcCompliantCount = useMemo(
-    () => campusScopedPrograms.filter((p) => p.copcStatus === 'Compliant').length,
-    [campusScopedPrograms]
-  );
-  const copcPendingCount = useMemo(
-    () => campusScopedPrograms.filter((p) => p.copcStatus === 'Pending' || p.copcStatus === 'Not Applicable').length,
-    [campusScopedPrograms]
-  );
-  const copcRate = totalProgramsScoped > 0 ? ((copcCompliantCount / totalProgramsScoped) * 100).toFixed(2) : '0';
 
   return (
     <>

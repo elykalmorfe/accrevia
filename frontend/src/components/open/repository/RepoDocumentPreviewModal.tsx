@@ -38,7 +38,7 @@ export function RepoDocumentPreviewModal({ doc, onClose }: RepoDocumentPreviewMo
     return () => {
       cancelled = true;
     };
-  }, [doc?.id, hints?.localCandidateUrl]);
+  }, [doc, hints?.localCandidateUrl]);
 
   const mode = hints
     ? resolveAccessMode({
