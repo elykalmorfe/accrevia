@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import { CampusId } from '../../types/accreditation';
 import type { EvidenceDocument } from '../../types/evidence';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
+import { Modal } from '../../components/ui/Modal';
 import { IAFolderManager } from '../../components/accreditation/IAFolderManager';
 import { ISO_FOLDER_FRAMEWORK } from '../../components/accreditation/folderFrameworks';
 import { CertificateFoldersModal, CertificateLevel } from '../../components/accreditation/CertificateFoldersModal';
@@ -16,7 +17,9 @@ import {
   UserCheckIcon,
   HistoryIcon,
   LayersIcon,
-  CalendarCheckIcon
+  CalendarCheckIcon,
+  PencilIcon,
+  RotateCcwIcon
 } from 'lucide-react';
 import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 
@@ -83,6 +86,71 @@ export function CampusISOView() {
 
   const openCars = (isoRecord?.correctiveActions || []).filter((c) => c.status !== 'Closed / Verified');
 
+  // Section Header Editing
+  const [sectionTitle, setSectionTitle] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('accrevia_iso_section_title');
+      return saved ? JSON.parse(saved) : DEFAULT_ISO_TITLE;
+    } catch {
+      return DEFAULT_ISO_TITLE;
+    }
+  });
+
+  const [sectionDescription, setSectionDescription] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('accrevia_iso_section_description');
+      return saved ? JSON.parse(saved) : DEFAULT_ISO_DESCRIPTION;
+    } catch {
+      return DEFAULT_ISO_DESCRIPTION;
+    }
+  });
+
+  const [headerModalOpen, setHeaderModalOpen] = useState(false);
+  const [modalTitleValue, setModalTitleValue] = useState(sectionTitle);
+  const [modalDescValue, setModalDescValue] = useState(sectionDescription);
+
+  const handleOpenEditHeader = () => {
+    setModalTitleValue(sectionTitle);
+    setModalDescValue(sectionDescription);
+    setHeaderModalOpen(true);
+  };
+
+  const handleSaveModalHeader = (e?: React.FormEvent) => {
+    if (!canMutate) return;
+    if (e) e.preventDefault();
+    const trimmedTitle = modalTitleValue.trim();
+    if (!trimmedTitle) {
+      toast.error('Title cannot be empty');
+      return;
+    }
+    const trimmedDesc = modalDescValue.trim() || DEFAULT_ISO_DESCRIPTION;
+    setSectionTitle(trimmedTitle);
+    setSectionDescription(trimmedDesc);
+    try {
+      localStorage.setItem('accrevia_iso_section_title', JSON.stringify(trimmedTitle));
+      localStorage.setItem('accrevia_iso_section_description', JSON.stringify(trimmedDesc));
+    } catch {
+      // storage unavailable
+    }
+    setHeaderModalOpen(false);
+    toast.success('Header updated successfully');
+  };
+
+  const handleResetHeader = () => {
+    setModalTitleValue(DEFAULT_ISO_TITLE);
+    setModalDescValue(DEFAULT_ISO_DESCRIPTION);
+    setSectionTitle(DEFAULT_ISO_TITLE);
+    setSectionDescription(DEFAULT_ISO_DESCRIPTION);
+    try {
+      localStorage.removeItem('accrevia_iso_section_title');
+      localStorage.removeItem('accrevia_iso_section_description');
+    } catch {
+      // storage unavailable
+    }
+    setHeaderModalOpen(false);
+    toast.success('Header reset to default');
+  };
+
   return (
     <>
       <PageHeader
@@ -91,8 +159,36 @@ export function CampusISOView() {
             Accreditation & Frameworks / Quality Management
           </span>
         }
-        title={DEFAULT_ISO_TITLE}
-        description={DEFAULT_ISO_DESCRIPTION}
+        title={
+          <div className="flex items-center gap-2.5">
+            <span>{sectionTitle}</span>
+            {canMutate && (
+              <button
+                type="button"
+                onClick={handleOpenEditHeader}
+                className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-muted hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                title="Edit Header"
+                aria-label="Edit Header"
+              >
+                <PencilIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        }
+        description={sectionDescription}
+        actions={
+          canMutate ? (
+            <button
+              type="button"
+              onClick={handleOpenEditHeader}
+              className="btn btn-secondary btn-sm text-xs gap-1.5"
+              title="Edit Section Title & Description"
+            >
+              <PencilIcon className="h-3.5 w-3.5" />
+              <span>Edit Header</span>
+            </button>
+          ) : undefined
+        }
       />
 
       {/* Campus Selector Pills */}
@@ -397,6 +493,77 @@ export function CampusISOView() {
           }
         />
       )}
+      {/* Edit Section Header Modal */}
+      {headerModalOpen && (
+        <Modal
+          open={headerModalOpen}
+          onClose={() => setHeaderModalOpen(false)}
+          title="Edit ISO Section Header"
+          description="Update the title and contextual description for the ISO quality management framework."
+          size="md"
+          footer={
+            <div className="flex flex-col-reverse sm:flex-row w-full items-stretch sm:items-center justify-between gap-3">
+              {sectionTitle !== DEFAULT_ISO_TITLE || sectionDescription !== DEFAULT_ISO_DESCRIPTION ? (
+                <button
+                  type="button"
+                  onClick={handleResetHeader}
+                  className="btn btn-ghost btn-sm text-ink-muted hover:text-ink gap-1.5 self-center sm:self-auto"
+                >
+                  <RotateCcwIcon className="h-3.5 w-3.5" /> Reset to Default
+                </button>
+              ) : <div />}
+              <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setHeaderModalOpen(false)}
+                  className="btn btn-secondary w-full sm:w-auto"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveModalHeader}
+                  className="btn btn-primary w-full sm:w-auto"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          }
+        >
+          <form onSubmit={handleSaveModalHeader} className="space-y-4">
+            <div>
+              <label className="label">Section Title</label>
+              <input
+                type="text"
+                value={modalTitleValue}
+                onChange={(e) => setModalTitleValue(e.target.value)}
+                className="input"
+                placeholder="e.g. ISO 9001:2015 Quality Management Framework"
+                maxLength={120}
+                required
+              />
+              <p className="mt-1 text-[11px] text-ink-muted">
+                Main heading displayed at the top of the ISO quality management section.
+              </p>
+            </div>
+
+            <div>
+              <label className="label">Section Description</label>
+              <textarea
+                value={modalDescValue}
+                onChange={(e) => setModalDescValue(e.target.value)}
+                className="textarea h-24 text-[13px]"
+                placeholder="Campus-level quality management system monitoring, surveillance audits, and auditor sign-off."
+              />
+              <p className="mt-1 text-[11px] text-ink-muted">
+                Sub-description explaining the scope of this quality framework.
+              </p>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       <DocumentPreviewModal doc={previewCertificate} onClose={() => setPreviewCertificate(null)} grantAccess />
     </>
   );
