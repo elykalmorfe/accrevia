@@ -77,7 +77,7 @@ export function FolderFormModal({
       setSelectedAreaId(
         initialAreaId
           ? initialAreaId.toLowerCase()
-          : (areas && areas.length > 0 ? areas[0].code.toLowerCase() : '')
+          : (!isIso && areas && areas.length > 0 ? areas[0].code.toLowerCase() : '')
       );
     }
     setError('');
@@ -159,8 +159,8 @@ export function FolderFormModal({
           </div>
         )}
 
-        {/* Target Clause / Area Selection (when creating a top-level area folder and options are available) */}
-        {areas && areas.length > 0 && !parentId && !folder && (
+        {/* Target Clause / Area Selection (when creating a top-level area folder and options are available, non-ISO) */}
+        {areas && areas.length > 0 && !parentId && !folder && !isIso && (
           <div>
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
               {areaNoun ? `Target ${areaNoun}` : 'Target Clause / Area'}

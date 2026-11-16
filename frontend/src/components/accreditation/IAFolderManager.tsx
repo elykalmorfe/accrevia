@@ -558,6 +558,22 @@ export function IAFolderManager({
     );
   }, [searchQuery, OFFICIAL_IA_AREAS]);
 
+  // Root Folders created outside the clauses for ISO
+  const rootIsoFolders = useMemo(() => {
+    if (framework.id !== 'iso') return [];
+    let list = iaFolders.filter((f) => !f.parentId && !f.areaId);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (f) =>
+          f.name.toLowerCase().includes(q) ||
+          f.code.toLowerCase().includes(q) ||
+          (f.description && f.description.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [iaFolders, framework.id, searchQuery]);
+
   // Inside-Folder Subfolders (sorted A to Z)
   const insideSubfolders = useMemo(() => {
     if (!activeFolderId) return [];
@@ -1062,7 +1078,7 @@ export function IAFolderManager({
       ? parentFolder.name
       : selectedAreaCode && currentArea
       ? `${areaLabel(currentArea)}: ${currentArea.name}`
-      : 'Custom Folders Repository';
+      : framework.areasTabLabel;
 
     return (
       <div className="relative overflow-hidden rounded-2xl border border-line bg-gradient-to-r from-white via-white to-brand-50/60 p-4 shadow-xs space-y-3">
@@ -1171,22 +1187,24 @@ export function IAFolderManager({
                 <span>Upload Files / Folder</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingFolder(null);
-                  setFolderFormParentId(currentActiveFolder.id);
-                  setFolderFormAreaId(currentActiveFolder.areaId);
-                  setFolderFormInitialName('');
-                  setFolderFormInitialCode('');
-                  setFolderFormOpen(true);
-                }}
-                className="btn btn-secondary btn-sm h-9 px-3.5 text-xs gap-1.5 shadow-2xs"
-                title="Create a subfolder inside this folder"
-              >
-                <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
-                <span>New Subfolder</span>
-              </button>
+              {framework.id !== 'iso' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingFolder(null);
+                    setFolderFormParentId(currentActiveFolder.id);
+                    setFolderFormAreaId(currentActiveFolder.areaId);
+                    setFolderFormInitialName('');
+                    setFolderFormInitialCode('');
+                    setFolderFormOpen(true);
+                  }}
+                  className="btn btn-secondary btn-sm h-9 px-3.5 text-xs gap-1.5 shadow-2xs"
+                  title="Create a subfolder inside this folder"
+                >
+                  <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
+                  <span>New Subfolder</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1291,7 +1309,7 @@ export function IAFolderManager({
                   activeTab === 'areas' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200/80 text-ink-muted'
                 }`}
               >
-                {OFFICIAL_IA_AREAS.length}
+                {OFFICIAL_IA_AREAS.length + (framework.id === 'iso' ? rootIsoFolders.length : 0)}
               </span>
             </button>
 
@@ -1477,6 +1495,64 @@ export function IAFolderManager({
                     />
                   );
                 })}
+
+                {/* ISO Root Folders created outside the clause folders */}
+                {framework.id === 'iso' &&
+                  rootIsoFolders.map((folder) => {
+                    const folderDocs = campusIADocs.filter((d) => d.folderId === folder.id);
+                    return (
+                      <FolderCard
+                        key={folder.id}
+                        onOpen={() => {
+                          setSelectedAreaCode(null);
+                          setActiveFolderId(folder.id);
+                        }}
+                        title={`Open folder: ${folder.name}`}
+                        eyebrow={folder.code || 'ISO Folder'}
+                        name={folder.name}
+                        meta={`${pluralize(folderDocs.length, 'file')}`}
+                        status={folderDocs.length > 0 ? { label: 'Active', tone: 'info' } : { label: 'Empty', tone: 'neutral' }}
+                        actions={
+                          canMutate && !folder.isSystem ? (
+                            <>
+                              <FolderAction
+                                icon={UploadIcon}
+                                label="Upload into folder"
+                                onClick={() => {
+                                  setIsTopUploadSource(false);
+                                  setSelectedTargetFolder(folder.id);
+                                  setUploadModalOpen(true);
+                                }}
+                              />
+                              <FolderAction
+                                icon={PencilIcon}
+                                label="Edit folder"
+                                onClick={() => {
+                                  setEditingFolder(folder);
+                                  setFolderFormParentId(undefined);
+                                  setFolderFormAreaId(undefined);
+                                  setFolderFormInitialName(folder.name);
+                                  setFolderFormInitialCode(folder.code || '');
+                                  setFolderFormOpen(true);
+                                }}
+                              />
+                              <FolderAction
+                                icon={Trash2Icon}
+                                label="Delete folder"
+                                danger
+                                onClick={() => {
+                                  if (window.confirm(`Are you sure you want to delete folder "${folder.name}"?`)) {
+                                    deleteFolder(folder.id);
+                                    toast.success('Folder deleted');
+                                  }
+                                }}
+                              />
+                            </>
+                          ) : undefined
+                        }
+                      />
+                    );
+                  })}
               </div>
             </div>
           )}
@@ -1539,21 +1615,23 @@ export function IAFolderManager({
                       <UploadIcon className="h-3.5 w-3.5" />
                       <span>Upload Files / Folder</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingFolder(null);
-                        setFolderFormParentId(undefined);
-                        setFolderFormAreaId(currentArea.code.toLowerCase());
-                        setFolderFormInitialName(`${currentArea.name} Portfolio`);
-                        setFolderFormInitialCode(currentArea.code);
-                        setFolderFormOpen(true);
-                      }}
-                      className="btn btn-secondary btn-sm text-xs gap-1.5"
-                    >
-                      <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
-                      <span>Create Folder</span>
-                    </button>
+                    {framework.id !== 'iso' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingFolder(null);
+                          setFolderFormParentId(undefined);
+                          setFolderFormAreaId(currentArea.code.toLowerCase());
+                          setFolderFormInitialName(`${currentArea.name} Portfolio`);
+                          setFolderFormInitialCode(currentArea.code);
+                          setFolderFormOpen(true);
+                        }}
+                        className="btn btn-secondary btn-sm text-xs gap-1.5"
+                      >
+                        <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
+                        <span>Create Folder</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1622,31 +1700,35 @@ export function IAFolderManager({
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-ink">
-                      No Folder Created for {areaLabel(currentArea)} Yet
+                      {framework.id === 'iso'
+                        ? `No Evidence Uploaded for ${areaLabel(currentArea)} Yet`
+                        : `No Folder Created for ${areaLabel(currentArea)} Yet`}
                     </h4>
                     <p className="text-xs text-ink-muted mt-1 max-w-md mx-auto">
                       {framework.id === 'iso'
-                        ? `Create an evidence folder to organize portfolios for ${currentArea.name}.`
+                        ? `Upload official compliance evidence documents for ${currentArea.name}.`
                         : `Create an evidence folder with a start date and optional deadline (or set to no deadline) to organize portfolios for ${currentArea.name}.`}
                     </p>
                   </div>
                   {canMutate && (
                     <div className="flex flex-wrap items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingFolder(null);
-                          setFolderFormParentId(undefined);
-                          setFolderFormAreaId(currentArea.code.toLowerCase());
-                          setFolderFormInitialName(`${currentArea.name} Evidence Portfolio`);
-                          setFolderFormInitialCode(currentArea.code);
-                          setFolderFormOpen(true);
-                        }}
-                        className="btn btn-primary btn-sm text-xs gap-1.5"
-                      >
-                        <FolderPlusIcon className="h-4 w-4" />
-                        <span>Create First Folder with Start & Expired Date</span>
-                      </button>
+                      {framework.id !== 'iso' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingFolder(null);
+                            setFolderFormParentId(undefined);
+                            setFolderFormAreaId(currentArea.code.toLowerCase());
+                            setFolderFormInitialName(`${currentArea.name} Evidence Portfolio`);
+                            setFolderFormInitialCode(currentArea.code);
+                            setFolderFormOpen(true);
+                          }}
+                          className="btn btn-primary btn-sm text-xs gap-1.5"
+                        >
+                          <FolderPlusIcon className="h-4 w-4" />
+                          <span>Create First Folder with Start & Expired Date</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
@@ -1654,9 +1736,9 @@ export function IAFolderManager({
                           setSelectedTargetFolder('');
                           setUploadModalOpen(true);
                         }}
-                        className="btn btn-secondary btn-sm text-xs gap-1.5"
+                        className={`btn ${framework.id === 'iso' ? 'btn-primary' : 'btn-secondary'} btn-sm text-xs gap-1.5`}
                       >
-                        <UploadIcon className="h-4 w-4 text-brand-600" />
+                        <UploadIcon className="h-4 w-4" />
                         <span>Upload Files / Folder</span>
                       </button>
                     </div>
@@ -1721,8 +1803,8 @@ export function IAFolderManager({
             </div>
           )}
 
-          {/* LEVEL 3: INSIDE A FOLDER OF AN AREA */}
-          {selectedAreaCode && currentActiveFolder && (
+          {/* LEVEL 3: INSIDE A FOLDER */}
+          {currentActiveFolder && (
             <div className="space-y-4">
               {/* Professional Redesigned Folder Header */}
               {renderProfessionalFolderHeader()}
@@ -3048,7 +3130,7 @@ export function IAFolderManager({
           const finalFolder: EvidenceFolder = {
             ...f,
             frameworkId: framework.id,
-            category: assignedAreaId ? framework.category : 'General / Custom',
+            category: assignedAreaId ? framework.category : (framework.id === 'iso' ? 'Quality Management' : 'General / Custom'),
             areaId: assignedAreaId ? assignedAreaId.toLowerCase() : undefined,
             campusId: editingFolder?.campusId || campusId,
             campus: editingFolder?.campus || campusName
