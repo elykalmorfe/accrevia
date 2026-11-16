@@ -11,6 +11,12 @@ import { EvidenceFolder, FrameworkCategory } from '../../types/evidence';
 import { Modal } from '../ui/Modal';
 import { TextField } from '../ui/TextField';
 
+export interface FolderAreaOption {
+  code: string;
+  name: string;
+  number?: number;
+}
+
 interface FolderFormModalProps {
   open: boolean;
   folder?: EvidenceFolder | null;
@@ -21,6 +27,8 @@ interface FolderFormModalProps {
   initialAreaId?: string;
   initialName?: string;
   initialCode?: string;
+  areas?: FolderAreaOption[];
+  areaNoun?: string;
   onClose: () => void;
   onSave: (folder: EvidenceFolder) => void;
 }
@@ -35,6 +43,8 @@ export function FolderFormModal({
   initialAreaId,
   initialName,
   initialCode,
+  areas,
+  areaNoun,
   onClose,
   onSave
 }: FolderFormModalProps) {
@@ -45,6 +55,7 @@ export function FolderFormModal({
   const [startDate, setStartDate] = useState('');
   const [expiredDate, setExpiredDate] = useState('');
   const [hasNoDeadline, setHasNoDeadline] = useState(false);
+  const [selectedAreaId, setSelectedAreaId] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -55,6 +66,7 @@ export function FolderFormModal({
       setStartDate(folder.startDate || folder.createdAt || new Date().toISOString().slice(0, 10));
       setExpiredDate(folder.expiredDate || '');
       setHasNoDeadline(isIso ? true : (folder.hasNoDeadline ?? (folder.expiredDate === null)));
+      setSelectedAreaId(folder.areaId ? folder.areaId.toLowerCase() : '');
     } else {
       setName(initialName || '');
       setCode(initialCode || '');
@@ -62,9 +74,14 @@ export function FolderFormModal({
       setStartDate(new Date().toISOString().slice(0, 10));
       setExpiredDate('');
       setHasNoDeadline(isIso ? true : false);
+      setSelectedAreaId(
+        initialAreaId
+          ? initialAreaId.toLowerCase()
+          : (areas && areas.length > 0 ? areas[0].code.toLowerCase() : '')
+      );
     }
     setError('');
-  }, [folder, open, initialName, initialCode, isIso]);
+  }, [folder, open, initialName, initialCode, initialAreaId, isIso, areas]);
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -72,6 +89,9 @@ export function FolderFormModal({
       return;
     }
     const safeCode = (code.trim() || folder?.code || initialCode || name.slice(0, 4)).toUpperCase();
+    const finalAreaId = folder
+      ? (folder.areaId ?? initialAreaId)
+      : (parentId ? initialAreaId : (selectedAreaId || initialAreaId));
     const folderToSave: EvidenceFolder = {
       id: folder ? folder.id : `folder-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: name.trim(),
@@ -83,7 +103,7 @@ export function FolderFormModal({
       color: folder?.color || 'blue',
       createdAt: folder?.createdAt || new Date().toISOString().slice(0, 10),
       parentId: folder?.parentId ?? parentId,
-      areaId: folder?.areaId ?? initialAreaId,
+      areaId: finalAreaId ? finalAreaId.toLowerCase() : undefined,
       startDate: startDate || new Date().toISOString().slice(0, 10),
       expiredDate: (hasNoDeadline || isIso) ? null : expiredDate || null,
       hasNoDeadline: hasNoDeadline || isIso
@@ -136,6 +156,29 @@ export function FolderFormModal({
         {error && (
           <div className="rounded-xl border border-danger-200 bg-danger-50 p-3 text-xs text-danger-700 shadow-2xs">
             {error}
+          </div>
+        )}
+
+        {/* Target Clause / Area Selection (when creating a top-level area folder and options are available) */}
+        {areas && areas.length > 0 && !parentId && !folder && (
+          <div>
+            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+              {areaNoun ? `Target ${areaNoun}` : 'Target Clause / Area'}
+            </label>
+            <select
+              value={selectedAreaId}
+              onChange={(e) => setSelectedAreaId(e.target.value.toLowerCase())}
+              className="input text-xs w-full bg-white font-medium"
+            >
+              {areas.map((a) => (
+                <option key={a.code} value={a.code.toLowerCase()}>
+                  {a.name ? `${a.code} — ${a.name}` : a.code}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Designate which {areaNoun ? areaNoun.toLowerCase() : 'clause'} this folder belongs to.
+            </p>
           </div>
         )}
 

@@ -526,7 +526,7 @@ export function IAFolderManager({
   const areaFolders = useMemo(() => {
     if (!selectedAreaCode) return [];
     const areaCodeLower = selectedAreaCode.toLowerCase();
-    return iaFolders.filter((f) => !f.parentId && f.areaId === areaCodeLower);
+    return iaFolders.filter((f) => !f.parentId && (f.areaId || '').toLowerCase() === areaCodeLower);
   }, [selectedAreaCode, iaFolders]);
 
   // STRICT CUSTOM ISOLATION: Custom Folders ONLY contain folders with !f.areaId.
@@ -646,7 +646,7 @@ export function IAFolderManager({
 
     // Check if a folder already exists strictly for this Area
     const existing = iaFolders.filter(
-      (f) => !f.parentId && f.areaId === areaCode.toLowerCase()
+      (f) => !f.parentId && (f.areaId || '').toLowerCase() === areaCode.toLowerCase()
     );
 
     // If no folder exists yet, immediately prompt to create the first folder for this Area
@@ -1391,37 +1391,56 @@ export function IAFolderManager({
             )}
           </div>
 
-          {/* Top upload button only appears when outside any area or custom folder to eliminate redundancy */}
+          {/* Top upload & create folder buttons */}
           {canMutate &&
             ((activeTab === 'areas' && !selectedAreaCode && !activeFolderId) ||
               (activeTab === 'folders' && !activeFolderId)) && (
-            <button
-              type="button"
-              onClick={() => {
-                setIsTopUploadSource(true);
-                const initialArea = selectedAreaCode || FIRST_AREA_CODE;
-                setTopUploadTargetAreaCode(initialArea);
-                const foldersInInitArea = iaFolders.filter(
-                  (f) => (f.areaId || '').toLowerCase() === initialArea.toLowerCase()
-                );
-                if (activeFolderId && foldersInInitArea.some((f) => f.id === activeFolderId)) {
-                  setTopUploadTargetFolderId(activeFolderId);
-                } else if (foldersInInitArea.length > 0) {
-                  setTopUploadTargetFolderId(foldersInInitArea[0].id);
-                } else {
-                  setTopUploadTargetFolderId('');
-                }
-                setUploadMode('files');
-                setUploadedFileList([]);
-                setSelectedCustomFolderToUpload('');
-                setUploadModalOpen(true);
-              }}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-600 px-3.5 text-xs font-semibold text-white shadow-md shadow-brand-600/25 transition hover:shadow-lg hover:shadow-brand-600/30 hover:brightness-110"
-              title="Upload individual files, an entire folder, or custom folders into specific Areas"
-            >
-              <UploadIcon className="h-3.5 w-3.5" />
-              <span>Upload Files / Folder</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsTopUploadSource(true);
+                  const initialArea = selectedAreaCode || FIRST_AREA_CODE;
+                  setTopUploadTargetAreaCode(initialArea);
+                  const foldersInInitArea = iaFolders.filter(
+                    (f) => (f.areaId || '').toLowerCase() === initialArea.toLowerCase()
+                  );
+                  if (activeFolderId && foldersInInitArea.some((f) => f.id === activeFolderId)) {
+                    setTopUploadTargetFolderId(activeFolderId);
+                  } else if (foldersInInitArea.length > 0) {
+                    setTopUploadTargetFolderId(foldersInInitArea[0].id);
+                  } else {
+                    setTopUploadTargetFolderId('');
+                  }
+                  setUploadMode('files');
+                  setUploadedFileList([]);
+                  setSelectedCustomFolderToUpload('');
+                  setUploadModalOpen(true);
+                }}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-600 px-3.5 text-xs font-semibold text-white shadow-md shadow-brand-600/25 transition hover:shadow-lg hover:shadow-brand-600/30 hover:brightness-110"
+                title="Upload individual files, an entire folder, or custom folders into specific Areas"
+              >
+                <UploadIcon className="h-3.5 w-3.5" />
+                <span>Upload Files / Folder</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingFolder(null);
+                  setFolderFormParentId(undefined);
+                  setFolderFormAreaId(selectedAreaCode ? selectedAreaCode.toLowerCase() : FIRST_AREA_CODE.toLowerCase());
+                  setFolderFormInitialName('');
+                  setFolderFormInitialCode('');
+                  setFolderFormOpen(true);
+                }}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-line bg-white px-3.5 text-xs font-semibold text-ink shadow-2xs transition hover:bg-canvas hover:border-brand-300"
+                title={`Create a new folder in this ${framework.areaNoun}`}
+              >
+                <FolderPlusIcon className="h-3.5 w-3.5 text-brand-600" />
+                <span>Create Folder</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -3009,6 +3028,12 @@ export function IAFolderManager({
         initialName={folderFormInitialName}
         initialCode={folderFormInitialCode}
         frameworkId={framework.id}
+        areas={OFFICIAL_IA_AREAS.map((a) => ({
+          code: a.code,
+          name: a.name,
+          number: a.number
+        }))}
+        areaNoun={framework.areaNoun}
         onClose={() => {
           setFolderFormOpen(false);
           setEditingFolder(null);
@@ -3024,7 +3049,7 @@ export function IAFolderManager({
             ...f,
             frameworkId: framework.id,
             category: assignedAreaId ? framework.category : 'General / Custom',
-            areaId: assignedAreaId,
+            areaId: assignedAreaId ? assignedAreaId.toLowerCase() : undefined,
             campusId: editingFolder?.campusId || campusId,
             campus: editingFolder?.campus || campusName
           };
