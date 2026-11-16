@@ -163,7 +163,12 @@ function ProtectedAppRoutes() {
 
 export function App({ viewAs = 'Administrator' }: AppProps) {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <MotionConfig reducedMotion="user">
         <PortalProvider viewAs={viewAs}>
           <SharingDialogsProvider>
