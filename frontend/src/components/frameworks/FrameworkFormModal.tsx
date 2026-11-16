@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { LayersIcon, CheckIcon, Building2Icon, ShieldCheckIcon } from 'lucide-react';
+import { CheckIcon, ShieldCheckIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { Framework, FrameworkCategory } from '../../types/evidence';
 import { frameworkCategories } from '../../data/frameworks';

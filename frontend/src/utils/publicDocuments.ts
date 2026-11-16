@@ -267,6 +267,7 @@ export async function downloadPublicStoredFile(doc: EvidenceDocument): Promise<P
 }
 
 function sanitizeDownloadName(title: string): string {
+  // eslint-disable-next-line no-control-regex
   const cleaned = title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '').trim();
   return cleaned || 'document';
 }

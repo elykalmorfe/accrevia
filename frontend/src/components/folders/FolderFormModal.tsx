@@ -2,9 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   FolderPlusIcon,
   CheckIcon,
-  CalendarIcon,
-  FolderIcon,
-  FileTextIcon,
   ClockIcon
 } from 'lucide-react';
 import { EvidenceFolder, FrameworkCategory } from '../../types/evidence';

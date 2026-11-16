@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
-import { CampusId } from '../../types/accreditation';
+import { CampusId, ISOComplianceStatus } from '../../types/accreditation';
 import type { EvidenceDocument } from '../../types/evidence';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
@@ -484,7 +484,7 @@ export function CampusISOView() {
                   if (code) {
                     saveISOSurveillanceRecord({
                       ...isoRecord,
-                      complianceStatus: code as any
+                      complianceStatus: code as ISOComplianceStatus
                     });
                   }
                   toast.success(code ? `"${doc.title}" activated` : `"${doc.title}" activated`);

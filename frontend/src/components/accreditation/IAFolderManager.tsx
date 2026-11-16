@@ -25,8 +25,7 @@ import {
   CheckIcon,
   FileEditIcon,
   AlertCircleIcon,
-  InfoIcon,
-  FilterIcon
+  InfoIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { EvidenceFolder, EvidenceDocument, DocumentType, ISODocumentStage } from '../../types/evidence';
@@ -38,7 +37,7 @@ import { pluralize } from '../../utils/format';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
 import { downloadStoredFile, persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
-import { applyNamingPattern, filterAllowedUploads, uploadAcceptAttribute } from '../../utils/uploadRules';
+import { applyNamingPattern, filterAllowedUploads } from '../../utils/uploadRules';
 import type { PendingUpload } from '../../utils/dropFiles';
 import { UploadDropzone } from '../upload/UploadDropzone';
 import { StagedFileList } from '../upload/StagedFileList';

@@ -280,5 +280,9 @@ export function searchVerifiedCatalog(params: VerifiedSearchParams = {}): Verifi
 
   return hits
     .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
-    .map(({ score: _score, ...hit }) => hit);
+    .map((hit) => {
+      const { score, ...rest } = hit;
+      void score;
+      return rest;
+    });
 }
