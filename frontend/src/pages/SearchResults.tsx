@@ -12,7 +12,7 @@ import {
 import { usePortal } from '../contexts/PortalContext';
 import { useLookup } from '../hooks/useLookup';
 import { useAccess } from '../hooks/useAccess';
-import { parseIntent, searchEvidence, SearchResult } from '../utils/search';
+import { parseIntent, SearchResult } from '../utils/search';
 import { uniqueValues } from '../utils/format';
 import { documentTypes, searchSuggestions } from '../data/options';
 import { SelectField } from '../components/ui/SelectField';
@@ -21,6 +21,7 @@ import { DocumentPreviewModal } from '../components/documents/DocumentPreviewMod
 import { EmptyState } from '../components/ui/EmptyState';
 import { GlobalSearch } from '../components/layout/GlobalSearch';
 import { searchVerifiedCatalog } from '../services/repository/verifiedCatalogSearch';
+import { searchEvidenceAsync } from '../services/search/evidenceSearchClient';
 
 type FilterKey = 'frameworkId' | 'areaId' | 'criterionId' | 'indicatorId' | 'docType' | 'program' | 'academicYear';
 type Filters = Record<FilterKey, string>;
@@ -60,15 +61,11 @@ export function SearchResults() {
   const lookup = useLookup();
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [failed, setFailed] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [preview, setPreview] = useState<SearchResult | null>(null);
   const listTopRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 260);
-    return () => clearTimeout(timer);
-  }, [query, attempt]);
 
   const indexedDocs = useMemo(() => documents.filter((d) => d.status === 'Indexed'), [documents]);
 
@@ -113,15 +110,36 @@ export function SearchResults() {
   };
   const clearFilters = () => updateParams({ ...Object.fromEntries(filterKeys.map((k) => [filterParams[k], ''])), page: '' });
 
-  const outcome = useMemo(() => {
-    try {
-      return { results: searchEvidence(query, documents, lookup), failed: false };
-    } catch {
-      return { results: [] as SearchResult[], failed: true };
-    }
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const { results: next } = await searchEvidenceAsync(query, documents, lookup, {
+          frameworkId: filters.frameworkId || undefined,
+          areaId: filters.areaId || undefined,
+          criterionId: filters.criterionId || undefined,
+          indicatorId: filters.indicatorId || undefined,
+          program: filters.program || undefined
+        });
+        if (!cancelled) {
+          setResults(next);
+          setFailed(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setResults([]);
+          setFailed(true);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, documents, lookup, attempt]);
-  const { results, failed } = outcome;
+  }, [query, documents, lookup, attempt, filters.frameworkId, filters.areaId, filters.criterionId, filters.indicatorId, filters.program]);
 
   const verifiedHits = useMemo(
     () => (query.trim().length > 1 ? searchVerifiedCatalog({ q: query.trim() }).slice(0, 8) : []),

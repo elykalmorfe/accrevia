@@ -24,3 +24,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Backend / Python
+backend/.env
+backend/.venv/
+backend/venv/
+backend/**/__pycache__/
+backend/**/*.py[cod]
+backend/db.sqlite3
+backend/media/uploads/
+backend/media/**
+!backend/media/.gitkeep
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# Model / HF caches (local)
+.cache/
+huggingface/

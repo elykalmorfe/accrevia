@@ -42,6 +42,7 @@ import type { PendingUpload } from '../../utils/dropFiles';
 import { UploadDropzone } from '../../components/upload/UploadDropzone';
 import { StagedFileList } from '../../components/upload/StagedFileList';
 import { usePortalSettings } from '../../settings/portalSettings';
+import { uploadDocumentRemote } from '../../services/documents/uploadClient';
 import { toast } from 'sonner';
 
 const FOLDER_THEMES: Record<FolderColor, { iconBg: string; iconColor: string; tagBg: string; tagText: string; borderHover: string }> = {
@@ -424,7 +425,7 @@ export function UploadEvidence() {
     }
 
     setIsProcessingUpload(true);
-    setTimeout(() => {
+    void (async () => {
       let targetFolderId = selectedDestinationFolderId || currentFolder.id;
       let targetFolderName = currentFolder.name;
 
@@ -463,20 +464,23 @@ export function UploadEvidence() {
         }
       }
 
-      // Commit each file into documents store strictly mapped to this framework and campus
       const campusTag = selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)';
       const campusIdTag = selectedCampus !== 'all' ? selectedCampus : 'tandag';
       const today = new Date().toISOString().slice(0, 10);
+      let remoteCount = 0;
 
-      uploadedFileList.forEach((item) => {
-        const docId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      for (const item of uploadedFileList) {
+        const localId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const sizeMb = Math.max(0.1, Math.round((item.size / 1024 / 1024) * 10) / 10);
         const pages = Math.max(1, Math.round(sizeMb * 6));
-
-        persistUpload(docId, item.file);
-        addDocument({
-          id: docId,
-          title: applyNamingPattern(item.name, { campus: campusTag, area: currentFolder.code, year: uploadDefaults.academicYear }).replace(/[_-]+/g, ' '),
+        const title = applyNamingPattern(item.name, {
+          campus: campusTag,
+          area: currentFolder.code,
+          year: uploadDefaults.academicYear
+        }).replace(/[_-]+/g, ' ');
+        const baseDoc: EvidenceDocument = {
+          id: localId,
+          title,
           description: `Evidence document stored in ${targetFolderName} for ${currentFolder.code} accreditation compliance.`,
           fileType: fileTypeFromName(item.name),
           pages,
@@ -503,16 +507,55 @@ export function UploadEvidence() {
           confidentiality: 'Internal',
           keywords: [item.name.toLowerCase().replace(/\.[^.]+$/, ''), currentFolder.code.toLowerCase()],
           passages: [`Stored in ${targetFolderName} for ${currentFolder.code} compliance.`]
-        });
-      });
+        };
+
+        const remote = await uploadDocumentRemote(item.file, {
+          title,
+          description: baseDoc.description,
+          frameworkId: baseDoc.frameworkId,
+          areaId: baseDoc.areaId,
+          criterionId: baseDoc.criterionId,
+          indicatorId: baseDoc.indicatorId,
+          folderId: targetFolderId,
+          docType: baseDoc.docType,
+          academicYear: baseDoc.academicYear,
+          cycle: baseDoc.cycle,
+          program: baseDoc.program,
+          college: baseDoc.college,
+          department: baseDoc.department,
+          office: baseDoc.office,
+          campus: campusTag,
+          campusId: campusIdTag,
+          confidentiality: 'Internal',
+          uploadedBy: currentUser.name,
+          keywords: baseDoc.keywords.join(', ')
+        }, baseDoc);
+
+        const finalDoc = remote
+          ? {
+              ...baseDoc,
+              ...remote,
+              folderId: targetFolderId,
+              approvalStatus: uploadDefaults.status,
+              passages: remote.passages?.length ? remote.passages : baseDoc.passages
+            }
+          : baseDoc;
+        if (remote) remoteCount += 1;
+
+        persistUpload(finalDoc.id, item.file);
+        addDocument(finalDoc);
+      }
 
       setIsProcessingUpload(false);
       setUploadModalOpen(false);
       setUploadedFileList([]);
       toast.success(
-        `Successfully uploaded ${uploadedFileList.length} document(s) into ${targetFolderName} (${currentFolder.code})!`
+        `Successfully uploaded ${uploadedFileList.length} document(s) into ${targetFolderName} (${currentFolder.code})!`,
+        remoteCount
+          ? { description: `${remoteCount} sent to the indexing API for OCR / hybrid search.` }
+          : undefined
       );
-    }, 450);
+    })();
   };
 
   const renderFileIcon = (fileType?: string) => {
@@ -567,38 +610,28 @@ export function UploadEvidence() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-5">
         <div>
           {/* Breadcrumb Navigation */}
-          {!currentFolder ? (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-brand-600">
-                Document Management
-              </span>
-              <span className="text-slate-300">/</span>
-              <span className="text-xs font-medium text-slate-500">
-                Accreditation Repositories
-              </span>
-            </div>
-          ) : isCurrentRoot ? (
+          {currentFolder && isCurrentRoot ? (
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setFolder(null)}
                 className="text-[11px] font-bold uppercase tracking-wider text-brand-600 hover:text-brand-800 hover:underline"
               >
-                Document Management
+                Upload Documents
               </button>
               <span className="text-slate-300">/</span>
               <span className="text-xs font-semibold text-slate-700">
                 {currentFolder.name}
               </span>
             </div>
-          ) : (
+          ) : currentFolder ? (
             <div className="flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
               <button
                 type="button"
                 onClick={() => setFolder(null)}
                 className="hover:text-brand-600 font-medium transition-colors"
               >
-                Document Management
+                Upload Documents
               </button>
               <span className="text-slate-300">/</span>
               <button
@@ -611,10 +644,10 @@ export function UploadEvidence() {
               <span className="text-slate-300">/</span>
               <span className="font-bold text-slate-800">{currentFolder.name}</span>
             </div>
-          )}
+          ) : null}
 
           {/* Heading */}
-          <div className="mt-1">
+          <div className={currentFolder ? 'mt-1' : undefined}>
             {!currentFolder ? (
               <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">
                 Upload Documents
@@ -641,13 +674,13 @@ export function UploadEvidence() {
             )}
           </div>
 
-          <p className="mt-1 text-xs sm:text-[13px] text-ink-muted max-w-2xl leading-relaxed">
-            {!currentFolder
-              ? 'Organize and upload accreditation files into their designated category folders for automatic OCR, chunking, and compliance indexing.'
-              : isCurrentRoot
-              ? currentFolder.description
-              : currentFolder.description || `Evidence documents inside ${currentFolder.name} for ${parentFrameworkFolder?.name || 'accreditation'}.`}
-          </p>
+          {currentFolder && (isCurrentRoot ? currentFolder.description : currentFolder.description || `Evidence documents inside ${currentFolder.name} for ${parentFrameworkFolder?.name || 'accreditation'}.`) ? (
+            <p className="mt-1 text-xs sm:text-[13px] text-ink-muted max-w-2xl leading-relaxed">
+              {isCurrentRoot
+                ? currentFolder.description
+                : currentFolder.description || `Evidence documents inside ${currentFolder.name} for ${parentFrameworkFolder?.name || 'accreditation'}.`}
+            </p>
+          ) : null}
         </div>
 
         {/* Action Header Button */}

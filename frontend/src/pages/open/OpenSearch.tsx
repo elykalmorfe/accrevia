@@ -26,6 +26,7 @@ import type { EvidenceDocument } from '../../types/evidence';
 import { usePortal } from '../../contexts/PortalContext';
 import { useLookup } from '../../hooks/useLookup';
 import { searchEvidence } from '../../utils/search';
+import { searchEvidenceAsync } from '../../services/search/evidenceSearchClient';
 import { campuses as campusDirectory } from '../../data/accreditationData';
 
 const PAGE_SIZE = 12;
@@ -179,7 +180,9 @@ export function OpenSearch() {
     return Array.from(new Set([...fromEvidence, ...fromDemo])).sort();
   }, [discoverable]);
 
-  const hits = useMemo(() => {
+  const [apiEvidenceHits, setApiEvidenceHits] = useState<EvidenceSearchHit[]>([]);
+
+  const localHits = useMemo(() => {
     const includeDemo = !urlState.category || urlState.category === 'demonstration-document';
     const includePublic = !urlState.category || urlState.category === 'public-evidence';
     const includeAuthorized = !urlState.category || urlState.category === 'authorized-evidence';
@@ -236,10 +239,59 @@ export function OpenSearch() {
       });
     }
 
-    return [...demos, ...evidenceHits];
+    return { demos, evidenceHits, includePublic, includeAuthorized };
   }, [urlState, discoverable, lookup, currentUser, shares]);
 
-  const demoCount = hits.filter((h) => h.category === 'demonstration-document').length;
+  useEffect(() => {
+    let cancelled = false;
+    const q = urlState.q.trim();
+    if (q.length <= 1) {
+      setApiEvidenceHits([]);
+      return;
+    }
+    (async () => {
+      const { results, source } = await searchEvidenceAsync(q, discoverable, lookup, {
+        campusId: undefined,
+        program: urlState.program || undefined
+      });
+      if (cancelled || source !== 'api') {
+        if (!cancelled && source === 'local') setApiEvidenceHits([]);
+        return;
+      }
+      const includePublic = !urlState.category || urlState.category === 'public-evidence';
+      const includeAuthorized = !urlState.category || urlState.category === 'authorized-evidence';
+      const evidenceHits: EvidenceSearchHit[] = [];
+      for (const { doc, score } of results) {
+        const visibility = classifyEvidenceForFaculty(doc, currentUser, shares);
+        if (!isFacultyDiscoverable(visibility)) continue;
+        if (visibility === 'public' && !includePublic) continue;
+        if (visibility === 'authorized' && !includeAuthorized) continue;
+        if (visibility !== 'public' && visibility !== 'authorized') continue;
+        evidenceHits.push({
+          id: `evidence-${doc.id}`,
+          title: doc.title,
+          category: visibility === 'public' ? 'public-evidence' : 'authorized-evidence',
+          categoryLabel: visibility === 'public' ? 'Publicly published' : 'Shared with you',
+          campus: doc.campus || undefined,
+          program: doc.program || undefined,
+          documentType: doc.docType || undefined,
+          href: `/open/search?q=${encodeURIComponent(doc.title)}`,
+          evidence: doc,
+          score
+        });
+      }
+      if (!cancelled) setApiEvidenceHits(evidenceHits);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [urlState.q, urlState.program, urlState.category, discoverable, lookup, currentUser, shares]);
+
+  const hits = useMemo(() => {
+    const evidenceHits = apiEvidenceHits.length > 0 ? apiEvidenceHits : localHits.evidenceHits;
+    return [...localHits.demos, ...evidenceHits];
+  }, [localHits, apiEvidenceHits]);
+
   const publicCount = hits.filter((h) => h.category === 'public-evidence').length;
   const authorizedCount = hits.filter((h) => h.category === 'authorized-evidence').length;
 
@@ -305,14 +357,14 @@ export function OpenSearch() {
             Search Documents
           </h1>
           <p className="mt-2 max-w-2xl text-[14px] font-medium leading-relaxed text-ink-muted sm:text-[15px]">
-            Results are limited to publicly published documents, materials shared with you, and labeled demonstration
-            samples. Verified AACCUP/COPC catalog rows without publication approval are not listed here.
+            Results are limited to publicly published documents and materials shared with you. Verified AACCUP/COPC
+            catalog rows without publication approval are not listed here.
           </p>
 
-          <form onSubmit={onSubmitSearch} className="mt-5" role="search" aria-label="Search authorized and demonstration documents">
+          <form onSubmit={onSubmitSearch} className="mt-5" role="search" aria-label="Search authorized documents">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
               <label htmlFor="open-search-input" className="sr-only">
-                Search authorized and demonstration documents
+                Search authorized documents
               </label>
               <div className="relative min-w-0 flex-1">
                 <SearchIcon
@@ -392,7 +444,6 @@ export function OpenSearch() {
                   <option value="">All authorized sources</option>
                   <option value="public-evidence">Publicly published</option>
                   <option value="authorized-evidence">Shared with you</option>
-                  <option value="demonstration-document">Demonstration documents</option>
                 </select>
               </FilterField>
 
@@ -453,7 +504,6 @@ export function OpenSearch() {
               <p className="text-[13px] font-semibold text-ink">{pluralize(hits.length, 'result')}</p>
               <p className="mt-0.5 text-[12px] font-medium text-ink-muted">
                 {formatNumber(publicCount)} public · {formatNumber(authorizedCount)} shared ·{' '}
-                {formatNumber(demoCount)} demonstration
                 {hasQuery ? ` · matching “${urlState.q.trim()}”` : ''}
               </p>
             </div>
@@ -469,7 +519,7 @@ export function OpenSearch() {
               description={
                 hasAnyFilters
                   ? 'Try another keyword or clear filters. Restricted Technical Review files and unverified catalog rows are never searchable here.'
-                  : 'Search covers publicly published evidence, documents shared with you, and labeled demonstration PDFs.'
+                  : 'Search covers publicly published evidence and documents shared with you.'
               }
               action={
                 hasAnyFilters ? (

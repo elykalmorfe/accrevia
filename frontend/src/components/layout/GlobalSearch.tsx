@@ -8,6 +8,7 @@ import { useDismiss } from '../../hooks/useDismiss';
 import { useAccess } from '../../hooks/useAccess';
 import { evidenceSearchExamples } from '../../data/options';
 import { searchEvidence } from '../../utils/search';
+import { searchEvidenceAsync } from '../../services/search/evidenceSearchClient';
 import { searchVerifiedCatalog } from '../../services/repository/verifiedCatalogSearch';
 import { searchDemoDocuments } from '../../services/repository/demoDocumentSearch';
 import { filterFacultyDiscoverableEvidence } from '../../services/repository/facultyAccessVisibility';
@@ -141,10 +142,58 @@ export function GlobalSearch({
 
   const trimmed = query.trim();
   const prominent = variant === 'prominent';
+  const [apiDocSuggestions, setApiDocSuggestions] = useState<SuggestionItem[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (trimmed.length <= 1) {
+      setApiDocSuggestions([]);
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      void (async () => {
+        const { results, source } = await searchEvidenceAsync(trimmed, documents, lookup);
+        if (cancelled || source !== 'api') {
+          if (!cancelled) setApiDocSuggestions([]);
+          return;
+        }
+        setApiDocSuggestions(
+          results.slice(0, 3).map((r) => ({
+            kind: 'doc' as const,
+            label: r.doc.title,
+            id: r.doc.id,
+            score: r.score,
+            meta: [r.doc.docType, lookup.framework(r.doc.frameworkId)?.shortName || r.doc.frameworkId]
+              .filter(Boolean)
+              .join(' · ')
+          }))
+        );
+      })();
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [trimmed, documents, lookup]);
 
   const items = useMemo<SuggestionItem[]>(() => {
     if (trimmed) {
-      const matches = trimmed.length > 1 ? searchEvidence(trimmed, documents, lookup).slice(0, 3) : [];
+      const matches =
+        apiDocSuggestions.length > 0
+          ? []
+          : trimmed.length > 1
+            ? searchEvidence(trimmed, documents, lookup).slice(0, 3)
+            : [];
+      const localDocs: SuggestionItem[] = matches.map((r) => ({
+        kind: 'doc' as const,
+        label: r.doc.title,
+        id: r.doc.id,
+        score: r.score,
+        meta: [r.doc.docType, lookup.framework(r.doc.frameworkId)?.shortName || r.doc.frameworkId]
+          .filter(Boolean)
+          .join(' · ')
+      }));
+      const docHits = apiDocSuggestions.length > 0 ? apiDocSuggestions : localDocs;
       const repoHits =
         trimmed.length > 1
           ? isFaculty
@@ -165,26 +214,14 @@ export function GlobalSearch({
                 meta: [h.categoryLabel, h.campus, h.program].filter(Boolean).join(' · ')
               }))
           : [];
-      return [
-        { kind: 'query', label: trimmed },
-        ...repoHits,
-        ...matches.map((r) => ({
-          kind: 'doc' as const,
-          label: r.doc.title,
-          id: r.doc.id,
-          score: r.score,
-          meta: [lookup.framework(r.doc.frameworkId)?.shortName, lookup.criterion(r.doc.criterionId)?.code, r.doc.docType]
-            .filter(Boolean)
-            .join(' · ')
-        }))
-      ];
+      return [{ kind: 'query', label: trimmed }, ...docHits, ...repoHits];
     }
     const recent = recentSearches.slice(0, 4).map((label) => ({ kind: 'recent' as const, label }));
     const examples = evidenceSearchExamples
       .filter((s) => !recentSearches.slice(0, 4).includes(s))
       .map((label) => ({ kind: 'example' as const, label }));
     return [...recent, ...examples];
-  }, [trimmed, documents, lookup, recentSearches, isFaculty]);
+  }, [trimmed, documents, lookup, recentSearches, isFaculty, apiDocSuggestions]);
 
   useEffect(() => setActive(-1), [trimmed]);
 

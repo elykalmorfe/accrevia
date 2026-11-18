@@ -53,7 +53,7 @@ const emptyFilters: Record<FilterKey, string> = {
 };
 
 const labels: Record<FilterKey, string> = {
-  frameworkId: 'Framework',
+  frameworkId: 'Accreditation',
   areaId: 'Area',
   docType: 'Type',
   status: 'System Status',
@@ -68,7 +68,7 @@ const labels: Record<FilterKey, string> = {
 };
 
 const placeholders: Record<FilterKey, string> = {
-  frameworkId: 'All frameworks',
+  frameworkId: 'Accreditation',
   areaId: 'All areas',
   docType: 'All types',
   status: 'All statuses',
@@ -323,21 +323,7 @@ export function AllEvidence() {
   return (
     <>
       <PageHeader
-        eyebrow={
-          <nav aria-label="Breadcrumb">
-            <ol className="flex flex-wrap items-center gap-2">
-              <li className="text-[11px]">Documents</li>
-              <li aria-hidden="true" className="font-normal text-slate-300">
-                /
-              </li>
-              <li aria-current="page" className="text-xs font-medium normal-case tracking-normal text-slate-500">
-                All Documents
-              </li>
-            </ol>
-          </nav>
-        }
         title="All Documents"
-        description="Manage, organize, and track accreditation evidence across frameworks and campuses."
         actions={
           <Link to="/evidence/upload" className="btn btn-primary shadow-xs gap-1.5 font-semibold">
             <UploadIcon className="h-4 w-4" />

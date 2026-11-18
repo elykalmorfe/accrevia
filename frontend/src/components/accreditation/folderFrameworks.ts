@@ -34,7 +34,7 @@ export function iaFolderFramework(areas: IAAreaTemplate[]): FolderFramework {
     areasTabLabel: 'IA Areas',
     areasHeading: 'Official AACCUP Institutional Accreditation Areas',
     title: 'IA Document & Folder Management',
-    description: `Official institutional evidence portfolios for Areas 1–${areas.length} — organize folders, upload evidence, and track review progress.`,
+    description: '',
     cycle: '2025 Institutional Accreditation',
     customFolders: true,
     areas,

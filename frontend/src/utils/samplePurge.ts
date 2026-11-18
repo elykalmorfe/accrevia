@@ -2,10 +2,13 @@ import type { CampusIAStatus, COPCRecord, ProgramAccreditation } from '../types/
 import type { EvidenceDocument, EvidenceFolder } from '../types/evidence';
 
 const PURGE_VERSION_KEY = 'accrevia_sample_purge';
-const PURGE_VERSION = 'no-sample-data-1';
+/** Bump to force one-time cleanup of dummy/demo content in existing browsers. */
+const PURGE_VERSION = 'no-dummy-data-2';
 
 const SAMPLE_CAMPUS = '(bislig|cagwait|cantilan|lianga|sanmiguel|tagbina|tandag)';
-const SAMPLE_DOCUMENT_ID = new RegExp(`^(d-\\d{3}|doc-${SAMPLE_CAMPUS}-a\\d+-\\d+)$`);
+const SAMPLE_DOCUMENT_ID = new RegExp(
+  `^(d-\\d{3}|doc-${SAMPLE_CAMPUS}-a\\d+-\\d+|mock-doc-.*|demo-.*|doc-cert-.*|doc-rating-.*)$`
+);
 const SAMPLE_FOLDER_ID = new RegExp(`^folder-${SAMPLE_CAMPUS}-a\\d+-[a-z]+$`);
 const SAMPLE_SUBFOLDER_IDS = new Set([
   'folder-pa-curriculum',
@@ -49,6 +52,17 @@ const SAMPLE_DRIVE_LINKS = new Set([
 const USER_NOTIFICATION_ID = /^notif-\d{13}/;
 const USER_ACCESS_REQUEST_ID = /^req-\d{13}/;
 
+function isDummyDocument(d: EvidenceDocument): boolean {
+  const id = String(d.id || '');
+  if (SAMPLE_DOCUMENT_ID.test(id)) return true;
+  if (id.startsWith('mock-doc-') || id.startsWith('demo-') || id.startsWith('doc-cert-') || id.startsWith('doc-rating-')) {
+    return true;
+  }
+  if (d.frameworkId === 'pa' && typeof d.areaId === 'string' && d.areaId.startsWith('trba-')) return true;
+  if ((d as EvidenceDocument & { isDemo?: boolean }).isDemo) return true;
+  return false;
+}
+
 function read<T>(key: string): T | null {
   try {
     const raw = localStorage.getItem(`accrevia_${key}`);
@@ -73,17 +87,22 @@ function mapStored<T>(key: string, map: (item: T) => T) {
 }
 
 /**
- * Removes the bundled demo records (documents, folders, activity, and pre-filled
- * checklist submissions) from data persisted by earlier builds, keeping user-created records.
+ * Removes bundled demo / mock records from data persisted by earlier builds.
+ * Keeps user-created uploads and the Superadmin directory seed.
  */
 export function purgeLegacySampleData() {
   try {
     if (localStorage.getItem(PURGE_VERSION_KEY) === PURGE_VERSION) return;
 
-    filterStored<EvidenceDocument>('documents', (d) => !SAMPLE_DOCUMENT_ID.test(d.id));
+    filterStored<EvidenceDocument>('documents', (d) => !isDummyDocument(d));
     filterStored<EvidenceFolder>(
       'folders',
-      (f) => !SAMPLE_FOLDER_ID.test(f.id) && !SAMPLE_SUBFOLDER_IDS.has(f.id)
+      (f) =>
+        !SAMPLE_FOLDER_ID.test(f.id) &&
+        !SAMPLE_SUBFOLDER_IDS.has(f.id) &&
+        !(typeof f.areaId === 'string' && f.areaId.startsWith('trba-')) &&
+        !String(f.id || '').startsWith('folder-cert-') &&
+        !String(f.id || '').startsWith('folder-rating-')
     );
     filterStored<{ id: string }>('notifications', (n) => USER_NOTIFICATION_ID.test(n.id));
     filterStored<{ id: string }>('accessRequests', (r) => USER_ACCESS_REQUEST_ID.test(r.id));
@@ -92,32 +111,61 @@ export function purgeLegacySampleData() {
       ...rec,
       requirements: (rec.requirements || []).map((r) =>
         r.documentName && SAMPLE_IA_DOCUMENTS.has(r.documentName)
-          ? { ...r, isSubmitted: false, status: 'Pending', documentName: undefined, documentUrl: undefined, submissionDate: undefined, reviewerNotes: undefined }
+          ? {
+              ...r,
+              isSubmitted: false,
+              status: 'Pending',
+              documentName: undefined,
+              documentUrl: undefined,
+              submissionDate: undefined,
+              reviewerNotes: undefined
+            }
           : r
       )
     }));
 
     mapStored<ProgramAccreditation>('programAccreditations', (p) => ({
       ...p,
+      technicalReviewLink: undefined,
       requirements: (p.requirements || []).map((r) =>
         r.documentName && SAMPLE_PROGRAM_DOCUMENT.test(r.documentName)
-          ? { ...r, isSubmitted: false, verified: false, documentName: undefined, documentUrl: undefined, submissionDate: undefined }
+          ? {
+              ...r,
+              isSubmitted: false,
+              verified: false,
+              documentName: undefined,
+              documentUrl: undefined,
+              submissionDate: undefined
+            }
           : r
       )
     }));
 
     mapStored<COPCRecord>('copcRecords', (c) => ({
       ...c,
-      certificateNumber: c.certificateNumber && SAMPLE_COPC_CERTIFICATE.test(c.certificateNumber) ? undefined : c.certificateNumber,
+      certificateNumber:
+        c.certificateNumber && SAMPLE_COPC_CERTIFICATE.test(c.certificateNumber) ? undefined : c.certificateNumber,
       dateIssued: c.dateIssued === SAMPLE_COPC_DATE ? undefined : c.dateIssued,
       borRes: c.borRes === SAMPLE_COPC_BOR ? undefined : c.borRes,
       documentLink: c.documentLink && SAMPLE_DRIVE_LINKS.has(c.documentLink) ? undefined : c.documentLink,
       requirements: (c.requirements || []).map((r) =>
         r.documentName && SAMPLE_COPC_DOCUMENTS.has(r.documentName)
-          ? { ...r, isSubmitted: false, status: 'Pending', documentName: undefined, documentUrl: undefined, deficiencyNote: undefined }
+          ? {
+              ...r,
+              isSubmitted: false,
+              status: 'Pending',
+              documentName: undefined,
+              documentUrl: undefined,
+              deficiencyNote: undefined
+            }
           : r
       )
     }));
+
+    // Mark one-time seeders as already applied so they do not re-inject dummy docs.
+    localStorage.setItem('accrevia_linked_certificates', 'aaccup-local-certs-1');
+    localStorage.setItem('accrevia_ratings_documents', 'aaccup-ratings-local-1');
+    localStorage.setItem('accrevia_mock_documents', 'v3-empty');
 
     localStorage.setItem(PURGE_VERSION_KEY, PURGE_VERSION);
   } catch {

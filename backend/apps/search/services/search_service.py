@@ -1,0 +1,67 @@
+"""Search orchestration service."""
+from __future__ import annotations
+
+import re
+
+from django.conf import settings
+
+from apps.documents.models import EvidenceDocument
+from apps.search.services.rerank import rerank
+from apps.search.services.retrieve import aggregate_by_document, hybrid_retrieve
+
+
+def _query_terms(q: str) -> list[str]:
+    return [t for t in re.findall(r"[a-z0-9]{2,}", (q or "").lower()) if t]
+
+
+def run_search(query: str, filters: dict | None = None, limit: int | None = None) -> list[dict]:
+    top = limit or settings.SEARCH_RESULT_LIMIT
+    candidates = hybrid_retrieve(query, filters=filters, limit=settings.RETRIEVE_TOP_K)
+    reranked = rerank(query, candidates, top_k=settings.RERANK_TOP_K)
+    aggregated = aggregate_by_document(reranked, result_limit=top)
+    terms = _query_terms(query)
+
+    results: list[dict] = []
+    for item in aggregated:
+        doc = EvidenceDocument.objects(id=item["document_id"]).first()
+        doc_payload = doc.to_api_dict() if doc else {
+            "id": item["document_id"],
+            "title": item["payload"].get("title") or "Untitled",
+            "frameworkId": item["payload"].get("framework_id"),
+            "areaId": item["payload"].get("area_id"),
+            "criterionId": item["payload"].get("criterion_id"),
+            "indicatorId": item["payload"].get("indicator_id"),
+            "campusId": item["payload"].get("campus_id"),
+            "campus": item["payload"].get("campus"),
+            "program": item["payload"].get("program"),
+            "confidentiality": item["payload"].get("confidentiality"),
+            "status": "Indexed",
+            "passages": item["passages"],
+            "docType": item["payload"].get("doc_type") or "Other",
+            "description": "",
+            "keywords": [],
+            "academicYear": item["payload"].get("academic_year") or "",
+            "cycle": item["payload"].get("cycle") or "",
+            "college": item["payload"].get("college") or "",
+            "department": item["payload"].get("department") or "",
+            "office": item["payload"].get("office") or "",
+            "documentDate": "",
+            "fileType": "PDF",
+            "uploadedBy": item["payload"].get("uploaded_by") or "system",
+            "dateAdded": None,
+        }
+        # Prefer fresh passages from index
+        doc_payload["passages"] = item["passages"][:5]
+        pct = max(0.0, min(100.0, (1 - pow(2.718281828, -float(item["score"]) / 3.0)) * 100))
+        results.append(
+            {
+                "doc": doc_payload,
+                "score": round(pct, 1),
+                "terms": terms,
+                "passages": item["passages"][:5],
+                "keywords": terms,
+                "relatedTerms": [],
+                "fields": ["document text", "title"],
+            }
+        )
+    return results
