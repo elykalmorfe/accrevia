@@ -29,6 +29,7 @@ dist-ssr
 backend/.env
 backend/.venv/
 backend/venv/
+backend/models/
 backend/**/__pycache__/
 backend/**/*.py[cod]
 backend/db.sqlite3

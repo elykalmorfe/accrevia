@@ -126,6 +126,12 @@ SEARCH_RESULT_LIMIT = int(os.getenv("SEARCH_RESULT_LIMIT", "20"))
 
 TESSERACT_CMD = os.getenv("TESSERACT_CMD", "")
 BGE_MODEL = os.getenv("BGE_MODEL", "BAAI/bge-m3")
+FASTEMBED_DENSE_MODEL = os.getenv(
+    "FASTEMBED_DENSE_MODEL",
+    "sentence-transformers/all-MiniLM-L6-v2",
+)
+# Used only by hashed-dense last-resort backend (native model dims otherwise)
+DENSE_VECTOR_SIZE = int(os.getenv("DENSE_VECTOR_SIZE", "384"))
 CROSS_ENCODER_MODEL = os.getenv("CROSS_ENCODER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 EMBEDDING_DEVICE = os.getenv("EMBEDDING_DEVICE", "cpu")
 

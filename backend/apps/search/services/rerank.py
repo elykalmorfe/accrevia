@@ -11,7 +11,12 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
 def _cross_encoder():
-    from sentence_transformers import CrossEncoder
+    try:
+        from sentence_transformers import CrossEncoder
+    except Exception as exc:  # noqa: BLE001
+        # Includes App Control DLL blocks on regex/transformers
+        logger.warning("Cross-encoder import failed (%s); rerank disabled", exc)
+        return None
 
     model_name = settings.CROSS_ENCODER_MODEL
     device = getattr(settings, "EMBEDDING_DEVICE", "cpu")
@@ -27,6 +32,9 @@ def rerank(query: str, candidates: list[dict], top_k: int | None = None) -> list
     subset = candidates[: max(k * 2, k)]
     try:
         model = _cross_encoder()
+        if model is None:
+            logger.warning("Cross-encoder unavailable; keeping hybrid order (degraded)")
+            return candidates[:k]
         pairs = [(query, c.get("text") or "") for c in subset]
         scores = model.predict(pairs)
         for c, s in zip(subset, scores):

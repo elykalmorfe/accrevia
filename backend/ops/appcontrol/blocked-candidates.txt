@@ -1,0 +1,15 @@
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\onnxruntime\capi\onnxruntime.dll
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\onnxruntime\capi\onnxruntime_providers_shared.dll
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\onnxruntime\capi\onnxruntime_pybind11_state.pyd
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\pymongo\_cmessage.cp313-win_amd64.pyd
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\regex\_regex.cp313-win_amd64.pyd
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\lib\c10.dll
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\lib\libiomp5md.dll
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\lib\libiompstubs5md.dll
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\lib\shm.dll
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\lib\torch.dll
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\lib\torch_cpu.dll
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\lib\torch_global_deps.dll
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\lib\torch_python.dll
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\lib\uv.dll
+C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\_C.cp313-win_amd64.pyd
