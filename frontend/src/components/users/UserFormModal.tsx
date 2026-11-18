@@ -101,7 +101,10 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
         name: user.name,
         email: user.email,
         password: '',
-        role: user.role === 'Superadmin' ? 'Superadmin' : 'Administrator',
+        role:
+          user.role === 'Superadmin' || user.role === 'Faculty' || user.role === 'Staff' || user.role === 'Administrator'
+            ? user.role
+            : 'Administrator',
         status: user.status || 'Active'
       });
       setSelectedFeatures(user.allowedFeatures && user.allowedFeatures.length > 0 ? user.allowedFeatures : ALL_FEATURE_IDS);
@@ -198,7 +201,12 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
       role: form.role,
       office: user?.office || (form.role === 'Superadmin' ? 'Office of the President' : 'Quality Assurance Office'),
       campusId: user?.campusId || 'Main Campus (Tandag City)',
-      personnelClassification: form.role === 'Superadmin' ? 'Staff (Administrative)' : 'Staff (Technical)',
+      personnelClassification:
+        form.role === 'Faculty'
+          ? 'Faculty (Teaching - Accreditation Committee)'
+          : form.role === 'Staff' || form.role === 'Superadmin'
+            ? 'Staff (Administrative)'
+            : 'Staff (Technical)',
       affiliationVerified: true,
       temporaryPassword: form.password.trim() || undefined,
       allowedFeatures: selectedFeatures,
@@ -214,11 +222,11 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
       open={open}
       onClose={onClose}
       size="lg"
-      title={user ? 'Edit Administrator' : 'Add Administrator'}
+      title={user ? 'Edit User' : 'Add User'}
       description={
         user
           ? 'Update credentials, role, and permitted system features.'
-          : 'Create an Administrator account. Faculty and Staff must self-register and wait for approval.'
+          : 'Create an Administrator, Faculty, or Staff account and choose the role from the dropdown.'
       }
       footer={
         <>
@@ -426,7 +434,7 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
 
         {/* 4. Role (Dropdown) */}
         <SelectField
-          label="Administrative Role"
+          label="Role"
           required
           value={form.role}
           onChange={(role) => handleRoleChange(role as UserRole)}

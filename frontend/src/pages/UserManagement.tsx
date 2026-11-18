@@ -78,8 +78,8 @@ export function UserManagement() {
       const featureCount = user.allowedFeatures?.length ?? 13;
       toast.success(
         exists
-          ? `Administrator "${user.name}" updated`
-          : `Administrator account created for ${user.name}`,
+          ? `${user.role} "${user.name}" updated`
+          : `${user.role} account created for ${user.name}`,
         {
           description: user.temporaryPassword
             ? `Temporary password: ${user.temporaryPassword} · ${featureCount} features permitted`
@@ -97,14 +97,17 @@ export function UserManagement() {
     };
 
     if (
-      (user.role === 'Administrator' || user.role === 'Superadmin') &&
+      (user.role === 'Administrator' ||
+        user.role === 'Superadmin' ||
+        user.role === 'Faculty' ||
+        user.role === 'Staff') &&
       user.temporaryPassword
     ) {
       void provisionManagedAccount({
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role === 'Superadmin' ? 'Superadmin' : 'Administrator',
+        role: user.role,
         temporaryPassword: user.temporaryPassword
       })
         .then(finish)
@@ -166,7 +169,7 @@ export function UserManagement() {
       }
     ];
 
-    if (isSuperadmin && (u.role === 'Administrator' || u.role === 'Superadmin')) {
+    if (isSuperadmin && (u.role === 'Administrator' || u.role === 'Superadmin' || u.role === 'Faculty' || u.role === 'Staff')) {
       actions.push(
         { label: 'Edit administrator', icon: PencilIcon, onSelect: () => setModal({ open: true, user: u }) },
         {
@@ -221,7 +224,7 @@ export function UserManagement() {
                 className="btn btn-primary"
                 onClick={() => setModal({ open: true, user: null })}
               >
-                <PlusIcon className="h-4 w-4" /> Add Administrator
+                <PlusIcon className="h-4 w-4" /> Add User
               </button>
             </div>
           ) : undefined

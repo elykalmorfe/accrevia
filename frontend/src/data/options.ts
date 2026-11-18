@@ -91,7 +91,7 @@ export const confidentialityLevels: Confidentiality[] = ['Public', 'Internal', '
 export const userRoles: UserRole[] = ['Superadmin', 'Administrator', 'Faculty', 'Staff'];
 
 /** Roles Superadmin may assign when creating managed accounts. */
-export const managedAdminRoles: UserRole[] = ['Administrator'];
+export const managedAdminRoles: UserRole[] = ['Administrator', 'Faculty', 'Staff'];
 
 export const searchSuggestions = [
 'faculty development activities',

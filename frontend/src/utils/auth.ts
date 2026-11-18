@@ -326,7 +326,7 @@ export async function provisionManagedAccount(input: {
   id: string;
   name: string;
   email: string;
-  role: 'Administrator' | 'Superadmin';
+  role: 'Administrator' | 'Superadmin' | 'Faculty' | 'Staff';
   temporaryPassword: string;
 }): Promise<void> {
   const email = normalizeEmail(input.email);
