@@ -48,9 +48,9 @@ export function PublicBrandingPanel(_props: PublicBrandingPanelProps = {}) {
           className="flex flex-col items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
         >
           <img
-            src="/nemsu-logo.png"
+            src="/nemsu-landing-logo.png"
             alt="North Eastern Mindanao State University seal"
-            className="h-[148px] w-[148px] object-contain sm:h-[160px] sm:w-[160px]"
+            className="h-[200px] w-[200px] rounded-full object-cover sm:h-[220px] sm:w-[220px]"
           />
           <span className="mt-5 text-[1.75rem] font-bold tracking-tight sm:text-[1.9rem]">ACCREVIA</span>
           <span className="mt-2 max-w-[16rem] text-[10px] font-semibold uppercase leading-relaxed tracking-[0.14em] text-blue-100/90 sm:max-w-none sm:text-[11px]">

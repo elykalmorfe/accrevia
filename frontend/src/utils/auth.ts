@@ -306,7 +306,7 @@ export async function authenticate(email: string, password: string): Promise<Ses
   if (status === 'Pending Approval' || account.approvalStatus === 'pending') {
     throw new AuthDeniedError(
       'pending',
-      'Your registration is waiting for Superadmin or Administrator approval. You can sign in after it is approved.'
+      'Your account is pending administrator approval. You can sign in after it is approved.'
     );
   }
   if (status === 'Rejected' || account.approvalStatus === 'rejected') {

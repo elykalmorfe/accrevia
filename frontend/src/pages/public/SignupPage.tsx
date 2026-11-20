@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Eye, EyeOff, LoaderCircle, UserRound } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Check, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, LoaderCircle, UserRound } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
   AuthLayout,
   authFieldClass,
@@ -51,7 +51,6 @@ const secondaryButtonClass =
   'btn btn-secondary inline-flex h-12 flex-1 items-center justify-center gap-1.5 rounded-[12px] text-[15px] font-semibold disabled:cursor-not-allowed disabled:opacity-50';
 
 export function SignupPage() {
-  const navigate = useNavigate();
   const [step, setStep] = useState<StepId>(0);
   const [maxReached, setMaxReached] = useState<StepId>(0);
   const [form, setForm] = useState<SignupFormState>({
@@ -69,6 +68,7 @@ export function SignupPage() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [errors, setErrors] = useState<SignupErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registrationComplete, setRegistrationComplete] = useState(false);
 
   const passwordRequirements = useMemo(
     () => [
@@ -229,13 +229,7 @@ export function SignupPage() {
         addAccount(userRecord);
         upsertPortalUserFromAccount(userRecord);
         setIsSubmitting(false);
-        navigate('/login', {
-          replace: true,
-          state: {
-            registrationPending:
-              'Your account was submitted for approval. A Superadmin or Administrator must approve it before you can sign in.'
-          }
-        });
+        setRegistrationComplete(true);
       } catch {
         setErrors({ general: 'We could not create your account right now. Please try again.' });
         setIsSubmitting(false);
@@ -243,20 +237,51 @@ export function SignupPage() {
     }, 900);
   };
 
+  if (registrationComplete) {
+    return (
+      <AuthLayout formAlign="center">
+        <div className="w-full animate-[auth-step-in_220ms_ease-out] text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 ring-8 ring-emerald-50/60">
+            <CheckCircle2 className="h-9 w-9 text-emerald-600" strokeWidth={2} aria-hidden="true" />
+          </div>
+
+          <p className="mt-6 text-[11px] font-bold uppercase tracking-[0.18em] text-brand-700">Join ACCREVIA</p>
+          <h1 className="mt-2 text-[1.65rem] font-bold tracking-tight text-ink sm:text-[1.8rem]">
+            Account Registration Successful!
+          </h1>
+
+          <span className="mt-4 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[12px] font-semibold text-amber-800">
+            Pending Approval
+          </span>
+
+          <p className="mx-auto mt-5 max-w-[26rem] text-[13px] leading-relaxed text-ink-muted sm:text-sm">
+            Your account has been successfully created and is now awaiting administrator approval. You will be able to
+            sign in to ACCREVIA once your account has been reviewed and approved by an authorized administrator.
+          </p>
+
+          <Link to="/login" replace className={`${authPrimaryButtonClass} mt-8`}>
+            Return to Sign In
+          </Link>
+        </div>
+      </AuthLayout>
+    );
+  }
+
   return (
-    <AuthLayout>
-      <header className="mb-5">
+    <AuthLayout formAlign="start">
+      <div className="flex min-h-0 w-full flex-1 flex-col pt-14 sm:pt-16 lg:pt-20">
+      <header className="mb-5 shrink-0">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-700">Join ACCREVIA</p>
         <h1 className="mt-1.5 text-[1.65rem] font-bold tracking-tight text-ink sm:text-[1.8rem]">
           Create your account
         </h1>
         <p className="mt-1.5 text-[13px] leading-relaxed text-ink-muted sm:text-sm">
-          Register with your official NEMSU email as Faculty or Staff. Your account must be approved before you can sign in.
+          Register with your official NEMSU email account.
         </p>
       </header>
 
       {/* Progress indicator */}
-      <nav aria-label="Registration steps" className="mb-6">
+      <nav aria-label="Registration steps" className="mb-6 shrink-0">
         <ol className="flex items-center justify-between gap-1">
           {STEPS.map((item, index) => {
             const completed = item.id < step;
@@ -306,8 +331,8 @@ export function SignupPage() {
         </ol>
       </nav>
 
-      <form onSubmit={handleSubmit} noValidate className="flex flex-1 flex-col">
-        <div className="min-h-[14.5rem]">
+      <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-[6rem] shrink-0">
           {step === 0 && (
             <div className="space-y-3.5 animate-[auth-step-in_220ms_ease-out]">
               <div className="grid gap-3.5 sm:grid-cols-2">
@@ -477,37 +502,6 @@ export function SignupPage() {
                 </select>
                 {errors.role && <p className="mt-1.5 text-[12px] text-red-600">{errors.role}</p>}
               </div>
-
-              <label className="flex items-start gap-2.5 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] leading-snug text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={(e) => {
-                    setAcceptedTerms(e.target.checked);
-                    setErrors((current) => ({ ...current, general: undefined }));
-                  }}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-700 focus:ring-[#1D4ED8]"
-                />
-                <span>
-                  I agree to the{' '}
-                  <button
-                    type="button"
-                    onClick={() => setShowTermsModal(true)}
-                    className="font-semibold text-brand-700 underline underline-offset-2"
-                  >
-                    Terms and Conditions
-                  </button>{' '}
-                  and{' '}
-                  <button
-                    type="button"
-                    onClick={() => setShowTermsModal(true)}
-                    className="font-semibold text-brand-700 underline underline-offset-2"
-                  >
-                    Privacy Policy
-                  </button>
-                  .
-                </span>
-              </label>
             </div>
           )}
         </div>
@@ -518,48 +512,84 @@ export function SignupPage() {
           </div>
         )}
 
-        <div className="mt-6 flex items-center gap-2.5">
-          {step > 0 ? (
-            <button type="button" onClick={handleBack} disabled={isSubmitting} className={secondaryButtonClass}>
-              <ChevronLeft className="h-4 w-4" />
-              Back
-            </button>
-          ) : null}
-
-          {step < 2 ? (
-            <button
-              type="button"
-              onClick={handleContinue}
-              className={`${authPrimaryButtonClass} ${step > 0 ? 'flex-1' : ''}`}
-            >
-              Continue
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!canSubmitFinal || isSubmitting}
-              className={`${authPrimaryButtonClass} flex-1`}
-            >
-              {isSubmitting ? (
-                <>
-                  <LoaderCircle className="h-5 w-5 animate-spin" />
-                  Creating account...
-                </>
-              ) : (
-                'Create Account'
-              )}
-            </button>
+        <div className="mt-8 shrink-0">
+          {step === 2 && (
+            <label className="mb-4 flex items-start gap-2.5 rounded-[10px] border border-slate-200 bg-slate-50 px-3 py-2.5 text-[12px] leading-snug text-slate-700">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => {
+                  setAcceptedTerms(e.target.checked);
+                  setErrors((current) => ({ ...current, general: undefined }));
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-brand-700 focus:ring-[#1D4ED8]"
+              />
+              <span>
+                I agree to the{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowTermsModal(true)}
+                  className="font-semibold text-brand-700 underline underline-offset-2"
+                >
+                  Terms and Conditions
+                </button>{' '}
+                and{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowTermsModal(true)}
+                  className="font-semibold text-brand-700 underline underline-offset-2"
+                >
+                  Privacy Policy
+                </button>
+                .
+              </span>
+            </label>
           )}
+
+          <div className="flex items-center gap-2.5">
+            {step > 0 ? (
+              <button type="button" onClick={handleBack} disabled={isSubmitting} className={secondaryButtonClass}>
+                <ChevronLeft className="h-4 w-4" />
+                Back
+              </button>
+            ) : null}
+
+            {step < 2 ? (
+              <button
+                type="button"
+                onClick={handleContinue}
+                className={`${authPrimaryButtonClass} ${step > 0 ? 'flex-1' : ''}`}
+              >
+                Continue
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!canSubmitFinal || isSubmitting}
+                className={`${authPrimaryButtonClass} flex-1`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <LoaderCircle className="h-5 w-5 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  'Create Account'
+                )}
+              </button>
+            )}
+          </div>
+
+          <p className="mt-4 text-center text-[13px] text-ink-muted">
+            Already have an account?{' '}
+            <Link to="/login" className="font-semibold text-brand-700 transition hover:text-brand-800">
+              Sign In
+            </Link>
+          </p>
         </div>
       </form>
-
-      <p className="mt-5 text-center text-[13px] text-ink-muted">
-        Already have an account?{' '}
-        <Link to="/login" className="font-semibold text-brand-700 transition hover:text-brand-800">
-          Sign In
-        </Link>
-      </p>
+      </div>
 
       {showTermsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">

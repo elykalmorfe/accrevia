@@ -470,6 +470,8 @@ export function UploadEvidence() {
       let remoteCount = 0;
 
       for (const item of uploadedFileList) {
+        if (!item.file) continue;
+        const file = item.file;
         const localId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const sizeMb = Math.max(0.1, Math.round((item.size / 1024 / 1024) * 10) / 10);
         const pages = Math.max(1, Math.round(sizeMb * 6));
@@ -509,7 +511,7 @@ export function UploadEvidence() {
           passages: [`Stored in ${targetFolderName} for ${currentFolder.code} compliance.`]
         };
 
-        const remote = await uploadDocumentRemote(item.file, {
+        const remote = await uploadDocumentRemote(file, {
           title,
           description: baseDoc.description,
           frameworkId: baseDoc.frameworkId,
@@ -542,7 +544,7 @@ export function UploadEvidence() {
           : baseDoc;
         if (remote) remoteCount += 1;
 
-        persistUpload(finalDoc.id, item.file);
+        persistUpload(finalDoc.id, file);
         addDocument(finalDoc);
       }
 

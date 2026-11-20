@@ -14,42 +14,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { EvidenceMotionGraphic } from './EvidenceMotionGraphic';
 import { FeatureShowcase } from './FeatureShowcase';
-import { ActivitiesShowcase, type LandingActivity } from './ActivitiesShowcase';
-
-const activities: LandingActivity[] = [
-  {
-    title: 'ISO Quality Management Training',
-    date: 'July 30, 2026',
-    location: 'Academic Building',
-    status: 'Completed',
-    description: 'A workshop focused on process documentation, records maintenance, and evidence traceability.',
-    tag: 'Training'
-  },
-  {
-    title: 'Program Accreditation Preparation',
-    date: 'August 25, 2026',
-    location: 'College of Engineering',
-    status: 'Completed',
-    description: 'Faculty and program coordinators completed evidence consolidation and standards mapping activities.',
-    tag: 'Program'
-  },
-  {
-    title: 'Internal Quality Assurance Audit',
-    date: 'September 12, 2026',
-    location: 'Quality Assurance Office',
-    status: 'Ongoing',
-    description: 'Cross-functional review of documentation, compliance records, and institutional evidence alignment.',
-    tag: 'Audit'
-  },
-  {
-    title: 'Accreditation Survey Visit',
-    date: 'October 18, 2026',
-    location: 'NEMSU Main Campus',
-    status: 'Upcoming',
-    description: 'Preparation and walkthrough for the upcoming external accreditation survey and evidentiary review.',
-    tag: 'Survey'
-  }
-];
+import { ActivitiesShowcase } from './ActivitiesShowcase';
 
 const aboutHighlights = [
   {
@@ -59,7 +24,7 @@ const aboutHighlights = [
   },
   {
     icon: SearchCheck,
-    title: 'Intelligent Retrieval',
+    title: 'Intelligent Document Retrieval',
     description: 'Find relevant documents using intelligent search capabilities.'
   },
   {
@@ -109,7 +74,7 @@ export function LandingPage() {
       >
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8" aria-label="Main navigation">
           <Link to="/" className="flex items-center gap-3" aria-label="Accrevia home">
-            <img src="/nemsu-logo.png" alt="NEMSU logo" className="h-10 w-10 shrink-0 object-contain sm:h-11 sm:w-11" />
+            <img src="/nemsu-landing-logo.png" alt="NEMSU logo" className="h-10 w-10 shrink-0 rounded-full object-cover sm:h-11 sm:w-11" />
             <div>
               <div className={`text-lg font-bold tracking-tight transition-colors ${glass ? 'text-white' : 'text-ink'}`}>
                 Accrevia
@@ -196,12 +161,12 @@ export function LandingPage() {
 
       <main id="home">
         <section ref={heroRef} className="landing-hero relative flex items-center overflow-hidden">
-          <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 px-4 py-16 pb-20 sm:px-6 lg:grid-cols-12 lg:gap-8 lg:py-20 lg:pb-24 lg:px-8 xl:gap-12">
-            <div className="z-10 flex flex-col justify-center lg:col-span-5">
+          <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 px-4 py-16 pb-20 sm:px-6 lg:grid-cols-12 lg:gap-6 lg:py-20 lg:pb-24 lg:px-8 xl:gap-8">
+            <div className="z-10 flex flex-col justify-center lg:col-span-4 xl:col-span-5">
               <p className="hero-eyebrow text-sm font-semibold uppercase tracking-[0.24em] text-blue-200">
                 Accreditation Management
               </p>
-              <h1 className="mt-4 max-w-xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-[3.15rem] xl:text-6xl leading-[1.1]">
+              <h1 className="mt-4 max-w-xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-[3.2rem] xl:text-6xl leading-[1.1]">
                 Every Document. Organized. Easier to Find.
               </h1>
 
@@ -226,7 +191,7 @@ export function LandingPage() {
               </div>
             </div>
 
-            <div className="relative z-10 flex w-full items-center justify-center lg:col-span-7 lg:justify-end">
+            <div className="relative z-10 flex w-full min-w-0 items-center justify-center lg:col-span-8 xl:col-span-7 lg:justify-end lg:pr-1 xl:pr-2">
               <EvidenceMotionGraphic />
             </div>
           </div>
@@ -308,12 +273,12 @@ export function LandingPage() {
                 Accreditation in Action.
               </h2>
               <p className="landing-activities-copy">
-                Explore accreditation-related activities, institutional preparations, evaluations, and quality
-                assurance initiatives involving NEMSU&apos;s QA personnel and academic community.
+                Follow official NEMSU quality assurance initiatives, featuring the Institutional Accreditation
+                Orientation and Workshop alongside illustrative sample QA Office content.
               </p>
             </motion.div>
 
-            <ActivitiesShowcase activities={activities} />
+            <ActivitiesShowcase />
           </div>
         </section>
 
@@ -322,7 +287,7 @@ export function LandingPage() {
             <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
               <div>
                 <div className="flex items-center gap-3">
-                  <img src="/nemsu-logo.png" alt="NEMSU logo" className="h-10 w-10 shrink-0 object-contain" />
+                  <img src="/nemsu-landing-logo.png" alt="NEMSU logo" className="h-10 w-10 shrink-0 rounded-full object-cover" />
                   <div>
                     <div className="text-lg font-bold text-white">Accrevia</div>
                     <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Quality Assurance Office</div>
