@@ -11,7 +11,7 @@ import { CertificateFoldersModal, CertificateLevel } from '../../components/accr
 import { OfficialCertificatesStrip, useCampusCertificates } from '../../components/accreditation/OfficialCertificatesStrip';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
 import { institutionalCertificateAreaKey } from '../../utils/programAccreditation';
-import { formatDate, pluralize } from '../../utils/format';
+import { formatDate } from '../../utils/format';
 import { Building2Icon, CalendarCheckIcon, CalendarClockIcon, PencilIcon, ShieldCheckIcon } from 'lucide-react';
 import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 
@@ -28,17 +28,6 @@ function iaLevelCode(status: IALevel): string {
 /** `Level III Re-accredited` → `Level III`. */
 function shortLevel(status: string): string {
   return status.split(' ').slice(0, 2).join(' ');
-}
-
-const LEVEL_DOT: Record<string, string> = {
-  'Level I': 'bg-slate-400',
-  'Level II': 'bg-brand-500',
-  'Level III': 'bg-brand-500',
-  'Level IV': 'bg-brand-500'
-};
-
-function levelTone(status: string): string {
-  return LEVEL_DOT[shortLevel(status)] ?? 'bg-slate-400';
 }
 
 function readableDate(value?: string): string {
@@ -94,30 +83,7 @@ export function CampusIAView() {
     );
   }
 
-  const approvedCount = iaRecord.requirements.filter((r) => r.status === 'Approved').length;
-  const reviewCount = iaRecord.requirements.filter((r) => r.status === 'Under Review').length;
-  const deficientCount = iaRecord.requirements.filter((r) => r.status === 'Deficient').length;
-  const pendingCount = iaRecord.requirements.filter((r) => r.status === 'Pending').length;
-  const compliancePercentage = Math.round((approvedCount / iaRecord.requirements.length) * 100);
   const validity = validityState(iaRecord.validityEnd);
-
-  // Recommended level is restricted to Level I through Level IV.
-  const recommendedLevel: IALevel =
-    compliancePercentage === 100 && approvedCount >= 9
-      ? 'Level IV Institutional Accreditation'
-      : compliancePercentage >= 75 || approvedCount >= 7
-      ? 'Level III Re-accredited'
-      : compliancePercentage >= 50 || approvedCount >= 5
-      ? 'Level II Re-accredited'
-      : 'Level I Accredited';
-
-  const totalAreas = iaRecord.requirements.length;
-  const statusBreakdown = [
-    { label: 'Approved', count: approvedCount, dot: 'bg-success-600', text: 'text-success-700' },
-    { label: 'Under Review', count: reviewCount, dot: 'bg-brand-500', text: 'text-brand-700' },
-    { label: 'Deficient', count: deficientCount, dot: 'bg-danger-600', text: 'text-danger-700' },
-    { label: 'Pending', count: pendingCount, dot: 'bg-warning-600', text: 'text-warning-700' }
-  ];
 
   return (
     <>
@@ -162,8 +128,8 @@ export function CampusIAView() {
       />
 
       {/* Campus Accreditation Status Card */}
-      <div className="mb-6 grid gap-4 lg:grid-cols-3">
-        <div className="panel col-span-2 p-5">
+      <div className="mb-6">
+        <div className="panel p-5">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
@@ -233,58 +199,6 @@ export function CampusIAView() {
             onOpen={() => setCertificatesOpen(true)}
             onPreview={setPreviewCertificate}
           />
-        </div>
-
-        {/* Compliance Card */}
-        <div className="panel flex flex-col justify-between p-5">
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-subtle">Compliance</h3>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-4xl font-extrabold tracking-tight text-ink">{compliancePercentage}%</span>
-              <span className="text-xs font-medium text-ink-muted">
-                {approvedCount} of {totalAreas} areas approved
-              </span>
-            </div>
-
-            <div
-              className="mt-3 flex h-2.5 w-full overflow-hidden rounded-full bg-line"
-              role="img"
-              aria-label={statusBreakdown.map((s) => `${s.label}: ${s.count}`).join(', ')}
-            >
-              {statusBreakdown.map((s) =>
-                s.count > 0 ? (
-                  <div
-                    key={s.label}
-                    className={`h-full transition-all duration-300 ${s.dot}`}
-                    style={{ width: `${(s.count / totalAreas) * 100}%` }}
-                  />
-                ) : null
-              )}
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-2 xs:grid-cols-2">
-              {statusBreakdown.map((s) => (
-                <div key={s.label} className="rounded-xl border border-line bg-canvas/50 px-3 py-2.5">
-                  <p className="flex items-center gap-1.5 text-[11.5px] font-medium text-ink-muted">
-                    <span className={`h-2 w-2 rounded-full ${s.dot}`} />
-                    {s.label}
-                  </p>
-                  <p className={`mt-0.5 text-xl font-bold leading-tight ${s.text}`}>{s.count}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-4 border-t border-line pt-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-ink-subtle">Recommended level</p>
-            <p className="mt-1 flex items-center gap-2 text-[13.5px] font-bold text-ink">
-              <span className={`h-2 w-2 rounded-full ${levelTone(recommendedLevel)}`} />
-              {recommendedLevel}
-            </p>
-            <p className="mt-0.5 text-[11.5px] text-ink-subtle">
-              {approvedCount === 0 ? 'No areas approved yet' : `Based on ${pluralize(approvedCount, 'approved area')}`}
-            </p>
-          </div>
         </div>
       </div>
 

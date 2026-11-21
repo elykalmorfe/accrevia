@@ -21,7 +21,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon
 } from 'lucide-react';
-import { getStoredFile, persistUpload } from '../../utils/fileStore';
+import { deleteStoredFile, getStoredFile, persistUpload } from '../../utils/fileStore';
 import { UploadDropzone } from '../../components/upload/UploadDropzone';
 import { FileList, FileRow, FileRowAction } from '../../components/upload/FileRow';
 import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
@@ -54,31 +54,40 @@ export function COPCView() {
   const [officialCertUrl, setOfficialCertUrl] = useState<string | null>(null);
   const [officialCertKind, setOfficialCertKind] = useState<'pdf' | 'image' | null>(null);
   const [officialCertLoading, setOfficialCertLoading] = useState(false);
+  const [officialCertMissing, setOfficialCertMissing] = useState(false);
+
+  const certificateKind = (blob: Blob, name: string): 'pdf' | 'image' | null => {
+    const type = (blob.type || '').toLowerCase();
+    if (type.includes('html') || type.startsWith('text/')) return null;
+    const ext = name.split('.').pop()?.toLowerCase() || '';
+    if (type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
+    if (type === 'application/pdf' || ext === 'pdf') return 'pdf';
+    return null;
+  };
 
   const loadOfficialCertificate = async (copc: COPCRecord) => {
     setOfficialCertLoading(true);
     setOfficialCertUrl(null);
     setOfficialCertKind(null);
+    setOfficialCertMissing(false);
     const key = `${copc.id}-COPC-CERT`;
+    const link = copc.documentLink?.trim();
     try {
       const stored = await getStoredFile(key);
       if (stored?.blob) {
-        const url = URL.createObjectURL(stored.blob);
-        const ext = (stored.name || '').split('.').pop()?.toLowerCase() || '';
-        const kind: 'pdf' | 'image' =
-          stored.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)
-            ? 'image'
-            : 'pdf';
-        setOfficialCertUrl(url);
-        setOfficialCertKind(kind);
-        setOfficialCertLoading(false);
-        return;
+        const kind = certificateKind(stored.blob, stored.name || link || '');
+        if (kind) {
+          setOfficialCertUrl(URL.createObjectURL(stored.blob));
+          setOfficialCertKind(kind);
+          setOfficialCertLoading(false);
+          return;
+        }
+        deleteStoredFile(key).catch(() => undefined);
       }
     } catch {
       // fall through to documentLink
     }
 
-    const link = copc.documentLink?.trim();
     if (link?.startsWith('/certificates/') || link?.startsWith('blob:')) {
       try {
         if (link.startsWith('blob:')) {
@@ -88,21 +97,25 @@ export function COPCView() {
           return;
         }
         const res = await fetch(link);
-        if (res.ok) {
+        const type = (res.headers.get('content-type') || '').toLowerCase();
+        if (res.ok && !type.includes('text/html')) {
           const blob = await res.blob();
-          persistUpload(key, blob, link.split('/').pop());
-          const url = URL.createObjectURL(blob);
-          const ext = link.split('.').pop()?.toLowerCase() || '';
-          setOfficialCertUrl(url);
-          setOfficialCertKind(
-            blob.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? 'image' : 'pdf'
-          );
-          setOfficialCertLoading(false);
-          return;
+          const name = link.split('/').pop() || '';
+          const kind = certificateKind(blob, name);
+          if (kind) {
+            persistUpload(key, blob, name);
+            setOfficialCertUrl(URL.createObjectURL(blob));
+            setOfficialCertKind(kind);
+            setOfficialCertLoading(false);
+            return;
+          }
         }
       } catch {
         // ignore
       }
+      setOfficialCertMissing(true);
+    } else if (link) {
+      setOfficialCertMissing(true);
     }
     setOfficialCertLoading(false);
   };
@@ -212,36 +225,18 @@ export function COPCView() {
     };
   }, [viewingCertificateCopc, activePdfDoc, uploadCopc, editingCopc]);
 
-  const handleOpenUpload = (copc: COPCRecord, defaultCode?: string) => {
+  const handleOpenUpload = (copc: COPCRecord) => {
     if (!canMutate) return;
     setUploadCopc(copc);
-    const target = defaultCode
-      ? (defaultCode === 'COPC-CERT' ? null : copc.requirements.find((r) => r.code === defaultCode))
-      : (copc.requirements.find((r) => !r.isSubmitted) || copc.requirements[0]);
-
-    if (defaultCode === 'COPC-CERT') {
-      setSelectedReqCode('COPC-CERT');
-      const certName = copc.certificateNumber
-        ? `${copc.programName.replace(/[^a-zA-Z0-9]/g, '_')}_Official_COPC_Certificate.pdf`
-        : '';
-      setUploadDocName(certName);
-      setUploadDocUrl(copc.documentLink || '');
-      setUploadStatus(copc.copcStatus === 'Compliant' ? 'Approved' : 'Under Review');
-      setUploadNotes(copc.remarks || '');
-      setShowDropzone(!copc.documentLink && !copc.certificateNumber);
-      return;
-    }
-
-    const code = target ? target.code : 'COPC-CURR';
-    setSelectedReqCode(code);
-    if (target) {
-      setUploadDocName(target.documentName || '');
-      setUploadDocUrl(target.documentUrl || '');
-      setUploadStatus(target.status === 'Pending' ? 'Approved' : target.status);
-      setUploadNotes(target.deficiencyNote || '');
-      // If already uploaded, hide dropzone; if pending/empty, show dropzone
-      setShowDropzone(!target.isSubmitted && !target.documentName);
-    }
+    setSelectedReqCode('COPC-CERT');
+    const certName = copc.certificateNumber
+      ? `${copc.programName.replace(/[^a-zA-Z0-9]/g, '_')}_Official_COPC_Certificate.pdf`
+      : '';
+    setUploadDocName(certName);
+    setUploadDocUrl(copc.documentLink || '');
+    setUploadStatus(copc.copcStatus === 'Compliant' ? 'Approved' : 'Under Review');
+    setUploadNotes(copc.remarks || '');
+    setShowDropzone(!copc.documentLink && !copc.certificateNumber);
   };
 
   const handleSelectReqTab = (code: string) => {
@@ -594,7 +589,7 @@ export function COPCView() {
       });
     });
 
-    toast.success(`Updated COPC record, certificate, and 5/5 requirements for ${editingCopc.programName}`);
+    toast.success(`Updated COPC record for ${editingCopc.programName}`);
     setEditingCopc(null);
   };
 
@@ -904,13 +899,11 @@ export function COPCView() {
                 <th className="th py-3">Date Issued</th>
                 <th className="th py-3">CHED CMO Policy</th>
                 <th className="th py-3">BOR Resolution</th>
-                <th className="th py-3">Requirements Audit</th>
                 <th className="th py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {filtered.map((copc, idx) => {
-                const approvedReqs = copc.requirements.filter((r) => r.status === 'Approved').length;
                 return (
                   <tr key={copc.id} className="hover:bg-canvas/50 transition-colors">
                     <td className="td py-3 font-mono text-ink-subtle text-xs">{idx + 1}</td>
@@ -950,7 +943,7 @@ export function COPCView() {
                       ) : canMutate ? (
                         <button
                           type="button"
-                          onClick={() => handleOpenUpload(copc, 'COPC-CERT')}
+                          onClick={() => handleOpenUpload(copc)}
                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200/80 rounded-md px-2 py-0.5 transition-colors cursor-pointer"
                           title="Click to upload official COPC certificate"
                         >
@@ -974,18 +967,6 @@ export function COPCView() {
                       {copc.borRes || '—'}
                     </td>
 
-                    <td className="td py-3 whitespace-nowrap text-xs">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenView(copc, 'requirements')}
-                        className="group inline-flex items-center gap-1.5 text-left hover:text-brand-700 transition-colors cursor-pointer"
-                        title="Click to view uploaded Requirements Audit evidence files"
-                      >
-                        <span className="font-semibold text-ink group-hover:text-brand-700">{approvedReqs} / 5</span>{' '}
-                        <span className="text-ink-muted group-hover:text-brand-600 underline decoration-slate-300 underline-offset-2">areas verified</span>
-                      </button>
-                    </td>
-
                     <td className="td py-3 text-right whitespace-nowrap">
                       <div className="inline-flex items-center divide-x divide-line overflow-hidden rounded-lg bg-white ring-1 ring-inset ring-line shadow-2xs">
                         {/* Eye icon: views uploaded certificate and 5/5 requirements audit */}
@@ -993,7 +974,7 @@ export function COPCView() {
                           type="button"
                           onClick={() => handleOpenView(copc, 'certificate')}
                           className="flex h-7 w-7 items-center justify-center text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
-                          title="View Certificate & Requirements Audit Files"
+                          title="View official certificate"
                         >
                           <EyeIcon className="h-3.5 w-3.5" />
                         </button>
@@ -1002,7 +983,7 @@ export function COPCView() {
                             type="button"
                             onClick={() => handleOpenUpload(copc)}
                             className="flex h-7 w-7 items-center justify-center text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
-                            title="Upload / Verify Requirement Evidence & Certificate"
+                            title="Upload official certificate"
                           >
                             <UploadIcon className="h-3.5 w-3.5" />
                           </button>
@@ -1012,7 +993,7 @@ export function COPCView() {
                             type="button"
                             onClick={() => handleOpenEdit(copc)}
                             className="flex h-7 w-7 items-center justify-center text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
-                            title="Edit COPC Record, Certificate & 5/5 Requirements"
+                            title="Edit COPC record"
                           >
                             <PencilIcon className="h-3.5 w-3.5" />
                           </button>
@@ -1034,7 +1015,6 @@ export function COPCView() {
             </div>
           ) : (
             filtered.map((copc, idx) => {
-              const approvedReqs = copc.requirements.filter((r) => r.status === 'Approved').length;
               return (
                 <div key={copc.id} className="p-4 hover:bg-canvas/50 transition-colors">
                   <div className="flex items-start justify-between gap-3">
@@ -1078,7 +1058,7 @@ export function COPCView() {
                       ) : canMutate ? (
                         <button
                           type="button"
-                          onClick={() => handleOpenUpload(copc, 'COPC-CERT')}
+                          onClick={() => handleOpenUpload(copc)}
                           className="text-[11px] font-semibold text-brand-700 hover:underline mt-0.5 flex items-center gap-1 cursor-pointer"
                           title="Upload Certificate"
                         >
@@ -1101,17 +1081,6 @@ export function COPCView() {
                         {copc.cmoNo || '—'} · {copc.borRes || '—'}
                       </p>
                     </div>
-                    <div className="col-span-2">
-                      <span className="text-[11px] text-ink-muted">Audit Verification:</span>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenView(copc, 'requirements')}
-                        className="block font-semibold text-brand-700 hover:underline mt-0.5 text-left cursor-pointer"
-                        title="Click to view uploaded Requirements Audit files"
-                      >
-                        {approvedReqs} / 5 areas verified · View files
-                      </button>
-                    </div>
                   </div>
 
                   <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
@@ -1122,7 +1091,7 @@ export function COPCView() {
                         type="button"
                         onClick={() => handleOpenView(copc, 'certificate')}
                         className="flex h-8 px-2.5 items-center gap-1.5 text-xs text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
-                        title="View Certificate & Requirements Audit Files"
+                        title="View official certificate"
                       >
                         <EyeIcon className="h-3.5 w-3.5" />
                         <span>View</span>
@@ -1132,7 +1101,7 @@ export function COPCView() {
                           type="button"
                           onClick={() => handleOpenUpload(copc)}
                           className="flex h-8 px-2.5 items-center gap-1.5 text-xs text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
-                          title="Upload Evidence"
+                          title="Upload official certificate"
                         >
                           <UploadIcon className="h-3.5 w-3.5" />
                           <span>Upload</span>
@@ -1185,7 +1154,7 @@ export function COPCView() {
                     onClick={() => {
                       const target = viewingCertificateCopc;
                       setViewingCertificateCopc(null);
-                      handleOpenUpload(target, viewModalTab === 'certificate' ? 'COPC-CERT' : undefined);
+                      handleOpenUpload(target);
                     }}
                     className="btn btn-primary btn-sm inline-flex items-center gap-1.5 shadow-2xs font-semibold cursor-pointer"
                   >
@@ -1230,22 +1199,6 @@ export function COPCView() {
                   <AwardIcon className="h-3.5 w-3.5" />
                   <span>Official Certificate</span>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setViewModalTab('requirements')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-                    viewModalTab === 'requirements'
-                      ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-500/30 shadow-2xs'
-                      : 'text-ink-muted hover:bg-slate-100 hover:text-ink'
-                  }`}
-                >
-                  <FileTextIcon className="h-3.5 w-3.5" />
-                  <span>Requirements Audit Files</span>
-                  <span className="rounded bg-brand-100 text-brand-800 px-1.5 py-0.2 text-[10px] font-mono font-bold">
-                    {viewingCertificateCopc.requirements.filter((r) => r.status === 'Approved').length} / 5
-                  </span>
-                </button>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1260,6 +1213,13 @@ export function COPCView() {
               officialCertLoading ? (
                 <div className="flex items-center justify-center rounded-2xl border border-line bg-white py-20 text-sm text-ink-muted">
                   Loading official certificate…
+                </div>
+              ) : officialCertMissing && !officialCertUrl ? (
+                <div className="rounded-xl border border-dashed border-line bg-canvas/60 px-6 py-10 text-center">
+                  <p className="text-sm font-semibold text-ink">Certificate file is not available</p>
+                  <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-muted">
+                    This program is linked to a scanned certificate, but that file is not in this copy of the app.
+                  </p>
                 </div>
               ) : officialCertUrl && officialCertKind === 'image' ? (
                 <div className="space-y-2">
@@ -1377,173 +1337,6 @@ export function COPCView() {
               )
             )}
 
-            {/* TAB 2: Requirements Audit Uploaded Evidence Files */}
-            {viewModalTab === 'requirements' && (
-              <div className="space-y-4">
-                {/* Summary Banner */}
-                <div className="rounded-xl border border-line bg-canvas/70 p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                          Requirements Audit Evidence Portfolio
-                        </span>
-                        <span className="rounded bg-brand-50 px-2 py-0.5 font-mono text-[11px] font-bold text-brand-700">
-                          {viewingCertificateCopc.requirements.filter((r) => r.status === 'Approved').length} / 5 Verified
-                        </span>
-                      </div>
-                      <p className="text-xs text-ink-muted mt-1">
-                        Mandatory compliance audit parameters verified against {viewingCertificateCopc.cmoNo || 'CHED Policies, Standards and Guidelines'}.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-right">
-                        <span className="text-xs font-black text-ink">
-                          {Math.round((viewingCertificateCopc.requirements.filter((r) => r.status === 'Approved').length / 5) * 100)}%
-                        </span>
-                        <span className="text-[10px] text-ink-subtle block">Compliance Rate</span>
-                      </div>
-                      <div className="h-2.5 w-28 rounded-full bg-line overflow-hidden">
-                        <div
-                          className="h-full bg-success-600 transition-all duration-300"
-                          style={{
-                            width: `${(viewingCertificateCopc.requirements.filter((r) => r.status === 'Approved').length / 5) * 100}%`
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 5 Compliance Parameters List */}
-                <div className="space-y-3">
-                  {viewingCertificateCopc.requirements.map((req, idx) => {
-                    const isApproved = req.status === 'Approved';
-                    const hasFile = Boolean(req.documentName || req.isSubmitted);
-                    const isInspecting = selectedPreviewReq?.code === req.code;
-
-                    return (
-                      <div
-                        key={req.id}
-                        className={`rounded-xl border transition-all ${
-                          isInspecting
-                            ? 'border-brand-500 bg-brand-50/10 ring-1 ring-brand-400/30'
-                            : 'border-line bg-white hover:border-slate-300'
-                        } p-4 shadow-2xs space-y-3`}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-bold text-ink">
-                              0{idx + 1} · {req.code}
-                            </span>
-                            <span className="font-semibold text-xs text-ink">{req.category}</span>
-                            <span className="text-ink-subtle text-xs hidden sm:inline">·</span>
-                            <span className="text-xs text-ink-muted line-clamp-1">{req.requirementName}</span>
-                          </div>
-
-                          <Badge
-                            tone={
-                              isApproved
-                                ? 'success'
-                                : req.status === 'Deficient'
-                                ? 'danger'
-                                : req.status === 'Under Review'
-                                ? 'brand'
-                                : 'warning'
-                            }
-                            dot
-                          >
-                            {isApproved ? 'Verified Compliant' : req.status}
-                          </Badge>
-                        </div>
-
-                        {/* Uploaded File Evidence Card */}
-                        {hasFile ? (
-                          <div
-                            onClick={() => openPdfViewer(viewingCertificateCopc, req, idx)}
-                            className="rounded-xl border border-line bg-canvas/60 p-3.5 flex items-center justify-between gap-3 hover:border-brand-400 hover:bg-brand-50/25 transition-all cursor-pointer group shadow-2xs"
-                            title={`Click to view ${req.documentName || 'evidence file'} as real PDF`}
-                          >
-                            <div className="flex items-center gap-3.5 min-w-0">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600 ring-1 ring-red-100 shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
-                                <FileTextIcon className="h-5 w-5" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold text-ink truncate font-mono group-hover:text-brand-700 transition-colors">
-                                  {req.documentName || `${req.code}_Evidence_Document.pdf`}
-                                </p>
-                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-ink-subtle">
-                                  <span className="text-success-700 font-semibold">✓ Uploaded & Attached</span>
-                                  <span>·</span>
-                                  <span className="font-bold text-red-600">PDF Document</span>
-                                  <span>·</span>
-                                  <span className="text-brand-700 font-medium underline underline-offset-2">Click to open & view PDF</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openPdfViewer(viewingCertificateCopc, req, idx);
-                                }}
-                                className="btn btn-primary btn-sm h-8 px-3 text-xs inline-flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs font-semibold"
-                                title={`View ${req.documentName} as real PDF`}
-                              >
-                                <FileTextIcon className="h-3.5 w-3.5" />
-                                <span>View PDF</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const targetCopc = viewingCertificateCopc;
-                                  setViewingCertificateCopc(null);
-                                  handleOpenUpload(targetCopc, req.code);
-                                }}
-                                className="btn btn-secondary btn-sm h-8 px-2.5 text-xs inline-flex items-center gap-1.5 shrink-0 cursor-pointer"
-                                title="Upload replacement evidence file"
-                              >
-                                <UploadIcon className="h-3.5 w-3.5" />
-                                <span>Replace</span>
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="rounded-lg border border-dashed border-line bg-canvas/30 p-3.5 flex items-center justify-between gap-3">
-                            <span className="text-xs text-ink-muted">
-                              No requirement evidence document uploaded yet
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const targetCopc = viewingCertificateCopc;
-                                setViewingCertificateCopc(null);
-                                handleOpenUpload(targetCopc, req.code);
-                              }}
-                              className="btn btn-primary btn-sm h-8 px-3 text-xs inline-flex items-center gap-1.5 font-semibold cursor-pointer shadow-2xs shrink-0"
-                            >
-                              <UploadIcon className="h-3.5 w-3.5" />
-                              <span>Upload Evidence</span>
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Deficiency or Reviewer Note */}
-                        {req.deficiencyNote && (
-                          <div className="text-[11px] text-ink-muted bg-slate-50 border border-slate-200/60 rounded-md p-2.5">
-                            <span className="font-semibold text-ink">Reviewer / Deficiency Note:</span> {req.deficiencyNote}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         </Modal>
       )}
@@ -2067,112 +1860,30 @@ export function COPCView() {
         <Modal
           open={!!uploadCopc}
           onClose={() => setUploadCopc(null)}
-          title={`Upload & Verify COPC Evidence`}
+          title="Upload Official Certificate"
           description={`${uploadCopc.programName} · ${uploadCopc.campusName}`}
           size="lg"
           footer={
-            <div className="flex w-full flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5 text-xs text-ink-subtle">
-                <span className="font-semibold text-ink">
-                  {uploadCopc.requirements.filter((r) => r.status === 'Approved').length} of 5
-                </span>{' '}
-                compliance areas verified
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setUploadCopc(null)}
-                  className="btn btn-secondary btn-sm"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveUploadRequirement}
-                  className="btn btn-primary btn-sm"
-                >
-                  Save Requirement
-                </button>
-              </div>
+            <div className="flex w-full items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setUploadCopc(null)}
+                className="btn btn-secondary btn-sm"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveUploadRequirement}
+                className="btn btn-primary btn-sm"
+              >
+                Save Certificate
+              </button>
             </div>
           }
         >
           <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wider mb-2">
-                Select Compliance Parameter or Official Certificate
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
-                {/* Tab 0: Official Certificate */}
-                <button
-                  type="button"
-                  onClick={() => handleSelectReqTab('COPC-CERT')}
-                  className={`p-2.5 rounded-lg text-left border transition-all cursor-pointer flex flex-col justify-between ${
-                    selectedReqCode === 'COPC-CERT'
-                      ? 'border-brand-600 bg-brand-50/60 ring-2 ring-brand-500/30 shadow-xs'
-                      : 'border-line hover:border-slate-300 bg-white shadow-2xs'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] font-mono font-bold text-ink-muted">CERT</span>
-                    {uploadCopc.documentLink ? (
-                      <span className="h-4 w-4 rounded-full bg-success-100 text-success-700 flex items-center justify-center text-[10px] font-bold">
-                        ✓
-                      </span>
-                    ) : (
-                      <span className="h-4 w-4 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold">
-                        ⏳
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1.5">
-                    <p className="text-xs font-semibold text-ink truncate">Certificate</p>
-                    <p className="text-[10px] text-ink-subtle truncate">
-                      {uploadCopc.documentLink ? 'Uploaded' : 'Pending'}
-                    </p>
-                  </div>
-                </button>
-
-                {/* Tabs 1-5: Mandatory Compliance Areas */}
-                {uploadCopc.requirements.map((req, idx) => {
-                  const isSelected = req.code === selectedReqCode;
-                  const isApproved = req.status === 'Approved';
-                  return (
-                    <button
-                      key={req.id}
-                      type="button"
-                      onClick={() => handleSelectReqTab(req.code)}
-                      className={`p-2.5 rounded-lg text-left border transition-all cursor-pointer flex flex-col justify-between ${
-                        isSelected
-                          ? 'border-brand-600 bg-brand-50/60 ring-2 ring-brand-500/30 shadow-xs'
-                          : 'border-line hover:border-slate-300 bg-white shadow-2xs'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[10px] font-mono font-bold text-ink-muted">0{idx + 1}</span>
-                        {isApproved ? (
-                          <span className="h-4 w-4 rounded-full bg-success-100 text-success-700 flex items-center justify-center text-[10px] font-bold">
-                            ✓
-                          </span>
-                        ) : (
-                          <span className="h-4 w-4 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold">
-                            ⏳
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1.5">
-                        <p className="text-xs font-semibold text-ink truncate">{req.category}</p>
-                        <p className="text-[10px] text-ink-subtle truncate">{req.status}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Selected Area / Certificate Upload Form */}
-            {selectedReqCode === 'COPC-CERT' ? (
-              <div className="space-y-3.5 pt-2 border-t border-line">
+              <div className="space-y-3.5">
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <span className="rounded bg-brand-50 px-2 py-0.5 font-mono text-[11px] font-bold text-brand-700">
@@ -2243,77 +1954,6 @@ export function COPCView() {
                   </div>
                 )}
               </div>
-            ) : (
-              (() => {
-                const currentReq = uploadCopc.requirements.find((r) => r.code === selectedReqCode);
-                if (!currentReq) return null;
-                const hasExistingFile = Boolean(uploadDocName || currentReq.documentName);
-                return (
-                  <div className="space-y-3.5 pt-2 border-t border-line">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <span className="rounded bg-brand-50 px-2 py-0.5 font-mono text-[11px] font-bold text-brand-700">
-                          {currentReq.code} · {currentReq.category}
-                        </span>
-                        <h4 className="mt-1 text-xs font-bold text-ink">{currentReq.requirementName}</h4>
-                      </div>
-                      <Badge
-                        tone={uploadStatus === 'Approved' ? 'success' : uploadStatus === 'Deficient' ? 'danger' : 'warning'}
-                        dot
-                      >
-                        {uploadStatus}
-                      </Badge>
-                    </div>
-
-                    {/* If already uploaded, show clean attached file card; show dropzone only on edit/replace */}
-                    {hasExistingFile && !showDropzone ? (
-                      <FileList>
-                        <FileRow
-                          name={uploadDocName || currentReq.documentName}
-                          fileType={uploadDocName || currentReq.documentName || 'PDF'}
-                          meta="Attached evidence file"
-                          onOpen={() => openRequirementFile(currentReq)}
-                          status={
-                            <Badge tone={uploadStatus === 'Approved' ? 'success' : 'warning'} dot>
-                              {uploadStatus}
-                            </Badge>
-                          }
-                          actions={
-                            <>
-                              <FileRowAction icon={EyeIcon} label="View file" onClick={() => openRequirementFile(currentReq)} />
-                              <FileRowAction icon={PencilIcon} label="Replace file" onClick={() => setShowDropzone(true)} />
-                            </>
-                          }
-                        />
-                      </FileList>
-                    ) : (
-                      <div className="space-y-2">
-                        <UploadDropzone
-                          onFiles={(uploads) => attachFileToUploadCopc(uploads[0].file)}
-                          multiple={false}
-                          accept=".pdf,.doc,.docx,.xlsx,.png,.jpg"
-                          disabled={simulatedUploading}
-                          title={simulatedUploading ? 'Attaching file…' : 'Upload the requirement evidence'}
-                          hint="PDF, DOCX, XLSX or image · one file"
-                          browseLabel="Choose file"
-                        />
-                        {hasExistingFile && (
-                          <div className="flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => setShowDropzone(false)}
-                              className="btn btn-ghost btn-sm h-8 px-2.5 text-xs text-ink-muted hover:text-ink"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()
-            )}
           </div>
         </Modal>
       )}
@@ -2328,40 +1968,6 @@ export function COPCView() {
           size="xl"
         >
           <form onSubmit={handleSaveEdit} className="space-y-4">
-            {/* Navigation Tabs inside Edit Modal */}
-            <div className="flex border-b border-line">
-              <button
-                type="button"
-                onClick={() => setEditActiveTab('details')}
-                className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  editActiveTab === 'details'
-                    ? 'border-brand-600 text-brand-700 bg-brand-50/20'
-                    : 'border-transparent text-ink-muted hover:text-ink'
-                }`}
-              >
-                <AwardIcon className="h-3.5 w-3.5" />
-                <span>1. COPC Details & Certificate</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setEditActiveTab('requirements')}
-                className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  editActiveTab === 'requirements'
-                    ? 'border-brand-600 text-brand-700 bg-brand-50/20'
-                    : 'border-transparent text-ink-muted hover:text-ink'
-                }`}
-              >
-                <FileTextIcon className="h-3.5 w-3.5" />
-                <span>2. Requirements Audit (5/5 Areas)</span>
-                <span className="rounded bg-brand-100 text-brand-800 px-1.5 py-0.2 text-[10px] font-mono font-bold">
-                  {editReqs.filter((r) => r.status === 'Approved').length} / 5
-                </span>
-              </button>
-            </div>
-
-            {/* Tab 1: COPC Details & Official Certificate */}
-            {editActiveTab === 'details' && (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
@@ -2470,181 +2076,6 @@ export function COPCView() {
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Tab 2: Edit 5/5 Requirements Audit */}
-            {editActiveTab === 'requirements' && (
-              <div className="space-y-3.5">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-semibold text-ink-muted uppercase tracking-wider">
-                      Select Parameter to Edit (5 Mandatory Areas)
-                    </label>
-                    <span className="text-xs font-semibold text-brand-700">
-                      {editReqs.filter((r) => r.status === 'Approved').length} / 5 Areas Approved
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-                    {editReqs.map((req, idx) => {
-                      const isSelected = req.code === editSelectedReqCode;
-                      const isApproved = req.status === 'Approved';
-                      return (
-                        <button
-                          key={req.id}
-                          type="button"
-                          onClick={() => setEditSelectedReqCode(req.code)}
-                          className={`p-2 rounded-lg text-left border transition-all cursor-pointer ${
-                            isSelected
-                              ? 'border-brand-600 bg-brand-50/60 ring-2 ring-brand-500/30 shadow-xs'
-                              : 'border-line hover:border-slate-300 bg-white'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-mono font-bold text-ink-muted">0{idx + 1}</span>
-                            {isApproved ? (
-                              <span className="h-4 w-4 rounded-full bg-success-100 text-success-700 flex items-center justify-center text-[10px] font-bold">
-                                ✓
-                              </span>
-                            ) : (
-                              <span className="h-4 w-4 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold">
-                                ⏳
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs font-semibold text-ink truncate mt-1">{req.category}</p>
-                          <p className="text-[10px] text-ink-subtle truncate">{req.status}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Selected Area Requirement Form inside Edit Modal */}
-                {(() => {
-                  const currentReq = editReqs.find((r) => r.code === editSelectedReqCode);
-                  if (!currentReq) return null;
-                  return (
-                    <div className="rounded-xl border border-line bg-canvas/50 p-4 space-y-3.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <span className="rounded bg-brand-50 px-2 py-0.5 font-mono text-[11px] font-bold text-brand-700">
-                            {currentReq.code} · {currentReq.category}
-                          </span>
-                          <h4 className="mt-1 text-xs font-bold text-ink">{currentReq.requirementName}</h4>
-                        </div>
-                        <Badge
-                          tone={
-                            currentReq.status === 'Approved'
-                              ? 'success'
-                              : currentReq.status === 'Deficient'
-                              ? 'danger'
-                              : 'warning'
-                          }
-                          dot
-                        >
-                          {currentReq.status}
-                        </Badge>
-                      </div>
-
-                      {/* File upload / replace in Edit Modal */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <label className="block text-xs font-semibold text-ink">
-                            Document Evidence File Name
-                          </label>
-                          <div className="flex items-center gap-1.5">
-                            {currentReq.documentName && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const rIdx = editReqs.findIndex((r) => r.code === currentReq.code);
-                                  openPdfViewer(editingCopc, currentReq, rIdx >= 0 ? rIdx : 0);
-                                }}
-                                className="btn btn-secondary btn-sm h-7 px-2 text-xs inline-flex items-center gap-1 text-brand-700 hover:text-brand-800 cursor-pointer"
-                              >
-                                <FileTextIcon className="h-3 w-3" />
-                                <span>View PDF</span>
-                              </button>
-                            )}
-                            <label className="btn btn-secondary btn-sm h-7 px-2 text-xs inline-flex items-center gap-1 cursor-pointer">
-                              <UploadIcon className="h-3 w-3" />
-                              <span>{editSimulatedUploading ? 'Attaching...' : 'Upload / Replace File'}</span>
-                              <input
-                                type="file"
-                                className="hidden"
-                                accept=".pdf,.doc,.docx,.xlsx,.png,.jpg"
-                                onChange={handleEditReqFileUpload}
-                                disabled={editSimulatedUploading}
-                              />
-                            </label>
-                          </div>
-                        </div>
-                        <input
-                          type="text"
-                          value={currentReq.documentName || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setEditReqs((prev) =>
-                              prev.map((r) =>
-                                r.id === currentReq.id
-                                  ? { ...r, documentName: val, isSubmitted: Boolean(val) }
-                                  : r
-                              )
-                            );
-                          }}
-                          placeholder="e.g. BSCS_CMO_Curriculum_Compliance_Matrix.pdf"
-                          className="input text-xs"
-                        />
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <label className="block text-xs font-semibold text-ink mb-1">Verification Status</label>
-                          <select
-                            value={currentReq.status}
-                            onChange={(e) => {
-                              const newStatus = e.target.value as RequirementVerificationStatus;
-                              setEditReqs((prev) =>
-                                prev.map((r) =>
-                                  r.id === currentReq.id ? { ...r, status: newStatus } : r
-                                )
-                              );
-                            }}
-                            className="input select text-xs hover:border-brand-300"
-                          >
-                            <option value="Approved">Approved (Verified Compliant)</option>
-                            <option value="Under Review">Under Review</option>
-                            <option value="Pending">Pending Evidence Upload</option>
-                            <option value="Deficient">Flagged as Deficient</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold text-ink mb-1">
-                            Reviewer / Deficiency Notes
-                          </label>
-                          <input
-                            type="text"
-                            value={currentReq.deficiencyNote || ''}
-                            onChange={(e) => {
-                              const noteVal = e.target.value;
-                              setEditReqs((prev) =>
-                                prev.map((r) =>
-                                  r.id === currentReq.id ? { ...r, deficiencyNote: noteVal } : r
-                                )
-                              );
-                            }}
-                            placeholder="Notes or observations for this parameter..."
-                            className="input text-xs"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
               <button

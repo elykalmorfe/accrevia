@@ -29,7 +29,7 @@ import { usePortal } from '../../contexts/PortalContext';
 import { DocumentType, EvidenceDocument, EvidenceFolder, FolderColor } from '../../types/evidence';
 import { CampusId } from '../../types/accreditation';
 import { isCampusMatch } from '../../utils/campus';
-import { initialFolders, isRootFrameworkFolder } from '../../data/folders';
+import { hideFolderId, initialFolders, isRootFrameworkFolder, loadHiddenFolderIds } from '../../data/folders';
 import { FolderFormModal } from '../../components/folders/FolderFormModal';
 import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
@@ -126,6 +126,7 @@ export function UploadEvidence() {
   const [editingFolder, setEditingFolder] = useState<EvidenceFolder | null>(null);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [deletingFolder, setDeletingFolder] = useState<EvidenceFolder | null>(null);
+  const [hiddenFolderIds, setHiddenFolderIds] = useState<string[]>(() => loadHiddenFolderIds());
   const [previewDoc, setPreviewDoc] = useState<EvidenceDocument | null>(null);
 
   // Edit / Rename Document Modal state
@@ -170,13 +171,16 @@ export function UploadEvidence() {
 
   // The 5 Canonical Framework Root Repositories: IA, PA, COPC, PQA, ISO ONLY (EXACTLY 5 AT ALL CAMPUSES AND AT EACH CAMPUS)
   const rootFrameworkFolders = useMemo(() => {
-    return initialFolders.map((initF) => {
-      const match = folders.find(
-        (f) => f.id === initF.id || (f.code?.toUpperCase() === initF.code?.toUpperCase() && isRootFrameworkFolder(f))
-      );
-      return match || initF;
-    });
-  }, [folders]);
+    const hidden = new Set(hiddenFolderIds);
+    return initialFolders
+      .filter((initF) => !hidden.has(initF.id))
+      .map((initF) => {
+        const match = folders.find(
+          (f) => f.id === initF.id || (f.code?.toUpperCase() === initF.code?.toUpperCase() && isRootFrameworkFolder(f))
+        );
+        return match || initF;
+      });
+  }, [folders, hiddenFolderIds]);
 
   // Overall root folders: strictly and ONLY the 5 canonical frameworks (IA, PA, COPC, PQA, ISO)
   const allRootFolders = useMemo(() => {
@@ -351,18 +355,31 @@ export function UploadEvidence() {
   const handleCreateOrEditFolder = (f: EvidenceFolder) => {
     const targetCampusId = selectedCampus !== 'all' ? selectedCampus : 'tandag';
     const targetCampusName = selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)';
-    const folderToSave: EvidenceFolder = {
-      ...f,
-      frameworkId: f.frameworkId || currentFrameworkId || 'ia',
-      parentId: f.parentId || (currentFolder ? currentFolder.id : 'folder-ia'),
-      campusId: f.campusId || targetCampusId,
-      campus: f.campus || targetCampusName
-    };
+    const folderToSave: EvidenceFolder = editingFolder
+      ? {
+          ...editingFolder,
+          ...f,
+          frameworkId: editingFolder.frameworkId,
+          category: editingFolder.category,
+          parentId: editingFolder.parentId,
+          campusId: editingFolder.campusId,
+          campus: editingFolder.campus,
+          isSystem: editingFolder.isSystem
+        }
+      : {
+          ...f,
+          frameworkId: f.frameworkId || currentFrameworkId || 'ia',
+          parentId: currentFolder ? currentFolder.id : f.parentId,
+          campusId: f.campusId || targetCampusId,
+          campus: f.campus || targetCampusName
+        };
     saveFolder(folderToSave);
     toast.success(editingFolder ? `Updated folder: ${f.name}` : `Created folder: ${f.name}`);
   };
 
   const handleDeleteFolder = (folderId: string) => {
+    hideFolderId(folderId);
+    setHiddenFolderIds(loadHiddenFolderIds());
     deleteFolder(folderId);
     if (folderParam === folderId) {
       setFolder(null);
@@ -955,14 +972,22 @@ export function UploadEvidence() {
                     meta={`${pluralize(stats.count, 'file')} · ${stats.sizeMb} MB`}
                     status={stats.count === 0 ? { label: 'No files yet', tone: 'neutral' } : null}
                     actions={
-                      <FolderAction
-                        icon={PencilIcon}
-                        label="Edit folder"
-                        onClick={() => {
-                          setEditingFolder(folder);
-                          setIsFolderModalOpen(true);
-                        }}
-                      />
+                      <>
+                        <FolderAction
+                          icon={PencilIcon}
+                          label="Edit folder"
+                          onClick={() => {
+                            setEditingFolder(folder);
+                            setIsFolderModalOpen(true);
+                          }}
+                        />
+                        <FolderAction
+                          icon={Trash2Icon}
+                          label="Delete folder"
+                          danger
+                          onClick={() => setDeletingFolder(folder)}
+                        />
+                      </>
                     }
                   />
                 );
@@ -1043,13 +1068,32 @@ export function UploadEvidence() {
                             {stats.sizeMb} MB
                           </td>
                           <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={() => setFolder(folder.id)}
-                              className="btn btn-secondary btn-sm"
-                            >
-                              Open
-                            </button>
+                            <div className="inline-flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingFolder(folder);
+                                  setIsFolderModalOpen(true);
+                                }}
+                                className="btn btn-secondary btn-sm"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingFolder(folder)}
+                                className="btn btn-secondary btn-sm text-danger-700"
+                              >
+                                Delete
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setFolder(folder.id)}
+                                className="btn btn-secondary btn-sm"
+                              >
+                                Open
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1937,6 +1981,7 @@ export function UploadEvidence() {
         open={!!deletingFolder}
         folder={deletingFolder}
         documentCount={deletingFolder ? folderStats[deletingFolder.id]?.count || 0 : 0}
+        allowSystem
         onClose={() => setDeletingFolder(null)}
         onConfirm={handleDeleteFolder}
       />

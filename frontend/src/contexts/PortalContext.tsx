@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { frameworks as initialFrameworks } from '../data/frameworks';
-import { initialFolders } from '../data/folders';
+import { initialFolders, loadHiddenFolderIds } from '../data/folders';
 import { seedMockDocuments } from '../data/mockDocuments';
 import { areas as initialAreas } from '../data/areas';
 import { criteria as initialCriteria } from '../data/criteria';
@@ -232,9 +232,11 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   );
   const [folders, setFolders] = useState<EvidenceFolder[]>(() => {
     const stored = loadStorage<EvidenceFolder[]>('folders', initialFolders);
-    const existingIds = new Set(stored.map((f) => f.id));
-    const missingRoots = initialFolders.filter((f) => !existingIds.has(f.id));
-    return missingRoots.length > 0 ? [...missingRoots, ...stored] : stored;
+    const hidden = new Set(loadHiddenFolderIds());
+    const visible = stored.filter((f) => !hidden.has(f.id));
+    const existingIds = new Set(visible.map((f) => f.id));
+    const missingRoots = initialFolders.filter((f) => !existingIds.has(f.id) && !hidden.has(f.id));
+    return missingRoots.length > 0 ? [...missingRoots, ...visible] : visible;
   });
   const [pending, setPending] = useState<PendingDocument[]>([]);
   const [users, setUsers] = useState<PortalUser[]>(() => {

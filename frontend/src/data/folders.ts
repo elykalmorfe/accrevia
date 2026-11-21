@@ -10,6 +10,23 @@ export const ROOT_FRAMEWORK_FOLDER_IDS: readonly string[] = [
 
 export const ROOT_FRAMEWORK_CODES: readonly string[] = ['IA', 'PA', 'COPC', 'PQA', 'ISO'];
 
+const HIDDEN_FOLDERS_KEY = 'accrevia_hidden_folders';
+
+export function loadHiddenFolderIds(): string[] {
+  try {
+    const raw = localStorage.getItem(HIDDEN_FOLDERS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export function hideFolderId(id: string) {
+  const next = Array.from(new Set([...loadHiddenFolderIds(), id]));
+  localStorage.setItem(HIDDEN_FOLDERS_KEY, JSON.stringify(next));
+}
+
 export function isRootFrameworkFolder(folder?: EvidenceFolder | null): boolean {
   if (!folder) return false;
   const upperCode = folder.code?.toUpperCase() ?? '';

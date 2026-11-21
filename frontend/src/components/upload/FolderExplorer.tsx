@@ -7,6 +7,7 @@ import {
   CloudUploadIcon,
   DownloadIcon,
   EyeIcon,
+  FolderIcon,
   FolderPlusIcon,
   FolderUpIcon,
   HomeIcon,
@@ -56,6 +57,8 @@ interface FolderExplorerProps {
   openToViewers?: boolean;
   /** Content above the toolbar, e.g. a stats strip. */
   summary?: ReactNode;
+  /** `list` shows each folder as a full-width row so long names stay on one line. */
+  folderLayout?: 'grid' | 'list';
   emptyHint?: string;
   /** Changing this resets navigation (e.g. a different area or program). */
   resetKey?: string;
@@ -79,6 +82,7 @@ export function FolderExplorer({
   documentActions,
   openToViewers = false,
   summary,
+  folderLayout = 'grid',
   emptyHint,
   resetKey
 }: FolderExplorerProps) {
@@ -239,7 +243,7 @@ export function FolderExplorer({
       {summary}
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className={folderLayout === 'list' ? 'flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between' : 'flex flex-wrap items-center justify-between gap-3'}>
         <nav className="flex min-w-0 flex-wrap items-center gap-1 text-[13px]" aria-label="Folder path">
           <button
             type="button"
@@ -267,14 +271,16 @@ export function FolderExplorer({
           ))}
         </nav>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={`flex flex-wrap items-center gap-2 ${folderLayout === 'list' ? 'sm:justify-end' : ''}`}>
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search files and folders…"
-              className="h-9 w-48 rounded-lg border border-line bg-white pl-8 pr-3 text-[13px] outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+              className={`h-9 rounded-lg border border-line bg-white pl-8 pr-3 text-[13px] outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 ${
+                folderLayout === 'list' ? 'w-full sm:w-56' : 'w-48'
+              }`}
             />
           </div>
           {canEdit && (
@@ -329,7 +335,14 @@ export function FolderExplorer({
       </div>
 
       {/* Workspace / dropzone */}
-      <UploadDropzone variant="area" onFiles={ingest} disabled={!canEdit} targetLabel={target.label} className="min-h-[300px]">
+      <UploadDropzone
+        variant="area"
+        onFiles={ingest}
+        disabled={!canEdit}
+        targetLabel={target.label}
+        bare={folderLayout === 'list' && !isEmpty}
+        className={folderLayout === 'list' && !isEmpty ? '' : 'min-h-[300px]'}
+      >
         {creatingFolder && canEdit && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-brand-200 bg-white p-2 shadow-sm">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-500">
@@ -400,59 +413,94 @@ export function FolderExplorer({
             {visibleFolders.length > 0 && (
               <div>
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-subtle">Folders</p>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className={folderLayout === 'list' ? 'divide-y divide-line overflow-hidden rounded-xl border border-line bg-white' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3'}>
                   {visibleFolders.map((folder) => {
                     const count = fileCountIn(folder.id);
                     const subCount = folders.filter((f) => f.parentId === folder.id).length;
                     const locked = isSystem(folder);
+                    const openFolder = () => {
+                      if (renamingId === folder.id) return;
+                      setQuery('');
+                      setCurrentFolderId(folder.id);
+                    };
+                    const nameNode =
+                      renamingId === folder.id ? (
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={() => handleRename(folder)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleRename(folder);
+                            if (e.key === 'Escape') setRenamingId(null);
+                          }}
+                          className="w-full rounded-md border border-brand-300 px-1.5 py-0.5 text-[13px] font-semibold outline-none ring-2 ring-brand-100"
+                        />
+                      ) : (
+                        <span className="flex w-full min-w-0 items-center gap-1.5">
+                          <span className="min-w-0 truncate">{folder.name}</span>
+                          {locked && <LockIcon className="h-3 w-3 shrink-0 text-ink-subtle" aria-label="System folder" />}
+                        </span>
+                      );
+                    const meta = `${pluralize(count, 'file')}${subCount > 0 ? ` · ${pluralize(subCount, 'folder')}` : ''}`;
+                    const status = folderStatus ? folderStatus(folder, count) : count === 0 ? { label: 'No files yet', tone: 'neutral' as const } : null;
+                    const actions =
+                      canEdit && !locked ? (
+                        <>
+                          <FolderAction
+                            icon={PencilIcon}
+                            label={`Rename ${folder.name}`}
+                            onClick={() => {
+                              setRenamingId(folder.id);
+                              setRenameValue(folder.name);
+                            }}
+                          />
+                          <FolderAction icon={Trash2Icon} label={`Delete ${folder.name}`} danger onClick={() => handleDeleteFolder(folder)} />
+                        </>
+                      ) : undefined;
+
+                    if (folderLayout === 'list') {
+                      return (
+                        <div key={folder.id} className="group flex items-center gap-3 px-3 py-2.5 hover:bg-brand-50/40">
+                          <button
+                            type="button"
+                            onClick={openFolder}
+                            title={`Open ${folder.name}`}
+                            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                          >
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                              <FolderIcon className="h-[18px] w-[18px]" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              {folderEyebrow?.(folder) && (
+                                <span className="block truncate text-[11px] font-semibold text-ink-subtle">{folderEyebrow(folder)}</span>
+                              )}
+                              <span className="block truncate text-[13.5px] font-semibold text-ink group-hover:text-brand-700">{nameNode}</span>
+                            </span>
+                            <span className="hidden shrink-0 text-[12px] text-ink-muted sm:block">{meta}</span>
+                            {status && <span className="hidden shrink-0 text-[11.5px] font-medium text-ink-subtle md:block">{status.label}</span>}
+                          </button>
+                          {actions && (
+                            <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                              {actions}
+                            </div>
+                          )}
+                          <ChevronRightIcon className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-brand-600" />
+                        </div>
+                      );
+                    }
+
                     return (
                       <FolderCard
                         key={folder.id}
-                        onOpen={() => {
-                          if (renamingId === folder.id) return;
-                          setQuery('');
-                          setCurrentFolderId(folder.id);
-                        }}
+                        onOpen={openFolder}
                         title={`Open ${folder.name}`}
                         eyebrow={folderEyebrow?.(folder)}
-                        name={
-                          renamingId === folder.id ? (
-                            <input
-                              autoFocus
-                              value={renameValue}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => setRenameValue(e.target.value)}
-                              onBlur={() => handleRename(folder)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleRename(folder);
-                                if (e.key === 'Escape') setRenamingId(null);
-                              }}
-                              className="w-full rounded-md border border-brand-300 px-1.5 py-0.5 text-[13px] font-semibold outline-none ring-2 ring-brand-100"
-                            />
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5">
-                              {folder.name}
-                              {locked && <LockIcon className="h-3 w-3 text-ink-subtle" aria-label="System folder" />}
-                            </span>
-                          )
-                        }
-                        meta={`${pluralize(count, 'file')}${subCount > 0 ? ` · ${pluralize(subCount, 'folder')}` : ''}`}
-                        status={folderStatus ? folderStatus(folder, count) : count === 0 ? { label: 'No files yet', tone: 'neutral' } : null}
-                        actions={
-                          canEdit && !locked ? (
-                            <>
-                              <FolderAction
-                                icon={PencilIcon}
-                                label={`Rename ${folder.name}`}
-                                onClick={() => {
-                                  setRenamingId(folder.id);
-                                  setRenameValue(folder.name);
-                                }}
-                              />
-                              <FolderAction icon={Trash2Icon} label={`Delete ${folder.name}`} danger onClick={() => handleDeleteFolder(folder)} />
-                            </>
-                          ) : undefined
-                        }
+                        name={nameNode}
+                        meta={meta}
+                        status={status}
+                        actions={actions}
                       />
                     );
                   })}

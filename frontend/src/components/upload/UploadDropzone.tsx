@@ -52,6 +52,8 @@ interface AreaProps extends CommonProps {
   targetLabel: string;
   overlayHint?: string;
   className?: string;
+  /** Content sits on the dialog surface. A border appears only while files are dragged over. */
+  bare?: boolean;
   children: ReactNode;
 }
 
@@ -74,13 +76,14 @@ export function UploadDropzone(props: UploadDropzoneProps) {
   return props.variant === 'area' ? <AreaDropzone {...props} /> : <BoxDropzone {...props} />;
 }
 
-function AreaDropzone({ onFiles, allowFolders = true, disabled, targetLabel, overlayHint, className = '', children }: AreaProps) {
+function AreaDropzone({ onFiles, allowFolders = true, disabled, targetLabel, overlayHint, className = '', bare = false, children }: AreaProps) {
   const { dragActive, handlers } = useFileDrop(onFiles, { allowFolders, disabled });
+  const framed = !bare || dragActive;
   return (
     <div
       {...handlers}
-      className={`relative rounded-2xl border p-4 transition-colors ${
-        dragActive ? 'border-brand-400 bg-brand-50/60' : 'border-line bg-canvas/60'
+      className={`relative rounded-2xl transition-colors ${
+        framed ? `border p-4 ${dragActive ? 'border-brand-400 bg-brand-50/60' : 'border-line bg-canvas/60'}` : ''
       } ${className}`}
     >
       {dragActive && (

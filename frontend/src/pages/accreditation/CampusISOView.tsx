@@ -15,8 +15,6 @@ import { formatDate } from '../../utils/format';
 import {
   ShieldCheckIcon,
   UserCheckIcon,
-  HistoryIcon,
-  LayersIcon,
   CalendarCheckIcon,
   PencilIcon,
   RotateCcwIcon
@@ -58,20 +56,16 @@ export function CampusISOView() {
   const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
     return selectedCampus !== 'all' ? selectedCampus : 'tandag';
   });
-  const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
 
-  // Auto-sync campus selection with global portal context
   useEffect(() => {
     if (selectedCampus !== 'all' && selectedCampus !== selectedCampusId) {
       setSelectedCampusId(selectedCampus);
-      setSelectedRecordId(null);
     }
   }, [selectedCampus, selectedCampusId]);
 
   const campus = campuses.find((c) => c.id === selectedCampusId) || campuses[0];
   const campusRecords = isoRecords.filter((r) => r.campusId === selectedCampusId);
-  const activeRecord = campusRecords.find((r) => !r.isHistorical) || campusRecords[0];
-  const isoRecord = campusRecords.find((r) => r.id === selectedRecordId) || activeRecord || isoRecords[0];
+  const isoRecord = campusRecords.find((r) => !r.isHistorical) || campusRecords[0] || isoRecords[0];
 
   const certAreaKey = `cert-iso-${selectedCampusId}`;
   const { certificates, activeCertificate, activeLevel, levelCount } = useCampusCertificates('iso', certAreaKey);
@@ -80,11 +74,8 @@ export function CampusISOView() {
 
   const handleSelectCampus = (cid: CampusId) => {
     setSelectedCampusId(cid);
-    setSelectedRecordId(null);
     setSelectedCampus(cid);
   };
-
-  const openCars = (isoRecord?.correctiveActions || []).filter((c) => c.status !== 'Closed / Verified');
 
   // Section Header Editing
   const [sectionTitle, setSectionTitle] = useState<string>(() => {
@@ -177,150 +168,35 @@ export function CampusISOView() {
         }
         description={sectionDescription}
         actions={
-          canMutate ? (
-            <button
-              type="button"
-              onClick={handleOpenEditHeader}
-              className="btn btn-secondary btn-sm text-xs gap-1.5"
-              title="Edit Section Title & Description"
+          <label className="block min-w-[16rem]">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-subtle">Campus</span>
+            <select
+              value={selectedCampusId}
+              onChange={(e) => handleSelectCampus(e.target.value as CampusId)}
+              aria-label="Select campus"
+              className="input select h-10 w-full text-sm font-semibold"
             >
-              <PencilIcon className="h-3.5 w-3.5" />
-              <span>Edit Header</span>
-            </button>
-          ) : undefined
+              {campuses.map((c) => {
+                const rec = isoRecords.find((r) => r.campusId === c.id && !r.isHistorical) || isoRecords.find((r) => r.campusId === c.id);
+                const status = rec?.complianceStatus || 'Compliant';
+                return (
+                  <option key={c.id} value={c.id}>
+                    {c.shortName} — {status}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
         }
       />
 
-      {/* Campus Selector Pills */}
-      <div className="mb-6 flex overflow-x-auto no-scrollbar sm:flex-wrap gap-2 border-b border-line pb-4">
-        {campuses.map((c) => {
-          const rec = isoRecords.find((r) => r.campusId === c.id && !r.isHistorical) || isoRecords.find((r) => r.campusId === c.id);
-          const isSelected = c.id === selectedCampusId;
-          const openCarCount = (rec?.correctiveActions || []).filter((x) => x.status !== 'Closed / Verified').length;
-          return (
-            <button
-              key={c.id}
-              onClick={() => handleSelectCampus(c.id)}
-              className={`flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2 text-left transition-all ${
-                isSelected
-                  ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-1 ring-brand-500'
-                  : 'border-line bg-white hover:bg-canvas'
-              }`}
-            >
-              <ShieldCheckIcon className={`h-4 w-4 ${isSelected ? 'text-brand-700' : 'text-ink-subtle'}`} />
-              <div>
-                <p className={`text-xs font-semibold ${isSelected ? 'text-brand-900' : 'text-ink'}`}>
-                  {c.shortName}
-                </p>
-                <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
-                  <span>{rec?.complianceStatus || 'Compliant'}</span>
-                  {openCarCount > 0 && (
-                    <span className="rounded bg-danger-100 px-1 font-bold text-danger-700 text-[10px]">
-                      {openCarCount} CAR
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Historical Audit Cycle & Standard Selector */}
-      {campusRecords.length > 1 && (
-        <div className="mb-6 rounded-lg border border-line bg-canvas/60 p-3.5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <LayersIcon className="h-4 w-4 text-brand-600" />
-              <span className="text-xs font-bold uppercase tracking-wider text-ink">
-                ISO Standards & Surveillance Cycles ({campus.shortName})
-              </span>
-            </div>
-            <span className="text-[11px] text-ink-muted">
-              All previous ISO standards and records are preserved permanently for historical reference.
-            </span>
-          </div>
-
-          <div className="mt-3 flex overflow-x-auto no-scrollbar sm:flex-wrap gap-2">
-            {campusRecords.map((rec) => {
-              const isCurrent = rec.id === isoRecord?.id;
-              const isHistorical = !!rec.isHistorical;
-              return (
-                <button
-                  key={rec.id}
-                  type="button"
-                  onClick={() => setSelectedRecordId(rec.id)}
-                  className={`flex shrink-0 items-center gap-2 rounded-md border px-3 py-1.5 text-xs transition-all ${
-                    isCurrent
-                      ? 'border-brand-500 bg-brand-50 font-semibold text-brand-900 shadow-xs ring-1 ring-brand-500'
-                      : 'border-line bg-white text-ink hover:bg-canvas'
-                  }`}
-                >
-                  {isHistorical ? (
-                    <HistoryIcon className="h-3.5 w-3.5 text-brand-600" />
-                  ) : (
-                    <ShieldCheckIcon className="h-3.5 w-3.5 text-brand-600" />
-                  )}
-                  <span>{rec.standardVersion || 'ISO 9001:2015'}</span>
-                  <span className="text-ink-muted">·</span>
-                  <span>{rec.cycle}</span>
-                  {isHistorical ? (
-                    <span className="rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-800">
-                      Preserved
-                    </span>
-                  ) : (
-                    <span className="rounded bg-brand-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">
-                      Active Cycle
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Preserved Historical Record Callout Banner */}
-      {isoRecord?.isHistorical && (
-        <div className="mb-6 rounded-lg border border-brand-300 bg-brand-50/80 p-4 text-brand-900 shadow-sm flex items-start gap-3.5">
-          <div className="rounded-md bg-brand-100 p-2 text-brand-700 shrink-0">
-            <HistoryIcon className="h-5 w-5" />
-          </div>
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="font-bold text-sm text-brand-950">
-                Preserved Historical ISO Standard & Audit Record
-              </h4>
-              <Badge tone="warning">Preserved · Read-Only</Badge>
-              <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-brand-200/60 text-brand-900">
-                {isoRecord.standardVersion || 'ISO 9001:2015'}
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-brand-800 leading-relaxed">
-              Viewing preserved historical audit record for <strong>{campus.name}</strong> ({isoRecord.cycle}, audited on {isoRecord.auditDate}). As required by quality management policies, all previous ISO standards, surveillance evaluations, and compliance records are retained permanently for institutional accreditation and regulatory audits. Past records are never overwritten or deleted.
-            </p>
-            {activeRecord && activeRecord.id !== isoRecord.id && (
-              <div className="mt-2.5">
-                <button
-                  type="button"
-                  onClick={() => setSelectedRecordId(activeRecord.id)}
-                  className="btn btn-secondary btn-sm text-xs bg-white text-ink border-brand-300 hover:bg-brand-100/50"
-                >
-                  Return to Active Audit Cycle ({activeRecord.cycle})
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Active Surveillance Status Card (Uniform with PQA & Institutional Frameworks) */}
+      {/* Active Surveillance Status Card */}
       {isoRecord && (
-        <div className="mb-6 grid gap-4 lg:grid-cols-3">
-          <div className="panel col-span-2 p-5 shadow-xs transition-shadow">
-            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
-              <div>
-                <div className="flex items-center gap-2.5">
+        <div className="mb-6">
+          <div className="panel p-5 shadow-xs">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-4">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-lg font-bold text-ink">{campus.name}</h2>
                   <Badge
                     tone={
@@ -333,23 +209,25 @@ export function CampusISOView() {
                   >
                     {isoRecord.complianceStatus}
                   </Badge>
-                  {isoRecord.isHistorical && <Badge tone="warning">Preserved Record</Badge>}
                 </div>
-                <p className="mt-1 text-xs text-ink-muted">
-                  {campus.location} · ISO Surveillance Cycle: <strong className="text-ink">{isoRecord.cycle}</strong> · Lead Auditor: <strong className="text-ink">{isoRecord.leadAuditor || 'Dr. Evelyn P. Miranda'}</strong>
-                </p>
+                <p className="mt-1 text-xs text-ink-muted">{campus.location}</p>
                 {isoRecord.scope && (
-                  <p className="mt-0.5 text-xs text-ink-muted">
-                    Audit Scope: <span className="font-medium text-ink">{isoRecord.scope}</span>
+                  <p className="mt-1 max-w-3xl text-xs leading-relaxed text-ink-muted">
+                    <span className="font-semibold text-ink">Scope.</span> {isoRecord.scope}
                   </p>
                 )}
               </div>
-
-              <div className="text-right">
-                <span className="text-xs text-ink-muted">Standard & Cycle</span>
-                <p className="mt-0.5 text-sm font-semibold text-brand-700">
-                  {isoRecord.standardVersion || 'ISO 9001:2015'} · {isoRecord.cycle}
-                </p>
+              <div className="flex overflow-hidden rounded-lg border border-brand-100 bg-brand-100">
+                <div className="bg-brand-50 px-3.5 py-2">
+                  <p className="text-[10.5px] font-bold uppercase tracking-wider text-brand-700">Standard</p>
+                  <p className="mt-0.5 whitespace-nowrap text-sm font-semibold text-ink">
+                    {isoRecord.standardVersion || 'ISO 9001:2015'}
+                  </p>
+                </div>
+                <div className="border-l border-brand-100 bg-brand-50 px-3.5 py-2">
+                  <p className="text-[10.5px] font-bold uppercase tracking-wider text-brand-700">Cycle</p>
+                  <p className="mt-0.5 text-sm font-semibold text-ink">{isoRecord.cycle}</p>
+                </div>
               </div>
             </div>
 
@@ -357,8 +235,8 @@ export function CampusISOView() {
               {[
                 {
                   icon: ShieldCheckIcon,
-                  label: 'ISO Standard',
-                  value: isoRecord.standardVersion || 'ISO 9001:2015',
+                  label: 'Validation',
+                  value: isoRecord.validationStatus || 'Certified & Signed',
                   tone: 'bg-brand-50 text-brand-600'
                 },
                 {
@@ -402,49 +280,6 @@ export function CampusISOView() {
               onOpen={() => setCertificatesOpen(true)}
               onPreview={setPreviewCertificate}
             />
-          </div>
-
-          {/* Findings Counter */}
-          <div className="panel p-5 flex flex-col justify-between">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-ink-muted">
-                Surveillance Findings Distribution
-              </h3>
-
-              <div className="mt-4 grid grid-cols-1 gap-2 text-xs xs:grid-cols-2">
-                <div className="rounded border border-success-200 bg-success-50/50 p-2.5">
-                  <span className="text-success-800 font-medium">Conformances</span>
-                  <p className="font-bold text-success-900 text-lg mt-0.5">
-                    {isoRecord.findingsCount?.conformances || 14}
-                  </p>
-                </div>
-                <div className="rounded border border-brand-200 bg-brand-50/50 p-2.5">
-                  <span className="text-brand-800 font-medium">OFI (Opportunities)</span>
-                  <p className="font-bold text-brand-900 text-lg mt-0.5">
-                    {isoRecord.findingsCount?.ofi || 2}
-                  </p>
-                </div>
-                <div className="rounded border border-warning-200 bg-warning-50/50 p-2.5">
-                  <span className="text-warning-800 font-medium">Minor NC</span>
-                  <p className="font-bold text-warning-900 text-lg mt-0.5">
-                    {isoRecord.findingsCount?.minorNC || 0}
-                  </p>
-                </div>
-                <div className="rounded border border-danger-200 bg-danger-50/50 p-2.5">
-                  <span className="text-danger-800 font-medium">Major NC (CAR)</span>
-                  <p className="font-bold text-danger-900 text-lg mt-0.5">
-                    {isoRecord.findingsCount?.majorNC || 0}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 border-t border-line pt-3 flex items-center justify-between text-xs">
-              <span className="text-ink-muted">Active Non-conformances:</span>
-              <span className={`font-bold ${openCars.length > 0 ? 'text-danger-700' : 'text-success-700'}`}>
-                {openCars.length === 0 ? '0 (All Closed)' : `${openCars.length} Pending Action`}
-              </span>
-            </div>
           </div>
         </div>
       )}

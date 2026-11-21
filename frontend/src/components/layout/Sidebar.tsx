@@ -8,7 +8,11 @@ import { LogoutConfirmModal } from './LogoutConfirmModal';
 const itemFeatureMap: Record<string, string> = {
   'Dashboard': 'dashboard',
   'Documents': 'documents',
-  'Accreditation': 'framework_ia',
+  'Institutional (IA)': 'framework_ia',
+  'Program (AACCUP)': 'framework_pa',
+  'CHED COPC': 'framework_copc',
+  'PQA Standards': 'framework_pqa',
+  'ISO 9001': 'framework_iso',
   'Requests': 'requests',
   'Reports & Analytics': 'reports',
   'My Profile': 'account',
@@ -26,10 +30,14 @@ const childFeatureMap: Record<string, string> = {
   '/frameworks/pa': 'framework_pa',
   '/frameworks/copc': 'framework_copc',
   '/frameworks/pqa': 'framework_pqa',
-  '/frameworks/iso': 'framework_iso'
+  '/frameworks/iso': 'framework_iso',
+  '/account': 'account',
+  '/users': 'users',
+  '/settings': 'settings'
 };
 
 function isItemActive(item: NavItem, pathname: string) {
+  if (item.children?.some((child) => pathname === child.to || pathname.startsWith(`${child.to}/`))) return true;
   if (item.matchPrefix) return pathname.startsWith(item.matchPrefix);
   return pathname === item.to;
 }
@@ -154,69 +162,67 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
       );
     }
 
+    const rowClass = `group flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-left transition-all duration-150 ${
+      active && !item.children
+        ? 'bg-brand-tint text-ink font-bold border border-brand-200/80 shadow-2xs'
+        : active && item.children
+        ? 'bg-canvas text-ink font-bold border border-line-subtle'
+        : 'text-ink hover:bg-canvas border border-transparent font-medium'
+    }`;
+
+    const rowBody = (
+      <>
+        <span className="flex min-w-0 flex-1 items-center gap-3 py-1 text-sm">
+          {iconTile}
+          <span className="truncate text-[13px] font-semibold leading-tight text-ink/90 transition-colors group-hover:text-ink">
+            {item.label}
+          </span>
+        </span>
+
+        <span className="flex items-center gap-1.5 shrink-0">
+          {count > 0 && (
+            <span
+              className="inline-flex min-w-[20px] justify-center rounded-full bg-brand-600 px-1.5 py-0.5 text-[10.5px] font-bold leading-none text-white"
+              aria-label={`${count} unread`}
+            >
+              {count}
+            </span>
+          )}
+
+          {item.badge && (!pending.length || item.label !== 'Documents') && (
+            <span className="hidden xl:inline-flex rounded-md border border-line bg-canvas px-1.5 py-0.5 text-[9.5px] font-semibold text-ink-muted">
+              {item.badge}
+            </span>
+          )}
+
+          {item.children && (
+            <span className="grid h-6 w-6 place-items-center text-ink-subtle" aria-hidden="true">
+              <ChevronDownIcon
+                className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180 text-brand-600' : '-rotate-90'}`}
+              />
+            </span>
+          )}
+        </span>
+      </>
+    );
+
     return (
       <li key={item.label} className="relative">
         {indicator}
-        <div
-          className={`group flex items-center justify-between rounded-xl px-2 py-1.5 transition-all duration-150 ${
-            active && !item.children
-              ? 'bg-brand-tint text-ink font-bold border border-brand-200/80 shadow-2xs'
-              : active && item.children
-              ? 'bg-canvas text-ink font-bold border border-line-subtle'
-              : 'text-ink hover:bg-canvas border border-transparent font-medium'
-          }`}
-        >
-          <Link
-            to={item.to}
-            onClick={() => {
-              if (item.children) {
-                setExpanded((prev) => ({ ...prev, [item.label]: true }));
-              }
-            }}
-            aria-current={active && !item.children ? 'page' : undefined}
-            className="flex min-w-0 flex-1 items-center gap-3 py-1 text-sm"
+        {item.children ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((prev) => ({ ...prev, [item.label]: !prev[item.label] }))}
+            aria-expanded={isOpen}
+            className={rowClass}
           >
-            {iconTile}
-            <span className="truncate text-[13px] font-semibold leading-tight text-ink/90 transition-colors group-hover:text-ink">
-              {item.label}
-            </span>
+            {rowBody}
+          </button>
+        ) : (
+          <Link to={item.to} aria-current={active ? 'page' : undefined} className={rowClass}>
+            {rowBody}
           </Link>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            {count > 0 && (
-              <span
-                className="inline-flex min-w-[20px] justify-center rounded-full bg-brand-600 px-1.5 py-0.5 text-[10.5px] font-bold leading-none text-white"
-                aria-label={`${count} unread`}
-              >
-                {count}
-              </span>
-            )}
-
-            {item.badge && (!pending.length || item.label !== 'Documents') && (
-              <span className="hidden xl:inline-flex rounded-md border border-line bg-canvas px-1.5 py-0.5 text-[9.5px] font-semibold text-ink-muted">
-                {item.badge}
-              </span>
-            )}
-
-            {item.children && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  setExpanded((prev) => ({ ...prev, [item.label]: !isOpen }));
-                }}
-                aria-expanded={isOpen}
-                aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${item.label}`}
-                className="grid h-6 w-6 place-items-center rounded-md text-ink-subtle transition-colors hover:bg-line-subtle hover:text-ink"
-              >
-                <ChevronDownIcon
-                  className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180 text-brand-600' : '-rotate-90'}`}
-                />
-              </button>
-            )}
-          </div>
-        </div>
+        )}
 
         {item.children && isOpen && (
           <ul className="my-1 ml-5 space-y-0.5 border-l border-line pl-2.5">

@@ -25,11 +25,13 @@ interface FolderCardProps {
   status?: FolderStatus | null;
   /** Icon buttons revealed on hover; clicks never open the folder. */
   actions?: ReactNode;
+  /** Keep the action buttons visible instead of only on hover. */
+  pinActions?: boolean;
   onOpen: () => void;
   title?: string;
 }
 
-export function FolderCard({ name, eyebrow, meta, status, actions, onOpen, title }: FolderCardProps) {
+export function FolderCard({ name, eyebrow, meta, status, actions, pinActions = false, onOpen, title }: FolderCardProps) {
   const tone = status ? TONE_STYLE[status.tone] : null;
   return (
     <div
@@ -54,7 +56,9 @@ export function FolderCard({ name, eyebrow, meta, status, actions, onOpen, title
         <div className="flex shrink-0 items-center gap-0.5">
           {actions && (
             <div
-              className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+              className={`flex items-center gap-0.5 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
+                pinActions ? 'opacity-100' : 'opacity-0'
+              }`}
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
             >

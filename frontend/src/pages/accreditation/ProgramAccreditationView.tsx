@@ -17,9 +17,7 @@ import { Modal } from '../../components/ui/Modal';
 import {
   certificateAreaKey,
   compareYears,
-  formatLevel,
   getExpiryInfo,
-  getLevelHistory,
   isUrl,
   levelAsOf,
   statusLabel
@@ -209,29 +207,6 @@ export function ProgramAccreditationView() {
     });
     return summary;
   }, [documents, folders]);
-
-  /** One certificate per level folder of the program open in the details modal: the active one, otherwise the latest. */
-  const detailsCertificates = useMemo(() => {
-    if (!detailsModalProgram) return [];
-    const key = certificateAreaKey(detailsModalProgram.id);
-    const certFolders = folders.filter((f) => f.frameworkId === 'pa' && f.areaId === key);
-    const levelFolderOf = (folderId?: string) => {
-      let cursor = certFolders.find((f) => f.id === folderId);
-      while (cursor && !cursor.isSystem) cursor = certFolders.find((f) => f.id === cursor?.parentId);
-      return cursor;
-    };
-    const latest = new Map<string, { level: string; doc: EvidenceDocument }>();
-    documents
-      .filter((d) => d.frameworkId === 'pa' && d.areaId === key)
-      .forEach((doc) => {
-        const level = levelFolderOf(doc.folderId);
-        const id = level?.id ?? 'other';
-        const prev = latest.get(id);
-        const replaces = !prev || (doc.isActive && !prev.doc.isActive) || (!prev.doc.isActive && doc.dateAdded >= prev.doc.dateAdded);
-        if (replaces) latest.set(id, { level: level?.name ?? 'Other', doc });
-      });
-    return Array.from(latest.values()).sort((a, b) => a.level.localeCompare(b.level));
-  }, [detailsModalProgram, documents, folders]);
 
   // Print / report modals
   const [reportModal, setReportModal] = useState<{
@@ -614,7 +589,7 @@ export function ProgramAccreditationView() {
                   />
             </div>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -646,6 +621,22 @@ export function ProgramAccreditationView() {
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
                   <span>{candidateCount} Candidate</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOverviewFilterClick('new');
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10.5px] font-semibold transition-all cursor-pointer ${
+                    overviewFilter === 'new'
+                      ? 'bg-teal-700 text-white font-bold shadow-2xs'
+                      : 'bg-teal-50 text-teal-900 hover:bg-teal-100 border border-teal-200'
+                  }`}
+                  title="Filter New programs"
+                >
+                  <SparklesIcon className="h-3 w-3" />
+                  <span>{newProgramsCount} New Program</span>
                 </button>
               </div>
             </div>
@@ -1306,180 +1297,58 @@ export function ProgramAccreditationView() {
           open={!!detailsModalProgram}
           onClose={() => setDetailsModalProgram(null)}
           title={detailsModalProgram.programName}
-          description={`${detailsModalProgram.campusName} · ${detailsModalProgram.status} · Initial Operation: ${detailsModalProgram.yearOfInitialOperation || 'N/A'}`}
           size="xl"
           footer={
-            <div className="flex w-full items-center justify-between">
-              <span className="text-xs text-ink-muted">
-                Schedule: <strong>{detailsModalProgram.scheduleForAccreditation || 'No survey scheduled'}</strong>
-              </span>
+            <div className="flex w-full justify-end">
               <button
                 type="button"
                 onClick={() => setDetailsModalProgram(null)}
                 className="btn btn-secondary btn-sm"
               >
-                Close Portfolio
+                Close
               </button>
             </div>
           }
         >
-          <div className="space-y-4">
-            {/* Quick Header Summary */}
-            <div className="grid gap-3 sm:grid-cols-3 rounded-lg border border-line bg-canvas p-3 text-xs">
-              <div>
-                <span className="text-ink-muted">Validity Range</span>
-                <p className="font-semibold text-ink">
-                  {detailsModalProgram.validityStart} to {detailsModalProgram.validityEnd || 'N/A'}
-                </p>
-              </div>
-              <div>
-                <span className="text-ink-muted">Accreditation Certificates</span>
-                {detailsCertificates.length > 0 ? (
-                  <ul className="mt-0.5 space-y-0.5">
-                    {detailsCertificates.map(({ level, doc }) => (
-                      <li key={doc.id} className="flex items-center gap-1.5">
-                        <span className="shrink-0 font-semibold text-ink">{level}:</span>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewCertificate(doc)}
-                          className="truncate font-medium text-brand-700 hover:underline"
-                          title={`Preview ${doc.title}`}
-                        >
-                          {doc.title}
-                        </button>
-                        {doc.isActive && (
-                          <span className="shrink-0 rounded-full bg-success-50 px-1.5 py-0.5 text-[10px] font-bold text-success-700">Active</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (() => {
-                  const linked =
-                    (isLocalCertificatePath(detailsModalProgram.certificationFile) && detailsModalProgram.certificationFile) ||
-                    localCertificationFileFor(detailsModalProgram) ||
-                    (isUrl(detailsModalProgram.certificationFile) ? detailsModalProgram.certificationFile : undefined);
-                  return linked ? (
-                  <a
-                    href={linked}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block font-semibold text-brand-700 hover:underline"
-                  >
-                    View linked certificate
-                  </a>
-                  ) : (
-                  <p className="font-semibold text-ink-subtle">No certificate uploaded</p>
-                  );
-                })()}
-                {(canMutate || detailsCertificates.length > 0) && (
-                  <button
-                    type="button"
-                    onClick={() => setCertificateProgramId(detailsModalProgram.id)}
-                    className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 hover:underline"
-                  >
-                    <FolderOpenIcon className="h-3 w-3" /> {canMutate ? 'Manage certificates' : 'Browse certificates'}
-                  </button>
-                )}
-              </div>
-              <div>
-                <span className="text-ink-muted">COPC Certificate</span>
-                <p className="font-semibold text-ink">
-                  {detailsModalProgram.copcCertificateNumber || detailsModalProgram.copcStatus}
-                </p>
-              </div>
-              {detailsModalProgram.remarks && (
-                <div className="sm:col-span-3">
-                  <span className="text-ink-muted">Remarks</span>
-                  <p className="text-ink">{detailsModalProgram.remarks}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Accreditation Level History */}
-            <div className="rounded-lg border border-line p-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-2">
-                Accreditation Level History
-              </h4>
-              {getLevelHistory(detailsModalProgram).length === 0 ? (
-                <p className="text-xs text-ink-muted">No accreditation results recorded yet.</p>
-              ) : (
-                <ol className="space-y-1.5 text-xs">
-                  {getLevelHistory(detailsModalProgram)
-                    .slice()
-                    .reverse()
-                    .map((entry) => (
-                      <li key={entry.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <span className="font-mono font-semibold text-ink">{entry.year}</span>
-                        <span className="font-semibold text-ink">{formatLevel(entry.level)}</span>
-                        <Badge tone={entry.result === 'Passed' ? 'success' : entry.result === 'Failed' ? 'danger' : 'warning'}>
-                          {entry.result}
-                        </Badge>
-                        {entry.boardAction && <span className="text-ink-muted">· {entry.boardAction}</span>}
-                        {entry.remarks && <span className="text-ink-subtle">· {entry.remarks}</span>}
-                      </li>
-                    ))}
-                </ol>
-              )}
-            </div>
-
-            {/* 10 AACCUP Survey Areas Checklist */}
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-2">
-                10 AACCUP Program Survey Areas Checklist
-              </h4>
-
-              <div className="panel divide-y divide-line overflow-hidden max-h-80 overflow-y-auto">
-                {(detailsModalProgram.requirements || []).map((req) => {
-                  const repo = areaRepositoryStats[req.id];
-                  return (
-                  <div
-                    key={req.id}
-                    className="flex items-center justify-between p-3 text-xs hover:bg-canvas/50"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-ink">{req.areaName}</span>
-                        {req.verified ? (
-                          <Badge tone="success" dot>
-                            Verified
-                          </Badge>
-                        ) : (
-                          <Badge tone="warning" dot>
-                            Pending Review
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-ink-muted mt-0.5">
-                        {repo ? (
-                          <span className="inline-flex items-center gap-1 font-medium text-brand-700">
-                            <FolderOpenIcon className="h-3 w-3" />
-                            {repo.files} file{repo.files === 1 ? '' : 's'}
-                            {repo.folders > 0 && ` · ${repo.folders} folder${repo.folders === 1 ? '' : 's'}`}
-                          </span>
-                        ) : req.documentName ? (
-                          <span className="font-medium text-brand-700">{req.documentName}</span>
-                        ) : (
-                          'No document uploaded yet'
-                        )}
-                      </p>
-                    </div>
-
-                    {canMutate && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setRepositoryReqId(req.id)}
-                          className="btn btn-secondary btn-sm h-7 px-2"
-                        >
-                          <UploadIcon className="h-3.5 w-3.5" /> Upload / Verify
-                        </button>
-                      </div>
-                    )}
+          <div className="panel divide-y divide-line overflow-hidden max-h-[32rem] overflow-y-auto">
+            {(detailsModalProgram.requirements || []).map((req) => {
+              const repo = areaRepositoryStats[req.id];
+              return (
+                <div
+                  key={req.id}
+                  className="flex items-center justify-between p-3 text-xs hover:bg-canvas/50"
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold text-ink">{req.areaName}</p>
+                    <p className="text-[11px] text-ink-muted mt-0.5">
+                      {repo ? (
+                        <span className="inline-flex items-center gap-1 font-medium text-brand-700">
+                          <FolderOpenIcon className="h-3 w-3" />
+                          {repo.files} file{repo.files === 1 ? '' : 's'}
+                          {repo.folders > 0 && ` · ${repo.folders} folder${repo.folders === 1 ? '' : 's'}`}
+                        </span>
+                      ) : req.documentName ? (
+                        <span className="font-medium text-brand-700">{req.documentName}</span>
+                      ) : (
+                        'No document uploaded yet'
+                      )}
+                    </p>
                   </div>
-                  );
-                })}
-              </div>
-            </div>
+
+                  {canMutate && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRepositoryReqId(req.id)}
+                        className="btn btn-secondary btn-sm h-7 px-2"
+                      >
+                        <UploadIcon className="h-3.5 w-3.5" /> Upload
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Modal>
       )}

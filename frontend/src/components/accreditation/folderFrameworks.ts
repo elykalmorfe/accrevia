@@ -63,7 +63,7 @@ export const PQA_FOLDER_FRAMEWORK: FolderFramework = {
   areasHeading: 'PQA Criteria for Performance Excellence (7 Categories)',
   title: 'PQA Document & Folder Management',
   cycle: 'PQA Application Cycle',
-  customFolders: false,
+  customFolders: true,
   areas: PQA_CATEGORY_AREAS,
   criterionFor: (area) => ({ criterionId: `c-pqa-${area.number}`, indicatorId: `i-pqa${area.number}-1` })
 };

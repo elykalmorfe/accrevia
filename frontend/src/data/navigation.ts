@@ -1,15 +1,18 @@
 import {
   BookmarkIcon,
   BarChart3Icon,
+  AwardIcon,
+  FileCheck2Icon,
+  FileSpreadsheetIcon,
   FolderOpenIcon,
+  GraduationCapIcon,
   ShieldCheckIcon,
   LayoutDashboardIcon,
   FolderKanbanIcon,
   InboxIcon,
   LucideIcon,
   SettingsIcon,
-  UserIcon,
-  UsersIcon
+  UserIcon
 } from 'lucide-react';
 
 export interface NavChild {
@@ -64,18 +67,39 @@ export const navigation: NavItem[] = [
     ]
   },
   {
-    label: 'Accreditation',
+    label: 'Institutional (IA)',
     to: '/frameworks/ia',
     icon: ShieldCheckIcon,
-    matchPrefix: '/frameworks',
-    color: navIcon,
-    children: [
-      { label: 'Institutional (IA)', to: '/frameworks/ia' },
-      { label: 'Program (AACCUP)', to: '/frameworks/pa' },
-      { label: 'CHED COPC', to: '/frameworks/copc' },
-      { label: 'PQA Standards', to: '/frameworks/pqa' },
-      { label: 'ISO 9001', to: '/frameworks/iso' }
-    ]
+    matchPrefix: '/frameworks/ia',
+    color: navIcon
+  },
+  {
+    label: 'Program (AACCUP)',
+    to: '/frameworks/pa',
+    icon: GraduationCapIcon,
+    matchPrefix: '/frameworks/pa',
+    color: navIcon
+  },
+  {
+    label: 'CHED COPC',
+    to: '/frameworks/copc',
+    icon: FileCheck2Icon,
+    matchPrefix: '/frameworks/copc',
+    color: navIcon
+  },
+  {
+    label: 'PQA Standards',
+    to: '/frameworks/pqa',
+    icon: AwardIcon,
+    matchPrefix: '/frameworks/pqa',
+    color: navIcon
+  },
+  {
+    label: 'ISO 9001',
+    to: '/frameworks/iso',
+    icon: FileSpreadsheetIcon,
+    matchPrefix: '/frameworks/iso',
+    color: navIcon
   },
   {
     label: 'Requests',
@@ -92,26 +116,16 @@ export const navigation: NavItem[] = [
     color: navIcon
   },
   {
-    label: 'My Profile',
-    to: '/account',
-    matchPrefix: '/account',
-    icon: UserIcon,
-    section: 'account',
-    color: navIcon
-  },
-  {
-    label: 'User Management',
-    to: '/users',
-    icon: UsersIcon,
-    section: 'account',
-    color: navIcon
-  },
-  {
     label: 'Settings',
     to: '/settings',
     icon: SettingsIcon,
     section: 'account',
-    color: navIcon
+    color: navIcon,
+    children: [
+      { label: 'My Profile', to: '/account' },
+      { label: 'User Management', to: '/users' },
+      { label: 'Settings', to: '/settings' }
+    ]
   }
 ];
 

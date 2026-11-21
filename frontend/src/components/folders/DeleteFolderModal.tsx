@@ -15,6 +15,8 @@ interface DeleteFolderModalProps {
   open: boolean;
   folder: EvidenceFolder | null;
   documentCount: number;
+  /** When true, a system folder can be deleted from this screen. */
+  allowSystem?: boolean;
   onClose: () => void;
   onConfirm: (folderId: string) => void;
 }
@@ -23,12 +25,13 @@ export function DeleteFolderModal({
   open,
   folder,
   documentCount,
+  allowSystem = false,
   onClose,
   onConfirm
 }: DeleteFolderModalProps) {
   if (!folder) return null;
 
-  const isProtected = folder.isSystem;
+  const isProtected = folder.isSystem && !allowSystem;
 
   return (
     <Modal
