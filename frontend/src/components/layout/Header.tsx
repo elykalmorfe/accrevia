@@ -11,9 +11,18 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { isAdmin } = usePortal();
   const [searchOpen, setSearchOpen] = useState(false);
   const { pathname } = useLocation();
-  // The admin Dashboard and Search Results render their own search in the page; All Documents relies on its repository search.
+  // Hide global nav search where the page has its own search/filter or no header search is needed.
   const hideHeaderSearch =
-    (isAdmin && pathname === '/dashboard') || pathname === '/search' || pathname === '/evidence';
+    (isAdmin && pathname === '/dashboard') ||
+    pathname === '/search' ||
+    pathname === '/evidence' ||
+    pathname === '/evidence/upload' ||
+    pathname.startsWith('/frameworks/') ||
+    pathname.startsWith('/requests') ||
+    pathname === '/reports' ||
+    pathname.startsWith('/account') ||
+    pathname.startsWith('/users') ||
+    pathname === '/settings';
 
   useEffect(() => setSearchOpen(false), [pathname]);
 

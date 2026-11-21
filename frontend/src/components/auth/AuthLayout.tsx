@@ -6,6 +6,8 @@ type AuthLayoutProps = {
   children: React.ReactNode;
   /** When true, form panel scrolls if content exceeds the card height. */
   scrollableForm?: boolean;
+  /** Vertical alignment of the form column content. */
+  formAlign?: 'center' | 'start';
 };
 
 export const authLabelClass =
@@ -30,7 +32,13 @@ export const authSectionTitleClass =
  * Shared authentication shell for Login and Sign Up.
  * Caps desktop card size and centers it to avoid unnecessary page scroll.
  */
-export function AuthLayout({ children, scrollableForm = false }: AuthLayoutProps) {
+export function AuthLayout({
+  children,
+  scrollableForm = false,
+  formAlign = 'center'
+}: AuthLayoutProps) {
+  const alignStart = scrollableForm || formAlign === 'start';
+
   return (
     <div className="relative flex min-h-dvh items-center justify-center bg-canvas px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex w-full max-w-[1100px] flex-col overflow-hidden rounded-[22px] border border-line bg-surface shadow-soft-lg lg:h-[min(720px,calc(100dvh-48px))] lg:max-h-[720px] lg:flex-row">
@@ -41,9 +49,9 @@ export function AuthLayout({ children, scrollableForm = false }: AuthLayoutProps
             className="flex min-w-0 items-center gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             <img
-              src="/nemsu-logo.png"
+              src="/nemsu-landing-logo.png"
               alt="North Eastern Mindanao State University seal"
-              className="h-11 w-11 shrink-0 object-contain"
+              className="h-16 w-16 shrink-0 rounded-full object-cover"
             />
             <div className="min-w-0 text-left text-white">
               <p className="truncate text-base font-bold tracking-tight">ACCREVIA</p>
@@ -67,7 +75,7 @@ export function AuthLayout({ children, scrollableForm = false }: AuthLayoutProps
         >
           <div
             className={`mx-auto flex w-full max-w-[480px] flex-1 flex-col px-5 py-6 sm:px-8 sm:py-7 ${
-              scrollableForm ? 'justify-start lg:py-6' : 'justify-center'
+              alignStart ? 'justify-start lg:py-6' : 'justify-center'
             }`}
           >
             {children}

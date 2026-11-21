@@ -1,8 +1,11 @@
 import React, { useCallback, useId, useState } from 'react';
 import {
+  AlertTriangle,
   Building2,
+  CheckCircle2,
+  Clock3,
   FileText,
-  FolderTree,
+  HelpCircle,
   LockKeyhole,
   Search,
   ShieldCheck,
@@ -11,13 +14,7 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
-type FeatureId =
-  | 'search'
-  | 'hybrid'
-  | 'repository'
-  | 'organization'
-  | 'accessibility'
-  | 'ranked';
+type FeatureId = 'search' | 'repository' | 'organization' | 'accessibility' | 'ranked';
 
 type FeatureItem = {
   id: FeatureId;
@@ -36,46 +33,142 @@ const FEATURES: FeatureItem[] = [
     previewLabel: 'Accrevia intelligent search interface'
   },
   {
-    id: 'hybrid',
-    icon: Sparkles,
-    title: 'Hybrid Information Retrieval',
-    description: 'Combine complementary search techniques to retrieve relevant documents.',
-    previewLabel: 'Accrevia hybrid retrieval results interface'
+    id: 'ranked',
+    icon: ShieldCheck,
+    title: 'Ranked Search Results',
+    description: 'Prioritize documents by relevance so quality assurance teams can act faster and with more clarity.',
+    previewLabel: 'Accrevia ranked search results interface'
   },
   {
     id: 'repository',
     icon: FileText,
     title: 'Centralized Document Repository',
-    description: 'Store and organize accreditation documents in a structured environment.',
+    description: 'Access and retrieve accreditation documents from a centralized institutional repository.',
     previewLabel: 'Accrevia document repository interface'
   },
   {
     id: 'organization',
     icon: Building2,
     title: 'Accreditation-Based Organization',
-    description: 'Keep documents arranged according to accreditation areas and institutional requirements.',
+    description: 'Organize institutional evidence according to accreditation areas, criteria, and requirements.',
     previewLabel: 'Accrevia accreditation organization interface'
   },
   {
     id: 'accessibility',
     icon: Users,
     title: 'Document Accessibility',
-    description: 'Provide authorized users with quick access to the materials they need for governance and review.',
+    description: 'Provide authorized users with convenient access to institutional accreditation documents.',
     previewLabel: 'Accrevia document accessibility interface'
-  },
-  {
-    id: 'ranked',
-    icon: ShieldCheck,
-    title: 'Ranked Search Results',
-    description: 'Prioritize documents by relevance so quality assurance teams can act faster and with more clarity.',
-    previewLabel: 'Accrevia ranked search results interface'
   }
 ];
 
-const DEMO_DOCS = [
-  { title: 'Faculty Qualifications Summary', area: 'Area II · Faculty', type: 'Summary Report' },
-  { title: 'Research & Extension Audit', area: 'Area III · Research', type: 'Audit Record' },
-  { title: 'Curriculum & Board Performance', area: 'Area IV · Instruction', type: 'Program Evidence' }
+const SEARCH_QUICK_CHIPS = [
+  'Research Publications',
+  'Area III – Research',
+  'Faculty Development'
+] as const;
+
+const SEARCH_PREVIEW_QUERY = 'Faculty development activities';
+
+type SearchResultDoc = {
+  title: string;
+  category: string;
+  description: string;
+  relevance: number;
+};
+
+const SEARCH_PREVIEW_RESULTS: SearchResultDoc[] = [
+  {
+    title: 'Faculty Qualifications and Credentials Summary',
+    category: 'Area II · Faculty · Accreditation Evidence',
+    description:
+      'Compiled faculty credentials, degrees, and professional licenses supporting qualification criteria.',
+    relevance: 96
+  },
+  {
+    title: 'Faculty Development and Training Records',
+    category: 'Area II · Faculty · Professional Development',
+    description:
+      'Training participation and faculty development activities aligned with accreditation standards.',
+    relevance: 95
+  }
+];
+
+const RANKED_PREVIEW_RESULTS: SearchResultDoc[] = [
+  ...SEARCH_PREVIEW_RESULTS,
+  {
+    title: 'Faculty Professional Development Accomplishment Report',
+    category: 'Area II · Faculty · Performance Documentation',
+    description:
+      'Records of faculty seminars, workshops, professional development activities, and accomplishments.',
+    relevance: 92
+  },
+  {
+    title: 'Faculty Training and Seminar Participation Report',
+    category: 'Area II · Faculty · Training Documentation',
+    description:
+      'Documentation of faculty participation in institutional training, seminars, and capacity-building programs.',
+    relevance: 89
+  }
+];
+
+const REPO_PREVIEW_KPIS = [
+  {
+    label: 'Active Repository',
+    value: 46,
+    description: 'Excludes 2 archived',
+    icon: FileText,
+    tone: 'is-blue'
+  },
+  {
+    label: 'Approved Documents',
+    value: 32,
+    description: '66.7% of active documents',
+    icon: CheckCircle2,
+    tone: 'is-green'
+  },
+  {
+    label: 'Pending Review',
+    value: 10,
+    description: '22% of active documents',
+    icon: Clock3,
+    tone: 'is-blue'
+  },
+  {
+    label: 'Needs Revision',
+    value: 4,
+    description: '9% of active documents',
+    icon: AlertTriangle,
+    tone: 'is-amber'
+  }
+] as const;
+
+const REPO_PREVIEW_DOCS = [
+  {
+    title: 'Faculty Qualifications and Credentials',
+    meta: 'AACCUP Area II · PDF · Nov 12, 2025',
+    status: 'Verified'
+  },
+  {
+    title: 'Vision, Mission, Goals and Objectives',
+    meta: 'AACCUP Area I · PDF · Nov 10, 2025',
+    status: 'Verified'
+  },
+  {
+    title: 'Curriculum and Syllabi Compilation',
+    meta: 'AACCUP Area III · DOCX · Nov 8, 2025',
+    status: 'Verified'
+  },
+  {
+    title: 'Research Accomplishment Report',
+    meta: 'AACCUP Area IV · PDF · Nov 6, 2025',
+    status: 'Pending Review'
+  },
+  {
+    title: 'Community Extension Report',
+    meta: 'AACCUP Area VI · PDF · Nov 3, 2025',
+    status: 'Verified'
+  }
 ] as const;
 
 function PreviewChrome({ title, children }: { title: string; children: React.ReactNode }) {
@@ -92,98 +185,141 @@ function PreviewChrome({ title, children }: { title: string; children: React.Rea
   );
 }
 
-function SearchPreview() {
+function DocumentSearchResults({
+  query,
+  results
+}: {
+  query: string;
+  results: readonly SearchResultDoc[];
+}) {
   return (
-    <PreviewChrome title="Intelligent Search">
-      <div className="feature-preview-searchbox">
-        <Search className="h-4 w-4 text-blue-600" aria-hidden="true" />
-        <span>Faculty credentials and qualifications for Area II</span>
+    <div className="feature-search-results">
+      <div className="feature-search-results-head">
+        <p>
+          Results for <strong>{query}</strong>
+        </p>
+        <span>
+          {results.length} document{results.length === 1 ? '' : 's'}
+        </span>
       </div>
-      <p className="feature-preview-label">Natural-language query</p>
-      <div className="feature-preview-chips">
-        <span>keywords</span>
-        <span>criteria</span>
-        <span>Area II</span>
-      </div>
-      <ul className="feature-preview-list">
-        {DEMO_DOCS.map((doc) => (
+
+      <ul>
+        {results.map((doc) => (
           <li key={doc.title}>
-            <FileText className="h-4 w-4 text-blue-600" aria-hidden="true" />
-            <div>
-              <strong>{doc.title}</strong>
-              <span>{doc.area}</span>
+            <div className="feature-search-result-score">
+              <strong>{doc.relevance}%</strong>
+              <span>Match</span>
+            </div>
+            <div className="feature-search-result-body">
+              <div className="feature-search-result-title">
+                <FileText className="h-4 w-4" aria-hidden="true" />
+                <h4>{doc.title}</h4>
+              </div>
+              <p className="feature-search-result-meta">{doc.category}</p>
+              <p className="feature-search-result-copy">{doc.description}</p>
             </div>
           </li>
         ))}
       </ul>
-    </PreviewChrome>
+    </div>
   );
 }
 
-function HybridPreview() {
+function SearchPreview() {
   return (
-    <PreviewChrome title="Hybrid Retrieval">
-      <div className="feature-preview-searchbox">
-        <Sparkles className="h-4 w-4 text-blue-600" aria-hidden="true" />
-        <span>professional development qualifications</span>
-      </div>
-      <div className="feature-preview-hybrid">
-        <article>
-          <p>Lexical match</p>
-          <strong>Direct terms</strong>
-          <span>qualification · development</span>
-        </article>
-        <article>
-          <p>Related terms</p>
-          <strong>Expanded signals</strong>
-          <span>credentials · training · profile</span>
-        </article>
-      </div>
-      <ul className="feature-preview-list">
-        <li>
-          <FileText className="h-4 w-4 text-blue-600" aria-hidden="true" />
-          <div>
-            <strong>Faculty Development Program Accomplishment</strong>
-            <span>Matched keywords + related terms</span>
+    <PreviewChrome title="Intelligent Document Search">
+      <div className="feature-search-preview" aria-hidden="false">
+        <div className="feature-search-header">
+          <h3>
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            Find the document you need, faster.
+          </h3>
+          <p>Search accreditation documents, criteria, and supporting evidence across your institution.</p>
+        </div>
+
+        <div className="feature-search-row">
+          <div className="feature-search-field-wrap">
+            <div className="feature-search-field is-readonly" aria-label="Search query demonstration">
+              <Search className="feature-search-icon" aria-hidden="true" />
+              <span className="feature-search-query">{SEARCH_PREVIEW_QUERY}</span>
+            </div>
           </div>
-        </li>
-        <li>
-          <FileText className="h-4 w-4 text-blue-600" aria-hidden="true" />
-          <div>
-            <strong>Faculty Qualifications Summary</strong>
-            <span>Title and keyword field weighting</span>
+
+          <div className="feature-search-guide" aria-hidden="true">
+            <HelpCircle className="h-4 w-4" />
+            QA Guide
           </div>
-        </li>
-      </ul>
+        </div>
+
+        <div className="feature-search-chips" aria-hidden="true">
+          <span>Try:</span>
+          {SEARCH_QUICK_CHIPS.map((chip) => (
+            <span key={chip} className="feature-search-chip">
+              {chip}
+            </span>
+          ))}
+        </div>
+
+        <DocumentSearchResults query={SEARCH_PREVIEW_QUERY} results={SEARCH_PREVIEW_RESULTS} />
+      </div>
     </PreviewChrome>
   );
 }
 
 function RepositoryPreview() {
   return (
-    <PreviewChrome title="Evidence Repository">
-      <div className="feature-preview-repo">
-        <aside>
-          <p className="feature-preview-label">Collections</p>
-          {['AACCUP Programs', 'CHED COPC', 'Institutional QA'].map((folder, index) => (
-            <div key={folder} className={index === 0 ? 'is-active' : undefined}>
-              <FolderTree className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{folder}</span>
+    <PreviewChrome title="All Documents">
+      <div className="feature-repo-preview">
+        <div className="feature-repo-kpis" aria-hidden="true">
+          {REPO_PREVIEW_KPIS.map(({ label, value, description, icon: Icon, tone }) => (
+            <div key={label} className={`feature-repo-kpi ${tone}`}>
+              <div className="feature-repo-kpi-top">
+                <span>{label}</span>
+                <em>
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                </em>
+              </div>
+              <strong>{value}</strong>
+              <p>{description}</p>
             </div>
           ))}
-        </aside>
-        <div>
-          <p className="feature-preview-label">Recent documents</p>
-          <ul className="feature-preview-list">
-            {DEMO_DOCS.map((doc) => (
+        </div>
+
+        <div className="feature-repo-panel">
+          <div className="feature-repo-toolbar">
+            <p>
+              Showing <strong>5</strong> of <strong>46</strong> active documents
+            </p>
+            <span>Sorted by latest upload date</span>
+          </div>
+
+          <div className="feature-repo-filters" aria-hidden="true">
+            <div className="feature-repo-search">
+              <Search className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Search by title, keyword, office, or campus...</span>
+            </div>
+            <span className="feature-repo-select">Accreditation</span>
+            <span className="feature-repo-select">Campus</span>
+            <span className="feature-repo-select">Document type</span>
+          </div>
+
+          <ul className="feature-repo-list">
+            {REPO_PREVIEW_DOCS.map((doc) => (
               <li key={doc.title}>
-                <FileText className="h-4 w-4 text-blue-600" aria-hidden="true" />
-                <div>
+                <span className="feature-repo-doc-icon" aria-hidden="true">
+                  <FileText className="h-3.5 w-3.5" />
+                </span>
+                <div className="feature-repo-doc-copy">
                   <strong>{doc.title}</strong>
-                  <span>
-                    {doc.type} · {doc.area}
-                  </span>
+                  <span>{doc.meta}</span>
                 </div>
+                <em
+                  className={`feature-repo-badge${
+                    doc.status === 'Pending Review' ? ' is-pending' : ' is-verified'
+                  }`}
+                >
+                  {doc.status}
+                </em>
               </li>
             ))}
           </ul>
@@ -256,23 +392,9 @@ function AccessibilityPreview() {
 function RankedPreview() {
   return (
     <PreviewChrome title="Ranked Results">
-      <p className="feature-preview-label">Sorted by relevance score</p>
-      <ul className="feature-preview-ranked">
-        {[
-          { title: 'Faculty Qualifications Summary', area: 'Area II · Faculty', score: 98 },
-          { title: 'Faculty Development Program Accomplishment', area: 'Area II · Faculty', score: 94 },
-          { title: 'BSIT Area III Curriculum Evidence', area: 'Area III · Instruction', score: 90 }
-        ].map((row, index) => (
-          <li key={row.title}>
-            <span className="feature-preview-rank">{index + 1}</span>
-            <div>
-              <strong>{row.title}</strong>
-              <span>{row.area}</span>
-            </div>
-            <em>{row.score}%</em>
-          </li>
-        ))}
-      </ul>
+      <div className="feature-ranked-preview">
+        <DocumentSearchResults query={SEARCH_PREVIEW_QUERY} results={RANKED_PREVIEW_RESULTS} />
+      </div>
     </PreviewChrome>
   );
 }
@@ -281,8 +403,6 @@ function FeaturePreview({ id }: { id: FeatureId }) {
   switch (id) {
     case 'search':
       return <SearchPreview />;
-    case 'hybrid':
-      return <HybridPreview />;
     case 'repository':
       return <RepositoryPreview />;
     case 'organization':
@@ -298,7 +418,7 @@ function FeaturePreview({ id }: { id: FeatureId }) {
 
 /**
  * Interactive Key Features showcase: left navigation + right interface preview.
- * Preserves all six landing-page capabilities with subtle transitions.
+ * Preserves five landing-page capabilities with subtle transitions.
  */
 export function FeatureShowcase() {
   const [activeId, setActiveId] = useState<FeatureId>('search');
@@ -336,6 +456,11 @@ export function FeatureShowcase() {
     nextButton?.focus();
   };
 
+  const switchTransition = {
+    duration: reduceMotion ? 0 : 0.28,
+    ease: [0.4, 0, 0.2, 1] as const
+  };
+
   return (
     <div className="feature-showcase">
       <div className="feature-showcase-nav" role="tablist" aria-label="Platform capabilities" onKeyDown={onKeyDown}>
@@ -354,13 +479,37 @@ export function FeatureShowcase() {
               className={`feature-nav-item${selected ? ' is-active' : ''}`}
               onClick={() => selectFeature(feature.id)}
             >
-              <span className="feature-nav-icon" aria-hidden="true">
-                <Icon strokeWidth={1.75} />
-              </span>
-              <span className="feature-nav-copy">
-                <strong>{feature.title}</strong>
-                <span className={selected ? 'is-visible' : undefined}>{feature.description}</span>
-              </span>
+              <motion.span
+                className="feature-nav-body"
+                layout={!reduceMotion}
+                transition={{ layout: switchTransition }}
+              >
+                <motion.span
+                  className="feature-nav-icon"
+                  aria-hidden="true"
+                  layout={!reduceMotion}
+                  transition={{ layout: switchTransition }}
+                >
+                  <Icon strokeWidth={1.75} />
+                </motion.span>
+                <motion.span
+                  className="feature-nav-copy"
+                  layout={!reduceMotion}
+                  transition={{ layout: switchTransition }}
+                >
+                  <motion.strong layout={!reduceMotion} transition={{ layout: switchTransition }}>
+                    {feature.title}
+                  </motion.strong>
+                  <span
+                    className={`feature-nav-description-slot${selected ? ' is-open' : ''}`}
+                    aria-hidden={!selected}
+                  >
+                    <span className="feature-nav-description-clip">
+                      <span className="feature-nav-description">{feature.description}</span>
+                    </span>
+                  </span>
+                </motion.span>
+              </motion.span>
             </button>
           );
         })}
@@ -373,14 +522,14 @@ export function FeatureShowcase() {
         className="feature-showcase-preview"
       >
         <div className="feature-preview-frame" aria-live="polite">
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="sync" initial={false}>
             <motion.div
               key={active.id}
               className="feature-preview-motion"
-              initial={reduceMotion ? false : { opacity: 0, x: 18 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={reduceMotion ? undefined : { opacity: 0, x: -14 }}
-              transition={{ duration: reduceMotion ? 0 : 0.32, ease: [0.22, 1, 0.36, 1] }}
+              initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+              transition={switchTransition}
             >
               <FeaturePreview id={active.id} />
             </motion.div>

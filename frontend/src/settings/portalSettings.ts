@@ -243,7 +243,7 @@ export function getSettings(): PortalSettings {
   return current;
 }
 
-export const DEFAULT_LOGO_SRC = '/nemsu-logo.png';
+export const DEFAULT_LOGO_SRC = '/nemsu-landing-logo.png';
 
 export function logoSrc(settings: PortalSettings = current): string {
   return settings.general.logoDataUrl || DEFAULT_LOGO_SRC;

@@ -2,6 +2,7 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.ingestion.services.embedders import dense_backend_info
 from apps.search.serializers import SearchRequestSerializer
 from apps.search.services.search_service import run_search
 
@@ -28,4 +29,13 @@ class SearchView(APIView):
             if data.get(k)
         }
         results = run_search(data["q"], filters=filters, limit=data.get("limit"))
-        return Response({"results": results, "count": len(results), "source": "hybrid"})
+        info = dense_backend_info()
+        return Response(
+            {
+                "results": results,
+                "count": len(results),
+                "source": "hybrid",
+                "embedding_backend": info["name"],
+                "embedding_degraded": info["degraded"],
+            }
+        )
