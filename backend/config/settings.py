@@ -74,6 +74,9 @@ DATABASES = {
     }
 }
 
+if workspace_name := os.getenv("PORTAL_WORKSPACE_DATABASE", "").strip():
+    DATABASES["workspace"] = {**DATABASES["default"], "NAME": workspace_name}
+
 AUTH_PASSWORD_VALIDATORS = []
 
 LANGUAGE_CODE = "en-us"

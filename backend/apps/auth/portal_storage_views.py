@@ -2,6 +2,7 @@
 import re
 
 from django.conf import settings
+from django.db import DEFAULT_DB_ALIAS
 from django.http import StreamingHttpResponse
 from django.utils.http import content_disposition_header
 from rest_framework import serializers
@@ -12,7 +13,7 @@ from rest_framework.views import APIView
 
 from .models import PortalFile
 from .portal_storage import store_collection, store_file
-from .workspace_storage import workspace_records, workspace_source
+from .workspace_storage import workspace_database, workspace_records, workspace_source
 
 BROWSER_COLLECTIONS = {
     "accessLog", "areas", "campuses", "copcRecords", "criteria", "dismissed_reminders",
@@ -75,7 +76,10 @@ class CatalogOriginalView(APIView):
             or "\\" in path or any(part in {"", ".", ".."} for part in path[1:].split("/"))
         ):
             raise NotFound()
-        file = PortalFile.objects.select_related("content").filter(source="catalog", key=path[1:]).first()
+        files = PortalFile.objects.select_related("content").filter(source="catalog", key=path[1:])
+        file = files.first()
+        if file is None and workspace_database() != DEFAULT_DB_ALIAS:
+            file = files.using(workspace_database()).first()
         if file is None:
             raise NotFound("Original file is unavailable.")
 
@@ -99,11 +103,12 @@ class WorkspaceOriginalView(APIView):
         source = workspace_source()
         if not source:
             raise NotFound()
-        file = PortalFile.objects.select_related("content").filter(source=source, key=request.query_params.get("id", "")).first()
+        files = PortalFile.objects.using(workspace_database()).select_related("content")
+        file = files.filter(source=source, key=request.query_params.get("id", "")).first()
         if file is None:
             raise NotFound("Original file is unavailable.")
         if request.query_params.get("preview") == "1":
-            file = PortalFile.objects.select_related("content").filter(source="preview", key=file.content_id).first()
+            file = files.filter(source="preview", key=file.content_id).first()
             if file is None:
                 raise NotFound("A browser preview is unavailable.")
         chunks = file.content.chunks.order_by("position").values_list("data", flat=True)

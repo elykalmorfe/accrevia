@@ -42,6 +42,7 @@ backend/media/**
 backend/exports/
 *.portal-bundle.zip
 *.portal-bundle.zip.partial
+/document-pack.local.zip
 
 # Model / HF caches (local)
 .cache/

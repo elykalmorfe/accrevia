@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangleIcon,
   ChevronLeftIcon,
@@ -21,7 +21,6 @@ import { SearchResultCard } from '../components/search/SearchResultCard';
 import { DocumentPreviewModal } from '../components/documents/DocumentPreviewModal';
 import { EmptyState } from '../components/ui/EmptyState';
 import { GlobalSearch } from '../components/layout/GlobalSearch';
-import { searchVerifiedCatalog } from '../services/repository/verifiedCatalogSearch';
 import { searchEvidenceAsync, searchParameterParams, SearchParameter } from '../services/search/evidenceSearchClient';
 
 type Filters = Record<SearchParameter, string>;
@@ -163,11 +162,6 @@ export function SearchResults() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, documents, lookup, attempt, filters.docType, filters.program, filters.academicYear]);
 
-  const verifiedHits = useMemo(
-    () => (query.trim().length > 1 ? searchVerifiedCatalog({ q: query.trim() }).slice(0, 8) : []),
-    [query]
-  );
-
   const sorted = useMemo(() => {
     const byDate = (a: SearchResult, b: SearchResult) =>
       (a.doc.documentDate || a.doc.dateAdded || '').localeCompare(b.doc.documentDate || b.doc.dateAdded || '');
@@ -308,49 +302,6 @@ export function SearchResults() {
           </div>
         </div>
       </div>
-
-      {verifiedHits.length > 0 ? (
-        <section
-          aria-labelledby="verified-repo-hits"
-          className="mb-4 rounded-2xl border border-emerald-200/80 bg-emerald-50/50 px-4 py-3.5 sm:px-5"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="verified-repo-hits" className="text-sm font-extrabold text-emerald-950">
-              Verified accreditation catalog
-            </h2>
-            <Link
-              to={`/open/search?q=${encodeURIComponent(query.trim())}`}
-              className="text-[12px] font-semibold text-brand-700 hover:underline"
-            >
-              View all in Faculty search
-            </Link>
-          </div>
-          <p className="mt-1 text-[12px] font-medium text-emerald-900/80">
-            {verifiedHits.length} matching AACCUP certificate or COPC record
-            {verifiedHits.length === 1 ? '' : 's'} (metadata searchable even when local files are missing).
-          </p>
-          <ul className="mt-3 space-y-2">
-            {verifiedHits.map((hit) => (
-              <li key={hit.id}>
-                <Link
-                  to={hit.href}
-                  className="flex flex-col gap-0.5 rounded-xl border border-emerald-100 bg-surface px-3 py-2.5 transition hover:border-brand-200 hover:bg-brand-50/40 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-[13px] font-semibold text-ink">{hit.title}</span>
-                    <span className="block truncate text-[11px] font-medium text-ink-muted">
-                      {[hit.categoryLabel, hit.campus, hit.program].filter(Boolean).join(' · ')}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-emerald-800">
-                    Open repository
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       <div ref={listTopRef} className="mb-3 flex scroll-mt-20 flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">

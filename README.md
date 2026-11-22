@@ -84,4 +84,6 @@ On another developer's computer, pull the application code, install dependencies
 
 Start the frontend with `VITE_API_BASE_URL=http://127.0.0.1:8000`. Open `http://localhost:5173` and sign in. The frontend restores the selected snapshot before loading the portal and retrieves missing ISO original files from MySQL. Existing browser edits are retained when adding records from the snapshot. Original files do not need to be installed separately under `public/` after this restore.
 
+To view a teammate's files beside your existing portal, set `PORTAL_WORKSPACE_DATABASE` in `backend/.env` to the database where you imported their bundle and restart Django. The portal reads workspace records, originals, and prepared previews from that database. Regular writes use `MYSQL_DATABASE`.
+
 Import refuses to overwrite existing portal data. Use a new database to keep existing work; `--replace` explicitly replaces portal records, original files, and accounts in the configured destination database. The bundle contains account password hashes and institutional documents, so distribute it through the team's document-sharing channel. Export files are excluded from Git; share the bundle alongside the code. Each developer's database is independent after restoring; later changes require a new export/import.
