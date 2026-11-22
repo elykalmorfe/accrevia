@@ -29,6 +29,10 @@ const ISO_CERTIFICATE_LEVELS: CertificateLevel[] = [
   { code: 'Compliant', label: 'Compliant' }
 ];
 
+function campusComplianceLabel(status?: string): 'Certified' | 'Compliant' {
+  return status === 'Certified' ? 'Certified' : 'Compliant';
+}
+
 function readableDate(value?: string): string {
   if (!value) return '—';
   try {
@@ -178,7 +182,7 @@ export function CampusISOView() {
             >
               {campuses.map((c) => {
                 const rec = isoRecords.find((r) => r.campusId === c.id && !r.isHistorical) || isoRecords.find((r) => r.campusId === c.id);
-                const status = rec?.complianceStatus || 'Compliant';
+                const status = campusComplianceLabel(rec?.complianceStatus);
                 return (
                   <option key={c.id} value={c.id}>
                     {c.shortName} — {status}
@@ -198,16 +202,8 @@ export function CampusISOView() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-lg font-bold text-ink">{campus.name}</h2>
-                  <Badge
-                    tone={
-                      isoRecord.complianceStatus === 'Compliant' || isoRecord.complianceStatus === 'Certified'
-                        ? 'success'
-                        : isoRecord.complianceStatus === 'Minor Deficiencies'
-                        ? 'warning'
-                        : 'danger'
-                    }
-                  >
-                    {isoRecord.complianceStatus}
+                  <Badge tone="success">
+                    {campusComplianceLabel(isoRecord.complianceStatus)}
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-ink-muted">{campus.location}</p>

@@ -11,7 +11,7 @@ const itemFeatureMap: Record<string, string> = {
   'Institutional (IA)': 'framework_ia',
   'Program (AACCUP)': 'framework_pa',
   'CHED COPC': 'framework_copc',
-  'PQA Standards': 'framework_pqa',
+  'PQA': 'framework_pqa',
   'ISO 9001': 'framework_iso',
   'Requests': 'requests',
   'Reports & Analytics': 'reports',

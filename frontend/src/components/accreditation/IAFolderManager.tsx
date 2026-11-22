@@ -119,6 +119,13 @@ function isoLayoutKey(campusId: string, id: string) {
   return `${campusId}:${id}`;
 }
 
+/** A folder belongs to one framework. Untagged legacy folders stay on IA only. */
+function folderBelongsToFramework(folder: { id: string; frameworkId?: string; category?: string }, frameworkId: string) {
+  if (folder.frameworkId) return folder.frameworkId === frameworkId;
+  if (frameworkId !== 'ia') return false;
+  return folder.category === 'Accreditation' || folder.category === 'General / Custom' || folder.id.startsWith('folder-ia');
+}
+
 export function IAFolderManager({
   campusId,
   campusName,
@@ -249,15 +256,8 @@ export function IAFolderManager({
   // Each campus (Tandag, Cantilan, San Miguel, etc.) has its own isolated folders for Areas 1–9.
   const iaFolders = useMemo(() => {
     return folders.filter((f) => {
-      if (f.frameworkId === 'pa' || isCertificateArea(f.areaId)) return false;
-      const inFramework =
-        framework.id === 'ia'
-          ? f.frameworkId === 'ia' ||
-        f.category === 'Accreditation' ||
-            (f.category === 'General / Custom' && !f.frameworkId) ||
-            f.id.startsWith('folder-ia')
-          : f.frameworkId === framework.id;
-      if (!inFramework) return false;
+      if (f.frameworkId === 'pa' || f.frameworkId === 'copc' || isCertificateArea(f.areaId)) return false;
+      if (!folderBelongsToFramework(f, framework.id)) return false;
 
       // Match folder strictly by campus:
       if (f.campusId) {
@@ -597,10 +597,11 @@ export function IAFolderManager({
     return iaFolders.filter((f) => !f.parentId && (f.areaId || '').toLowerCase() === areaCodeLower);
   }, [selectedAreaCode, iaFolders]);
 
-  // STRICT CUSTOM ISOLATION: Custom Folders ONLY contain folders with !f.areaId.
-  // Any folder created inside an Area or uploaded to an Area CANNOT appear here!
+  // Custom folders stay in the framework that created them. Official roots are not custom folders.
   const rootCustomFolders = useMemo(() => {
-    let list = iaFolders.filter((f) => !f.parentId && !f.areaId);
+    let list = iaFolders.filter(
+      (f) => !f.parentId && !f.areaId && f.id !== ROOT_FOLDER_ID && !f.isSystem && folderBelongsToFramework(f, framework.id)
+    );
     if (searchQuery.trim() && activeTab === 'folders' && !activeFolderId) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -611,7 +612,29 @@ export function IAFolderManager({
       );
     }
     return list;
-  }, [iaFolders, searchQuery, activeTab, activeFolderId]);
+  }, [iaFolders, searchQuery, activeTab, activeFolderId, ROOT_FOLDER_ID, framework.id]);
+
+  const removeCustomFolder = (rootId: string) => {
+    if (!canMutate) return;
+    const root = iaFolders.find((f) => f.id === rootId);
+    if (!root || root.isSystem || root.id === ROOT_FOLDER_ID || !folderBelongsToFramework(root, framework.id)) return;
+    const ids = new Set<string>([rootId]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      iaFolders.forEach((f) => {
+        if (f.parentId && ids.has(f.parentId) && folderBelongsToFramework(f, framework.id) && !ids.has(f.id)) {
+          ids.add(f.id);
+          grew = true;
+        }
+      });
+    }
+    documents.forEach((d) => {
+      if (d.folderId && ids.has(d.folderId) && (!d.frameworkId || d.frameworkId === framework.id)) deleteDocument(d.id);
+    });
+    ids.forEach((id) => deleteFolder(id));
+    if (activeFolderId && ids.has(activeFolderId)) setActiveFolderId(null);
+  };
 
   // Filtered and Sorted IA Areas
   const filteredAreas = useMemo(() => {
@@ -823,6 +846,7 @@ export function IAFolderManager({
         if (f.id === folderToUpload.id) {
           saveFolder({
             ...f,
+            frameworkId: framework.id,
             areaId: targetAreaId,
             category: framework.category,
             parentId: targetParentFolderId ? targetParentFolderId : undefined,
@@ -832,6 +856,7 @@ export function IAFolderManager({
         } else {
           saveFolder({
             ...f,
+            frameworkId: framework.id,
             areaId: targetAreaId,
             category: framework.category,
             campusId: campusId,
@@ -1529,7 +1554,7 @@ export function IAFolderManager({
                 onClick={() => {
                   setEditingFolder(null);
                   setFolderFormParentId(undefined);
-                  const asCustom = framework.id === 'pqa' && !selectedAreaCode;
+                  const asCustom = activeTab === 'folders' || (framework.id === 'pqa' && !selectedAreaCode);
                   setFolderFormUnassigned(asCustom);
                   if (asCustom) setActiveTab('folders');
                   setFolderFormAreaId(
@@ -1541,8 +1566,8 @@ export function IAFolderManager({
                 }}
                 className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-line bg-white px-3.5 text-xs font-semibold text-ink shadow-2xs transition hover:bg-canvas hover:border-brand-300"
                 title={
-                  framework.id === 'pqa' && !selectedAreaCode
-                    ? 'Create a custom folder'
+                  activeTab === 'folders' || (framework.id === 'pqa' && !selectedAreaCode)
+                    ? `Create a custom folder in ${framework.label} only`
                     : `Create a new folder in this ${framework.areaNoun}`
                 }
               >
@@ -2116,6 +2141,7 @@ export function IAFolderManager({
                       onClick={() => {
                         setEditingFolder(null);
                         setFolderFormParentId(currentActiveFolder.id);
+                        setFolderFormUnassigned(!currentActiveFolder.areaId);
                         setFolderFormAreaId(currentActiveFolder.areaId);
                         setFolderFormOpen(true);
                       }}
@@ -2386,7 +2412,7 @@ export function IAFolderManager({
                     </span>
                   </div>
                   <p className="text-[11px] text-ink-subtle mt-0.5">
-                    Custom evidence folders and portfolios strictly isolated to {campusName}. Folders can be uploaded directly to specific {framework.label} {areaRangeLabel}.
+                    Custom folders created here stay in {framework.label} at {campusName}. They can be edited and deleted here only, and they do not appear in other frameworks.
                   </p>
                 </div>
                 {canMutate && (
@@ -2395,7 +2421,7 @@ export function IAFolderManager({
                   onClick={() => {
                     setEditingFolder(null);
                     setFolderFormParentId(undefined);
-                    setFolderFormUnassigned(framework.id === 'pqa');
+                    setFolderFormUnassigned(true);
                     setFolderFormAreaId(undefined);
                     setFolderFormInitialName('');
                     setFolderFormInitialCode('');
@@ -2416,7 +2442,7 @@ export function IAFolderManager({
                   </div>
                   <h4 className="text-xs font-bold text-ink">No Custom Folders in {campusName}</h4>
                   <p className="text-[11px] text-ink-muted max-w-sm mx-auto">
-                    Folders created here belong exclusively to {campusName}. Click &quot;New Folder&quot; above to create a custom evidence portfolio for this campus.
+                    Folders created here belong only to {framework.label} at {campusName}. Click &quot;New Folder&quot; to add one.
                   </p>
                 </div>
               ) : (
@@ -2459,7 +2485,23 @@ export function IAFolderManager({
                             label="Rename folder"
                             onClick={() => {
                               setEditingFolder(folder);
+                              setFolderFormUnassigned(!folder.areaId);
+                              setFolderFormAreaId(folder.areaId);
                               setFolderFormOpen(true);
+                            }}
+                          />
+                          <FolderAction
+                            icon={Trash2Icon}
+                            label="Delete folder"
+                            danger
+                            onClick={() => {
+                              const detail =
+                                docCount + subCount > 0
+                                  ? ` It has ${pluralize(docCount, 'file')}${subCount > 0 ? ` and ${pluralize(subCount, 'subfolder')}` : ''}.`
+                                  : '';
+                              if (!window.confirm(`Delete folder "${folder.name}" from ${framework.label}?${detail}`)) return;
+                              removeCustomFolder(folder.id);
+                              toast.success('Folder deleted');
                             }}
                           />
                         </>
@@ -2583,6 +2625,7 @@ export function IAFolderManager({
                       onClick={() => {
                         setEditingFolder(null);
                         setFolderFormParentId(currentActiveFolder.id);
+                        setFolderFormUnassigned(!currentActiveFolder.areaId);
                         setFolderFormAreaId(currentActiveFolder.areaId);
                         setFolderFormOpen(true);
                       }}
@@ -2618,16 +2661,31 @@ export function IAFolderManager({
                           status={FOLDER_STATUS[getFolderApprovalStatus(sub).status]}
                           actions={
                             canMutate ? (
+                            <>
                             <FolderAction
                               icon={PencilIcon}
                               label="Rename / edit subfolder"
                               onClick={() => {
                                 setEditingFolder(sub);
                                 setFolderFormParentId(activeFolderId || undefined);
-                                setFolderFormAreaId(selectedAreaCode?.toLowerCase());
+                                setFolderFormUnassigned(!sub.areaId);
+                                setFolderFormAreaId(sub.areaId);
                                 setFolderFormOpen(true);
                               }}
                             />
+                            {!sub.areaId && (
+                              <FolderAction
+                                icon={Trash2Icon}
+                                label="Delete folder"
+                                danger
+                                onClick={() => {
+                                  if (!window.confirm(`Delete folder "${sub.name}" from ${framework.label}?`)) return;
+                                  removeCustomFolder(sub.id);
+                                  toast.success('Folder deleted');
+                                }}
+                              />
+                            )}
+                            </>
                             ) : undefined
                           }
                         />
@@ -3310,7 +3368,12 @@ export function IAFolderManager({
         }}
         onSave={(f) => {
           if (!canMutate) return;
-          const assignedAreaId = folderFormUnassigned ? undefined : f.areaId || folderFormAreaId || undefined;
+          if (editingFolder && !folderBelongsToFramework(editingFolder, framework.id)) return;
+          const assignedAreaId = editingFolder
+            ? editingFolder.areaId
+            : folderFormUnassigned
+              ? undefined
+              : f.areaId || folderFormAreaId || undefined;
           const finalFolder: EvidenceFolder = {
             ...f,
             frameworkId: framework.id,

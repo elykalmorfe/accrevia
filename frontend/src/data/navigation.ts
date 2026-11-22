@@ -88,7 +88,7 @@ export const navigation: NavItem[] = [
     color: navIcon
   },
   {
-    label: 'PQA Standards',
+    label: 'PQA',
     to: '/frameworks/pqa',
     icon: AwardIcon,
     matchPrefix: '/frameworks/pqa',

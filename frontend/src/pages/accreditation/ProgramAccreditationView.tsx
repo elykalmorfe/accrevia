@@ -31,6 +31,7 @@ export type OverviewStatFilter =
   | 'none'
   | 'total'
   | 'new'
+  | 'not-yet-due'
   | 'candidate'
   | 'level-1'
   | 'level-2'
@@ -44,6 +45,12 @@ export type OverviewStatFilter =
 const CURRENT_YEAR = new Date().getFullYear();
 const TARGET_YEAR = Math.max(2027, CURRENT_YEAR);
 const BASELINE_YEAR = CURRENT_YEAR - 1;
+
+const ACCREDITED_LEVELS = ['Level 1', 'Level 2', 'Level 3', 'Level 4'];
+
+function isAccreditedLevel(status: string): boolean {
+  return ACCREDITED_LEVELS.includes(status);
+}
 
 function isNewProgram(p: ProgramAccreditation, currentYear = CURRENT_YEAR): boolean {
   if (p.status === 'waiting') return true;
@@ -87,6 +94,8 @@ function getOverviewFilterLabel(filter: OverviewStatFilter): string {
       return 'Candidate Programs';
     case 'new':
       return 'New / Newly Established Programs';
+    case 'not-yet-due':
+      return 'Not Yet Accreditable';
     case 'undergraduate':
       return 'Undergraduate Degree Programs';
     case 'graduate':
@@ -120,6 +129,11 @@ import {
 } from 'lucide-react';
 import { CardField, MobileCard } from '../../components/ui/ResponsiveTable';
 import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
+
+function offeringStatusLabel(program: ProgramAccreditation): string {
+  if (program.status !== 'Not Accreditable') return statusLabel(program.status);
+  return isNewProgram(program) ? 'New Program' : 'Not yet accreditable';
+}
 
 function programBadgeTone(status: string): BadgeTone {
   if (status.includes('Level 4')) return 'gold';
@@ -236,6 +250,12 @@ export function ProgramAccreditationView() {
         if (overviewFilter === 'level-4' && prog.status !== 'Level 4') return false;
         if (overviewFilter === 'candidate' && prog.status !== 'Candidate') return false;
         if (overviewFilter === 'new' && !isNewProgram(prog)) return false;
+        if (
+          overviewFilter === 'not-yet-due' &&
+          (isAccreditedLevel(prog.status) || prog.status === 'Candidate' || isNewProgram(prog))
+        ) {
+          return false;
+        }
         if (overviewFilter === 'accredited' && !['Level 1', 'Level 2', 'Level 3', 'Level 4'].includes(prog.status)) return false;
         if (overviewFilter === 'undergraduate' && prog.degreeLevel !== 'Undergraduate') return false;
         if (overviewFilter === 'graduate' && prog.degreeLevel !== 'Graduate') return false;
@@ -356,6 +376,24 @@ export function ProgramAccreditationView() {
 
   // Total Accredited Programs (Levels 1–4)
   const accreditedCount = level1Count + level2Count + level3Count + level4Count;
+
+  /** New offerings that are not already accredited or a candidate, so the rate-card groups do not overlap. */
+  const newOfferingCount = useMemo(
+    () =>
+      campusScopedPrograms.filter(
+        (p) => !isAccreditedLevel(p.status) && p.status !== 'Candidate' && isNewProgram(p)
+      ).length,
+    [campusScopedPrograms]
+  );
+
+  /** Offered programs that are not certified, not candidates, and not new. */
+  const notYetDueCount = useMemo(
+    () =>
+      campusScopedPrograms.filter(
+        (p) => !isAccreditedLevel(p.status) && p.status !== 'Candidate' && !isNewProgram(p)
+      ).length,
+    [campusScopedPrograms]
+  );
 
   // 8. Accreditation Rate (Strictly differentiated: Institutional vs Campus)
   const accreditationRate =
@@ -582,12 +620,22 @@ export function ProgramAccreditationView() {
             {/* Visual Progress Bar & Filter Pills */}
             <div className="mt-3.5 space-y-2 pt-2.5 border-t border-line/70">
             <div>
-                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                  <div
-                    className="bg-brand-600 transition-all duration-500 rounded-full"
-                    style={{ width: `${Math.min(100, Math.max(0, parseFloat(accreditationRate)))}%` }}
-                  />
-            </div>
+                <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  {[
+                    { key: 'accredited', count: accreditedCount, className: 'bg-brand-600' },
+                    { key: 'candidate', count: candidateCount, className: 'bg-sky-400' },
+                    { key: 'new', count: newOfferingCount, className: 'bg-teal-400' },
+                    { key: 'due', count: notYetDueCount, className: 'bg-amber-300' }
+                  ].map((part) =>
+                    totalProgramsScoped > 0 && part.count > 0 ? (
+                      <div
+                        key={part.key}
+                        className={part.className}
+                        style={{ width: `${(part.count / totalProgramsScoped) * 100}%` }}
+                      />
+                    ) : null
+                  )}
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
@@ -633,10 +681,26 @@ export function ProgramAccreditationView() {
                       ? 'bg-teal-700 text-white font-bold shadow-2xs'
                       : 'bg-teal-50 text-teal-900 hover:bg-teal-100 border border-teal-200'
                   }`}
-                  title="Filter New programs"
+                  title="Filter new programs that are not yet accredited"
                 >
                   <SparklesIcon className="h-3 w-3" />
-                  <span>{newProgramsCount} New Program</span>
+                  <span>{newOfferingCount} New Program</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOverviewFilterClick('not-yet-due');
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10.5px] font-semibold transition-all cursor-pointer ${
+                    overviewFilter === 'not-yet-due'
+                      ? 'bg-amber-700 text-white font-bold shadow-2xs'
+                      : 'bg-amber-50 text-amber-950 hover:bg-amber-100 border border-amber-200'
+                  }`}
+                  title="Filter programs that are not yet accreditable"
+                >
+                  <ClockIcon className="h-3 w-3" />
+                  <span>{notYetDueCount} Not yet accreditable</span>
                 </button>
               </div>
             </div>
@@ -948,7 +1012,7 @@ export function ProgramAccreditationView() {
                         </p>
                       </div>
                       <Badge tone={programBadgeTone(prog.status)} dot className="shrink-0">
-                        {statusLabel(prog.status)}
+                        {offeringStatusLabel(prog)}
                       </Badge>
                     </div>
 
@@ -1086,7 +1150,7 @@ export function ProgramAccreditationView() {
 
                       <td className="td py-3 whitespace-nowrap">
                         <Badge tone={programBadgeTone(prog.status)} dot>
-                          {statusLabel(prog.status)}
+                          {offeringStatusLabel(prog)}
                         </Badge>
                       </td>
 

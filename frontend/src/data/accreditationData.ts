@@ -926,7 +926,7 @@ export const initialISORecords: ISOSurveillanceRecord[] = [
     leadAuditor: 'Prof. Liza M. Cabrera',
     auditorRole: 'QA Surveillance Auditor',
     scope: 'Agriculture Demonstration Farms, Hospitality Instruction, and Student Services',
-    complianceStatus: 'Minor Deficiencies',
+    complianceStatus: 'Compliant',
     summary: 'General processes conforming, with minor deficiencies in farm equipment preventive maintenance logs.',
     findingsCount: { conformances: 12, ofi: 4, minorNC: 2, majorNC: 0 },
     validationDate: '2024-06-20',
