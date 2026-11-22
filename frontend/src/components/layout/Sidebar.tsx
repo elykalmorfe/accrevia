@@ -4,6 +4,7 @@ import { ChevronDownIcon, LogOutIcon } from 'lucide-react';
 import { navigation, NavItem, userNavigation } from '../../data/navigation';
 import { usePortal } from '../../contexts/PortalContext';
 import { LogoutConfirmModal } from './LogoutConfirmModal';
+import { seesOfficeQueue } from '../../utils/sharing';
 
 const itemFeatureMap: Record<string, string> = {
   'Dashboard': 'dashboard',
@@ -89,7 +90,9 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
       .filter((item): item is NavItem => item !== null);
   }, [isAdmin, currentUser.allowedFeatures]);
   const liveCounts: Record<NonNullable<NavItem['countKey']>, number> = {
-    requests: documentRequests.filter((r) => (isAdmin ? r.unreadByAdmin : r.requesterId === currentUser.id && r.unreadByRequester)).length
+    requests: documentRequests.filter((r) =>
+      seesOfficeQueue(currentUser.role) ? r.unreadByAdmin : r.requesterId === currentUser.id && r.unreadByRequester
+    ).length
   };
   const [logoutOpen, setLogoutOpen] = useState(false);
 

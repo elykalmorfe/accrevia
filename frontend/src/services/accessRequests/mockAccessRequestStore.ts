@@ -1,5 +1,8 @@
 import type { TechnicalReviewAccessRequest } from '../../types/technicalReviewAccess';
+import { runLiveTask, syncRoleLive } from '../live/roleLive';
 import { seedTechnicalReviewAccessRequests } from './seedAccessRequests';
+
+let applyingRemote = false;
 
 const STORAGE_KEY = 'accrevia_tr_access_requests_demo';
 const VERSION_KEY = 'accrevia_tr_access_requests_demo_version';
@@ -31,8 +34,26 @@ function writeAll(requests: TechnicalReviewAccessRequest[]) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
     window.localStorage.setItem(VERSION_KEY, String(SEED_VERSION));
     window.dispatchEvent(new Event('accrevia-tr-access-requests-change'));
+    if (!applyingRemote) {
+      const snapshot = requests.slice();
+      void runLiveTask(async () => {
+        await syncRoleLive({ technicalReviews: snapshot });
+      });
+    }
   } catch {
     // Demo storage failures are ignored.
+  }
+}
+
+export function applyRemoteAccessRequests(requests: TechnicalReviewAccessRequest[]) {
+  const next = requests.slice().sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+  const current = readRaw().slice().sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+  if (JSON.stringify(current) === JSON.stringify(next)) return;
+  applyingRemote = true;
+  try {
+    writeAll(next);
+  } finally {
+    applyingRemote = false;
   }
 }
 

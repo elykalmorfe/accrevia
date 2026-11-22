@@ -190,8 +190,8 @@ export function ProgramAccreditationView() {
       stats[areaId] = stats[areaId] || { files: 0, folders: 0 };
       stats[areaId][key] += 1;
     };
-    documents.forEach((d) => d.frameworkId === 'pa' && bump(d.areaId, 'files'));
-    folders.forEach((f) => f.frameworkId === 'pa' && bump(f.areaId, 'folders'));
+    documents.forEach((d) => d.frameworkId === 'pa' && !d.libraryOnly && bump(d.areaId, 'files'));
+    folders.forEach((f) => f.frameworkId === 'pa' && !f.libraryOnly && bump(f.areaId, 'folders'));
     return stats;
   }, [detailsModalProgram?.requirements, documents, folders]);
 
@@ -211,7 +211,7 @@ export function ProgramAccreditationView() {
       return cursor?.name;
     };
     documents.forEach((d) => {
-      if (d.frameworkId !== 'pa' || !d.areaId?.startsWith('cert-')) return;
+      if (d.libraryOnly || d.frameworkId !== 'pa' || !d.areaId?.startsWith('cert-')) return;
       const entry = (summary[d.areaId] ??= { count: 0 });
       entry.count += 1;
       if (d.isActive) {

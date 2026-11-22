@@ -1,4 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useRoleLive } from '../hooks/useRoleLive';
+import { applyRemoteAccessRequests } from '../services/accessRequests/mockAccessRequestStore';
+import { RoleLiveBoard } from '../services/live/roleLive';
 import { frameworks as initialFrameworks } from '../data/frameworks';
 import { initialFolders, loadHiddenFolderIds } from '../data/folders';
 import { seedMockDocuments } from '../data/mockDocuments';
@@ -6,7 +9,15 @@ import { areas as initialAreas } from '../data/areas';
 import { criteria as initialCriteria } from '../data/criteria';
 import { indicators as initialIndicators } from '../data/indicators';
 import { users as initialUsers, PORTAL_USERS_SEED_VERSION } from '../data/users';
-import { DEFAULT_SUPERADMIN_ID } from '../utils/auth';
+import { DEFAULT_SUPERADMIN_ID, exportAccountSnapshot, initializeAuthStore, writeLocalApprovalIfChanged } from '../utils/auth';
+import {
+  fetchAccountDirectory,
+  mergeRemoteUsers,
+  pushPortalUser,
+  samePortalUsers,
+  subscribeAccountDirectory,
+  syncBrowserAccounts
+} from '../services/accounts/accountDirectory';
 import {
   campuses as initialCampuses,
   initialCampusIA,
@@ -43,16 +54,18 @@ import {
 } from '../types/accreditation';
 import { PortalUser, PortalViewRole, UserStatus } from '../types/user';
 import { AccessAction, AccessLogEntry, AccessRequest, DocumentShare, ShareRecipientInput } from '../types/sharing';
-import { DocumentRequest, NewDocumentRequestInput, RequestAttachment, RequestStatus } from '../types/request';
+import { AttachmentAccess, AttachmentRole, DocumentRequest, NewDocumentRequestInput, RequestAttachment, RequestStatus } from '../types/request';
 import { initialDocumentRequests } from '../data/documentRequests';
 import { metadataToPatch } from '../utils/metadata';
-import { isAdminRole, isRecipientRole, nowIso, permissionLabel, shareStatus } from '../utils/sharing';
+import { isAdminRole, isRecipientRole, nowIso, permissionLabel, recipientRoles, roleGroupName, seesOfficeQueue, SentFileGrant, shareStatus } from '../utils/sharing';
 import { formatDate } from '../utils/format';
 import { isCampusMatch } from '../utils/campus';
 import { normalizeDocumentsPublishingFields, normalizePublishingFields } from '../utils/publicDocuments';
 import { deleteStoredFile } from '../utils/fileStore';
 import { applyLevelChange, ensureLevelHistory, normalizeLegacyStatus } from '../utils/programAccreditation';
-import { purgeLegacySampleData } from '../utils/samplePurge';
+import { isIsoClauseFolder, purgeLegacySampleData } from '../utils/samplePurge';
+import { getStoredFile, saveStoredFile } from '../utils/fileStore';
+import { publishSharedOriginal } from '../services/live/sharedFiles';
 import {
   COPC_CERT_FILES_KEY,
   COPC_CERT_FILES_VERSION,
@@ -126,8 +139,17 @@ interface PortalContextValue {
   notifications: PortalNotification[];
   dismissNotification: (id: string) => void;
   documentRequests: DocumentRequest[];
+  /** File permissions from requests, including Anyone files this account does not own. */
+  fileGrants: SentFileGrant[];
   createDocumentRequest: (input: NewDocumentRequestInput) => string;
   replyToDocumentRequest: (id: string, body: string, attachments: RequestAttachment[], nextStatus?: RequestStatus) => void;
+  /** Change access on a file that was already sent. `attachmentId` null updates every file in the message. */
+  updateSentAttachmentAccess: (
+    requestId: string,
+    messageId: string,
+    attachmentId: string | null,
+    next: { access: AttachmentAccess; role: AttachmentRole }
+  ) => void;
   setDocumentRequestStatus: (id: string, status: RequestStatus) => void;
   markDocumentRequestRead: (id: string) => void;
   toggleDocumentRequestStar: (id: string) => void;
@@ -214,6 +236,29 @@ function loadVersionedStorage<T>(key: string, defaultValue: T, version: string):
   return loadStorage(key, defaultValue);
 }
 
+function recipientsForRequestFile(request: DocumentRequest, file: RequestAttachment): ShareRecipientInput[] {
+  const canDownload = (file.role ?? 'viewer') === 'editor';
+  const rights = { canView: true, canDownload };
+  if (file.access === 'anyone') {
+    return recipientRoles.map((role) => ({
+      recipientType: 'role' as const,
+      recipientId: `role-${role}`,
+      recipientName: roleGroupName(role),
+      recipientRole: role,
+      ...rights
+    }));
+  }
+  return [
+    {
+      recipientType: 'user' as const,
+      recipientId: request.requesterId,
+      recipientName: request.requesterName,
+      recipientRole: isRecipientRole(request.requesterRole) ? request.requesterRole : 'Faculty',
+      ...rights
+    }
+  ];
+}
+
 function saveStorage<T>(key: string, value: T) {
   try {
     localStorage.setItem(`accrevia_${key}`, JSON.stringify(value));
@@ -246,11 +291,64 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   useEffect(() => {
     saveStorage('portal_users', users);
   }, [users]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let poll = 0;
+    let stopStream = () => {};
+    let pulling = false;
+    let synced = false;
+
+    const applyDirectory = (remote: PortalUser[]) => {
+      if (cancelled) return;
+      for (const user of remote) writeLocalApprovalIfChanged(user.email, user.status);
+      setUsers((prev) => {
+        const merged = mergeRemoteUsers(prev, remote);
+        return samePortalUsers(prev, merged) ? prev : merged;
+      });
+    };
+
+    const pullDirectory = async () => {
+      if (pulling || cancelled) return;
+      pulling = true;
+      try {
+        if (!synced) {
+          await initializeAuthStore();
+          await syncBrowserAccounts(exportAccountSnapshot());
+          synced = true;
+        }
+        const remote = await fetchAccountDirectory();
+        if (remote) applyDirectory(remote);
+      } catch {
+        // Keep retrying the upload until the shared directory accepts this browser's accounts.
+      } finally {
+        pulling = false;
+      }
+    };
+
+    void (async () => {
+      await pullDirectory();
+      if (cancelled) return;
+      stopStream = subscribeAccountDirectory(() => {
+        void pullDirectory();
+      });
+      poll = window.setInterval(() => {
+        void pullDirectory();
+      }, 1500);
+    })();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+      stopStream();
+    };
+  }, []);
   const [shares, setShares] = useState<DocumentShare[]>([]);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>(() =>
     loadStorage<AccessRequest[]>('accessRequests', [])
   );
   const [notifications, setNotifications] = useState<PortalNotification[]>(() => loadStorage('notifications', []));
+  const [fileGrants, setFileGrants] = useState<SentFileGrant[]>([]);
   const [documentRequests, setDocumentRequests] = useState<DocumentRequest[]>(() =>
     loadVersionedStorage('document_requests', initialDocumentRequests, 'document-requests-v2-empty')
   );
@@ -288,6 +386,61 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((prev) => !prev);
   }, [setSidebarCollapsed]);
+
+  useEffect(() => {
+    setFolders((current) => {
+      const next = current.filter((folder) => !isIsoClauseFolder(folder));
+      return next.length === current.length ? current : next;
+    });
+    setDocuments((current) => {
+      let changed = false;
+      const next = current.map((document) => {
+        if (!document.folderId || !isIsoClauseFolder({ id: document.folderId, frameworkId: 'iso' })) return document;
+        changed = true;
+        return { ...document, folderId: 'folder-iso', areaId: 'iso' };
+      });
+      return changed ? next : current;
+    });
+  }, []);
+
+  useEffect(() => {
+    setDocuments((current) => {
+      const existing = new Set(current.map((document) => document.id));
+      const additions: EvidenceDocument[] = [];
+      current.forEach((document) => {
+        if (document.libraryOnly || document.frameworkId !== 'iso') return;
+        const stage = document.isoStage === 'For Surveillance' ? '1st Surveillance' : document.isoStage;
+        if (stage !== '1st Surveillance') return;
+        (
+          [
+            ['2nd', '2nd Surveillance'],
+            ['recert', 'Recertification']
+          ] as const
+        ).forEach(([suffix, isoStage]) => {
+          const id = `${document.id}::iso-${suffix}`;
+          if (existing.has(id)) return;
+          existing.add(id);
+          additions.push({ ...document, id, isoStage });
+          getStoredFile(document.id)
+            .then((stored) => {
+              if (stored) return saveStoredFile(id, stored.blob, stored.name);
+            })
+            .catch(() => undefined);
+        });
+      });
+      return additions.length > 0 ? [...additions, ...current] : current;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (localStorage.getItem('accrevia_framework_memory_cleared') === '1') return;
+    const frameworks = new Set(['ia', 'pa', 'copc', 'pqa', 'iso']);
+    const uploadedFolder = /^folder-\d{10,}-/;
+    setDocuments((current) => current.filter((doc) => !frameworks.has(String(doc.frameworkId || ''))));
+    setFolders((current) => current.filter((folder) => !uploadedFolder.test(folder.id)));
+    localStorage.setItem('accrevia_framework_memory_cleared', '1');
+    localStorage.setItem('accrevia_sample_purge', 'empty-framework-folders-1');
+  }, []);
 
   useEffect(() => {
     saveStorage('folders', folders);
@@ -422,6 +575,28 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   }, []);
   const isAdmin = isAdminRole(currentUser.role);
 
+  const applyLiveBoard = useCallback((board: RoleLiveBoard) => {
+    setFileGrants(board.fileGrants ?? []);
+    setDocumentRequests(board.documentRequests);
+    saveStorage('document_requests', board.documentRequests);
+    setNotifications(board.notifications);
+    saveStorage('notifications', board.notifications);
+    setAccessRequests(board.accessRequests);
+    saveStorage('accessRequests', board.accessRequests);
+    applyRemoteAccessRequests(board.technicalReviews);
+  }, []);
+
+  useRoleLive({
+    role: currentUser.role,
+    userId: currentUser.id,
+    email: currentUser.email,
+    documentRequests,
+    notifications,
+    accessRequests,
+    fileGrants,
+    onBoard: applyLiveBoard
+  });
+
   const saveFramework = useCallback((f: Framework) => setFrameworks((prev) => upsert(prev, f)), []);
   const setFrameworkActive = useCallback(
     (id: string, active: boolean) => setFrameworks((prev) => prev.map((f) => (f.id === id ? { ...f, active } : f))),
@@ -514,14 +689,18 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     [pending]
   );
 
-  const saveUser = useCallback(
-    (u: PortalUser) => setUsers((prev) => (prev.some((x) => x.id === u.id) ? upsert(prev, u) : [u, ...prev])),
-    []
-  );
-  const setUserStatus = useCallback(
-    (id: string, status: UserStatus) => setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status } : u))),
-    []
-  );
+  const saveUser = useCallback((u: PortalUser) => {
+    setUsers((prev) => (prev.some((x) => x.id === u.id) ? upsert(prev, u) : [u, ...prev]));
+    return pushPortalUser(u, u.temporaryPassword);
+  }, []);
+  const setUserStatus = useCallback((id: string, status: UserStatus) => {
+    setUsers((prev) => {
+      const next = prev.map((u) => (u.id === id ? { ...u, status } : u));
+      const updated = next.find((u) => u.id === id);
+      if (updated) void pushPortalUser(updated);
+      return next;
+    });
+  }, []);
 
   const logAccess = useCallback(
     (action: AccessAction, documentId: string, detail?: string) =>
@@ -757,11 +936,29 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     [currentUser, updateDocumentRequests, pushNotification]
   );
 
+  const applySentFileShare = useCallback(
+    (request: DocumentRequest, file: RequestAttachment) => {
+      if (!file.documentId) return;
+      const recipients = recipientsForRequestFile(request, file);
+      const keep = new Set(recipients.map((recipient) => recipient.recipientId));
+      setShares((prev) =>
+        prev.map((share) => {
+          if (share.documentId !== file.documentId || shareStatus(share) !== 'Active') return share;
+          const managed = share.recipientId.startsWith('role-') || share.recipientId === request.requesterId;
+          if (managed && !keep.has(share.recipientId)) return { ...share, revokedAt: nowIso() };
+          return share;
+        })
+      );
+      shareDocument(file.documentId, recipients, null);
+    },
+    [shareDocument]
+  );
+
   const replyToDocumentRequest = useCallback(
     (id: string, body: string, attachments: RequestAttachment[], nextStatus?: RequestStatus) => {
       const req = documentRequests.find((r) => r.id === id);
       if (!req) return;
-      const byAdmin = isAdmin && currentUser.id !== req.requesterId;
+      const byAdmin = seesOfficeQueue(currentUser.role) && currentUser.id !== req.requesterId;
       const at = nowIso();
       const status: RequestStatus =
         nextStatus ??
@@ -802,22 +999,10 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       if (byAdmin) {
         attachments
           .filter((a) => a.kind === 'document' && a.documentId)
-          .forEach((a) =>
-            shareDocument(
-              a.documentId as string,
-              [
-                {
-                  recipientType: 'user',
-                  recipientId: req.requesterId,
-                  recipientName: req.requesterName,
-                  recipientRole: isRecipientRole(req.requesterRole) ? req.requesterRole : 'Faculty',
-                  canView: true,
-                  canDownload: true
-                }
-              ],
-              null
-            )
-          );
+          .forEach((a) => {
+            applySentFileShare(req, a);
+            if (a.documentId) void publishSharedOriginal(a.documentId, a.name);
+          });
       }
 
       const fileNote = attachments.length > 0 ? ` · ${attachments.length} attachment${attachments.length === 1 ? '' : 's'}` : '';
@@ -828,14 +1013,50 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
         audience: byAdmin ? req.requesterId : 'admins'
       });
     },
-    [documentRequests, isAdmin, currentUser, updateDocumentRequests, shareDocument, pushNotification]
+    [documentRequests, currentUser, updateDocumentRequests, applySentFileShare, pushNotification]
+  );
+
+  const updateSentAttachmentAccess = useCallback(
+    (requestId: string, messageId: string, attachmentId: string | null, next: { access: AttachmentAccess; role: AttachmentRole }) => {
+      const req = documentRequests.find((r) => r.id === requestId);
+      if (!req || !seesOfficeQueue(currentUser.role)) return;
+      const message = req.messages.find((m) => m.id === messageId);
+      if (!message) return;
+      const changed = message.attachments
+        .filter((file) => attachmentId === null || file.id === attachmentId)
+        .map((file) => ({ ...file, access: next.access, role: next.role }));
+      if (changed.length === 0) return;
+
+      updateDocumentRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId
+            ? {
+                ...r,
+                updatedAt: nowIso(),
+                messages: r.messages.map((m) =>
+                  m.id === messageId
+                    ? {
+                        ...m,
+                        attachments: m.attachments.map((file) =>
+                          attachmentId === null || file.id === attachmentId ? { ...file, access: next.access, role: next.role } : file
+                        )
+                      }
+                    : m
+                )
+              }
+            : r
+        )
+      );
+      changed.filter((file) => file.kind === 'document' && file.documentId).forEach((file) => applySentFileShare(req, file));
+    },
+    [documentRequests, currentUser, updateDocumentRequests, applySentFileShare]
   );
 
   const setDocumentRequestStatus = useCallback(
     (id: string, status: RequestStatus) => {
       const req = documentRequests.find((r) => r.id === id);
       if (!req || req.status === status) return;
-      const byAdmin = isAdmin && currentUser.id !== req.requesterId;
+      const byAdmin = seesOfficeQueue(currentUser.role) && currentUser.id !== req.requesterId;
       updateDocumentRequests((prev) =>
         prev.map((r) =>
           r.id === id
@@ -856,20 +1077,20 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
         audience: byAdmin ? req.requesterId : 'admins'
       });
     },
-    [documentRequests, isAdmin, currentUser, updateDocumentRequests, pushNotification]
+    [documentRequests, currentUser, updateDocumentRequests, pushNotification]
   );
 
   const markDocumentRequestRead = useCallback(
     (id: string) => {
       const req = documentRequests.find((r) => r.id === id);
       if (!req) return;
-      const asAdmin = isAdmin && currentUser.id !== req.requesterId;
+      const asAdmin = seesOfficeQueue(currentUser.role) && currentUser.id !== req.requesterId;
       if (asAdmin ? !req.unreadByAdmin : !req.unreadByRequester) return;
       updateDocumentRequests((prev) =>
         prev.map((r) => (r.id === id ? (asAdmin ? { ...r, unreadByAdmin: false } : { ...r, unreadByRequester: false }) : r))
       );
     },
-    [documentRequests, isAdmin, currentUser, updateDocumentRequests]
+    [documentRequests, currentUser, updateDocumentRequests]
   );
 
   const toggleDocumentRequestStar = useCallback(
@@ -1063,8 +1284,10 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       notifications,
       dismissNotification,
       documentRequests,
+      fileGrants,
       createDocumentRequest,
       replyToDocumentRequest,
+      updateSentAttachmentAccess,
       setDocumentRequestStatus,
       markDocumentRequestRead,
       toggleDocumentRequestStar,
@@ -1158,8 +1381,10 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       notifications,
       dismissNotification,
       documentRequests,
+      fileGrants,
       createDocumentRequest,
       replyToDocumentRequest,
+      updateSentAttachmentAccess,
       setDocumentRequestStatus,
       markDocumentRequestRead,
       toggleDocumentRequestStar,

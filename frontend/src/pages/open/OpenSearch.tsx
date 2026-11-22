@@ -1,37 +1,23 @@
 import { FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import {
-  ChevronDownIcon,
-  FileSearchIcon,
-  FileTextIcon,
-  FilterIcon,
-  SearchIcon,
-  SlidersHorizontalIcon,
-  XIcon
-} from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { FileSearchIcon, FileTextIcon, SearchIcon, XIcon } from 'lucide-react';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { formatNumber, pluralize } from '../../utils/format';
-import { searchDemoDocuments, type DemoSearchHit } from '../../services/repository/demoDocumentSearch';
 import {
-  FACULTY_ACCESS_VISIBILITY_NOTE,
   filterFacultyDiscoverableEvidence,
   classifyEvidenceForFaculty,
   isFacultyDiscoverable
 } from '../../services/repository/facultyAccessVisibility';
-import { RepoDocumentDetailsModal } from '../../components/open/repository/RepoDocumentDetailsModal';
-import { RepoDocumentPreviewModal } from '../../components/open/repository/RepoDocumentPreviewModal';
 import { PublicDocumentPreviewModal } from '../../components/open/PublicDocumentPreviewModal';
-import type { RepoDocumentItem } from '../../types/accreditationRepository';
 import type { EvidenceDocument } from '../../types/evidence';
 import { usePortal } from '../../contexts/PortalContext';
 import { useLookup } from '../../hooks/useLookup';
 import { searchEvidence } from '../../utils/search';
 import { searchEvidenceAsync } from '../../services/search/evidenceSearchClient';
-import { campuses as campusDirectory } from '../../data/accreditationData';
+import { documentTypeSearchOptions, programSearchOptions } from '../../data/searchParameters';
+import { usePortalSettings } from '../../settings/portalSettings';
 
 const PAGE_SIZE = 12;
-
-type FacultySearchCategory = 'demonstration-document' | 'public-evidence' | 'authorized-evidence';
 
 type EvidenceSearchHit = {
   id: string;
@@ -48,48 +34,38 @@ type EvidenceSearchHit = {
   score: number;
 };
 
-type FacultySearchHit = DemoSearchHit | EvidenceSearchHit;
-
 type SearchState = {
   q: string;
-  campus: string;
   program: string;
   type: string;
-  category: '' | FacultySearchCategory;
+  year: string;
 };
 
-function readSearchState(params: URLSearchParams): SearchState {
-  const category = params.get('category');
+const allowedParam = (options: readonly string[], value: string) => (options.includes(value) ? value : '');
+
+function readSearchState(params: URLSearchParams, years: readonly string[]): SearchState {
   return {
     q: params.get('q') ?? '',
-    campus: params.get('campus') ?? '',
-    program: params.get('program') ?? '',
-    type: params.get('type') ?? '',
-    category:
-      category === 'demonstration-document' ||
-      category === 'public-evidence' ||
-      category === 'authorized-evidence'
-        ? category
-        : ''
+    program: allowedParam(programSearchOptions, params.get('program') ?? ''),
+    type: allowedParam(documentTypeSearchOptions, params.get('type') ?? ''),
+    year: allowedParam(years, params.get('year') ?? '')
   };
 }
 
 function writeSearchParams(state: SearchState): URLSearchParams {
   const next = new URLSearchParams();
   if (state.q.trim()) next.set('q', state.q.trim());
-  if (state.campus) next.set('campus', state.campus);
-  if (state.program) next.set('program', state.program);
   if (state.type) next.set('type', state.type);
-  if (state.category) next.set('category', state.category);
+  if (state.program) next.set('program', state.program);
+  if (state.year) next.set('year', state.year);
   return next;
 }
 
 const emptyState: SearchState = {
   q: '',
-  campus: '',
   program: '',
   type: '',
-  category: ''
+  year: ''
 };
 
 function FilterField({
@@ -111,16 +87,7 @@ function FilterField({
   );
 }
 
-function CategoryBadge({ hit }: { hit: FacultySearchHit }) {
-  if (hit.category === 'demonstration-document') {
-    return (
-      <span className="inline-flex flex-wrap items-center gap-1.5">
-        <span className="rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-950">
-          Demonstration document
-        </span>
-      </span>
-    );
-  }
+function CategoryBadge({ hit }: { hit: EvidenceSearchHit }) {
   if (hit.category === 'authorized-evidence') {
     return (
       <span className="rounded-full border border-brand-200 bg-brand-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand-800">
@@ -137,78 +104,42 @@ function CategoryBadge({ hit }: { hit: FacultySearchHit }) {
 
 export function OpenSearch() {
   const [params, setParams] = useSearchParams();
-  const urlState = useMemo(() => readSearchState(params), [params]);
+  const yearOptions = usePortalSettings().accreditation.academicYears;
+  const urlState = useMemo(() => readSearchState(params, yearOptions), [params, yearOptions]);
   const { documents, currentUser, shares } = usePortal();
   const lookup = useLookup();
 
   const [draftQuery, setDraftQuery] = useState(urlState.q);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [detailsDoc, setDetailsDoc] = useState<RepoDocumentItem | null>(null);
-  const [previewDoc, setPreviewDoc] = useState<RepoDocumentItem | null>(null);
   const [previewEvidence, setPreviewEvidence] = useState<EvidenceDocument | null>(null);
+
+  useEffect(() => {
+    const written = writeSearchParams(urlState);
+    if (params.toString() !== written.toString()) setParams(written, { replace: true });
+  }, [params, urlState, setParams]);
 
   useEffect(() => {
     setDraftQuery(urlState.q);
     setVisibleCount(PAGE_SIZE);
-  }, [urlState.q, urlState.campus, urlState.program, urlState.type, urlState.category]);
+  }, [urlState.q, urlState.program, urlState.type, urlState.year]);
 
   const discoverable = useMemo(
     () => filterFacultyDiscoverableEvidence(documents, currentUser, shares),
     [documents, currentUser, shares]
   );
 
-  const campusOptions = useMemo(() => {
-    const fromEvidence = new Set(discoverable.map((d) => d.campus).filter(Boolean));
-    const fromDemo = searchDemoDocuments({}).map((h) => h.campus).filter(Boolean) as string[];
-    return Array.from(new Set([...campusDirectory.map((c) => c.name), ...fromEvidence, ...fromDemo])).sort();
-  }, [discoverable]);
-
-  const programOptions = useMemo(() => {
-    const fromEvidence = discoverable.map((d) => d.program).filter(Boolean) as string[];
-    const fromDemo = searchDemoDocuments({})
-      .map((h) => h.program)
-      .filter(Boolean) as string[];
-    return Array.from(new Set([...fromEvidence, ...fromDemo])).sort();
-  }, [discoverable]);
-
-  const typeOptions = useMemo(() => {
-    const fromEvidence = discoverable.map((d) => d.docType).filter(Boolean);
-    const fromDemo = searchDemoDocuments({})
-      .map((h) => h.documentType)
-      .filter(Boolean) as string[];
-    return Array.from(new Set([...fromEvidence, ...fromDemo])).sort();
-  }, [discoverable]);
-
   const [apiEvidenceHits, setApiEvidenceHits] = useState<EvidenceSearchHit[]>([]);
 
   const localHits = useMemo(() => {
-    const includeDemo = !urlState.category || urlState.category === 'demonstration-document';
-    const includePublic = !urlState.category || urlState.category === 'public-evidence';
-    const includeAuthorized = !urlState.category || urlState.category === 'authorized-evidence';
-
-    const demos: FacultySearchHit[] = includeDemo
-      ? searchDemoDocuments({
-          q: urlState.q,
-          campus: urlState.campus || undefined,
-          program: urlState.program || undefined,
-          documentType: urlState.type || undefined
-        })
-      : [];
-
     let evidencePool = discoverable;
-    if (urlState.campus) {
-      const c = urlState.campus.toLowerCase();
-      evidencePool = evidencePool.filter(
-        (d) => d.campus.toLowerCase() === c || d.campus.toLowerCase().includes(c)
-      );
-    }
     if (urlState.program) {
-      const p = urlState.program.toLowerCase();
-      evidencePool = evidencePool.filter((d) => (d.program ?? '').toLowerCase().includes(p));
+      evidencePool = evidencePool.filter((d) => d.program === urlState.program);
     }
     if (urlState.type) {
       evidencePool = evidencePool.filter((d) => d.docType === urlState.type);
+    }
+    if (urlState.year) {
+      evidencePool = evidencePool.filter((d) => d.academicYear === urlState.year);
     }
 
     const q = urlState.q.trim();
@@ -220,16 +151,13 @@ export function OpenSearch() {
     const evidenceHits: EvidenceSearchHit[] = [];
     for (const { doc, score } of scored) {
       const visibility = classifyEvidenceForFaculty(doc, currentUser, shares);
-      if (!isFacultyDiscoverable(visibility)) continue;
-      if (visibility === 'public' && !includePublic) continue;
-      if (visibility === 'authorized' && !includeAuthorized) continue;
       if (visibility !== 'public' && visibility !== 'authorized') continue;
       const category = visibility === 'public' ? 'public-evidence' : 'authorized-evidence';
       evidenceHits.push({
         id: `evidence-${doc.id}`,
         title: doc.title,
         category,
-        categoryLabel: visibility === 'public' ? 'Publicly published' : 'Shared with you',
+        categoryLabel: visibility === 'public' ? 'Published' : 'Shared with you',
         campus: doc.campus || undefined,
         program: doc.program || undefined,
         documentType: doc.docType || undefined,
@@ -239,7 +167,7 @@ export function OpenSearch() {
       });
     }
 
-    return { demos, evidenceHits, includePublic, includeAuthorized };
+    return evidenceHits;
   }, [urlState, discoverable, lookup, currentUser, shares]);
 
   useEffect(() => {
@@ -251,21 +179,18 @@ export function OpenSearch() {
     }
     (async () => {
       const { results, source } = await searchEvidenceAsync(q, discoverable, lookup, {
-        campusId: undefined,
-        program: urlState.program || undefined
+        docType: urlState.type || undefined,
+        program: urlState.program || undefined,
+        academicYear: urlState.year || undefined
       });
       if (cancelled || source !== 'api') {
         if (!cancelled && source === 'local') setApiEvidenceHits([]);
         return;
       }
-      const includePublic = !urlState.category || urlState.category === 'public-evidence';
-      const includeAuthorized = !urlState.category || urlState.category === 'authorized-evidence';
       const evidenceHits: EvidenceSearchHit[] = [];
       for (const { doc, score } of results) {
         const visibility = classifyEvidenceForFaculty(doc, currentUser, shares);
         if (!isFacultyDiscoverable(visibility)) continue;
-        if (visibility === 'public' && !includePublic) continue;
-        if (visibility === 'authorized' && !includeAuthorized) continue;
         if (visibility !== 'public' && visibility !== 'authorized') continue;
         evidenceHits.push({
           id: `evidence-${doc.id}`,
@@ -285,12 +210,12 @@ export function OpenSearch() {
     return () => {
       cancelled = true;
     };
-  }, [urlState.q, urlState.program, urlState.category, discoverable, lookup, currentUser, shares]);
+  }, [urlState.q, urlState.type, urlState.program, urlState.year, discoverable, lookup, currentUser, shares]);
 
-  const hits = useMemo(() => {
-    const evidenceHits = apiEvidenceHits.length > 0 ? apiEvidenceHits : localHits.evidenceHits;
-    return [...localHits.demos, ...evidenceHits];
-  }, [localHits, apiEvidenceHits]);
+  const hits = useMemo(
+    () => (apiEvidenceHits.length > 0 ? apiEvidenceHits : localHits),
+    [localHits, apiEvidenceHits]
+  );
 
   const publicCount = hits.filter((h) => h.category === 'public-evidence').length;
   const authorizedCount = hits.filter((h) => h.category === 'authorized-evidence').length;
@@ -319,7 +244,7 @@ export function OpenSearch() {
   };
 
   const hasQuery = Boolean(urlState.q.trim());
-  const hasFacetFilters = Boolean(urlState.campus || urlState.program || urlState.type || urlState.category);
+  const hasFacetFilters = Boolean(urlState.program || urlState.type || urlState.year);
   const hasAnyFilters = hasQuery || hasFacetFilters;
 
   const visibleHits = hits.slice(0, visibleCount);
@@ -328,15 +253,7 @@ export function OpenSearch() {
   const selectClass =
     'h-10 w-full rounded-xl border border-line bg-surface px-3 text-[13px] font-medium text-ink shadow-none hover:border-brand-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15';
 
-  const openHit = (hit: FacultySearchHit) => {
-    if (hit.category === 'demonstration-document' && hit.document) {
-      setDetailsDoc(hit.document);
-      return;
-    }
-    if ('evidence' in hit) {
-      setPreviewEvidence(hit.evidence);
-    }
-  };
+  const openHit = (hit: EvidenceSearchHit) => setPreviewEvidence(hit.evidence);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -357,8 +274,8 @@ export function OpenSearch() {
             Search Documents
           </h1>
           <p className="mt-2 max-w-2xl text-[14px] font-medium leading-relaxed text-ink-muted sm:text-[15px]">
-            Results are limited to publicly published documents and materials shared with you. Verified AACCUP/COPC
-            catalog rows without publication approval are not listed here.
+            Search documents published for faculty and staff, or shared with you. Narrow the list with document type,
+            program, and academic year.
           </p>
 
           <form onSubmit={onSubmitSearch} className="mt-5" role="search" aria-label="Search authorized documents">
@@ -376,7 +293,7 @@ export function OpenSearch() {
                   type="search"
                   value={draftQuery}
                   onChange={(e) => setDraftQuery(e.target.value)}
-                  placeholder="Search titles, programs, sample documents…"
+                  placeholder="Search titles, programs, or keywords…"
                   className="h-12 w-full rounded-2xl border border-line bg-surface pl-10 pr-10 text-[16px] shadow-sm shadow-brand-900/5 hover:border-brand-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/15 sm:text-[15px]"
                 />
                 {draftQuery ? (
@@ -396,130 +313,86 @@ export function OpenSearch() {
               </button>
             </div>
           </form>
-          <p className="mt-3 text-[11px] leading-relaxed text-ink-subtle">{FACULTY_ACCESS_VISIBILITY_NOTE}</p>
         </div>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]">
-        <aside className="space-y-3 lg:space-y-4">
-          <div className="flex items-center justify-between gap-2 lg:hidden">
-            <button
-              type="button"
-              className="btn btn-secondary"
-              aria-expanded={filtersOpen}
-              onClick={() => setFiltersOpen((v) => !v)}
-            >
-              <SlidersHorizontalIcon className="h-4 w-4" />
-              Filters
-              <ChevronDownIcon className={`h-4 w-4 transition ${filtersOpen ? 'rotate-180' : ''}`} />
+      <section className="panel p-4 sm:p-5" aria-label="Search parameters">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-extrabold text-ink">Search parameters</h2>
+          {hasFacetFilters ? (
+            <button type="button" className="btn btn-ghost btn-sm text-brand-700" onClick={clearAll}>
+              Clear parameters
             </button>
-            {hasAnyFilters ? (
-              <button type="button" className="btn btn-ghost btn-sm text-brand-700" onClick={clearAll}>
-                Clear all
-              </button>
-            ) : null}
-          </div>
+          ) : null}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <FilterField label="Document type" htmlFor="open-filter-type">
+            <select
+              id="open-filter-type"
+              className={selectClass}
+              value={urlState.type}
+              onChange={(e) => patchFilters({ type: e.target.value })}
+            >
+              <option value="">All document types</option>
+              {documentTypeSearchOptions.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+          <FilterField label="Program" htmlFor="open-filter-program">
+            <select
+              id="open-filter-program"
+              className={selectClass}
+              value={urlState.program}
+              onChange={(e) => patchFilters({ program: e.target.value })}
+            >
+              <option value="">All programs</option>
+              {programSearchOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+          <FilterField label="Academic year" htmlFor="open-filter-year">
+            <select
+              id="open-filter-year"
+              className={selectClass}
+              value={urlState.year}
+              onChange={(e) => patchFilters({ year: e.target.value })}
+            >
+              <option value="">All academic years</option>
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+        </div>
+      </section>
 
-          <div className={`panel p-4 sm:p-5 ${filtersOpen ? 'block' : 'hidden'} lg:block`}>
-            <div className="mb-4 hidden items-center justify-between gap-2 lg:flex">
-              <div className="flex items-center gap-2">
-                <FilterIcon className="h-4 w-4 text-brand-700" aria-hidden="true" />
-                <h2 className="text-sm font-extrabold text-ink">Filters</h2>
-              </div>
-              {hasAnyFilters ? (
-                <button type="button" className="btn btn-ghost btn-sm text-brand-700" onClick={clearAll}>
-                  Clear all
-                </button>
-              ) : null}
-            </div>
-
-            <div className="space-y-4">
-              <FilterField label="Source category" htmlFor="open-filter-category">
-                <select
-                  id="open-filter-category"
-                  className={selectClass}
-                  value={urlState.category}
-                  onChange={(e) => patchFilters({ category: e.target.value as SearchState['category'] })}
-                >
-                  <option value="">All authorized sources</option>
-                  <option value="public-evidence">Publicly published</option>
-                  <option value="authorized-evidence">Shared with you</option>
-                </select>
-              </FilterField>
-
-              <FilterField label="Campus" htmlFor="open-filter-campus">
-                <select
-                  id="open-filter-campus"
-                  className={selectClass}
-                  value={urlState.campus}
-                  onChange={(e) => patchFilters({ campus: e.target.value })}
-                >
-                  <option value="">All campuses</option>
-                  {campusOptions.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </FilterField>
-
-              <FilterField label="Academic program" htmlFor="open-filter-program">
-                <select
-                  id="open-filter-program"
-                  className={selectClass}
-                  value={urlState.program}
-                  onChange={(e) => patchFilters({ program: e.target.value })}
-                >
-                  <option value="">All programs</option>
-                  {programOptions.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </FilterField>
-
-              <FilterField label="File type" htmlFor="open-filter-type">
-                <select
-                  id="open-filter-type"
-                  className={selectClass}
-                  value={urlState.type}
-                  onChange={(e) => patchFilters({ type: e.target.value })}
-                >
-                  <option value="">All types</option>
-                  {typeOptions.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </FilterField>
-            </div>
-          </div>
-        </aside>
-
-        <div className="min-w-0 space-y-4">
+      <div className="min-w-0 space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <p className="text-[13px] font-semibold text-ink">{pluralize(hits.length, 'result')}</p>
               <p className="mt-0.5 text-[12px] font-medium text-ink-muted">
-                {formatNumber(publicCount)} public · {formatNumber(authorizedCount)} shared ·{' '}
+                {formatNumber(publicCount)} published · {formatNumber(authorizedCount)} shared
                 {hasQuery ? ` · matching “${urlState.q.trim()}”` : ''}
               </p>
             </div>
-            <Link to="/open/browse?tab=sample-documents" className="btn btn-ghost btn-sm text-brand-700">
-              Sample documents
-            </Link>
           </div>
 
           {hits.length === 0 ? (
             <EmptyState
               icon={FileSearchIcon}
-              title={hasAnyFilters ? 'No documents match your search' : 'Enter a search or choose a filter'}
+              title={hasAnyFilters ? 'No documents match these parameters' : 'Search for a document'}
               description={
                 hasAnyFilters
-                  ? 'Try another keyword or clear filters. Restricted Technical Review files and unverified catalog rows are never searchable here.'
-                  : 'Search covers publicly published evidence and documents shared with you.'
+                  ? 'Try another keyword, or clear the parameters and search again.'
+                  : 'Use a keyword, or choose a document type, program, and academic year.'
               }
               action={
                 hasAnyFilters ? (
@@ -542,7 +415,7 @@ export function OpenSearch() {
                         <CategoryBadge hit={hit} />
                         <h3 className="mt-1.5 text-[14px] font-bold text-ink">{hit.title}</h3>
                         <p className="mt-1 truncate text-[12px] font-medium text-ink-muted">
-                          {[hit.campus, hit.college, hit.program, hit.documentType].filter(Boolean).join(' · ')}
+                          {[hit.documentType, hit.program, hit.evidence.academicYear, hit.campus].filter(Boolean).join(' · ')}
                         </p>
                         {hit.locationPath ? (
                           <p className="mt-0.5 truncate text-[11px] text-ink-subtle">{hit.locationPath}</p>
@@ -551,13 +424,8 @@ export function OpenSearch() {
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => openHit(hit)}>
-                        {hit.category === 'demonstration-document' ? 'Details' : 'Preview'}
+                        Preview
                       </button>
-                      {hit.category === 'demonstration-document' ? (
-                        <Link to={hit.href} className="btn btn-ghost btn-sm text-brand-700">
-                          Open sample
-                        </Link>
-                      ) : null}
                     </div>
                   </article>
                 </li>
@@ -572,18 +440,8 @@ export function OpenSearch() {
               </button>
             </div>
           ) : null}
-        </div>
       </div>
 
-      <RepoDocumentDetailsModal
-        doc={detailsDoc}
-        onClose={() => setDetailsDoc(null)}
-        onPreview={(doc) => {
-          setDetailsDoc(null);
-          setPreviewDoc(doc);
-        }}
-      />
-      <RepoDocumentPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />
       <PublicDocumentPreviewModal doc={previewEvidence} onClose={() => setPreviewEvidence(null)} />
     </div>
   );

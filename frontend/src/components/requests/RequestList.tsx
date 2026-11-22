@@ -99,11 +99,6 @@ export function RequestList({
     <>
       {/* Folder rail */}
       <aside className="hidden w-52 shrink-0 flex-col border-r border-line bg-canvas/60 p-3 lg:flex">
-        {onCompose && (
-          <button type="button" onClick={onCompose} className="btn btn-primary mb-4 w-full">
-            <PenSquareIcon className="h-4 w-4" /> New Request
-          </button>
-        )}
         <nav aria-label="Request folders">
           <ul className="space-y-0.5">
             {folders.map((f) => {

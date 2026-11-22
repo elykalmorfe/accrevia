@@ -1,5 +1,5 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeftIcon,
   BookmarkCheckIcon,
@@ -31,7 +31,8 @@ import { Highlight } from '../components/ui/Highlight';
 import { EmptyState } from '../components/ui/EmptyState';
 import { AccessRestricted } from '../components/sharing/AccessRestricted';
 import { PermissionIndicator } from '../components/sharing/PermissionIndicator';
-import { EvidenceDocument } from '../types/evidence';
+import { EvidenceDocument, FileType } from '../types/evidence';
+import { RequestAttachment } from '../types/request';
 import {
   canPublishToPublicPortal,
   canUnpublishFromPublicPortal,
@@ -39,12 +40,54 @@ import {
   unpublishFromPublicPortalPatch
 } from '../utils/publicDocuments';
 
+const FILE_TYPES: FileType[] = ['PDF', 'DOCX', 'XLSX', 'PPTX', 'JPG', 'PNG', 'TIFF'];
+
+function fileTypeFromLabel(value: string | undefined): FileType {
+  const ext = (value || '').split('.').pop()?.toUpperCase() ?? '';
+  const normalized = ext === 'DOC' ? 'DOCX' : ext === 'XLS' ? 'XLSX' : ext === 'PPT' ? 'PPTX' : ext === 'JPEG' ? 'JPG' : ext;
+  return FILE_TYPES.includes(normalized as FileType) ? (normalized as FileType) : 'PDF';
+}
+
+/** A sent repository file can be opened from its grant even when this browser has no catalog row. */
+function documentFromSentFile(file: RequestAttachment): EvidenceDocument {
+  const title = file.name.replace(/\.[^.]+$/, '') || 'Shared file';
+  return {
+    id: file.documentId || file.id,
+    title,
+    description: '',
+    keywords: [],
+    frameworkId: '',
+    areaId: '',
+    criterionId: '',
+    indicatorId: '',
+    docType: 'Other',
+    academicYear: '',
+    cycle: '',
+    program: '',
+    college: '',
+    department: '',
+    office: '',
+    campus: '',
+    documentDate: '',
+    confidentiality: 'Internal',
+    status: 'Indexed',
+    dateAdded: '',
+    fileType: fileTypeFromLabel(file.fileType || file.name),
+    pages: 1,
+    sizeMb: file.sizeMb ?? 0,
+    uploadedBy: '',
+    passages: []
+  };
+}
+
 export function DocumentViewer() {
   const { id } = useParams();
+  const { pathname } = useLocation();
+  const inFacultyPortal = pathname.startsWith('/open');
   const [params] = useSearchParams();
   const query = params.get('q') ?? '';
   const navigate = useNavigate();
-  const { documents, criteria, savedIds, toggleSaved, isAdmin, shares, logAccess, updateDocument } = usePortal();
+  const { documents, criteria, savedIds, toggleSaved, isAdmin, shares, logAccess, updateDocument, documentRequests, fileGrants } = usePortal();
   const { openShare, openManageAccess } = useSharingDialogs();
   const { rightsFor, accessibleDocuments } = useAccess();
   const lookup = useLookup();
@@ -53,8 +96,32 @@ export function DocumentViewer() {
   const [editing, setEditing] = useState<EvidenceDocument | null>(null);
   const loggedFor = useRef<string | null>(null);
 
-  const doc = documents.find((d) => d.id === id);
-  const rights = doc ? rightsFor(doc.id) : { canView: false, canDownload: false, shares: [] };
+  const rights = id ? rightsFor(id) : { canView: false, canDownload: false, shares: [] };
+  const catalog = documents.find((d) => d.id === id);
+  const sentFile = useMemo(() => {
+    if (!id) return undefined;
+    for (const request of documentRequests) {
+      for (const message of request.messages) {
+        const file = message.attachments.find((item) => item.kind === 'document' && item.documentId === id);
+        if (file) return { file, requestId: request.id };
+      }
+    }
+    return undefined;
+  }, [documentRequests, id]);
+  const grant = fileGrants.find((item) => item.documentId === id && item.canView);
+  const doc = useMemo(() => {
+    if (catalog) return catalog;
+    if (!id || !rights.canView || isAdmin) return undefined;
+    if (sentFile) return documentFromSentFile(sentFile.file);
+    return documentFromSentFile({
+      id,
+      kind: 'document',
+      name: grant?.name || 'Shared file',
+      fileType: grant?.fileType || 'PDF',
+      documentId: id
+    });
+  }, [catalog, id, rights.canView, isAdmin, sentFile, grant]);
+  const fromRequest = !catalog && Boolean(doc);
 
   useEffect(() => {
     if (!doc || loggedFor.current === doc.id) return;
@@ -99,7 +166,7 @@ export function DocumentViewer() {
 
   const crossFramework = criteria.filter((c) => c.areaId === doc.areaId && c.id !== doc.criterionId);
 
-  const info: [string, React.ReactNode][] = [
+  const info: [string, React.ReactNode][] = fromRequest ? [] : [
   ['Framework', framework?.name],
   ['Area', area?.name],
   ['Criterion', criterion ? `${criterion.code} – ${criterion.name}` : '—'],
@@ -133,17 +200,19 @@ export function DocumentViewer() {
       <div className="mb-5">
         <button
           type="button"
-          onClick={() => query ? navigate(-1) : navigate(isAdmin ? '/evidence' : '/shared-with-me')}
+          onClick={() => query ? navigate(-1) : sentFile ? navigate(`${inFacultyPortal ? '/open' : ''}/requests/${sentFile.requestId}`) : navigate(isAdmin ? '/evidence' : inFacultyPortal ? '/open/requests' : '/shared-with-me')}
           className="link inline-flex items-center gap-1.5 text-[13px]">
           
-          <ArrowLeftIcon className="h-3.5 w-3.5" /> {query ? 'Back to search results' : isAdmin ? 'All Documents' : 'Shared with Me'}
+          <ArrowLeftIcon className="h-3.5 w-3.5" /> {query ? 'Back to search results' : sentFile ? 'Back to request' : isAdmin ? 'All Documents' : inFacultyPortal ? 'My Requests' : 'Shared with Me'}
         </button>
         <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <FrameworkTag frameworkId={doc.frameworkId} />
+              {!fromRequest && <FrameworkTag frameworkId={doc.frameworkId} />}
               {isAdmin ? <StatusBadge status={doc.status} /> : <PermissionIndicator canDownload={rights.canDownload} />}
-              <span className="text-xs text-ink-muted">{doc.fileType} · {doc.pages} pages · {doc.sizeMb} MB</span>
+              <span className="text-xs text-ink-muted">
+                {fromRequest ? doc.fileType : `${doc.fileType} · ${doc.pages} pages · ${doc.sizeMb} MB`}
+              </span>
             </div>
             <h1 className="mt-2 font-serif text-[26px] font-semibold leading-tight text-ink">{doc.title}</h1>
           </div>
@@ -204,7 +273,7 @@ export function DocumentViewer() {
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className={`grid gap-5 ${fromRequest ? '' : 'xl:grid-cols-[minmax(0,1fr)_400px]'}`}>
         <section aria-label="Document preview" className="panel overflow-hidden">
           <div className="flex items-center justify-between border-b border-line px-4 py-2">
             <span className="text-[13px] text-ink-muted">
@@ -225,11 +294,13 @@ export function DocumentViewer() {
                 activePassage={activePassage}
                 canDownload={rights.canDownload}
                 heightClass="h-[calc(100vh-18rem)]"
+                missingFallback={fromRequest ? 'notice' : 'summary'}
               />
             </div>
           </div>
         </section>
 
+        {!fromRequest && (
         <aside className="space-y-4">
           {query &&
           <section className="panel p-5" aria-labelledby="matches-heading">
@@ -350,6 +421,7 @@ export function DocumentViewer() {
             }
           </section>
         </aside>
+        )}
       </div>
 
       {isAdmin && <EditMetadataModal doc={editing} onClose={() => setEditing(null)} />}

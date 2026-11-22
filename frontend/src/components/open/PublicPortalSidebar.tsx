@@ -36,7 +36,6 @@ export function PublicPortalSidebar({
   }, [pathname]);
 
   const renderItem = (item: OpenNavItem) => {
-    const hasActiveChild = item.children?.some((c) => pathname === c.to);
     const active = !item.preview && isOpenNavItemActive(item, pathname);
     const isOpen = !!expanded[item.label];
     const Icon = item.icon;
@@ -113,51 +112,52 @@ export function PublicPortalSidebar({
       );
     }
 
+    const rowClass = `group flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-left transition-all duration-150 ${
+      active && !item.children
+        ? 'bg-brand-tint text-ink font-bold border border-brand-200/80 shadow-2xs'
+        : active && item.children
+        ? 'bg-canvas text-ink font-bold border border-line-subtle'
+        : 'text-ink hover:bg-canvas border border-transparent font-medium'
+    }`;
+
+    const rowLabel = (
+      <>
+        <span className="flex min-w-0 flex-1 items-center gap-3 py-1 text-sm">
+          {iconTile}
+          <span className="truncate text-[13px] font-semibold leading-tight text-ink/90 transition-colors group-hover:text-ink">
+            {item.label}
+          </span>
+        </span>
+        {item.children && (
+          <span
+            className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-ink-subtle"
+            aria-hidden="true"
+          >
+            <ChevronDownIcon
+              className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180 text-brand-600' : '-rotate-90'}`}
+            />
+          </span>
+        )}
+      </>
+    );
+
     return (
       <li key={item.label} className="relative">
         {indicator}
-        <div
-          className={`group flex items-center justify-between rounded-xl px-2 py-1.5 transition-all duration-150 ${
-            active && !item.children
-              ? 'bg-brand-tint text-ink font-bold border border-brand-200/80 shadow-2xs'
-              : active && item.children
-              ? 'bg-canvas text-ink font-bold border border-line-subtle'
-              : 'text-ink hover:bg-canvas border border-transparent font-medium'
-          }`}
-        >
-          <Link
-            to={item.to}
-            onClick={() => {
-              if (item.children) setExpanded((prev) => ({ ...prev, [item.label]: true }));
-              onNavigate?.();
-            }}
-            aria-current={active && !hasActiveChild ? 'page' : undefined}
-            className="flex min-w-0 flex-1 items-center gap-3 py-1 text-sm"
+        {item.children ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((prev) => ({ ...prev, [item.label]: !isOpen }))}
+            aria-expanded={isOpen}
+            className={rowClass}
           >
-            {iconTile}
-            <span className="truncate text-[13px] font-semibold leading-tight text-ink/90 transition-colors group-hover:text-ink">
-              {item.label}
-            </span>
+            {rowLabel}
+          </button>
+        ) : (
+          <Link to={item.to} onClick={() => onNavigate?.()} aria-current={active ? 'page' : undefined} className={rowClass}>
+            {rowLabel}
           </Link>
-
-          {item.children && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                setExpanded((prev) => ({ ...prev, [item.label]: !isOpen }));
-              }}
-              aria-expanded={isOpen}
-              aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${item.label}`}
-              className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-ink-subtle transition-colors hover:bg-line-subtle hover:text-ink"
-            >
-              <ChevronDownIcon
-                className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180 text-brand-600' : '-rotate-90'}`}
-              />
-            </button>
-          )}
-        </div>
+        )}
 
         {item.children && isOpen && (
           <ul className="my-1 ml-5 space-y-0.5 border-l border-line pl-2.5">

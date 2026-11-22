@@ -19,6 +19,11 @@ export interface EvidenceFolder {
   startDate?: string;
   expiredDate?: string | null;
   hasNoDeadline?: boolean;
+  /**
+   * Created inside Upload Documents. Stays in that library and is never listed
+   * on the sidebar IA, Program, COPC, PQA, or ISO pages.
+   */
+  libraryOnly?: boolean;
 }
 
 export interface Framework {
@@ -147,6 +152,11 @@ export interface EvidenceDocument {
   publicPublishedAt?: string | null;
   /** Certificates only: the one certificate currently in force for its owner. */
   isActive?: boolean;
+  /**
+   * Uploaded from Upload Documents. Visible in that library only.
+   * Sidebar IA–ISO pages must ignore these records.
+   */
+  libraryOnly?: boolean;
 }
 
 export interface PendingDocument {

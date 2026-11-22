@@ -1,0 +1,5 @@
+services:
+  qdrant:
+    ports: !override
+      - "6335:6333"
+      - "6336:6334"

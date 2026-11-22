@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { DownloadIcon, ExternalLinkIcon, FileWarningIcon, InfoIcon, LoaderIcon } from 'lucide-react';
 import { EvidenceDocument } from '../../types/evidence';
 import { getStoredFile, saveStoredFile, StoredFile } from '../../utils/fileStore';
+import { fetchSharedOriginal } from '../../services/live/sharedFiles';
 import { driveEmbedUrl } from '../../utils/driveLinks';
 import { isLocalCertificatePath } from '../../utils/linkedCertificates';
 import { DocumentPage } from './DocumentPage';
@@ -33,8 +34,8 @@ function detectKind(file: StoredFile): Kind {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
   if (file.type === 'application/pdf' || ext === 'pdf') return 'pdf';
   if (BROWSER_IMAGE.test(file.type) || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) return 'image';
-  if (ext === 'docx') return 'docx';
-  if (ext === 'xlsx') return 'xlsx';
+  if (file.type.includes('wordprocessingml') || ext === 'docx') return 'docx';
+  if (file.type.includes('spreadsheetml') || ext === 'xlsx') return 'xlsx';
   if (ext === 'csv') return 'csv';
   if (file.type.startsWith('text/') || ['txt', 'md', 'json', 'xml', 'log'].includes(ext)) return 'text';
   return 'unsupported';
@@ -251,6 +252,20 @@ function LinkedDocumentView({ doc, url, heightClass }: { doc: EvidenceDocument; 
 async function loadOriginalFile(doc: EvidenceDocument): Promise<StoredFile | undefined> {
   const stored = await getStoredFile(doc.id).catch(() => undefined);
   if (stored) return stored;
+
+  const shared = await fetchSharedOriginal(doc.id);
+  if (shared) {
+    const file = new File([shared.blob], shared.name, { type: shared.type });
+    await saveStoredFile(doc.id, file, shared.name).catch(() => undefined);
+    return {
+      id: doc.id,
+      name: shared.name,
+      type: shared.type,
+      size: file.size,
+      blob: file,
+      storedAt: new Date().toISOString()
+    };
+  }
 
   const href = doc.documentUrl?.trim();
   if (!href || !isLocalCertificatePath(href)) return undefined;

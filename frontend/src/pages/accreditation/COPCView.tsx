@@ -22,6 +22,8 @@ import {
   ChevronRightIcon
 } from 'lucide-react';
 import { deleteStoredFile, getStoredFile, persistUpload } from '../../utils/fileStore';
+import { fileTypeFromName } from '../../utils/fileTypes';
+import type { EvidenceDocument } from '../../types/evidence';
 import { UploadDropzone } from '../../components/upload/UploadDropzone';
 import { FileList, FileRow, FileRowAction } from '../../components/upload/FileRow';
 import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
@@ -38,6 +40,8 @@ export function COPCView() {
     copcRecords,
     updateCOPCRecord,
     updateCOPCRequirement,
+    addDocument,
+    currentUser,
     selectedCampus,
     setSelectedCampus
   } = usePortal();
@@ -266,6 +270,43 @@ export function COPCView() {
     }
   };
 
+  const copyIntoCopcFolder = (file: File, record: COPCRecord) => {
+    const id = `doc-copc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const today = new Date().toISOString().slice(0, 10);
+    const document: EvidenceDocument = {
+      id,
+      title: file.name.replace(/\.[^.]+$/, '') || file.name,
+      description: `${record.programName} COPC file`,
+      keywords: ['COPC', 'CHED', record.programName],
+      frameworkId: 'copc',
+      areaId: 'copc',
+      criterionId: '',
+      indicatorId: '',
+      docType: 'Certificate',
+      academicYear: String(new Date().getFullYear()),
+      cycle: 'CHED COPC',
+      program: record.programName,
+      college: '—',
+      department: '—',
+      office: 'Quality Assurance Office',
+      campus: record.campusName,
+      campusId: record.campusId,
+      documentDate: today,
+      confidentiality: 'Internal',
+      status: 'Indexed',
+      dateAdded: today,
+      fileType: fileTypeFromName(file.name),
+      pages: 1,
+      sizeMb: Math.round((file.size / (1024 * 1024)) * 10) / 10 || 0.1,
+      uploadedBy: currentUser.name,
+      passages: [`COPC file for ${record.programName}`],
+      folderId: 'folder-copc',
+      approvalStatus: 'Approved'
+    };
+    persistUpload(id, file, file.name);
+    addDocument(document);
+  };
+
   const attachFileToUploadCopc = (file: File) => {
     if (!uploadCopc) return;
     setSimulatedUploading(true);
@@ -273,6 +314,7 @@ export function COPCView() {
     const key = `${uploadCopc.id}-${selectedReqCode}`;
     setUploadedBlobMap((prev) => ({ ...prev, [key]: blobUrl }));
     persistUpload(key, file, file.name);
+    copyIntoCopcFolder(file, uploadCopc);
 
     setTimeout(() => {
       setUploadDocName(file.name);
@@ -502,6 +544,7 @@ export function COPCView() {
       const key = `${editingCopc.id}-COPC-CERT`;
       setUploadedBlobMap((prev) => ({ ...prev, [key]: blobUrl }));
       persistUpload(key, file, file.name);
+      copyIntoCopcFolder(file, editingCopc);
 
       setTimeout(() => {
         setEditForm((prev) => ({
@@ -524,6 +567,7 @@ export function COPCView() {
       const key = `${editingCopc.id}-${editSelectedReqCode}`;
       setUploadedBlobMap((prev) => ({ ...prev, [key]: blobUrl }));
       persistUpload(key, file, file.name);
+      copyIntoCopcFolder(file, editingCopc);
 
       setTimeout(() => {
         setEditReqs((prev) =>

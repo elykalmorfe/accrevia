@@ -2,7 +2,11 @@ import { ReactNode, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRightIcon,
+  AwardIcon,
+  FileCheck2Icon,
+  FileSpreadsheetIcon,
   FileStackIcon,
+  GraduationCapIcon,
   InboxIcon,
   LucideIcon,
   ShieldCheckIcon,
@@ -10,17 +14,12 @@ import {
 } from 'lucide-react';
 import { usePublicDocuments } from '../../hooks/usePublicDocuments';
 import { EvidenceDocument } from '../../types/evidence';
-import { selectFeaturedDocuments } from '../../utils/publicDocuments';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PublicDocumentCard } from '../../components/open/PublicDocumentCard';
 import { PublicDocumentPreviewModal } from '../../components/open/PublicDocumentPreviewModal';
 import { GlobalSearch } from '../../components/layout/GlobalSearch';
-import { FACULTY_ACCESS_VISIBILITY_NOTE } from '../../services/repository/facultyAccessVisibility';
 
-const FEATURED_LIMIT = 4;
-const RECENT_LIMIT = 4;
-
-const dashboardQuickSearches = ['Research Publications', 'Area III – Research', 'Faculty Development'];
+const PUBLISHED_LIMIT = 4;
 
 type ResourceCard = {
   id: string;
@@ -33,28 +32,52 @@ type ResourceCard = {
 
 const resourceCards: ResourceCard[] = [
   {
-    id: 'accreditation',
-    title: 'Accreditation',
-    description: 'Institutional, program, COPC, PQA, and ISO views aligned with the System Administrator portal.',
+    id: 'ia',
+    title: 'Institutional (IA)',
+    description: 'Campus institutional areas and published files.',
     icon: ShieldCheckIcon,
-    actionLabel: 'Open Accreditation',
+    actionLabel: 'Open',
     to: '/open/frameworks/ia'
   },
   {
-    id: 'requests',
-    title: 'My Requests',
-    description: 'Track document requests you submitted to the QA Office.',
-    icon: InboxIcon,
-    actionLabel: 'View requests',
-    to: '/open/requests'
+    id: 'pa',
+    title: 'Program (AACCUP)',
+    description: 'Program accreditation records.',
+    icon: GraduationCapIcon,
+    actionLabel: 'Open',
+    to: '/open/frameworks/pa'
   },
   {
-    id: 'samples',
-    title: 'Sample Documents',
-    description: 'Approved demonstration PDFs clearly labeled as samples for preview.',
-    icon: FileStackIcon,
-    actionLabel: 'Browse samples',
-    to: '/open/browse?tab=sample-documents'
+    id: 'copc',
+    title: 'CHED COPC',
+    description: 'Certificate of Program Compliance records.',
+    icon: FileCheck2Icon,
+    actionLabel: 'Open',
+    to: '/open/frameworks/copc'
+  },
+  {
+    id: 'pqa',
+    title: 'PQA',
+    description: 'Philippine Quality Award records.',
+    icon: AwardIcon,
+    actionLabel: 'Open',
+    to: '/open/frameworks/pqa'
+  },
+  {
+    id: 'iso',
+    title: 'ISO 9001',
+    description: 'ISO 9001 records for the campus.',
+    icon: FileSpreadsheetIcon,
+    actionLabel: 'Open',
+    to: '/open/frameworks/iso'
+  },
+  {
+    id: 'requests',
+    title: 'Requests',
+    description: 'Ask the QA Office for a document and follow the reply.',
+    icon: InboxIcon,
+    actionLabel: 'Open',
+    to: '/open/requests'
   }
 ];
 
@@ -62,12 +85,7 @@ export function OpenHome() {
   const { documents: publishedSorted, totalPublished } = usePublicDocuments({ sort: 'published-desc' });
   const [preview, setPreview] = useState<EvidenceDocument | null>(null);
 
-  const featured = useMemo(
-    () => selectFeaturedDocuments(publishedSorted, FEATURED_LIMIT),
-    [publishedSorted]
-  );
-
-  const recent = useMemo(() => publishedSorted.slice(0, RECENT_LIMIT), [publishedSorted]);
+  const published = useMemo(() => publishedSorted.slice(0, PUBLISHED_LIMIT), [publishedSorted]);
 
   return (
     <div className="space-y-6 sm:space-y-7">
@@ -79,7 +97,7 @@ export function OpenHome() {
           Faculty &amp; Staff Portal
         </h1>
         <p className="mt-1.5 max-w-2xl text-[13px] font-medium leading-relaxed text-ink-muted sm:text-[14px]">
-          Access publicly published accreditation materials, authorized shares, and labeled demonstration samples.
+          Open published accreditation records, or request a document from the Quality Assurance Office.
         </p>
       </header>
 
@@ -96,21 +114,19 @@ export function OpenHome() {
           Find the document you need, faster.
         </h2>
         <p className="mt-0.5 text-xs text-ink-muted">
-          Search publicly published documents, materials shared with you, and labeled demonstration samples.
+          Search by keyword. Use document type, program, and academic year only when you need to narrow the list.
         </p>
 
         <div className="mt-3.5">
           <GlobalSearch
             className="max-w-none"
             variant="featured"
-            placeholder="Search accreditation documents, criteria, or keywords..."
-            quickSearches={dashboardQuickSearches}
+            placeholder="Search by keyword, then narrow by document type, program, or academic year"
             matchInputWidth
             portalMode="faculty"
             searchPath="/open/search"
           />
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-ink-subtle">{FACULTY_ACCESS_VISIBILITY_NOTE}</p>
       </section>
 
       <section aria-labelledby="open-resources-heading" className="space-y-3">
@@ -119,7 +135,7 @@ export function OpenHome() {
             Quick links
           </h2>
           <p className="mt-1 text-[13px] font-medium text-ink-muted">
-            Navigate the same Accreditation structure as the System Administrator portal with Faculty/Staff visibility rules.
+            The same frameworks listed in the sidebar.
           </p>
         </div>
 
@@ -130,27 +146,27 @@ export function OpenHome() {
         </div>
       </section>
 
-      <section aria-labelledby="open-featured-heading" className="space-y-3">
+      <section aria-labelledby="open-published-heading" className="space-y-3">
         <SectionHeading
-          id="open-featured-heading"
-          title="Featured Documents"
+          id="open-published-heading"
+          title="Published documents"
           description={
             totalPublished > 0
-              ? 'Latest documents published by the Quality Assurance Office.'
-              : 'Featured picks will appear here once documents are published.'
+              ? 'Newest documents the Quality Assurance Office has released.'
+              : 'Documents appear here after the Quality Assurance Office publishes them.'
           }
           action={
             totalPublished > 0 ? (
-              <Link to="/open/featured" className="btn btn-ghost btn-sm text-brand-700">
-                View featured
+              <Link to="/open/search" className="btn btn-ghost btn-sm text-brand-700">
+                View all
                 <ArrowRightIcon className="h-3.5 w-3.5" />
               </Link>
             ) : null
           }
         />
-        {featured.length > 0 ? (
+        {published.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
-            {featured.map((doc) => (
+            {published.map((doc) => (
               <PublicDocumentCard key={doc.id} doc={doc} onPreview={setPreview} />
             ))}
           </div>
@@ -159,36 +175,7 @@ export function OpenHome() {
             <EmptyState
               icon={FileStackIcon}
               title="No published documents yet"
-              description="The Quality Assurance Office has not published documents for faculty and staff access yet."
-            />
-          </div>
-        )}
-      </section>
-
-      <section aria-labelledby="open-recent-heading" className="space-y-3">
-        <SectionHeading
-          id="open-recent-heading"
-          title="Recently Published"
-          description="Newest publicly released accreditation documents."
-          action={
-            <Link to="/open/recent" className="btn btn-ghost btn-sm text-brand-700">
-              View all
-              <ArrowRightIcon className="h-3.5 w-3.5" />
-            </Link>
-          }
-        />
-        {recent.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
-            {recent.map((doc) => (
-              <PublicDocumentCard key={doc.id} doc={doc} onPreview={setPreview} />
-            ))}
-          </div>
-        ) : (
-          <div className="panel">
-            <EmptyState
-              icon={FileStackIcon}
-              title="No recently published documents"
-              description="When the QA Office publishes documents, the newest releases will appear here."
+              description="When a document is published, it will show here. You can still send a request if you need a file."
             />
           </div>
         )}

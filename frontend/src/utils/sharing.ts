@@ -1,4 +1,5 @@
-﻿import { DocumentShare, RecipientRole, ShareStatus } from '../types/sharing';
+import { DocumentRequest } from '../types/request';
+import { DocumentShare, RecipientRole, ShareStatus } from '../types/sharing';
 import { PortalUser, UserRole } from '../types/user';
 import { formatDate } from './format';
 
@@ -14,6 +15,11 @@ export const recipientRoles: RecipientRole[] = ['Faculty', 'Staff', 'Accreditor'
 
 export function isAdminRole(role: UserRole): boolean {
   return role === 'Superadmin' || role === 'Administrator';
+}
+
+/** QA Office inbox: administrators and QA personnel see every request, not only their own. */
+export function seesOfficeQueue(role: string | undefined | null): boolean {
+  return role === 'Superadmin' || role === 'Administrator' || role === 'QA Personnel';
 }
 
 export function isRecipientRole(role: string): role is RecipientRole {
@@ -48,7 +54,54 @@ export interface AccessRights {
  * Mirrors the server-side check: administrators and QA personnel have full access;
  * everyone else needs an active, explicit share (to them or to their role).
  */
-export function accessFor(user: PortalUser, documentId: string, shares: DocumentShare[]): AccessRights {
+/** Access carried by a file that was sent on a document request. */
+export interface SentFileGrant {
+  documentId: string;
+  canView: boolean;
+  canDownload: boolean;
+  name?: string;
+  fileType?: string;
+}
+
+function samePerson(user: PortalUser, request: DocumentRequest): boolean {
+  if (request.requesterId && request.requesterId === user.id) return true;
+  const left = (request.requesterEmail || '').trim().toLowerCase();
+  const right = (user.email || '').trim().toLowerCase();
+  return Boolean(left && right && left === right);
+}
+
+/**
+ * The choice on a sent file is the permission. Restricted is the requester.
+ * Anyone is every signed-in Faculty or Staff member. Editor may download.
+ */
+export function grantsFromRequests(user: PortalUser, requests: DocumentRequest[]): SentFileGrant[] {
+  const byDocument = new Map<string, SentFileGrant>();
+  requests.forEach((request) => {
+    const requester = samePerson(user, request);
+    request.messages.forEach((message) => {
+      message.attachments.forEach((file) => {
+        if (file.kind !== 'document' || !file.documentId) return;
+        const access = file.access ?? 'restricted';
+        const allowed = seesOfficeQueue(user.role) || requester || access === 'anyone';
+        if (!allowed) return;
+        const canDownload = seesOfficeQueue(user.role) || file.role === 'editor';
+        const previous = byDocument.get(file.documentId);
+        if (!previous || (canDownload && !previous.canDownload)) {
+          byDocument.set(file.documentId, {
+            documentId: file.documentId,
+            canView: true,
+            canDownload,
+            name: file.name,
+            fileType: file.fileType
+          });
+        }
+      });
+    });
+  });
+  return [...byDocument.values()];
+}
+
+export function accessFor(user: PortalUser, documentId: string, shares: DocumentShare[], grants: SentFileGrant[] = []): AccessRights {
   if (isAdminRole(user.role)) return { canView: true, canDownload: true, shares: [] };
   const applicable = shares.filter(
     (s) =>
@@ -56,9 +109,10 @@ export function accessFor(user: PortalUser, documentId: string, shares: Document
     shareStatus(s) === 'Active' && (
     s.recipientType === 'user' ? s.recipientId === user.id : s.recipientRole === user.role)
   );
+  const grant = grants.find((item) => item.documentId === documentId);
   return {
-    canView: applicable.some((s) => s.canView),
-    canDownload: applicable.some((s) => s.canView && s.canDownload),
+    canView: applicable.some((s) => s.canView) || Boolean(grant?.canView),
+    canDownload: applicable.some((s) => s.canView && s.canDownload) || Boolean(grant?.canDownload),
     shares: applicable
   };
 }

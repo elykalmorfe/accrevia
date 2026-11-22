@@ -7,16 +7,21 @@ import {
   authLabelClass,
   authPrimaryButtonClass
 } from '../../components/auth/AuthLayout';
+import { campuses } from '../../data/accreditationData';
 import {
-  addAccount,
   findAccountByEmail,
-  hashPassword,
   initializeAuthStore,
   isSelfRegisterRole,
+  registerPendingAccount,
   sanitizeSelfRegisterRole,
-  SELF_REGISTER_ROLES,
-  upsertPortalUserFromAccount
+  SELF_REGISTER_ROLES
 } from '../../utils/auth';
+import {
+  classificationsForRole,
+  isFinalizedOffice,
+  isKnownCampus,
+  isRoleClassification
+} from '../../utils/registrationProfile';
 
 type SignupFormState = {
   firstName: string;
@@ -26,10 +31,25 @@ type SignupFormState = {
   password: string;
   confirmPassword: string;
   role: string;
+  personnelClassification: string;
+  campusId: string;
+  office: string;
 };
 
 type SignupErrors = Partial<
-  Record<'firstName' | 'lastName' | 'email' | 'password' | 'confirmPassword' | 'role' | 'general', string>
+  Record<
+    | 'firstName'
+    | 'lastName'
+    | 'email'
+    | 'password'
+    | 'confirmPassword'
+    | 'role'
+    | 'personnelClassification'
+    | 'campusId'
+    | 'office'
+    | 'general',
+    string
+  >
 >;
 
 type StepId = 0 | 1 | 2;
@@ -43,6 +63,8 @@ const STEPS = [
   { id: 1 as StepId, label: 'Credentials', short: '2' },
   { id: 2 as StepId, label: 'Access', short: '3' }
 ] as const;
+
+const requiredMark = <span className="text-red-600"> *</span>;
 
 const passwordFieldClass =
   'input h-11 rounded-[11px] border-line bg-canvas py-0 pl-3 pr-11 text-sm text-ink placeholder:text-ink-subtle focus:bg-surface';
@@ -60,7 +82,10 @@ export function SignupPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'Faculty'
+    role: 'Faculty',
+    personnelClassification: '',
+    campusId: '',
+    office: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -95,11 +120,25 @@ export function SignupPage() {
     /\d/.test(form.password) &&
     form.password === form.confirmPassword &&
     acceptedTerms &&
-    isSelfRegisterRole(form.role);
+    isSelfRegisterRole(form.role) &&
+    (form.role !== 'Faculty' || isRoleClassification(form.role, form.personnelClassification)) &&
+    isKnownCampus(form.campusId) &&
+    isFinalizedOffice(form.office);
 
   const handleChange = (field: keyof SignupFormState, value: string) => {
-    setForm((current) => ({ ...current, [field]: value }));
-    setErrors((current) => ({ ...current, [field]: undefined, general: undefined }));
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      if (field === 'role' && !isRoleClassification(value, next.personnelClassification)) {
+        next.personnelClassification = '';
+      }
+      return next;
+    });
+    setErrors((current) => ({
+      ...current,
+      [field]: undefined,
+      personnelClassification: field === 'role' ? undefined : current.personnelClassification,
+      general: undefined
+    }));
   };
 
   const validateStep = (target: StepId): SignupErrors => {
@@ -141,6 +180,21 @@ export function SignupPage() {
       }
       if (!acceptedTerms) {
         nextErrors.general = 'You must agree to the Terms and Conditions and Privacy Policy before continuing.';
+      }
+      if (form.role === 'Faculty' && !form.personnelClassification) {
+        nextErrors.personnelClassification = 'Classification is required.';
+      } else if (form.role === 'Faculty' && !isRoleClassification(form.role, form.personnelClassification)) {
+        nextErrors.personnelClassification = 'Choose a classification that matches the account type.';
+      }
+      if (!form.campusId) {
+        nextErrors.campusId = 'Campus is required.';
+      } else if (!isKnownCampus(form.campusId)) {
+        nextErrors.campusId = 'Select a NEMSU campus.';
+      }
+      if (!form.office.trim()) {
+        nextErrors.office = 'Department or office is required.';
+      } else if (!isFinalizedOffice(form.office)) {
+        nextErrors.office = 'Enter the actual department or office.';
       }
     }
 
@@ -212,26 +266,28 @@ export function SignupPage() {
         }
 
         const role = sanitizeSelfRegisterRole(form.role);
-        const userRecord = {
+        const createdAt = new Date().toISOString();
+        await registerPendingAccount({
           id: `u-reg-${Date.now()}`,
           firstName: form.firstName.trim(),
           middleName: form.middleName.trim(),
           lastName: form.lastName.trim(),
           email: normalizedEmail,
-          passwordHash: await hashPassword(form.password),
+          password: form.password,
           role,
-          approvalStatus: 'pending' as const,
-          createdAt: new Date().toISOString(),
+          ...(role === 'Faculty' ? { personnelClassification: form.personnelClassification } : {}),
+          campusId: form.campusId,
+          office: form.office.trim(),
+          createdAt,
           acceptedTermsVersion: TERMS_VERSION,
-          acceptedTermsTimestamp: new Date().toISOString()
-        };
-
-        addAccount(userRecord);
-        upsertPortalUserFromAccount(userRecord);
+          acceptedTermsTimestamp: createdAt
+        });
         setIsSubmitting(false);
         setRegistrationComplete(true);
-      } catch {
-        setErrors({ general: 'We could not create your account right now. Please try again.' });
+      } catch (error) {
+        setErrors({
+          general: error instanceof Error ? error.message : 'We could not create your account right now. Please try again.'
+        });
         setIsSubmitting(false);
       }
     }, 900);
@@ -268,7 +324,7 @@ export function SignupPage() {
   }
 
   return (
-    <AuthLayout formAlign="start">
+    <AuthLayout formAlign="start" scrollableForm>
       <div className="flex min-h-0 w-full flex-1 flex-col pt-14 sm:pt-16 lg:pt-20">
       <header className="mb-5 shrink-0">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-700">Join ACCREVIA</p>
@@ -338,7 +394,7 @@ export function SignupPage() {
               <div className="grid gap-3.5 sm:grid-cols-2">
                 <div>
                   <label htmlFor="firstName" className={authLabelClass}>
-                    First Name
+                    First Name{requiredMark}
                   </label>
                   <input
                     id="firstName"
@@ -353,7 +409,7 @@ export function SignupPage() {
                 </div>
                 <div>
                   <label htmlFor="lastName" className={authLabelClass}>
-                    Last Name
+                    Last Name{requiredMark}
                   </label>
                   <input
                     id="lastName"
@@ -387,7 +443,7 @@ export function SignupPage() {
             <div className="space-y-3.5 animate-[auth-step-in_220ms_ease-out]">
               <div>
                 <label htmlFor="email" className={authLabelClass}>
-                  Enter Email Address
+                  Enter Email Address{requiredMark}
                 </label>
                 <input
                   id="email"
@@ -405,7 +461,7 @@ export function SignupPage() {
               <div className="grid gap-3.5 sm:grid-cols-2">
                 <div>
                   <label htmlFor="password" className={authLabelClass}>
-                    Password
+                    Password{requiredMark}
                   </label>
                   <div className="relative">
                     <input
@@ -431,7 +487,7 @@ export function SignupPage() {
                 </div>
                 <div>
                   <label htmlFor="confirmPassword" className={authLabelClass}>
-                    Confirm Password
+                    Confirm Password{requiredMark}
                   </label>
                   <div className="relative">
                     <input
@@ -484,15 +540,19 @@ export function SignupPage() {
 
           {step === 2 && (
             <div className="space-y-3.5 animate-[auth-step-in_220ms_ease-out]">
+              <p className="text-[12px] leading-relaxed text-ink-muted">
+                These details are required before an administrator can approve your account.
+              </p>
               <div>
                 <label htmlFor="role" className={authLabelClass}>
-                  Account Type
+                  Account Type{requiredMark}
                 </label>
                 <select
                   id="role"
                   value={form.role}
                   onChange={(e) => handleChange('role', e.target.value)}
                   className={authFieldClass}
+                  aria-invalid={Boolean(errors.role)}
                 >
                   {ROLE_OPTIONS.map((role) => (
                     <option key={role} value={role}>
@@ -501,6 +561,69 @@ export function SignupPage() {
                   ))}
                 </select>
                 {errors.role && <p className="mt-1.5 text-[12px] text-red-600">{errors.role}</p>}
+              </div>
+              {form.role === 'Faculty' && (
+                <div>
+                  <label htmlFor="personnelClassification" className={authLabelClass}>
+                    Classification{requiredMark}
+                  </label>
+                  <select
+                    id="personnelClassification"
+                    value={form.personnelClassification}
+                    onChange={(e) => handleChange('personnelClassification', e.target.value)}
+                    className={authFieldClass}
+                    aria-invalid={Boolean(errors.personnelClassification)}
+                    required
+                  >
+                    <option value="">Select classification</option>
+                    {classificationsForRole(form.role).map((classification) => (
+                      <option key={classification} value={classification}>
+                        {classification}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.personnelClassification && (
+                    <p className="mt-1.5 text-[12px] text-red-600">{errors.personnelClassification}</p>
+                  )}
+                </div>
+              )}
+              <div className="grid gap-3.5 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="campusId" className={authLabelClass}>
+                    Campus{requiredMark}
+                  </label>
+                  <select
+                    id="campusId"
+                    value={form.campusId}
+                    onChange={(e) => handleChange('campusId', e.target.value)}
+                    className={authFieldClass}
+                    aria-invalid={Boolean(errors.campusId)}
+                    required
+                  >
+                    <option value="">Select campus</option>
+                    {campuses.map((campus) => (
+                      <option key={campus.id} value={campus.id}>
+                        {campus.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.campusId && <p className="mt-1.5 text-[12px] text-red-600">{errors.campusId}</p>}
+                </div>
+                <div>
+                  <label htmlFor="office" className={authLabelClass}>
+                    Department / office{requiredMark}
+                  </label>
+                  <input
+                    id="office"
+                    value={form.office}
+                    onChange={(e) => handleChange('office', e.target.value)}
+                    className={authFieldClass}
+                    placeholder="e.g. College of Engineering"
+                    aria-invalid={Boolean(errors.office)}
+                    required
+                  />
+                  {errors.office && <p className="mt-1.5 text-[12px] text-red-600">{errors.office}</p>}
+                </div>
               </div>
             </div>
           )}

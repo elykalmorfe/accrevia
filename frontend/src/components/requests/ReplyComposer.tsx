@@ -2,11 +2,12 @@ import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { CheckCircle2Icon, LibraryIcon, PaperclipIcon, RotateCcwIcon, SendIcon } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
-import { DocumentRequest, RequestAttachment, RequestStatus } from '../../types/request';
+import { AttachmentAccess, AttachmentRole, DocumentRequest, RequestAttachment, RequestStatus } from '../../types/request';
 import { uploadAcceptAttribute } from '../../utils/uploadRules';
 import { filesToAttachments } from '../../utils/requests';
 import { AttachmentChip } from './AttachmentChip';
 import { AttachDocumentsModal } from './AttachDocumentsModal';
+import { ShareMenu } from './ShareMenu';
 
 interface ReplyComposerProps {
   request: DocumentRequest;
@@ -17,6 +18,8 @@ export function ReplyComposer({ request, asAdmin }: ReplyComposerProps) {
   const { replyToDocumentRequest, setDocumentRequestStatus } = usePortal();
   const [body, setBody] = useState('');
   const [attachments, setAttachments] = useState<RequestAttachment[]>([]);
+  const [batch, setBatch] = useState<{ access: AttachmentAccess; role: AttachmentRole }>({ access: 'restricted', role: 'viewer' });
+  const [shareMenu, setShareMenu] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -40,23 +43,54 @@ export function ReplyComposer({ request, asAdmin }: ReplyComposerProps) {
     replyToDocumentRequest(request.id, text, attachments, nextStatus);
     setBody('');
     setAttachments([]);
+    setShareMenu(null);
     toast.success(nextStatus === 'Fulfilled' ? 'Reply sent and request marked fulfilled' : 'Reply sent', {
       description: `To ${recipient}`
     });
   };
 
+  const withAccess = (file: RequestAttachment): RequestAttachment => ({
+    ...file,
+    access: batch.access,
+    role: batch.role
+  });
+
   const addFiles = (files: FileList | null) => {
     if (!files?.length) return;
     const added = filesToAttachments(Array.from(files));
-    setAttachments((prev) => [...prev, ...added]);
+    setAttachments((prev) => [...prev, ...added.map(withAccess)]);
+  };
+
+  const setEveryFile = (next: { access: AttachmentAccess; role: AttachmentRole }) => {
+    setBatch(next);
+    setAttachments((prev) => prev.map((file) => ({ ...file, ...next })));
+  };
+
+  const setOneFile = (id: string, next: { access: AttachmentAccess; role: AttachmentRole }) => {
+    setAttachments((prev) => prev.map((file) => (file.id === id ? { ...file, ...next } : file)));
   };
 
   return (
     <div className="border-t border-line bg-white p-3 sm:px-6 sm:py-4">
       <div className="rounded-xl border border-line bg-white shadow-sm transition-colors focus-within:border-brand-300 focus-within:ring-2 focus-within:ring-brand-100">
-        <p className="border-b border-line-subtle px-3.5 py-2 text-[11px] text-ink-subtle">
-          Reply to <span className="font-semibold text-ink-muted">{recipient}</span>
-        </p>
+        <div className="relative z-20 flex items-center justify-between gap-2 border-b border-line-subtle px-3.5 py-1.5">
+          <p className="text-[11px] text-ink-subtle">
+            Reply to <span className="font-semibold text-ink-muted">{recipient}</span>
+          </p>
+          {asAdmin && attachments.length > 0 && (
+            <ShareMenu
+              title="Every file"
+              label="Access for every file"
+              everyFile
+              access={batch.access}
+              role={batch.role}
+              requesterName={request.requesterName}
+              open={shareMenu === 'all'}
+              onOpenChange={(open) => setShareMenu(open ? 'all' : null)}
+              onChange={setEveryFile}
+            />
+          )}
+        </div>
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -74,7 +108,21 @@ export function ReplyComposer({ request, asAdmin }: ReplyComposerProps) {
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 px-3.5 pb-2.5">
             {attachments.map((a) => (
-              <AttachmentChip key={a.id} attachment={a} onRemove={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))} />
+              <AttachmentChip
+                key={a.id}
+                attachment={a}
+                onRemove={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))}
+                share={
+                  asAdmin
+                    ? {
+                        requesterName: request.requesterName,
+                        open: shareMenu === a.id,
+                        onOpenChange: (open) => setShareMenu(open ? a.id : null),
+                        onChange: (next) => setOneFile(a.id, next)
+                      }
+                    : undefined
+                }
+              />
             ))}
           </div>
         )}
@@ -134,8 +182,9 @@ export function ReplyComposer({ request, asAdmin }: ReplyComposerProps) {
       <AttachDocumentsModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
+        need={{ subject: request.subject, reference: request.reference }}
         excludeIds={attachments.filter((a) => a.documentId).map((a) => a.documentId as string)}
-        onAttach={(added) => setAttachments((prev) => [...prev, ...added])}
+        onAttach={(added) => setAttachments((prev) => [...prev, ...added.map(withAccess)])}
       />
     </div>
   );

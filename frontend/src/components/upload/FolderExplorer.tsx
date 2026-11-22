@@ -23,7 +23,6 @@ import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
 import { FolderAction, FolderCard, FolderStatus } from '../folders/FolderCard';
 import { downloadStoredFile, persistUpload } from '../../utils/fileStore';
 import { filesFromInput, PendingUpload } from '../../utils/dropFiles';
-import { filterAllowedUploads, uploadAcceptAttribute } from '../../utils/uploadRules';
 import { pluralize } from '../../utils/format';
 import type { EvidenceDocument, EvidenceFolder } from '../../types/evidence';
 import { formatSize } from './fileTypeStyle';
@@ -155,7 +154,7 @@ export function FolderExplorer({
 
   const ingest = (uploads: PendingUpload[]) => {
     if (!canEdit) return;
-    const accepted = filterAllowedUploads(uploads, (u) => u.file);
+    const accepted = uploads.filter((item) => item.file);
     if (!accepted.length) return;
 
     const created: EvidenceFolder[] = [];
@@ -313,7 +312,6 @@ export function FolderExplorer({
                 type="file"
                 multiple
                 hidden
-                accept={uploadAcceptAttribute()}
                 onChange={(e) => {
                   ingest(filesFromInput(e.target.files));
                   e.target.value = '';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import { PortalProvider, usePortalSafe } from './contexts/PortalContext';
 import { SharingDialogsProvider } from './contexts/SharingDialogsContext';
@@ -46,14 +46,8 @@ import { SignupPage } from './pages/public/SignupPage';
 import { PublicPortalShell } from './components/open/PublicPortalShell';
 import { OpenHome } from './pages/open/OpenHome';
 import { OpenSearch } from './pages/open/OpenSearch';
-import { OpenBrowse } from './pages/open/OpenBrowse';
-import { OpenAreas } from './pages/open/OpenAreas';
-import { OpenPrograms } from './pages/open/OpenPrograms';
-import { OpenFeatured } from './pages/open/OpenFeatured';
-import { OpenRecent } from './pages/open/OpenRecent';
 import { OpenAbout } from './pages/open/OpenAbout';
 import { OpenHelp } from './pages/open/OpenHelp';
-import { OpenAccessRequests } from './pages/open/OpenAccessRequests';
 import { FacultySettings } from './pages/open/FacultySettings';
 import { FacultyAccreditationShell } from './pages/open/FacultyAccreditationShell';
 import { FacultyStaffRouteGuard } from './components/auth/FacultyStaffRouteGuard';
@@ -70,6 +64,11 @@ function isAuthenticated() {
   }
 
   return window.localStorage.getItem('accrevia-auth') === 'true';
+}
+
+function FacultyDocumentRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/open/documents/${id ?? ''}`} replace />;
 }
 
 function HomeRoute() {
@@ -139,7 +138,7 @@ function ProtectedAppRoutes() {
               <Route path="requests/:requestId" element={<Requests />} />
               <Route path="evidence/common" element={<CommonDocumentsView />} />
               <Route path="search" element={<SearchResults />} />
-              <Route path="documents/:id" element={<DocumentViewer />} />
+              <Route path="documents/:id" element={<FacultyDocumentRedirect />} />
               <Route path="frameworks" element={<AccreditationDashboard />} />
               <Route path="frameworks/ia" element={<CampusIAView />} />
               <Route path="frameworks/pa" element={<ProgramAccreditationView />} />
@@ -191,11 +190,11 @@ export function App({ viewAs = 'Administrator' }: AppProps) {
                 >
                   <Route index element={<OpenHome />} />
                   <Route path="search" element={<OpenSearch />} />
-                  <Route path="browse" element={<OpenBrowse />} />
-                  <Route path="areas" element={<OpenAreas />} />
-                  <Route path="programs" element={<OpenPrograms />} />
-                  <Route path="featured" element={<OpenFeatured />} />
-                  <Route path="recent" element={<OpenRecent />} />
+                  <Route path="browse" element={<Navigate to="/open/search" replace />} />
+                  <Route path="areas" element={<Navigate to="/open/frameworks/ia" replace />} />
+                  <Route path="programs" element={<Navigate to="/open/frameworks/pa" replace />} />
+                  <Route path="featured" element={<Navigate to="/open/search" replace />} />
+                  <Route path="recent" element={<Navigate to="/open/search" replace />} />
                   <Route path="about" element={<OpenAbout />} />
                   <Route path="help" element={<OpenHelp />} />
                   <Route
@@ -206,8 +205,8 @@ export function App({ viewAs = 'Administrator' }: AppProps) {
                     path="requests/:requestId"
                     element={<Requests basePath="/open/requests" forceUserScope />}
                   />
-                  {/* Deep-link preserved for Technical Review access-request tracking */}
-                  <Route path="access-requests" element={<OpenAccessRequests />} />
+                  <Route path="documents/:id" element={<DocumentViewer />} />
+                  <Route path="access-requests" element={<Navigate to="/open/requests" replace />} />
                   <Route path="frameworks" element={<Navigate to="/open/frameworks/ia" replace />} />
                   <Route
                     path="frameworks/ia"

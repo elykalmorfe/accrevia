@@ -12,7 +12,7 @@ export function useCampusCertificates(frameworkId: string, areaKey: string) {
   const certificates = useMemo(
     () =>
       documents
-        .filter((d) => d.frameworkId === frameworkId && d.areaId === areaKey)
+        .filter((d) => d.frameworkId === frameworkId && d.areaId === areaKey && !d.libraryOnly)
         .sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || '') || b.id.localeCompare(a.id)),
     [documents, frameworkId, areaKey]
   );

@@ -217,7 +217,10 @@ export function GlobalSearch({
       return [{ kind: 'query', label: trimmed }, ...docHits, ...repoHits];
     }
     const recent = recentSearches.slice(0, 4).map((label) => ({ kind: 'recent' as const, label }));
-    const examples = evidenceSearchExamples
+    const exampleSource = isFaculty
+      ? ['Research publications', 'Faculty development', 'Accreditation certificate']
+      : evidenceSearchExamples;
+    const examples = exampleSource
       .filter((s) => !recentSearches.slice(0, 4).includes(s))
       .map((label) => ({ kind: 'example' as const, label }));
     return [...recent, ...examples];

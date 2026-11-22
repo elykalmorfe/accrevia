@@ -1,39 +1,81 @@
 import { Link } from 'react-router-dom';
 import {
-  ArrowRightIcon,
-  FileSearchIcon,
-  FolderOpenIcon,
+  AwardIcon,
+  FileCheck2Icon,
+  FileSpreadsheetIcon,
   GraduationCapIcon,
-  InfoIcon,
-  LayoutGridIcon
+  InboxIcon,
+  SearchIcon,
+  SettingsIcon,
+  ShieldCheckIcon,
+  UserIcon,
+  type LucideIcon
 } from 'lucide-react';
 
-const exploreLinks = [
+const features: {
+  to: string;
+  title: string;
+  description: string;
+  required: string;
+  icon: LucideIcon;
+}[] = [
   {
     to: '/open/search',
-    title: 'Search Documents',
-    description: 'Find published documents by keyword and filters.',
-    icon: FileSearchIcon
+    title: 'Search',
+    description: 'Find a published document or one shared with you.',
+    required: 'None. Optional: keyword, document type, program, academic year',
+    icon: SearchIcon
   },
   {
-    to: '/open/browse',
-    title: 'Accreditation Repository',
-    description: 'Browse certificates, technical review access demos, and COPC sample records.',
-    icon: FolderOpenIcon
+    to: '/open/frameworks/ia',
+    title: 'Institutional (IA)',
+    description: 'Campus institutional accreditation areas and files.',
+    required: 'Campus',
+    icon: ShieldCheckIcon
   },
   {
-    to: '/open/areas',
-    title: 'Accreditation Areas',
-    description: 'View documents grouped by accreditation area.',
-    icon: LayoutGridIcon
-  },
-  {
-    to: '/open/programs',
-    title: 'Academic Programs',
-    description: 'View documents associated with academic programs.',
+    to: '/open/frameworks/pa',
+    title: 'Program (AACCUP)',
+    description: 'Program accreditation records and evidence.',
+    required: 'Program',
     icon: GraduationCapIcon
+  },
+  {
+    to: '/open/frameworks/copc',
+    title: 'CHED COPC',
+    description: 'Certificate of Program Compliance records.',
+    required: 'Program',
+    icon: FileCheck2Icon
+  },
+  {
+    to: '/open/frameworks/pqa',
+    title: 'PQA',
+    description: 'Philippine Quality Award records for the campus.',
+    required: 'Campus',
+    icon: AwardIcon
+  },
+  {
+    to: '/open/frameworks/iso',
+    title: 'ISO 9001',
+    description: 'ISO 9001 records for the campus.',
+    required: 'Campus',
+    icon: FileSpreadsheetIcon
+  },
+  {
+    to: '/open/requests',
+    title: 'Requests',
+    description: 'Ask the QA Office for a document and follow the reply.',
+    required: 'Request type, subject, message. Optional: priority, program or campus, file',
+    icon: InboxIcon
+  },
+  {
+    to: '/open/account',
+    title: 'Account',
+    description: 'Your name, role, office, and email. Appearance is optional.',
+    required: 'None',
+    icon: UserIcon
   }
-] as const;
+];
 
 export function OpenAbout() {
   return (
@@ -55,98 +97,33 @@ export function OpenAbout() {
             About the Quality Assurance Office
           </h1>
           <p className="mt-2 text-[14px] font-medium leading-relaxed text-ink-muted sm:text-[15px]">
-            The Faculty &amp; Staff Accreditation Resource Center provides signed-in access to accreditation documents
-            and compliance records curated for NEMSU faculty and staff use.
+            This portal is where NEMSU faculty and staff open accreditation records the Quality Assurance Office has
+            released, and where you ask for a document you still need.
           </p>
         </div>
       </section>
 
-      <section aria-labelledby="about-intro-heading" className="panel p-5 sm:p-6">
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-brand-100 bg-brand-50 text-brand-700">
-            <InfoIcon className="h-[18px] w-[18px]" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <h2 id="about-intro-heading" className="text-lg font-extrabold tracking-tight text-ink">
-              Introduction
-            </h2>
-            <p className="mt-2 text-[14px] font-medium leading-relaxed text-ink-muted">
-              Signed-in faculty and staff can use this resource center to discover accreditation evidence released by
-              the Quality Assurance Office. Restricted Technical Review materials remain hidden until a separate
-              authorized backend integration is available.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section aria-labelledby="about-portal-heading" className="space-y-3">
-        <h2 id="about-portal-heading" className="text-lg font-extrabold tracking-tight text-ink sm:text-xl">
-          About the Faculty &amp; Staff Resource Center
-        </h2>
-        <div className="panel p-5 sm:p-6">
-          <p className="text-[14px] font-medium leading-relaxed text-ink-muted">
-            The resource center is designed to improve access to accreditation evidence for institutional users. Faculty
-            and staff can search and browse eligible documents, open previews when a format is supported, and follow
-            demo workflows for restricted Technical Review access requests.
-          </p>
-          <ul className="mt-4 space-y-2 text-[14px] font-medium text-ink-muted">
-            <li className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" aria-hidden="true" />
-              Improve access to publicly available accreditation evidence.
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" aria-hidden="true" />
-              Support document discovery across areas and programs.
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" aria-hidden="true" />
-              Allow visitors to search and browse approved public documents.
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" aria-hidden="true" />
-              Provide document previews and downloads where available.
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section aria-labelledby="about-publication-heading" className="space-y-3">
-        <h2 id="about-publication-heading" className="text-lg font-extrabold tracking-tight text-ink sm:text-xl">
-          Document Publication
-        </h2>
-        <div className="panel p-5 sm:p-6">
-          <p className="text-[14px] font-medium leading-relaxed text-ink-muted">
-            Documents become available on this portal only after the Quality Assurance Office has approved them and
-            explicitly published them for public access. Setting a document’s confidentiality to Public alone does not
-            publish it. Confidential, unapproved, archived, and unpublished documents are not listed here.
-          </p>
-        </div>
-      </section>
-
-      <section aria-labelledby="about-explore-heading" className="space-y-4">
+      <section aria-labelledby="about-features-heading" className="space-y-4">
         <div>
-          <h2 id="about-explore-heading" className="text-lg font-extrabold tracking-tight text-ink sm:text-xl">
-            Explore the Portal
+          <h2 id="about-features-heading" className="text-lg font-extrabold tracking-tight text-ink sm:text-xl">
+            What you can use
           </h2>
           <p className="mt-1 text-[13px] font-medium text-ink-muted">
-            Start with any of these public discovery tools.
+            Each feature asks only for the details it needs.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
-          {exploreLinks.map((item) => {
+          {features.map((item) => {
             const Icon = item.icon;
             return (
               <Link key={item.to} to={item.to} className="panel panel-hover flex items-start gap-3 p-4 no-underline sm:p-5">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-brand-100 bg-brand-50 text-brand-700">
                   <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
                 </span>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0">
                   <h3 className="text-[14px] font-semibold text-ink">{item.title}</h3>
-                  <p className="mt-1 text-[12px] font-medium text-ink-muted">{item.description}</p>
-                  <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700">
-                    Open
-                    <ArrowRightIcon className="h-3.5 w-3.5" />
-                  </span>
+                  <p className="mt-1 text-[12px] font-medium leading-relaxed text-ink-muted">{item.description}</p>
+                  <p className="mt-2 text-[12px] font-semibold text-brand-700">Required: {item.required}</p>
                 </div>
               </Link>
             );
@@ -154,17 +131,25 @@ export function OpenAbout() {
         </div>
       </section>
 
-      <section aria-labelledby="about-contact-heading" className="space-y-3">
-        <h2 id="about-contact-heading" className="text-lg font-extrabold tracking-tight text-ink sm:text-xl">
-          Contact Information
+      <section aria-labelledby="about-publication-heading" className="space-y-3">
+        <h2 id="about-publication-heading" className="text-lg font-extrabold tracking-tight text-ink sm:text-xl">
+          Which documents appear
         </h2>
         <div className="panel p-5 sm:p-6">
           <p className="text-[14px] font-medium leading-relaxed text-ink-muted">
-            This prototype does not include a verified public contact listing for the Quality Assurance Office. For
-            official inquiries, please use North Eastern Mindanao State University’s established communication channels.
+            A document shows here after the Quality Assurance Office publishes it, or after someone shares it with you.
+            Files that are still in review, confidential, or archived stay off this portal.
           </p>
           <p className="mt-3 text-[13px] font-medium text-ink-subtle">
-            Need help using the portal? Visit{' '}
+            Framework pages are for reading, preview, and download. Uploading and editing stay with the QA Office.
+          </p>
+          <p className="mt-4 text-[13px] font-medium text-ink-muted">
+            <SettingsIcon className="mr-1 inline h-3.5 w-3.5 text-brand-700" aria-hidden="true" />
+            Personal choices such as campus, sidebar, and date format are in{' '}
+            <Link to="/open/settings" className="font-semibold text-brand-700 hover:underline">
+              Settings
+            </Link>
+            . For step-by-step help, open{' '}
             <Link to="/open/help" className="font-semibold text-brand-700 hover:underline">
               Help & Guidelines
             </Link>

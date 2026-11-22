@@ -61,12 +61,21 @@ export function Account() {
               ]
         }
       />
-      {tab === 'profile' ? <ProfileTab /> : <SettingsTab />}
+      {tab === 'profile' ? <ProfileTab faculty={facultySurface} /> : <SettingsTab />}
     </div>
   );
 }
 
-function ProfileTab() {
+function ProfileTab({ faculty }: { faculty: boolean }) {
+  if (faculty) {
+    return (
+      <div className="space-y-5">
+        <ProfileHeaderCard faculty />
+        <FacultyAccountFacts />
+        <AppearanceCard />
+      </div>
+    );
+  }
   return (
     <div className="space-y-5">
       <ProfileHeaderCard />
@@ -77,7 +86,7 @@ function ProfileTab() {
   );
 }
 
-function ProfileHeaderCard() {
+function ProfileHeaderCard({ faculty = false }: { faculty?: boolean }) {
   const { currentUser } = usePortal();
   const { profile, fullName, saveProfile } = useProfile(currentUser);
   const { capabilities } = useInstitutionalMutationAccess();
@@ -162,12 +171,18 @@ function ProfileHeaderCard() {
               </div>
             </div>
 
-        <dl className="grid w-full grid-cols-3 divide-x divide-line rounded-xl border border-line bg-slate-50 text-center lg:w-auto lg:min-w-[420px]">
-          {[
-            { label: 'Employee ID', value: currentUser.employeeId ?? '—' },
-            { label: 'Member Since', value: currentUser.registeredAt ? formatDate(currentUser.registeredAt) : '—' },
-            { label: 'Last Login', value: currentUser.lastLogin ? formatDate(currentUser.lastLogin) : '—' },
-          ].map((item) => (
+        <dl className={`grid w-full divide-x divide-line rounded-xl border border-line bg-slate-50 text-center lg:w-auto lg:min-w-[280px] ${faculty ? 'grid-cols-2' : 'grid-cols-3 lg:min-w-[420px]'}`}>
+          {(faculty
+            ? [
+                { label: 'Member Since', value: currentUser.registeredAt ? formatDate(currentUser.registeredAt) : '—' },
+                { label: 'Last Login', value: currentUser.lastLogin ? formatDate(currentUser.lastLogin) : '—' },
+              ]
+            : [
+                { label: 'Employee ID', value: currentUser.employeeId ?? '—' },
+                { label: 'Member Since', value: currentUser.registeredAt ? formatDate(currentUser.registeredAt) : '—' },
+                { label: 'Last Login', value: currentUser.lastLogin ? formatDate(currentUser.lastLogin) : '—' },
+              ]
+          ).map((item) => (
             <div key={item.label} className="min-w-0 px-3 py-3">
               <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">{item.label}</dt>
               <dd className="mt-1 truncate text-sm font-semibold text-ink" title={item.value}>{item.value}</dd>
@@ -245,6 +260,27 @@ function EditActions({
       <PencilIcon className="h-3.5 w-3.5" />
       Edit
     </button>
+  );
+}
+
+function FacultyAccountFacts() {
+  const { currentUser, campuses } = usePortal();
+  const campus = campuses.find((c) => c.id === currentUser.campusId)?.name;
+  const rows = [
+    { label: 'Email', value: currentUser.email },
+    { label: 'Campus', value: campus ?? '' },
+    { label: 'Classification', value: currentUser.personnelClassification ?? '' },
+    { label: 'Status', value: currentUser.status },
+  ].filter((row) => row.value.trim());
+
+  return (
+    <ProfileCard title="Account" description="These details come from your approved account. Ask the QA Office if something needs to change.">
+      <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+        {rows.map((row) => (
+          <InfoField key={row.label} label={row.label} value={row.value} />
+        ))}
+      </div>
+    </ProfileCard>
   );
 }
 

@@ -1,6 +1,16 @@
 import bcrypt from 'bcryptjs';
 import { useSyncExternalStore } from 'react';
-import { UserRole } from '../types/user';
+import {
+  approvalDecisionForStatus,
+  loginRemote,
+  pushApproval,
+  pushPasswordHash,
+  pushPortalUser,
+  registerRemote,
+  RemoteAuthError
+} from '../services/accounts/accountDirectory';
+import { getApiBaseUrl } from '../services/api/client';
+import { PortalUser, UserRole, UserStatus } from '../types/user';
 
 const ACCOUNTS_KEY = 'accrevia-users';
 const AUTH_KEY = 'accrevia-auth';
@@ -57,6 +67,10 @@ export interface StoredAccount {
   passwordChangedAt?: string;
   acceptedTermsVersion?: string;
   acceptedTermsTimestamp?: string;
+  employeeId?: string;
+  personnelClassification?: string;
+  office?: string;
+  campusId?: string;
 }
 
 export type SessionAccount = Omit<StoredAccount, 'password' | 'passwordHash'>;
@@ -108,22 +122,26 @@ export function upsertPortalUserFromAccount(
         ? String(existing.status)
         : portalStatusForAccount(account);
 
-    const nextUser = {
+    const nextUser: Record<string, unknown> = {
       id,
       name,
       email: account.email,
       role,
       office:
-        role === 'Faculty' || role === 'Staff'
+        account.office?.trim() ||
+        (role === 'Faculty' || role === 'Staff'
           ? 'Academic / Administrative Unit'
           : role === 'Superadmin'
             ? 'Office of the University President'
-            : 'Quality Assurance Office',
+            : 'Quality Assurance Office'),
       status,
       lastLogin: status === 'Active' ? new Date().toISOString() : existing?.lastLogin ?? null,
       affiliationVerified: status === 'Active' && isPrivilegedAuthRole(role),
       registeredAt: account.createdAt || (existing?.registeredAt as string) || new Date().toISOString()
     };
+    if (account.employeeId?.trim()) nextUser.employeeId = account.employeeId.trim();
+    if (account.personnelClassification) nextUser.personnelClassification = account.personnelClassification;
+    if (account.campusId) nextUser.campusId = account.campusId;
     if (idx >= 0) list[idx] = { ...list[idx], ...nextUser, id: String(list[idx].id || id) };
     else list.unshift(nextUser);
     window.localStorage.setItem(PORTAL_USERS_KEY, JSON.stringify(list));
@@ -293,6 +311,36 @@ export function initializeAuthStore(): Promise<void> {
 
 export async function authenticate(email: string, password: string): Promise<SessionAccount> {
   await initializeAuthStore();
+  if (getApiBaseUrl()) {
+    try {
+      const remote = await loginRemote(email, password);
+      writeLocalApproval(remote.email, 'approved');
+      markPortalUserStatus(remote.email, 'Active');
+      return remote;
+    } catch (error) {
+      if (error instanceof RemoteAuthError) {
+        if (error.status === 404 || error.reason === 'network') {
+          // This browser may still have the only copy, or the directory is offline.
+        } else if (error.reason === 'pending' || error.reason === 'rejected' || error.reason === 'deactivated') {
+          throw new AuthDeniedError(error.reason, error.message);
+        } else if (error.reason === 'invalid') {
+          try {
+            const local = await authenticateLocal(email, password);
+            const stored = findAccountByEmail(email);
+            if (stored?.passwordHash) void pushPasswordHash(email, stored.passwordHash);
+            return local;
+          } catch (localError) {
+            if (localError instanceof AuthDeniedError) throw localError;
+            throw new AuthDeniedError('invalid', error.message);
+          }
+        }
+      }
+    }
+  }
+  return authenticateLocal(email, password);
+}
+
+async function authenticateLocal(email: string, password: string): Promise<SessionAccount> {
   const account = findAccountByEmail(email);
   if (!account?.passwordHash) {
     throw new AuthDeniedError('invalid', 'We could not find an account matching these credentials.');
@@ -353,16 +401,144 @@ export async function provisionManagedAccount(input: {
     addAccount(next);
   }
   upsertPortalUserFromAccount(next);
+  const portalUser: PortalUser = {
+    id: next.id || input.id,
+    name: input.name,
+    email,
+    role: input.role,
+    office:
+      input.role === 'Superadmin'
+        ? 'Office of the University President'
+        : input.role === 'Administrator'
+          ? 'Quality Assurance Office'
+          : 'Academic / Administrative Unit',
+    status: 'Active',
+    lastLogin: null,
+    affiliationVerified: true,
+    registeredAt: next.createdAt
+  };
+  await pushPortalUser(portalUser, input.temporaryPassword);
+}
+
+export async function registerPendingAccount(input: {
+  id: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  email: string;
+  password: string;
+  role: string;
+  employeeId?: string;
+  personnelClassification?: string;
+  campusId: string;
+  office: string;
+  createdAt: string;
+  acceptedTermsVersion?: string;
+  acceptedTermsTimestamp?: string;
+}): Promise<void> {
+  await initializeAuthStore();
+  const email = normalizeEmail(input.email);
+  if (findAccountByEmail(email)) {
+    throw new Error('An account with this institutional email already exists.');
+  }
+  await registerRemote({
+    id: input.id,
+    firstName: input.firstName,
+    middleName: input.middleName,
+    lastName: input.lastName,
+    email,
+    password: input.password,
+    role: input.role,
+    ...(input.employeeId?.trim() ? { employeeId: input.employeeId.trim() } : {}),
+    ...(input.personnelClassification?.trim() ? { personnelClassification: input.personnelClassification.trim() } : {}),
+    campusId: input.campusId,
+    office: input.office,
+    createdAt: input.createdAt
+  });
+  const record: StoredAccount = {
+    id: input.id,
+    firstName: input.firstName,
+    middleName: input.middleName,
+    lastName: input.lastName,
+    email,
+    role: input.role,
+    ...(input.employeeId?.trim() ? { employeeId: input.employeeId.trim() } : {}),
+    ...(input.personnelClassification?.trim() ? { personnelClassification: input.personnelClassification.trim() } : {}),
+    campusId: input.campusId,
+    office: input.office,
+    passwordHash: await hashPassword(input.password),
+    approvalStatus: 'pending',
+    createdAt: input.createdAt,
+    acceptedTermsVersion: input.acceptedTermsVersion,
+    acceptedTermsTimestamp: input.acceptedTermsTimestamp
+  };
+  addAccount(record);
+  upsertPortalUserFromAccount(record);
+}
+
+/** Browser-local accounts and directory rows, for the one-time upload onto the shared server. */
+export function exportAccountSnapshot(): { accounts: StoredAccount[]; users: PortalUser[] } {
+  const accounts = readAccounts().map((account) => {
+    const rest = { ...account };
+    delete rest.password;
+    return rest;
+  });
+  if (typeof window === 'undefined') return { accounts, users: [] };
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(PORTAL_USERS_KEY) ?? '[]');
+    return { accounts, users: Array.isArray(parsed) ? (parsed as PortalUser[]) : [] };
+  } catch {
+    return { accounts, users: [] };
+  }
+}
+
+function writeLocalApproval(email: string, decision: 'approved' | 'rejected' | 'pending'): void {
+  const target = normalizeEmail(email);
+  writeAccounts(
+    readAccounts().map((account) =>
+      normalizeEmail(String(account.email ?? '')) === target ? { ...account, approvalStatus: decision } : account
+    )
+  );
+}
+
+function markPortalUserStatus(email: string, status: UserStatus): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem(PORTAL_USERS_KEY);
+    if (!raw) return;
+    const list = JSON.parse(raw) as Array<Record<string, unknown>>;
+    if (!Array.isArray(list)) return;
+    const target = normalizeEmail(email);
+    let changed = false;
+    const next = list.map((user) => {
+      if (normalizeEmail(String(user.email ?? '')) !== target || user.status === status) return user;
+      changed = true;
+      return {
+        ...user,
+        status,
+        affiliationVerified: status === 'Active' ? true : user.affiliationVerified
+      };
+    });
+    if (changed) window.localStorage.setItem(PORTAL_USERS_KEY, JSON.stringify(next));
+  } catch {
+    // The shared directory remains the source of truth when local storage cannot be updated.
+  }
+}
+
+/** Update this browser’s copy when the shared directory already has a newer decision. */
+export function writeLocalApprovalIfChanged(email: string, status: UserStatus): void {
+  const decision = approvalDecisionForStatus(status);
+  const account = findAccountByEmail(email);
+  if (account && account.approvalStatus !== decision) writeLocalApproval(email, decision);
+  if (status === 'Pending Approval' || status === 'Rejected' || status === 'Active' || status === 'Deactivated') {
+    markPortalUserStatus(email, status);
+  }
 }
 
 /** Keep auth-store approval flag aligned when Superadmin/Admin approve or reject a registration. */
-export function syncAccountApproval(email: string, decision: 'approved' | 'rejected' | 'pending'): void {
-  const target = normalizeEmail(email);
-  writeAccounts(
-    readAccounts().map((a) =>
-      normalizeEmail(String(a.email ?? '')) === target ? { ...a, approvalStatus: decision } : a
-    )
-  );
+export async function syncAccountApproval(email: string, decision: 'approved' | 'rejected' | 'pending'): Promise<void> {
+  writeLocalApproval(email, decision);
+  await pushApproval(email, decision);
 }
 
 export const PASSWORD_MIN_LENGTH = 12;
@@ -395,6 +571,7 @@ export async function changePassword(email: string, currentPassword: string, new
     })
   );
   if (updated && normalizeEmail(getSessionAccount()?.email ?? '') === target) startSession(updated);
+  if (updated?.passwordHash) await pushPasswordHash(email, updated.passwordHash);
 }
 
 // ---------------------------------------------------------------------------
@@ -410,9 +587,11 @@ export function startSession(account: StoredAccount | SessionAccount) {
   window.localStorage.setItem(AUTH_KEY, 'true');
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   // Login is only allowed for approved/active accounts — refresh directory without reopening pending status.
+  const existingStatus = readPortalUserStatus(session.email);
+  const sessionApproved = (session.approvalStatus || 'approved') === 'approved';
   upsertPortalUserFromAccount(
     { ...session, approvalStatus: session.approvalStatus || 'approved' },
-    { preserveExistingStatus: true }
+    { preserveExistingStatus: !sessionApproved || (existingStatus !== 'Pending Approval' && existingStatus !== 'Rejected') }
   );
   notifySessionChange();
 }

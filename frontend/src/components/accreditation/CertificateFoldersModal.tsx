@@ -70,11 +70,11 @@ export function CertificateFoldersModal({
   const { canMutate } = useInstitutionalMutationAccess();
 
   const certFolders = useMemo(
-    () => folders.filter((f) => f.frameworkId === frameworkId && f.areaId === areaKey),
+    () => folders.filter((f) => f.frameworkId === frameworkId && f.areaId === areaKey && !f.libraryOnly),
     [folders, frameworkId, areaKey]
   );
   const certDocs = useMemo(
-    () => documents.filter((d) => d.frameworkId === frameworkId && d.areaId === areaKey),
+    () => documents.filter((d) => d.frameworkId === frameworkId && d.areaId === areaKey && !d.libraryOnly),
     [documents, frameworkId, areaKey]
   );
 
@@ -112,7 +112,7 @@ export function CertificateFoldersModal({
     description: `Certificates — ${subject}`,
     color: 'amber',
     createdAt: today(),
-    parentId: parentId ?? undefined,
+    parentId: parentId ?? `folder-${frameworkId}`,
     areaId: areaKey,
     campusId,
     campus: campusName,
@@ -176,7 +176,7 @@ export function CertificateFoldersModal({
       sizeMb: Math.max(0.1, Math.round((file.size / (1024 * 1024)) * 10) / 10),
       uploadedBy: currentUser.name,
       passages: [`${body} ${level} certificate — ${subject} (${campusName})`],
-      folderId: folderId ?? undefined,
+      folderId: folderId ?? `folder-${frameworkId}`,
       approvalStatus: 'Approved'
     };
   };

@@ -25,11 +25,11 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
   const areaKey = requirement?.id ?? '';
 
   const areaFolders = useMemo(
-    () => folders.filter((f) => f.frameworkId === 'pa' && f.areaId === areaKey),
+    () => folders.filter((f) => f.frameworkId === 'pa' && f.areaId === areaKey && !f.libraryOnly),
     [folders, areaKey]
   );
   const areaDocs = useMemo(
-    () => documents.filter((d) => d.frameworkId === 'pa' && d.areaId === areaKey),
+    () => documents.filter((d) => d.frameworkId === 'pa' && d.areaId === areaKey && !d.libraryOnly),
     [documents, areaKey]
   );
 
@@ -46,7 +46,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
     description: `${requirement.areaName} — ${program.programName}`,
     color: 'purple',
     createdAt: today(),
-    parentId: parentId ?? undefined,
+    parentId: parentId ?? 'folder-pa',
     areaId: areaKey,
     campusId: program.campusId,
     campus: program.campusName,
@@ -84,7 +84,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
       sizeMb,
       uploadedBy: currentUser.name,
       passages: [`${requirement.areaName} — ${program.programName} (${program.campusName})`],
-      folderId: folderId ?? undefined,
+      folderId: folderId ?? 'folder-pa',
       approvalStatus: uploads.newUploadStatus
     };
   };

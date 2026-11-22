@@ -4,6 +4,12 @@ export type RequestStatus = 'Open' | 'In Progress' | 'Fulfilled' | 'Closed';
 
 export type RequestPriority = 'Normal' | 'Urgent';
 
+/** Restricted keeps the file with the requester. Anyone opens it to signed-in portal users. */
+export type AttachmentAccess = 'restricted' | 'anyone';
+
+/** Viewer can open the file. Commenter can also reply. Editor can open and download it. */
+export type AttachmentRole = 'viewer' | 'commenter' | 'editor';
+
 export interface RequestAttachment {
   id: string;
   /** `upload` files live in IndexedDB under `id`; `document` points at a repository document. */
@@ -12,6 +18,10 @@ export interface RequestAttachment {
   fileType: string;
   sizeMb?: number;
   documentId?: string;
+  /** Who may open this file. Set before the reply is sent. */
+  access?: AttachmentAccess;
+  /** What that person can do with the file. */
+  role?: AttachmentRole;
 }
 
 export interface RequestMessage {

@@ -371,7 +371,8 @@ export function UploadEvidence() {
           frameworkId: f.frameworkId || currentFrameworkId || 'ia',
           parentId: currentFolder ? currentFolder.id : f.parentId,
           campusId: f.campusId || targetCampusId,
-          campus: f.campus || targetCampusName
+          campus: f.campus || targetCampusName,
+          libraryOnly: true
         };
     saveFolder(folderToSave);
     toast.success(editingFolder ? `Updated folder: ${f.name}` : `Created folder: ${f.name}`);
@@ -472,7 +473,8 @@ export function UploadEvidence() {
               hasNoDeadline: true,
               parentId: currentFolder.id,
               campusId: selectedCampus !== 'all' ? selectedCampus : 'tandag',
-              campus: selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)'
+              campus: selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)',
+              libraryOnly: true
             };
             saveFolder(newFolder);
             targetFolderId = newSubId;
@@ -525,7 +527,8 @@ export function UploadEvidence() {
           uploadedBy: currentUser.name,
           confidentiality: 'Internal',
           keywords: [item.name.toLowerCase().replace(/\.[^.]+$/, ''), currentFolder.code.toLowerCase()],
-          passages: [`Stored in ${targetFolderName} for ${currentFolder.code} compliance.`]
+          passages: [`Stored in ${targetFolderName} for ${currentFolder.code} compliance.`],
+          libraryOnly: true
         };
 
         const remote = await uploadDocumentRemote(file, {
@@ -556,6 +559,7 @@ export function UploadEvidence() {
               ...remote,
               folderId: targetFolderId,
               approvalStatus: uploadDefaults.status,
+              libraryOnly: true,
               passages: remote.passages?.length ? remote.passages : baseDoc.passages
             }
           : baseDoc;

@@ -37,9 +37,13 @@ import { pluralize } from '../../utils/format';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
 import { downloadStoredFile, persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
-import { applyNamingPattern, filterAllowedUploads } from '../../utils/uploadRules';
-import type { PendingUpload } from '../../utils/dropFiles';
+import { applyNamingPattern } from '../../utils/uploadRules';
+import { isUploadLibraryItem, libraryRootFolderId } from '../../data/folders';
+import { isIsoClauseFolder } from '../../utils/samplePurge';
+import { filesFromDirectoryHandle, type PendingUpload } from '../../utils/dropFiles';
+import { pickLocalFolders } from '../../utils/localFolderPick';
 import { UploadDropzone } from '../upload/UploadDropzone';
+import { FolderMultiPicker } from '../upload/FolderMultiPicker';
 import { StagedFileList } from '../upload/StagedFileList';
 import { FileList, FileRow, FileRowAction, FileStatusPill } from '../upload/FileRow';
 import { formatSize } from '../upload/fileTypeStyle';
@@ -139,6 +143,12 @@ export function IAFolderManager({
   const framework = frameworkProp ?? iaFolderFramework(settings.accreditation.iaAreas);
   const OFFICIAL_IA_AREAS = framework.areas;
   const FIRST_AREA_CODE = OFFICIAL_IA_AREAS[0]?.code ?? '';
+  const fallbackArea: IAAreaTemplate = OFFICIAL_IA_AREAS[0] ?? {
+    code: framework.label,
+    number: 0,
+    name: framework.fullName,
+    shortDesc: framework.description || framework.fullName
+  };
   const ROOT_FOLDER_ID = 'folder-' + framework.id;
   const areaLabel = (area: IAAreaTemplate) =>
     framework.formatAreaLabel ? framework.formatAreaLabel(area) : framework.areaNoun + ' ' + area.number;
@@ -238,6 +248,14 @@ export function IAFolderManager({
   const [selectedTargetFolder, setSelectedTargetFolder] = useState<string>('');
   const [uploadedFileList, setUploadedFileList] = useState<Array<{ name: string; size: number; path?: string; file?: File }>>([]);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
+  const [folderPicker, setFolderPicker] = useState<{
+    parentName: string;
+    folders: { name: string; handle: FileSystemDirectoryHandle }[];
+    looseFiles: File[];
+  } | null>(null);
+  const [pickedFolderNames, setPickedFolderNames] = useState<string[]>([]);
+  const [includeLooseFiles, setIncludeLooseFiles] = useState(false);
+  const [readingFolders, setReadingFolders] = useState(false);
 
   // States for Top Upload Button (beside search bar)
   const [isTopUploadSource, setIsTopUploadSource] = useState(false);
@@ -256,6 +274,7 @@ export function IAFolderManager({
   // Each campus (Tandag, Cantilan, San Miguel, etc.) has its own isolated folders for Areas 1–9.
   const iaFolders = useMemo(() => {
     return folders.filter((f) => {
+      if (isUploadLibraryItem(f)) return false;
       if (f.frameworkId === 'pa' || f.frameworkId === 'copc' || isCertificateArea(f.areaId)) return false;
       if (!folderBelongsToFramework(f, framework.id)) return false;
 
@@ -279,6 +298,7 @@ export function IAFolderManager({
   // Documents mapped strictly to this campus and framework
   const campusIADocs = useMemo(() => {
     return documents.filter((d) => {
+      if (isUploadLibraryItem(d)) return false;
       if (d.frameworkId !== framework.id || isCertificateArea(d.areaId)) return false;
 
       // Match document strictly by campus:
@@ -322,7 +342,7 @@ export function IAFolderManager({
 
   // Destination helpers for the Top Upload Button beside search bar:
   const topUploadTargetAreaObj = useMemo(() => {
-    return OFFICIAL_IA_AREAS.find((a) => a.code === topUploadTargetAreaCode) || OFFICIAL_IA_AREAS[0];
+    return OFFICIAL_IA_AREAS.find((a) => a.code === topUploadTargetAreaCode) || fallbackArea;
   }, [topUploadTargetAreaCode, OFFICIAL_IA_AREAS]);
 
   const foldersInTopUploadArea = useMemo(() => {
@@ -651,29 +671,87 @@ export function IAFolderManager({
     );
   }, [searchQuery, namedAreas, areaLayoutEditable, isoLayout.hiddenAreas, campusId]);
 
-  // Root Folders created outside the clauses for ISO
+  // Folders the ISO page can open. Clause and Quality Manual folders stay out.
+  // A folder is shown at the top when its parent is the library root, missing, or hidden.
   const rootIsoFolders = useMemo(() => {
     if (framework.id !== 'iso') return [];
     const hiddenFolders = new Set(isoLayout.hiddenFolders);
-    let list = iaFolders.filter(
-      (f) => !f.parentId && !f.areaId && !hiddenFolders.has(isoLayoutKey(campusId, f.id))
-    );
+    const visibleIds = new Set(iaFolders.map((folder) => folder.id));
+    const isHidden = (id: string) => hiddenFolders.has(isoLayoutKey(campusId, id));
+    let list = iaFolders.filter((folder) => {
+      if (folder.id === ROOT_FOLDER_ID || isIsoClauseFolder(folder) || isHidden(folder.id)) return false;
+      const parentId = folder.parentId;
+      if (!parentId || parentId === ROOT_FOLDER_ID) return true;
+      return !visibleIds.has(parentId) || isHidden(parentId) || isIsoClauseFolder({ id: parentId, frameworkId: 'iso' });
+    });
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
-        (f) =>
-          f.name.toLowerCase().includes(q) ||
-          f.code.toLowerCase().includes(q) ||
-          (f.description && f.description.toLowerCase().includes(q))
+        (folder) =>
+          folder.name.toLowerCase().includes(q) ||
+          folder.code.toLowerCase().includes(q) ||
+          (folder.description && folder.description.toLowerCase().includes(q))
       );
     }
-    return list;
-  }, [iaFolders, framework.id, searchQuery, isoLayout.hiddenFolders, campusId]);
+    return [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }, [iaFolders, framework.id, searchQuery, isoLayout.hiddenFolders, campusId, ROOT_FOLDER_ID]);
+
+  const isoFolderFileCount = useCallback((folderId: string) => {
+    const ids = new Set<string>([folderId]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      iaFolders.forEach((folder) => {
+        if (folder.parentId && ids.has(folder.parentId) && !ids.has(folder.id)) {
+          ids.add(folder.id);
+          grew = true;
+        }
+      });
+    }
+    return campusIADocs.filter((doc) => {
+      if (!doc.folderId || !ids.has(doc.folderId)) return false;
+      if (isoStageFilter === 'All') return true;
+      const stage = doc.isoStage === 'For Surveillance' ? '1st Surveillance' : doc.isoStage;
+      return stage === isoStageFilter;
+    }).length;
+  }, [iaFolders, campusIADocs, isoStageFilter]);
+
+  // Files that are not inside one of the folders shown above.
+  const visibleRootIsoFolders = useMemo(() => {
+    if (framework.id !== 'iso' || isoStageFilter === 'All') return rootIsoFolders;
+    return rootIsoFolders.filter((folder) => isoFolderFileCount(folder.id) > 0);
+  }, [framework.id, isoStageFilter, rootIsoFolders, isoFolderFileCount]);
+
+  const isoHomeFiles = useMemo(() => {
+    if (framework.id !== 'iso') return [];
+    const covered = new Set<string>();
+    const addTree = (id: string) => {
+      if (covered.has(id)) return;
+      covered.add(id);
+      iaFolders.forEach((folder) => {
+        if (folder.parentId === id) addTree(folder.id);
+      });
+    };
+    visibleRootIsoFolders.forEach((folder) => addTree(folder.id));
+    const query = searchQuery.trim().toLowerCase();
+    return campusIADocs.filter((doc) => {
+      if (isoStageFilter !== 'All') {
+        const stage = doc.isoStage === 'For Surveillance' ? '1st Surveillance' : doc.isoStage;
+        if (stage !== isoStageFilter) return false;
+      }
+      if (doc.folderId && covered.has(doc.folderId)) return false;
+      if (!query) return true;
+      return `${doc.title} ${doc.fileType} ${doc.docType}`.toLowerCase().includes(query);
+    });
+  }, [framework.id, iaFolders, visibleRootIsoFolders, campusIADocs, isoStageFilter, searchQuery]);
 
   // Inside-Folder Subfolders (sorted A to Z)
   const insideSubfolders = useMemo(() => {
     if (!activeFolderId) return [];
     let list = iaFolders.filter((f) => f.parentId === activeFolderId);
+    if (framework.id === 'iso' && isoStageFilter !== 'All') {
+      list = list.filter((folder) => isoFolderFileCount(folder.id) > 0);
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -687,7 +765,7 @@ export function IAFolderManager({
       const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
       return sortDirection === 'asc' ? cmp : -cmp;
     });
-  }, [iaFolders, activeFolderId, searchQuery, sortDirection]);
+  }, [iaFolders, activeFolderId, searchQuery, sortDirection, framework.id, isoStageFilter, isoFolderFileCount]);
 
   // Reset approval filter when active folder changes
   useEffect(() => {
@@ -824,7 +902,7 @@ export function IAFolderManager({
     targetParentFolderId?: string
   ) => {
     if (!canMutate) return;
-    const targetAreaObj = OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaCode) || OFFICIAL_IA_AREAS[0];
+    const targetAreaObj = OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaCode) || fallbackArea;
     const targetAreaId = targetAreaCode.toLowerCase();
 
     // Collect all descendant folder IDs (custom folder + all nested subfolders)
@@ -895,9 +973,116 @@ export function IAFolderManager({
       path: path !== file.name ? path : undefined,
         file
     }));
-    const allowed = filterAllowedUploads(list, (f) => f);
-    if (allowed.length === 0) return;
-    setUploadedFileList((prev) => (uploadMode === 'folder' ? allowed : [...prev, ...allowed]));
+    const allowed = list.filter((item) => item.file);
+    if (allowed.length === 0) return 0;
+    setUploadedFileList((prev) => {
+      const merged = [...prev, ...allowed];
+      const seen = new Set<string>();
+      return merged.filter((item) => {
+        const key = `${item.path || item.name}:${item.size}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    });
+    return allowed.length;
+  };
+
+  const clearFolderPicker = () => {
+    setFolderPicker(null);
+    setPickedFolderNames([]);
+    setIncludeLooseFiles(false);
+  };
+
+  const openFolderSelect = () => {
+    void (async () => {
+      const notice = toast.message('Hold Ctrl and click each folder, then click Upload these folders.');
+      try {
+        const picked = await pickLocalFolders();
+        if (picked === 'unsupported') {
+          openDirectoryChecklist();
+          return;
+        }
+        if (picked === 'cancelled') return;
+        if (picked.length === 0) {
+          toast.error('Those folders have no files to upload.');
+          return;
+        }
+        const added = handleStageUploads(picked);
+        if (!added) return;
+        const folderCount = new Set(picked.map((file) => file.path.split('/').filter(Boolean)[0]).filter(Boolean)).size;
+        toast.success(
+          (folderCount || 1) + ' folder' + (folderCount === 1 ? '' : 's') + ' ready (' + added + ' files).'
+        );
+      } catch {
+        toast.error('Could not open the folder window.');
+      } finally {
+        toast.dismiss(notice);
+      }
+    })();
+  };
+
+  const openDirectoryChecklist = () => {
+    if (typeof window.showDirectoryPicker !== 'function') {
+      toast.error('Hold Ctrl, click the folders in File Explorer, and drop them onto the box.');
+      return;
+    }
+    const pending = window.showDirectoryPicker({ mode: 'read', id: 'accrevia-evidence-folders' });
+    void pending
+      .then(async (parent) => {
+        const folders: { name: string; handle: FileSystemDirectoryHandle }[] = [];
+        const looseFiles: File[] = [];
+        for await (const entry of parent.values()) {
+          if (entry.kind === 'directory') folders.push({ name: entry.name, handle: entry });
+          else looseFiles.push(await entry.getFile());
+        }
+        folders.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        if (folders.length === 0) {
+          const uploads = await filesFromDirectoryHandle(parent, parent.name);
+          if (uploads.length) handleStageUploads(uploads);
+          else toast.error('That folder has no files.');
+          clearFolderPicker();
+          return;
+        }
+        setFolderPicker({ parentName: parent.name, folders, looseFiles });
+        setPickedFolderNames(folders.map((folder) => folder.name));
+        setIncludeLooseFiles(looseFiles.length > 0);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        toast.error('Could not open that folder.');
+      });
+  };
+
+  const addSelectedFolders = async () => {
+    if (!folderPicker) return;
+    const chosen = folderPicker.folders.filter((folder) => pickedFolderNames.includes(folder.name));
+    if (chosen.length === 0 && !(includeLooseFiles && folderPicker.looseFiles.length)) {
+      toast.error('Select at least one folder.');
+      return;
+    }
+    setReadingFolders(true);
+    try {
+      const uploads: PendingUpload[] = [];
+      for (const folder of chosen) {
+        uploads.push(...(await filesFromDirectoryHandle(folder.handle, folder.name)));
+      }
+      if (includeLooseFiles) {
+        folderPicker.looseFiles.forEach((file) => {
+          uploads.push({ file, path: `${folderPicker.parentName}/${file.name}` });
+        });
+      }
+      if (uploads.length === 0) {
+        toast.error('Those folders have no files to upload.');
+        return;
+      }
+      handleStageUploads(uploads);
+      clearFolderPicker();
+    } catch {
+      toast.error('Could not read the selected folders.');
+    } finally {
+      setReadingFolders(false);
+    }
   };
 
   // Execute Upload Commit
@@ -936,7 +1121,7 @@ export function IAFolderManager({
         ? topUploadTargetAreaCode
         : (selectedAreaCode || currentActiveFolder?.areaId?.toUpperCase() || FIRST_AREA_CODE);
       const targetAreaId = targetAreaCode.toLowerCase();
-      const targetAreaObj = OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaCode) || OFFICIAL_IA_AREAS[0];
+      const targetAreaObj = OFFICIAL_IA_AREAS.find((a) => a.code === targetAreaCode) || fallbackArea;
 
       let effectiveFolderId = activeFolderId;
       if (isTopUploadSource) {
@@ -951,46 +1136,48 @@ export function IAFolderManager({
 
       let destinationFolderId = effectiveFolderId;
       let targetFolder = iaFolders.find((f) => f.id === effectiveFolderId);
+      const uploadedFolders: EvidenceFolder[] = [];
+      let folderSeq = 0;
+      const libraryRoot = libraryRootFolderId(framework.id);
+      const parentForUploadedFolders = isTopUploadSource
+        ? (topUploadTargetFolderId || libraryRoot)
+        : ((modalTargetFolder?.id || activeFolderId) || libraryRoot);
 
-      // Mode 2: Entire Folder upload from computer
-      if (uploadMode === 'folder' && uploadedFileList[0]?.path) {
-        const rootFolderName = uploadedFileList[0].path.split('/')[0];
-        if (rootFolderName && rootFolderName !== uploadedFileList[0].name) {
-          const effectiveParentId = isTopUploadSource
-            ? (topUploadTargetFolderId || undefined)
-            : ((modalTargetFolder?.id || activeFolderId) || undefined);
-          const effectiveAreaId = targetAreaId;
-
-          const existingSub = iaFolders.find(
-            (f) => f.name === rootFolderName && f.parentId === effectiveParentId && f.areaId === effectiveAreaId
+      const folderIdFor = (segments: string[]): string | undefined => {
+        let parent = parentForUploadedFolders;
+        segments.forEach((name) => {
+          const found = [...iaFolders, ...uploadedFolders].find(
+            (folder) => folder.name === name && (folder.parentId || undefined) === parent && (folder.areaId || '') === targetAreaId
           );
-          if (existingSub) {
-            destinationFolderId = existingSub.id;
-            targetFolder = existingSub;
-          } else {
-            const newSubId = 'folder-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-            const createdSub: EvidenceFolder = {
-              id: newSubId,
-              name: rootFolderName,
-              code: rootFolderName.slice(0, 4).toUpperCase(),
-              frameworkId: framework.id,
-              category: framework.category,
-              description: 'Uploaded directory containing ' + uploadedFileList.length + ' file(s).',
-              color: 'amber',
-              createdAt: new Date().toISOString().slice(0, 10),
-              startDate: new Date().toISOString().slice(0, 10),
-              hasNoDeadline: true,
-              parentId: effectiveParentId,
-              areaId: effectiveAreaId,
-              campusId: campusId,
-              campus: campusName
-            };
-            saveFolder(createdSub);
-            destinationFolderId = newSubId;
-            targetFolder = createdSub;
+          if (found) {
+            parent = found.id;
+            return;
           }
-        }
-      } else if (uploadMode === 'files') {
+          const id = 'folder-' + Date.now() + '-' + folderSeq++ + '-' + Math.random().toString(36).slice(2, 5);
+          const created: EvidenceFolder = {
+            id,
+            name,
+            code: name.slice(0, 4).toUpperCase(),
+            frameworkId: framework.id,
+            category: framework.category,
+            description: 'Uploaded folder.',
+            color: 'amber',
+            createdAt: new Date().toISOString().slice(0, 10),
+            startDate: new Date().toISOString().slice(0, 10),
+            hasNoDeadline: true,
+            parentId: parent,
+            areaId: targetAreaId,
+            campusId: campusId,
+            campus: campusName
+          };
+          uploadedFolders.push(created);
+          saveFolder(created);
+          parent = id;
+        });
+        return parent;
+      };
+
+      if (uploadMode === 'files') {
         // Mode 3: Individual Files upload
         if (isTopUploadSource) {
           if (topUploadTargetFolderId) {
@@ -1055,18 +1242,27 @@ export function IAFolderManager({
       }
 
       const { criterionId, indicatorId } = framework.criterionFor(targetAreaObj);
+      const uploadedFolderNames = new Set(
+        uploadedFileList
+          .map((file) => file.path?.split('/').filter(Boolean)[0])
+          .filter((name): name is string => Boolean(name))
+      );
       uploadedFileList.forEach((file, idx) => {
+        const pathParts = (file.path || '').split('/').filter(Boolean);
+        const directory = pathParts.length > 1 ? pathParts.slice(0, -1) : [];
+        const fileFolderId = uploadMode === 'folder' && directory.length ? folderIdFor(directory) : (destinationFolderId || libraryRootFolderId(framework.id));
+        const fileFolder = [...iaFolders, ...uploadedFolders].find((folder) => folder.id === fileFolderId) || targetFolder;
         const newDoc: EvidenceDocument = {
           id: 'doc-' + framework.id + '-' + Date.now() + '-' + idx,
-          title: applyNamingPattern(file.path ? file.path.split('/')[0] + ': ' + file.name : file.name, {
+          title: applyNamingPattern(file.name, {
             campus: campusName,
             area: areaLabel(targetAreaObj),
             year: uploadSettings.defaultYear
           }),
-          description: 'Uploaded evidence document for ' + framework.fullName + ' (' + (targetFolder?.name || targetAreaObj.name) + ').',
-          keywords: [framework.label + ' Evidence', targetFolder?.name || targetAreaObj.name, campusName],
+          description: 'Uploaded evidence document for ' + framework.fullName + ' (' + (fileFolder?.name || targetAreaObj.name) + ').',
+          keywords: [framework.label + ' Evidence', fileFolder?.name || targetAreaObj.name, campusName],
           frameworkId: framework.id,
-          areaId: targetFolder?.areaId || targetAreaId,
+          areaId: fileFolder?.areaId || targetAreaId,
           criterionId,
           indicatorId,
           docType: file.name.endsWith('.xlsx') ? 'Statistical Report' : 'Report',
@@ -1086,8 +1282,8 @@ export function IAFolderManager({
           pages: Math.max(1, Math.round(file.size / 50000)),
           sizeMb: Math.round((file.size / (1024 * 1024)) * 10) / 10 || 1.2,
           uploadedBy: currentUser.name,
-          passages: ['Institutional evidence registered under ' + (targetFolder?.name || targetAreaObj.name)],
-          folderId: destinationFolderId || undefined,
+          passages: ['Institutional evidence registered under ' + (fileFolder?.name || targetAreaObj.name)],
+          folderId: fileFolderId || undefined,
           approvalStatus: uploadSettings.status,
           isoStage: framework.id === 'iso' ? uploadIsoStage : undefined
         };
@@ -1106,7 +1302,7 @@ export function IAFolderManager({
 
       toast.success(
         uploadMode === 'folder'
-          ? 'Successfully uploaded entire folder into ' + destinationTitle + ' (' + uploadedFileList.length + ' files)!'
+          ? 'Uploaded ' + (uploadedFolderNames.size || 1) + ' folder' + (uploadedFolderNames.size === 1 ? '' : 's') + ' (' + uploadedFileList.length + ' files) into ' + destinationTitle + '.'
           : 'Successfully uploaded ' + uploadedFileList.length + ' document(s) into ' + destinationTitle + '!'
       );
     }, 600);
@@ -1415,7 +1611,7 @@ export function IAFolderManager({
               }`}
             >
                 {OFFICIAL_IA_AREAS.filter((area) => !isoLayout.hiddenAreas.includes(isoLayoutKey(campusId, area.code))).length +
-                  (framework.id === 'iso' ? rootIsoFolders.length : 0)}
+                  (framework.id === 'iso' ? visibleRootIsoFolders.length : 0)}
             </span>
           </button>
 
@@ -1583,18 +1779,18 @@ export function IAFolderManager({
       {activeTab === 'areas' && (
         <div className="p-4 space-y-4">
           {/* LEVEL 1: ALL 9 AREAS GRID (When no area is clicked yet) */}
-          {!selectedAreaCode && (
+          {!selectedAreaCode && !activeFolderId && (
             <div className="space-y-4">
+              {framework.id !== 'iso' && (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
                   {framework.areasHeading}
                 </span>
-                {framework.id !== 'iso' && (
                 <span className="text-[11.5px] text-ink-subtle">
                   {`Open ${framework.areaNoun === 'Area' ? 'an area' : 'a ' + framework.areaNoun.toLowerCase()} to manage its evidence folders, timelines & deadlines`}
                 </span>
-                )}
               </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredAreas.map((area) => {
@@ -1648,8 +1844,8 @@ export function IAFolderManager({
 
                 {/* ISO Root Folders created outside the clause folders */}
                 {framework.id === 'iso' &&
-                  rootIsoFolders.map((folder) => {
-                    const folderDocs = campusIADocs.filter((d) => d.folderId === folder.id);
+                  visibleRootIsoFolders.map((folder) => {
+                    const fileCount = isoFolderFileCount(folder.id);
                     return (
                       <FolderCard
                         key={folder.id}
@@ -1660,8 +1856,8 @@ export function IAFolderManager({
                         title={`Open folder: ${folder.name}`}
                         eyebrow={folder.code || 'ISO Folder'}
                         name={folder.name}
-                        meta={`${pluralize(folderDocs.length, 'file')}`}
-                        status={folderDocs.length > 0 ? { label: 'Active', tone: 'info' } : { label: 'Empty', tone: 'neutral' }}
+                        meta={`${pluralize(fileCount, 'file')}`}
+                        status={fileCount > 0 ? { label: 'Active', tone: 'info' } : { label: 'Empty', tone: 'neutral' }}
                         actions={
                           canMutate ? (
                             <>
@@ -1713,6 +1909,38 @@ export function IAFolderManager({
                   );
                 })}
               </div>
+
+              {framework.id === 'iso' && isoStageFilter !== 'All' && visibleRootIsoFolders.length === 0 && isoHomeFiles.length === 0 && (
+                <p className="rounded-xl border border-dashed border-line bg-white px-4 py-8 text-center text-sm text-ink-muted">
+                  No files in {isoStageFilter}. Files appear here only when they were uploaded to this stage. All shows every file.
+                </p>
+              )}
+
+              {isoHomeFiles.length > 0 && (
+                <FileList>
+                  {isoHomeFiles.map((doc) => (
+                    <FileRow
+                      key={doc.id}
+                      name={doc.title}
+                      fileType={doc.fileType}
+                      onOpen={() => setPreviewDoc(doc)}
+                      meta={fileMeta(doc)}
+                      actions={
+                        <>
+                          <FileRowAction icon={EyeIcon} label={`Preview ${doc.title}`} onClick={() => setPreviewDoc(doc)} />
+                          {canMutate && (
+                            <FileRowAction icon={PencilIcon} label={`Edit ${doc.title}`} onClick={() => handleOpenEditDoc(doc)} />
+                          )}
+                          <FileRowAction icon={DownloadIcon} label={`Download ${doc.title}`} onClick={() => handleDownloadDoc(doc)} />
+                          {canMutate && (
+                            <FileRowAction icon={Trash2Icon} label={`Delete ${doc.title}`} danger onClick={() => handleRemoveDoc(doc)} />
+                          )}
+                        </>
+                      }
+                    />
+                  ))}
+                </FileList>
+              )}
             </div>
           )}
 
@@ -2868,6 +3096,7 @@ export function IAFolderManager({
             setUploadedFileList([]);
             setSelectedCustomFolderToUpload('');
             setTopUploadTargetFolderId('');
+            clearFolderPicker();
           }}
           title={
             isTopUploadSource
@@ -2926,7 +3155,12 @@ export function IAFolderManager({
                 ) : uploadMode === 'folder' ? (
                   <>
                     <FolderArchiveIcon className="h-3.5 w-3.5" />
-                    <span>Upload Entire Folder ({uploadedFileList.length} files)</span>
+                    <span>
+                      {(() => {
+                        const count = new Set(uploadedFileList.map((file) => file.path?.split('/')[0]).filter(Boolean)).size;
+                        return 'Upload ' + (count > 1 ? count + ' Folders' : 'Folder') + ' (' + uploadedFileList.length + ' files)';
+                      })()}
+                    </span>
                   </>
                 ) : (
                   <>
@@ -2939,118 +3173,7 @@ export function IAFolderManager({
           }
         >
           <div className="space-y-4">
-            {/* DESTINATION SELECTOR CARD (WHEN OPENED FROM TOP UPLOAD BUTTON) */}
-            {isTopUploadSource ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4 space-y-3 shadow-2xs">
-                {/* Header: Location icon + Title + Campus Pill */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-100 text-brand-700">
-                      <FolderOpenIcon className="h-3.5 w-3.5" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-slate-800">Target Location</span>
-                      <span className="hidden sm:inline text-[11px] text-slate-400 font-normal ml-1.5">
-                        Choose destination area and folder
-                      </span>
-                    </div>
-                  </div>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 bg-white border border-slate-200 shadow-2xs px-2.5 py-0.5 rounded-full">
-                    <Building2Icon className="h-3 w-3 text-brand-600" />
-                    <span>{campusName}</span>
-                  </span>
-                </div>
-
-                {/* Grid for Area and Folder Dropdowns */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Target Area */}
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                      {framework.label} {framework.areaNoun}
-                    </label>
-                    <select
-                      value={topUploadTargetAreaCode}
-                      onChange={(e) => {
-                        const nextArea = e.target.value;
-                        setTopUploadTargetAreaCode(nextArea);
-                        const foldersInNext = iaFolders.filter(
-                          (f) => (f.areaId || '').toLowerCase() === nextArea.toLowerCase()
-                        );
-                        setTopUploadTargetFolderId(foldersInNext.length > 0 ? foldersInNext[0].id : '');
-                      }}
-                      className="input select select-sm h-9 w-full text-xs font-medium hover:border-brand-300"
-                    >
-                      {OFFICIAL_IA_AREAS.map((a) => {
-                        const count = iaFolders.filter((f) => (f.areaId || '').toLowerCase() === a.code.toLowerCase()).length;
-                        return (
-                          <option key={a.code} value={a.code}>
-                            {areaLabel(a)}: {a.name} ({count} {count === 1 ? 'folder' : 'folders'})
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-
-                  {/* Target Folder */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        Folder in {areaLabel(topUploadTargetAreaObj)}
-                      </label>
-                      <span className="text-[10px] text-slate-400 font-normal">Optional hierarchy</span>
-                    </div>
-                    <select
-                      value={topUploadTargetFolderId}
-                      onChange={(e) => setTopUploadTargetFolderId(e.target.value)}
-                      className="input select select-sm h-9 w-full text-xs font-medium hover:border-brand-300"
-                    >
-                      <option value="">
-                        {foldersInTopUploadArea.length === 0
-                          ? framework.areaNoun + ' Root (Default Portfolio)'
-                          : framework.areaNoun + ' Root (Directly in ' + framework.areaNoun + ')'}
-                      </option>
-                      {foldersInTopUploadArea.map((f) => {
-                        const parent = f.parentId ? iaFolders.find((p) => p.id === f.parentId) : null;
-                        const docCount = getFolderDocCount(f);
-                        return (
-                          <option key={f.id} value={f.id}>
-                            {parent ? '  ↳ 📁 ' + f.name + ' (in ' + parent.name + ')' : '📁 ' + f.name} ({docCount} {docCount === 1 ? 'file' : 'files'})
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Professional SVG Breadcrumbs Path Preview */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200/70 text-[11px]">
-                  <span className="font-semibold text-slate-500">Destination:</span>
-                  <div className="inline-flex flex-wrap items-center gap-1 bg-white border border-slate-200 rounded-md px-2 py-0.5 shadow-2xs font-medium text-slate-700">
-                    <span className="text-slate-600">{campusName}</span>
-                    <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
-                    <span className="font-semibold text-brand-700">
-                      {areaLabel(topUploadTargetAreaObj)}: {topUploadTargetAreaObj.name}
-                    </span>
-                    {topUploadTargetFolderObj && (
-                      <>
-                        <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
-                        <span className="font-semibold text-slate-800">
-                          {topUploadTargetFolderObj.name}
-                        </span>
-                      </>
-                    )}
-                    <ChevronRightIcon className="h-3 w-3 text-slate-400 shrink-0" />
-                    <span className="text-brand-600 font-semibold bg-brand-50 px-1 py-0.2 rounded text-[10px]">
-                      {uploadMode === 'files'
-                        ? '[Files]'
-                        : uploadMode === 'folder'
-                        ? '[New Folder]'
-                        : '[Custom Folder]'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : modalTargetFolder ? (
+            {modalTargetFolder ? (
               /* CONTEXTUAL DESTINATION PILL (WHEN OPENED FROM INSIDE A FOLDER) */
               <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-800 flex items-center justify-between gap-2 shadow-2xs">
                 <div className="flex items-center gap-2">
@@ -3094,6 +3217,7 @@ export function IAFolderManager({
                 onClick={() => {
                   setUploadMode('files');
                   setUploadedFileList([]);
+                  clearFolderPicker();
                 }}
                 className={'flex items-center justify-center gap-2 py-2 px-3 font-semibold rounded-lg transition-all ' + (
                   uploadMode === 'files'
@@ -3109,6 +3233,7 @@ export function IAFolderManager({
                 onClick={() => {
                   setUploadMode('folder');
                   setUploadedFileList([]);
+                  clearFolderPicker();
                 }}
                 className={'flex items-center justify-center gap-2 py-2 px-3 font-semibold rounded-lg transition-all ' + (
                   uploadMode === 'folder'
@@ -3182,18 +3307,42 @@ export function IAFolderManager({
                   </div>
                 )}
 
-                <UploadDropzone
-                  key={uploadMode}
-                  onFiles={handleStageUploads}
-                  selectFolder={uploadMode === 'folder'}
-                  allowFolders
-                  title={uploadMode === 'folder' ? 'Drag a folder here' : 'Drag & drop files here'}
-                  hint={
-                    uploadMode === 'folder'
-                      ? 'Keeps the folder structure and indexes every document inside it.'
-                      : undefined
-                  }
-                />
+                {uploadMode === 'folder' && folderPicker ? (
+                  <FolderMultiPicker
+                    parentName={folderPicker.parentName}
+                    folders={folderPicker.folders.map((folder) => folder.name)}
+                    selected={pickedFolderNames}
+                    looseFileCount={folderPicker.looseFiles.length}
+                    includeLoose={includeLooseFiles}
+                    busy={readingFolders}
+                    onToggle={(name) =>
+                      setPickedFolderNames((current) =>
+                        current.includes(name) ? current.filter((item) => item !== name) : [...current, name]
+                      )
+                    }
+                    onSelectedChange={setPickedFolderNames}
+                    onIncludeLoose={setIncludeLooseFiles}
+                    onChooseDifferent={() => void openFolderSelect()}
+                    onCancel={clearFolderPicker}
+                    onAdd={() => void addSelectedFolders()}
+                  />
+                ) : (
+                  <UploadDropzone
+                    key={uploadMode}
+                    onFiles={handleStageUploads}
+                    accept="*/*"
+                    selectFolder={uploadMode === 'folder'}
+                    allowFolders
+                    onBrowse={uploadMode === 'folder' ? openFolderSelect : undefined}
+                    title={uploadMode === 'folder' ? 'Drag folders here' : 'Drag & drop files here'}
+                    browseLabel={uploadMode === 'folder' ? (uploadedFileList.length ? 'Select more folders' : 'Select folders') : undefined}
+                    hint={
+                      uploadMode === 'folder'
+                        ? 'Hold Ctrl and click every folder, then press Upload these folders. You can also drop several folders onto this box.'
+                        : undefined
+                    }
+                  />
+                )}
 
                 <StagedFileList
                   items={uploadedFileList}

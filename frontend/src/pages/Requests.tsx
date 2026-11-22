@@ -9,6 +9,7 @@ import { RequestThread } from '../components/requests/RequestThread';
 import { ComposeRequestModal } from '../components/requests/ComposeRequestModal';
 import { RequestCategory } from '../types/request';
 import { isUnreadFor, lastMessage } from '../utils/requests';
+import { seesOfficeQueue } from '../utils/sharing';
 
 export interface RequestsProps {
   /** Base path for list/detail navigation (Faculty/Staff portal uses `/open/requests`). */
@@ -20,8 +21,8 @@ export interface RequestsProps {
 export function Requests({ basePath = '/requests', forceUserScope = false }: RequestsProps = {}) {
   const { requestId } = useParams<{ requestId?: string }>();
   const navigate = useNavigate();
-  const { documentRequests, currentUser, isAdmin, markDocumentRequestRead } = usePortal();
-  const asAdmin = forceUserScope ? false : isAdmin;
+  const { documentRequests, currentUser, markDocumentRequestRead } = usePortal();
+  const asAdmin = forceUserScope ? false : seesOfficeQueue(currentUser.role);
   const folders = asAdmin ? adminFolders : userFolders;
 
   const [folder, setFolder] = useState<RequestFolderId>(folders[0].id);

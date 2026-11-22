@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangleIcon,
@@ -13,33 +13,35 @@ import { usePortal } from '../contexts/PortalContext';
 import { useLookup } from '../hooks/useLookup';
 import { useAccess } from '../hooks/useAccess';
 import { parseIntent, SearchResult } from '../utils/search';
-import { uniqueValues } from '../utils/format';
-import { documentTypes, searchSuggestions } from '../data/options';
+import { academicYears, searchSuggestions } from '../data/options';
+import { documentTypeSearchOptions, programSearchOptions } from '../data/searchParameters';
+import { usePortalSettings } from '../settings/portalSettings';
 import { SelectField } from '../components/ui/SelectField';
 import { SearchResultCard } from '../components/search/SearchResultCard';
 import { DocumentPreviewModal } from '../components/documents/DocumentPreviewModal';
 import { EmptyState } from '../components/ui/EmptyState';
 import { GlobalSearch } from '../components/layout/GlobalSearch';
 import { searchVerifiedCatalog } from '../services/repository/verifiedCatalogSearch';
-import { searchEvidenceAsync } from '../services/search/evidenceSearchClient';
+import { searchEvidenceAsync, searchParameterParams, SearchParameter } from '../services/search/evidenceSearchClient';
 
-type FilterKey = 'frameworkId' | 'areaId' | 'criterionId' | 'indicatorId' | 'docType' | 'program' | 'academicYear';
-type Filters = Record<FilterKey, string>;
+type Filters = Record<SearchParameter, string>;
 type SortKey = 'relevance' | 'newest' | 'oldest' | 'name';
 
 const PAGE_SIZE = 10;
 
-/** URL parameter for each filter, so results survive opening a document and coming back. */
-const filterParams: Record<FilterKey, string> = {
-  frameworkId: 'framework',
-  areaId: 'area',
-  criterionId: 'criterion',
-  indicatorId: 'indicator',
-  docType: 'type',
-  program: 'program',
-  academicYear: 'year'
-};
-const filterKeys = Object.keys(filterParams) as FilterKey[];
+/** Retired accreditation query keys. Search now keeps only the three parameters below. */
+const retiredSearchParams = ['framework', 'area', 'criterion', 'indicator'];
+
+const searchParameterFields: {
+  key: SearchParameter;
+  label: string;
+  placeholder: string;
+  width: string;
+}[] = [
+  { key: 'docType', label: 'Document type', placeholder: 'All types', width: 'sm:w-52' },
+  { key: 'program', label: 'Program', placeholder: 'All programs', width: 'sm:w-80' },
+  { key: 'academicYear', label: 'Academic year', placeholder: 'All years', width: 'sm:w-40' }
+];
 
 const sortOptions: { value: SortKey; label: string }[] = [
   { value: 'relevance', label: 'Sort: Relevance' },
@@ -50,13 +52,24 @@ const sortOptions: { value: SortKey; label: string }[] = [
 
 const activeFilterClass =
   '[&_select]:border-brand-300 [&_select]:bg-brand-50/60 [&_select]:font-medium [&_select]:text-brand-800';
-const disabledFilterClass =
-  '[&_select:disabled]:cursor-not-allowed [&_select:disabled]:border-dashed [&_select:disabled]:opacity-70';
+
+function acceptedParameter(options: readonly string[], raw: string) {
+  return options.includes(raw) ? raw : '';
+}
 
 export function SearchResults() {
   const [params, setParams] = useSearchParams();
   const query = params.get('q') ?? '';
-  const { frameworks, areas, criteria, indicators, addRecentSearch, isAdmin } = usePortal();
+  const { addRecentSearch, isAdmin } = usePortal();
+  const configuredYears = usePortalSettings().accreditation.academicYears;
+  const searchParameters = useMemo(() => {
+    const optionSets: Record<SearchParameter, readonly string[]> = {
+      docType: documentTypeSearchOptions,
+      program: programSearchOptions,
+      academicYear: configuredYears.length > 0 ? configuredYears : academicYears
+    };
+    return searchParameterFields.map((field) => ({ ...field, options: optionSets[field.key] }));
+  }, [configuredYears]);
   const { accessibleDocuments: documents } = useAccess();
   const lookup = useLookup();
   const [loading, setLoading] = useState(true);
@@ -67,30 +80,12 @@ export function SearchResults() {
   const [preview, setPreview] = useState<SearchResult | null>(null);
   const listTopRef = useRef<HTMLDivElement>(null);
 
-  const indexedDocs = useMemo(() => documents.filter((d) => d.status === 'Indexed'), [documents]);
-
-  const areasFor = (frameworkId: string) =>
-    frameworkId
-      ? areas.filter(
-          (a) =>
-            criteria.some((c) => c.frameworkId === frameworkId && c.areaId === a.id) ||
-            indexedDocs.some((d) => d.frameworkId === frameworkId && d.areaId === a.id)
-        )
-      : areas;
-  const criteriaFor = (frameworkId: string, areaId: string) =>
-    criteria.filter((c) => (!frameworkId || c.frameworkId === frameworkId) && (!areaId || c.areaId === areaId));
-
-  /** Clears child selections that no longer fit their parent (framework → area → criterion → indicator). */
-  const normalize = (f: Filters): Filters => {
-    const next = { ...f };
-    if (next.areaId && !areasFor(next.frameworkId).some((a) => a.id === next.areaId)) next.areaId = '';
-    if (next.criterionId && !criteriaFor(next.frameworkId, next.areaId).some((c) => c.id === next.criterionId)) next.criterionId = '';
-    if (next.indicatorId && !indicators.some((i) => i.id === next.indicatorId && i.criterionId === next.criterionId)) next.indicatorId = '';
-    return next;
-  };
-
-  const rawFilters = Object.fromEntries(filterKeys.map((k) => [k, params.get(filterParams[k]) ?? ''])) as Filters;
-  const filters = normalize(rawFilters);
+  const filters = Object.fromEntries(
+    searchParameters.map((parameter) => [
+      parameter.key,
+      acceptedParameter(parameter.options, params.get(searchParameterParams[parameter.key]) ?? '')
+    ])
+  ) as Filters;
   const sort = (sortOptions.some((o) => o.value === params.get('sort')) ? params.get('sort') : 'relevance') as SortKey;
   const requestedPage = Math.max(1, Number(params.get('page')) || 1);
 
@@ -104,11 +99,40 @@ export function SearchResults() {
       { replace: true }
     );
 
-  const setFilter = (key: FilterKey, value: string) => {
-    const next = normalize({ ...filters, [key]: value });
-    updateParams({ ...Object.fromEntries(filterKeys.map((k) => [filterParams[k], next[k]])), page: '' });
+  const setFilter = (key: SearchParameter, value: string) => {
+    const parameter = searchParameters.find((item) => item.key === key);
+    updateParams({
+      [searchParameterParams[key]]: parameter ? acceptedParameter(parameter.options, value) : '',
+      page: ''
+    });
   };
-  const clearFilters = () => updateParams({ ...Object.fromEntries(filterKeys.map((k) => [filterParams[k], ''])), page: '' });
+  const clearFilters = () =>
+    updateParams({
+      ...Object.fromEntries(searchParameters.map((parameter) => [searchParameterParams[parameter.key], ''])),
+      ...Object.fromEntries(retiredSearchParams.map((key) => [key, ''])),
+      page: ''
+    });
+
+  useEffect(() => {
+    const stale = [
+      ...retiredSearchParams.filter((key) => params.has(key)),
+      ...searchParameters
+        .filter((parameter) => {
+          const raw = params.get(searchParameterParams[parameter.key]);
+          return Boolean(raw) && !parameter.options.includes(raw as string);
+        })
+        .map((parameter) => searchParameterParams[parameter.key])
+    ];
+    if (stale.length === 0) return;
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        stale.forEach((key) => next.delete(key));
+        return next;
+      },
+      { replace: true }
+    );
+  }, [params, setParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,11 +140,9 @@ export function SearchResults() {
     (async () => {
       try {
         const { results: next } = await searchEvidenceAsync(query, documents, lookup, {
-          frameworkId: filters.frameworkId || undefined,
-          areaId: filters.areaId || undefined,
-          criterionId: filters.criterionId || undefined,
-          indicatorId: filters.indicatorId || undefined,
-          program: filters.program || undefined
+          docType: filters.docType || undefined,
+          program: filters.program || undefined,
+          academicYear: filters.academicYear || undefined
         });
         if (!cancelled) {
           setResults(next);
@@ -139,36 +161,33 @@ export function SearchResults() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, documents, lookup, attempt, filters.frameworkId, filters.areaId, filters.criterionId, filters.indicatorId, filters.program]);
+  }, [query, documents, lookup, attempt, filters.docType, filters.program, filters.academicYear]);
 
   const verifiedHits = useMemo(
     () => (query.trim().length > 1 ? searchVerifiedCatalog({ q: query.trim() }).slice(0, 8) : []),
     [query]
   );
 
-  const filterSignature = filterKeys.map((k) => filters[k]).join('|');
-  const filtered = useMemo(() => {
-    const list = results.filter(({ doc }) => filterKeys.every((k) => !filters[k] || doc[k] === filters[k]));
+  const sorted = useMemo(() => {
     const byDate = (a: SearchResult, b: SearchResult) =>
       (a.doc.documentDate || a.doc.dateAdded || '').localeCompare(b.doc.documentDate || b.doc.dateAdded || '');
-    if (sort === 'newest') return [...list].sort((a, b) => byDate(b, a));
-    if (sort === 'oldest') return [...list].sort(byDate);
-    if (sort === 'name') return [...list].sort((a, b) => a.doc.title.localeCompare(b.doc.title));
-    return list;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results, sort, filterSignature]);
+    if (sort === 'newest') return [...results].sort((a, b) => byDate(b, a));
+    if (sort === 'oldest') return [...results].sort(byDate);
+    if (sort === 'name') return [...results].sort((a, b) => a.doc.title.localeCompare(b.doc.title));
+    return results;
+  }, [results, sort]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const page = Math.min(requestedPage, pageCount);
   const pageStart = (page - 1) * PAGE_SIZE;
-  const pageResults = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageResults = sorted.slice(pageStart, pageStart + PAGE_SIZE);
 
   const goToPage = (next: number) => {
     updateParams({ page: next > 1 ? String(next) : '' });
     listTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const activeCount = filterKeys.filter((k) => filters[k]).length;
+  const activeCount = searchParameters.filter((parameter) => filters[parameter.key]).length;
   const intent = useMemo(() => parseIntent(query), [query]);
   const interpretation = [
     intent.frameworkId && lookup.framework(intent.frameworkId)?.name,
@@ -181,27 +200,9 @@ export function SearchResults() {
     setParams({ q });
   };
 
-  const availableAreas = areasFor(filters.frameworkId);
-  const availableCriteria = criteriaFor(filters.frameworkId, filters.areaId);
-  const availableIndicators = indicators.filter((i) => i.criterionId === filters.criterionId);
-  const presentTypes = new Set(indexedDocs.map((d) => d.docType));
-  const typeOptions = documentTypes.filter((t) => presentTypes.has(t) || t === filters.docType);
-  const programOptions = uniqueValues(indexedDocs, (d) => d.program);
-  const yearOptions = uniqueValues(indexedDocs, (d) => d.academicYear).reverse();
-
-  const filterProps = (key: FilterKey, label: string, width: string) => ({
-    label,
-    compact: true,
-    value: filters[key],
-    onChange: (v: string) => setFilter(key, v),
-    labelClassName: 'mb-1 block text-[11px] font-medium text-ink-muted',
-    className: `min-w-0 ${width} ${disabledFilterClass} ${filters[key] ? activeFilterClass : ''}`
-  });
-
   const filterRowClass = 'grid gap-2 md:grid-cols-[9rem_minmax(0,1fr)] md:items-center md:gap-4';
   const filterGroupLabelClass = 'whitespace-nowrap text-[10.5px] font-semibold uppercase leading-4 tracking-wider text-ink-subtle md:pt-5';
   const filterFieldsClass = 'grid grid-cols-2 gap-x-3 gap-y-2.5 sm:flex sm:flex-wrap sm:gap-3';
-  const filterPairClass = 'contents sm:flex sm:gap-3';
 
   const searchHeader = (
     <section aria-labelledby="search-heading" className="mb-5 max-w-3xl">
@@ -285,29 +286,24 @@ export function SearchResults() {
           {activeCount > 0 && ` (${activeCount})`}
         </button>
         <div id="search-filters" className={`${showFilters ? 'flex' : 'hidden'} mt-3 flex-col gap-3 sm:mt-0 sm:flex`}>
-          <div role="group" aria-labelledby="filters-accreditation" className={filterRowClass}>
-            <p id="filters-accreditation" className={filterGroupLabelClass}>
-              Accreditation filters
+          <div role="group" aria-labelledby="filters-search" className={filterRowClass}>
+            <p id="filters-search" className={filterGroupLabelClass}>
+              Search parameters
             </p>
             <div className={filterFieldsClass}>
-              <div className={filterPairClass}>
-                <SelectField {...filterProps('frameworkId', 'Framework', 'sm:w-40')} placeholder="All frameworks" options={frameworks.map((f) => ({ value: f.id, label: f.shortName === 'ISO' ? 'ISO' : f.name }))} />
-                <SelectField {...filterProps('areaId', 'Area', 'sm:w-40')} placeholder={availableAreas.length ? 'All areas' : 'None available'} disabled={availableAreas.length === 0} options={availableAreas.map((a) => ({ value: a.id, label: a.name }))} />
-              </div>
-              <div className={filterPairClass}>
-                <SelectField {...filterProps('criterionId', 'Criterion', 'sm:w-40')} placeholder={availableCriteria.length ? 'All criteria' : 'None available'} disabled={availableCriteria.length === 0} options={availableCriteria.map((c) => ({ value: c.id, label: `${c.code} – ${c.name}` }))} />
-                <SelectField {...filterProps('indicatorId', 'Indicator', 'sm:w-40')} placeholder={!filters.criterionId ? 'Select a criterion' : availableIndicators.length ? 'All indicators' : 'None available'} disabled={!filters.criterionId || availableIndicators.length === 0} options={availableIndicators.map((i) => ({ value: i.id, label: `${i.code} ${i.name}` }))} />
-              </div>
-            </div>
-          </div>
-          <div role="group" aria-labelledby="filters-additional" className={`${filterRowClass} border-t border-slate-200/70 pt-3`}>
-            <p id="filters-additional" className={filterGroupLabelClass}>
-              Additional filters
-            </p>
-            <div className={filterFieldsClass}>
-              <SelectField {...filterProps('docType', 'Document type', 'sm:w-48')} placeholder={typeOptions.length ? 'All types' : 'None available'} disabled={typeOptions.length === 0} options={typeOptions} />
-              <SelectField {...filterProps('program', 'Program', 'sm:w-44')} placeholder={programOptions.length ? 'All programs' : 'None available'} disabled={programOptions.length === 0} options={programOptions} />
-              <SelectField {...filterProps('academicYear', 'Year', 'sm:w-36')} placeholder={yearOptions.length ? 'All years' : 'None available'} disabled={yearOptions.length === 0} options={yearOptions} />
+              {searchParameters.map((parameter) => (
+                <SelectField
+                  key={parameter.key}
+                  label={parameter.label}
+                  compact
+                  value={filters[parameter.key]}
+                  onChange={(value) => setFilter(parameter.key, value)}
+                  placeholder={parameter.placeholder}
+                  options={parameter.options}
+                  labelClassName="mb-1 block text-[11px] font-medium text-ink-muted"
+                  className={`min-w-0 ${parameter.width} ${filters[parameter.key] ? activeFilterClass : ''}`}
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -365,8 +361,7 @@ export function SearchResults() {
               'Search unavailable'
             ) : (
               <>
-                <span className="font-semibold">{filtered.length}</span> evidence document{filtered.length === 1 ? '' : 's'} found
-                {activeCount > 0 && <span className="text-ink-muted"> · {results.length} before filters</span>}
+                <span className="font-semibold">{sorted.length}</span> evidence document{sorted.length === 1 ? '' : 's'} found
                 {pageCount > 1 && (
                   <span className="text-ink-muted">
                     {' '}· showing {pageStart + 1}–{pageStart + pageResults.length}
@@ -419,14 +414,14 @@ export function SearchResults() {
             }
           />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="panel">
           <EmptyState
             icon={SearchXIcon}
             title="No Results Found"
             description={
-              results.length
-                ? 'No documents match your search with the current filters. Remove one or more filters to see more results.'
+              activeCount > 0
+                ? 'No documents match your search with the current parameters. Clear one or more to see more results.'
                 : 'No documents match your search. Try different or broader keywords, describe the evidence in your own words, or search by criterion number.'
             }
             action={

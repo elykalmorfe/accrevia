@@ -18,13 +18,9 @@ class SearchView(APIView):
         filters = {
             k: data[k]
             for k in (
-                "frameworkId",
-                "areaId",
-                "criterionId",
-                "indicatorId",
-                "campusId",
+                "docType",
                 "program",
-                "confidentiality",
+                "academicYear",
             )
             if data.get(k)
         }

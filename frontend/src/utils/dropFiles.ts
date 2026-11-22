@@ -48,3 +48,18 @@ export async function filesFromDrop(event: DragEvent, allowFolders: boolean): Pr
 export function filesFromInput(list: FileList | null): PendingUpload[] {
   return Array.from(list ?? []).map((file) => ({ file, path: file.webkitRelativePath || file.name }));
 }
+
+/** Every file inside a directory, with paths kept from `prefix` (the folder name). */
+export async function filesFromDirectoryHandle(dir: FileSystemDirectoryHandle, prefix = ''): Promise<PendingUpload[]> {
+  const results: PendingUpload[] = [];
+  for await (const entry of dir.values()) {
+    const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.kind === 'file') {
+      const file = await entry.getFile();
+      results.push({ file, path });
+    } else {
+      results.push(...(await filesFromDirectoryHandle(entry, path)));
+    }
+  }
+  return results;
+}

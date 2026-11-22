@@ -66,6 +66,8 @@ interface BoxProps extends CommonProps {
   multiple?: boolean;
   /** Browse opens a folder picker instead of a file picker. */
   selectFolder?: boolean;
+  /** When set, the browse click runs this instead of the file input. Return false to fall back to the input. */
+  onBrowse?: () => void | boolean | Promise<void | boolean>;
   compact?: boolean;
   className?: string;
 }
@@ -108,6 +110,7 @@ function BoxDropzone({
   accept,
   multiple = true,
   selectFolder = false,
+  onBrowse,
   compact = false,
   className = ''
 }: BoxProps) {
@@ -127,7 +130,9 @@ function BoxDropzone({
   }, [selectFolder]);
 
   const browse = () => {
-    if (!disabled) inputRef.current?.click();
+    if (disabled) return;
+    if (onBrowse && onBrowse() !== false) return;
+    inputRef.current?.click();
   };
 
   const Icon = selectFolder ? FolderUpIcon : CloudUploadIcon;

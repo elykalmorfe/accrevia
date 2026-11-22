@@ -6,12 +6,14 @@ import { useDismiss } from '../../hooks/useDismiss';
 import { usePortal } from '../../contexts/PortalContext';
 import { popoverMotion } from '../../utils/motion';
 import { useReminders } from '../../hooks/useReminders';
+import { seesOfficeQueue } from '../../utils/sharing';
 
 export function NotificationsMenu() {
-  const { notifications: allPortalNotifications, dismissNotification: dismissPortalNotification, isAdmin, currentUser } = usePortal();
+  const { notifications: allPortalNotifications, dismissNotification: dismissPortalNotification, currentUser } = usePortal();
   const { reminders, dismissReminder } = useReminders();
+  const office = seesOfficeQueue(currentUser.role);
   const portalNotifications = allPortalNotifications.filter(
-    (n) => !n.audience || (n.audience === 'admins' ? isAdmin : n.audience === currentUser.id)
+    (n) => !n.audience || (n.audience === 'admins' ? office : n.audience === currentUser.id)
   );
   const notifications = [...reminders, ...portalNotifications];
   const dismissNotification = (id: string) => (id.startsWith('rem-') ? dismissReminder(id) : dismissPortalNotification(id));

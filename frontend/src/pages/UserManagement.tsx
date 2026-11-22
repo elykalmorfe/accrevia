@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyRoundIcon,
   PencilIcon,
@@ -15,8 +15,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePortal } from '../contexts/PortalContext';
+import { campuses } from '../data/accreditationData';
 import { userRoles } from '../data/options';
 import { PortalUser, UserStatus } from '../types/user';
+import { SIGNUP_OFFICE_PLACEHOLDER } from '../utils/registrationProfile';
 import { formatDateTime, initials } from '../utils/format';
 import { PageHeader } from '../components/ui/PageHeader';
 import { SelectField } from '../components/ui/SelectField';
@@ -33,6 +35,21 @@ const statusTone: Record<UserStatus, BadgeTone> = {
   Deactivated: 'neutral',
   Rejected: 'danger'
 };
+
+function submittedText(value: string | undefined | null): string {
+  const text = value?.trim() || '';
+  return text || 'Not provided';
+}
+
+function submittedOffice(user: PortalUser): string {
+  const office = user.office?.trim() || '';
+  if (!office || office === SIGNUP_OFFICE_PLACEHOLDER) return 'Not provided';
+  return office;
+}
+
+function submittedCampus(user: PortalUser): string {
+  return campuses.find((campus) => campus.id === user.campusId)?.name || 'Not provided';
+}
 
 export function UserManagement() {
   const { users: list, saveUser, setUserStatus: updateUserStatus, switchUser, currentUser } = usePortal();
@@ -70,6 +87,25 @@ export function UserManagement() {
   const pendingApprovals = useMemo(() => {
     return list.filter((u) => u.status === 'Pending Approval');
   }, [list]);
+
+  const announcedPending = useRef<number | null>(null);
+  useEffect(() => {
+    if (announcedPending.current === null) {
+      announcedPending.current = pendingApprovals.length;
+      return;
+    }
+    if (pendingApprovals.length > announcedPending.current) {
+      const added = pendingApprovals.length - announcedPending.current;
+      toast.message(added === 1 ? 'New registration awaiting approval' : `${added} new registrations awaiting approval`, {
+        description: 'The request is now in Pending Approvals.',
+        action: {
+          label: 'Review',
+          onClick: () => setActiveTab('approvals')
+        }
+      });
+    }
+    announcedPending.current = pendingApprovals.length;
+  }, [pendingApprovals.length]);
 
   const save = (user: PortalUser) => {
     const exists = list.some((u) => u.id === user.id);
@@ -143,8 +179,8 @@ export function UserManagement() {
       approvedAt: new Date().toISOString()
     };
     saveUser(updated);
-    syncAccountApproval(user.email, 'approved');
-    toast.success(`NEMSU Affiliation Verified: ${user.name} is now approved and active`);
+    void syncAccountApproval(user.email, 'approved');
+    toast.success(`${user.name} is approved`);
   };
 
   const handleReject = (user: PortalUser) => {
@@ -487,11 +523,11 @@ export function UserManagement() {
             <div className="relative flex-1">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
               <label htmlFor="approval-search" className="sr-only">Search registration requests</label>
-              <input id="approval-search" type="search" value={approvalSearch} onChange={e => setApprovalSearch(e.target.value)} placeholder="Search name, email, employee ID, or office" className="input pl-9" />
+              <input id="approval-search" type="search" value={approvalSearch} onChange={e => setApprovalSearch(e.target.value)} placeholder="Search name, email, or office" className="input pl-9" />
             </div>
             <label className="flex items-center gap-2 text-xs text-ink-muted">Sort by
               <select className="input w-auto" value={approvalSort} onChange={e => setApprovalSort(e.target.value)}>
-                <option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="name">Name A?Z</option>
+                <option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="name">Name A–Z</option>
               </select>
             </label>
           </div>}
@@ -503,7 +539,7 @@ export function UserManagement() {
               <button type="button" className="btn btn-secondary mt-5" onClick={() => setActiveTab('users')}>View all accounts</button>
             </div>
           ) : (() => {
-            const requests = pendingApprovals.filter(u => `${u.name} ${u.email} ${u.employeeId || ''} ${u.office}`.toLowerCase().includes(approvalSearch.trim().toLowerCase())).sort((a, b) => {
+            const requests = pendingApprovals.filter(u => `${u.name} ${u.email} ${u.office} ${u.personnelClassification || ''} ${submittedCampus(u)}`.toLowerCase().includes(approvalSearch.trim().toLowerCase())).sort((a, b) => {
               if (approvalSort === 'name') return a.name.localeCompare(b.name);
               const difference = (Date.parse(a.registeredAt || '') || 0) - (Date.parse(b.registeredAt || '') || 0);
               return approvalSort === 'newest' ? -difference : difference;
@@ -511,47 +547,139 @@ export function UserManagement() {
             return <>
               <p className="text-xs text-ink-muted" role="status">Showing {requests.length} of {pendingApprovals.length} requests</p>
               {requests.length === 0 ? <div className="panel p-10 text-center"><p className="font-semibold text-ink">No matching requests</p><button type="button" onClick={() => setApprovalSearch('')} className="btn btn-secondary mt-3">Clear search</button></div> :
-                <div className="grid gap-4 xl:grid-cols-2">
-                  {requests.map(u => {
-                    const domainMatches = u.email.trim().toLowerCase().endsWith('@nemsu.edu.ph');
-                    return <article key={u.id} className="panel overflow-hidden">
-                      <div className="flex items-start gap-3 p-5">
-                        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-sm font-bold text-brand-700" aria-hidden="true">{initials(u.name)}</span>
-                        <div className="min-w-0 flex-1"><h3 className="text-sm font-bold text-ink">{u.name}</h3><p className="mt-1 break-all text-xs text-ink-muted">{u.email}</p></div>
-                        <Badge tone="warning" dot>Pending</Badge>
-                      </div>
-                      <dl className="grid grid-cols-1 gap-x-6 gap-y-4 px-5 pb-5 sm:grid-cols-2">
-                        {[
-                          ['Requested role', u.role], ['Employee ID', u.employeeId || 'Not provided'],
-                          ['Classification', u.personnelClassification || 'Not provided'], ['Department / office', u.office || 'Not provided'],
-                          ['Registered', u.registeredAt ? formatDateTime(u.registeredAt) : 'Not recorded']
-                        ].map(([label, value]) => <div key={label}><dt className="text-xs text-ink-muted">{label}</dt><dd className="mt-1 break-words text-sm font-medium text-ink">{value}</dd></div>)}
-                        <div><dt className="text-xs text-ink-muted">Email domain</dt><dd className={`mt-1 flex items-center gap-1.5 text-xs font-medium ${domainMatches ? 'text-emerald-700' : 'text-amber-800'}`}>{domainMatches ? <CheckCircle2Icon className="h-4 w-4" /> : <ShieldAlertIcon className="h-4 w-4" />}{domainMatches ? 'Institutional domain matches' : 'External domain ? review required'}</dd></div>
-                      </dl>
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-canvas/40 px-5 py-3">
-                        <button type="button" className="btn btn-ghost text-rose-700" aria-label={`Reject registration for ${u.name}`} onClick={() => openReview([u], 'reject')}>Reject request</button>
-                        <button type="button" className="btn btn-primary" aria-label={`Review registration for ${u.name}`} onClick={() => openReview([u], 'approve')}><UserCheckIcon className="h-4 w-4" />Review & approve</button>
-                      </div>
-                    </article>;
-                  })}
+                <div className="panel overflow-x-auto">
+                  <table className="w-full min-w-[980px] text-left text-xs">
+                    <thead className="border-b border-line bg-canvas text-ink-muted">
+                      <tr>
+                        <th className="th py-3">Registrant</th>
+                        <th className="th py-3">Role</th>
+                        <th className="th py-3">Classification</th>
+                        <th className="th py-3">Campus</th>
+                        <th className="th py-3">Department / office</th>
+                        <th className="th py-3">Registered</th>
+                        <th className="th py-3">Email domain</th>
+                        <th className="th py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {requests.map((u) => {
+                        const domainMatches = u.email.trim().toLowerCase().endsWith('@nemsu.edu.ph');
+                        return (
+                          <tr key={u.id}>
+                            <td className="td py-3">
+                              <div className="flex items-center gap-3">
+                                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700" aria-hidden="true">{initials(u.name)}</span>
+                                <div className="min-w-0">
+                                  <p className="truncate font-semibold text-ink">{u.name}</p>
+                                  <p className="mt-0.5 truncate text-[11px] text-ink-muted">{u.email}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="td py-3 whitespace-nowrap font-medium text-ink">{submittedText(u.role)}</td>
+                            <td className="td py-3 font-medium text-ink">{submittedText(u.personnelClassification)}</td>
+                            <td className="td py-3 text-ink">{submittedCampus(u)}</td>
+                            <td className="td py-3 text-ink">{submittedOffice(u)}</td>
+                            <td className="td py-3 whitespace-nowrap text-ink-muted">{u.registeredAt ? formatDateTime(u.registeredAt) : 'Not recorded'}</td>
+                            <td className="td py-3 whitespace-nowrap">
+                              <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${domainMatches ? 'text-emerald-700' : 'text-amber-800'}`}>
+                                {domainMatches ? <CheckCircle2Icon className="h-3.5 w-3.5" /> : <ShieldAlertIcon className="h-3.5 w-3.5" />}
+                                {domainMatches ? 'NEMSU email' : 'External email'}
+                              </span>
+                            </td>
+                            <td className="td py-3 text-right">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost text-rose-700"
+                                  aria-label={`Reject registration for ${u.name}`}
+                                  onClick={() => openReview([u], 'reject')}
+                                >
+                                  Reject
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary"
+                                  aria-label={`Approve registration for ${u.name}`}
+                                  onClick={() => openReview([u], 'approve')}
+                                >
+                                  <UserCheckIcon className="h-4 w-4" />
+                                  Approve
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>}
             </>;
           })()}
         </section>
       )}
 
-      <Modal open={review !== null} onClose={() => setReview(null)} title={review?.action === 'reject' ? 'Reject registration?' : 'Review workspace access'} description={review?.action === 'reject' ? 'The account will be marked as rejected and will not receive workspace access.' : 'Confirm affiliation before activating these accounts.'} footer={<>
+      <Modal open={review !== null} onClose={() => setReview(null)} size={review?.action === 'approve' ? 'lg' : 'md'} title={review?.action === 'reject' ? 'Reject registration?' : 'Review workspace access'} description={review?.action === 'reject' ? 'The account will be marked as rejected and will not receive workspace access.' : 'These details were submitted when the account was created.'} footer={<>
         <button type="button" className="btn btn-secondary" onClick={() => setReview(null)}>Cancel</button>
         <button type="button" disabled={review?.action === 'approve' && !credentialsChecked} className={`btn ${review?.action === 'reject' ? 'btn-secondary text-rose-700' : 'btn-primary'} disabled:cursor-not-allowed disabled:opacity-50`} onClick={() => {
-          if (!review || (review.action === 'approve' && !credentialsChecked)) return;
-          review.users.forEach(u => review.action === 'approve' ? handleApprove(u) : handleReject(u));
+          if (!review) return;
+          if (review.action === 'reject') {
+            review.users.forEach((user) => handleReject(user));
+            setReview(null);
+            return;
+          }
+          if (!credentialsChecked) return;
+          review.users.forEach((user) => handleApprove(user));
           setReview(null);
         }}>{review?.action === 'reject' ? 'Reject request' : `Approve ${review?.users.length === 1 ? 'account' : `${review?.users.length} accounts`}`}</button>
       </>}>
-        <ul className="divide-y divide-line rounded-xl border border-line">
-          {review?.users.map(u => <li key={u.id} className="p-4"><p className="text-sm font-semibold text-ink">{u.name}</p><p className="mt-1 break-all text-xs text-ink-muted">{u.email}</p><p className="mt-2 text-xs text-ink">{u.employeeId || 'Employee ID not provided'} ? {u.role}</p><p className="mt-1 text-xs text-ink-muted">{u.personnelClassification || 'Classification not provided'} ? {u.office || 'Office not provided'}</p>{!u.email.trim().toLowerCase().endsWith('@nemsu.edu.ph') && <p className="mt-2 text-xs font-semibold text-amber-800">External email domain: verify eligibility before approving.</p>}</li>)}
-        </ul>
-        {review?.action === 'approve' && <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl bg-brand-50/50 p-4 text-sm leading-relaxed text-ink"><input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-blue-600" checked={credentialsChecked} onChange={e => setCredentialsChecked(e.target.checked)} />I have verified the appointment, employee identification, and institutional affiliation of every account listed above.</label>}
+        {review?.action === 'reject' ? (
+          <ul className="divide-y divide-line rounded-xl border border-line">
+            {review.users.map((user) => (
+              <li key={user.id} className="p-4">
+                <p className="text-sm font-semibold text-ink">{user.name}</p>
+                <p className="mt-1 break-all text-xs text-ink-muted">{user.email}</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="space-y-5">
+            {review?.users.map((user) => {
+              const externalEmail = !user.email.trim().toLowerCase().endsWith('@nemsu.edu.ph');
+              const details = [
+                ['Role', submittedText(user.role)],
+                ['Classification', submittedText(user.personnelClassification)],
+                ['Campus', submittedCampus(user)],
+                ['Department / office', submittedOffice(user)]
+              ];
+              return (
+                <section key={user.id} className="rounded-xl border border-line p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-ink">{user.name}</h3>
+                      <p className="mt-1 break-all text-xs text-ink-muted">{user.email}</p>
+                    </div>
+                    <Badge tone={externalEmail ? 'warning' : 'success'} dot>{externalEmail ? 'External email' : 'NEMSU email'}</Badge>
+                  </div>
+                  {externalEmail && (
+                    <p className="mt-3 text-xs font-semibold text-amber-800">External email domain. Confirm this person is eligible before approval.</p>
+                  )}
+                  <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {details.map(([label, value]) => (
+                      <div key={label} className={label === 'Department / office' ? 'sm:col-span-2' : undefined}>
+                        <dt className="text-xs text-ink-muted">{label}</dt>
+                        <dd className="mt-1 rounded-[10px] border border-line bg-canvas px-3 py-2.5 text-sm font-medium text-ink">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              );
+            })}
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-brand-50/50 p-4 text-sm leading-relaxed text-ink">
+              <input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-blue-600" checked={credentialsChecked} onChange={(event) => setCredentialsChecked(event.target.checked)} />
+              I have verified the institutional affiliation of every account listed above.
+            </label>
+          </div>
+        )}
       </Modal>
 
       <UserFormModal

@@ -1,0 +1,12 @@
+---
+description: Upload Documents files stay out of the sidebar IA to ISO pages
+alwaysApply: true
+---
+
+# Upload Documents stays out of the sidebar frameworks
+
+Files and folders a user adds inside the Upload Documents IA, Program, COPC, PQA, or ISO folders are library-only. They must keep `libraryOnly: true`.
+
+Those records stay visible in Upload Documents. They must not be listed, counted, or opened from the sidebar Institutional (IA), Program (AACCUP), CHED COPC, PQA, or ISO pages, including the faculty and staff copies of those pages.
+
+Uploads made on those sidebar pages still go into the matching Upload Documents folder and still appear on the sidebar page. Do not mark those sidebar uploads `libraryOnly`.

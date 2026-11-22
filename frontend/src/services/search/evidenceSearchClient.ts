@@ -2,14 +2,22 @@ import { EvidenceDocument, Lookup } from '../../types/evidence';
 import { searchEvidence, SearchResult } from '../../utils/search';
 import { apiFetch, checkApiHealth, isApiConfigured } from '../api/client';
 
-export type EvidenceSearchFilters = {
-  frameworkId?: string;
-  areaId?: string;
-  criterionId?: string;
-  indicatorId?: string;
-  campusId?: string;
-  program?: string;
-};
+export const searchParameterParams = {
+  docType: 'type',
+  program: 'program',
+  academicYear: 'year'
+} as const;
+
+export type SearchParameter = keyof typeof searchParameterParams;
+
+export type EvidenceSearchFilters = Partial<Record<SearchParameter, string>>;
+
+const searchParameterKeys = Object.keys(searchParameterParams) as SearchParameter[];
+
+function matchesSearchParameters(doc: EvidenceDocument, filters?: EvidenceSearchFilters) {
+  if (!filters) return true;
+  return searchParameterKeys.every((key) => !filters[key] || doc[key] === filters[key]);
+}
 
 type ApiSearchHit = {
   doc: Record<string, unknown>;
@@ -74,8 +82,9 @@ export async function searchEvidenceAsync(
   limit = 50
 ): Promise<{ results: SearchResult[]; source: 'api' | 'local' }> {
   const q = query.trim();
+  const narrowed = (found: SearchResult[]) => found.filter(({ doc }) => matchesSearchParameters(doc, filters));
   if (q.length <= 1) {
-    return { results: searchEvidence(q, docs, lookup), source: 'local' };
+    return { results: narrowed(searchEvidence(q, docs, lookup)), source: 'local' };
   }
 
   if (isApiConfigured() && (await checkApiHealth())) {
@@ -100,12 +109,12 @@ export async function searchEvidenceAsync(
           relatedTerms: hit.relatedTerms ?? [],
           fields: hit.fields ?? ['document text']
         }));
-        return { results, source: 'api' };
+        return { results: narrowed(results), source: 'api' };
       }
     } catch {
       // fall through
     }
   }
 
-  return { results: searchEvidence(q, docs, lookup), source: 'local' };
+  return { results: narrowed(searchEvidence(q, docs, lookup)), source: 'local' };
 }

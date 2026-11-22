@@ -1,45 +1,22 @@
 import { Link } from 'react-router-dom';
-import {
-  BookOpenIcon,
-  DownloadIcon,
-  EyeIcon,
-  FileSearchIcon,
-  FolderOpenIcon,
-  HelpCircleIcon
-} from 'lucide-react';
+import { DownloadIcon, EyeIcon, FileSearchIcon, HelpCircleIcon, InboxIcon, ShieldCheckIcon } from 'lucide-react';
 
 const faqs = [
   {
-    q: 'Do I need an account?',
-    a: 'Yes. The Faculty & Staff Resource Center requires a signed-in institutional account. Sign in from the ACCREVIA login page to use /open routes.'
+    q: 'Why is a document missing?',
+    a: 'It may still be in review, confidential, or archived. Clear the search parameters, or open the matching framework and campus.'
   },
   {
-    q: 'Are all QA documents available here?',
-    a: 'No. Only documents that are eligible for faculty/staff viewing appear here. Restricted Technical Review materials require a demo access request and never expose Drive filenames or links in this portal.'
+    q: 'Can I upload or edit a file?',
+    a: 'No. Faculty and staff can browse, preview, and download when a file is available. Send a request if you need something that is not listed.'
   },
   {
-    q: 'Why can’t I find a document?',
-    a: 'It may be unpublished, confidential, still awaiting approval, archived, or outside the filters you applied. Try clearing filters or browsing by area or program.'
+    q: 'Can I download every document?',
+    a: 'Download is available when the Quality Assurance Office stored the original file. If preview is not supported, use Download.'
   },
   {
-    q: 'Can I download documents?',
-    a: 'Yes, when a published document has an original file stored and remains publicly eligible. A listed document may still lack a downloadable file if the original is missing.'
-  },
-  {
-    q: 'What should I do if a preview fails?',
-    a: 'Some formats cannot be shown inline in the browser. Try Download when available, or return later if the file is temporarily unavailable.'
-  },
-  {
-    q: 'What is the difference between Search and Browse?',
-    a: 'Search focuses on keywords and filters. Browse emphasizes exploring the collection through categories such as accreditation areas and academic programs.'
-  },
-  {
-    q: 'How are Recently Published documents ordered?',
-    a: 'They are ordered by the public publication date (`publicPublishedAt`), newest first by default.'
-  },
-  {
-    q: 'How are Featured Documents selected?',
-    a: 'This prototype automatically highlights recently published eligible documents. There is no separate manual featured designation yet, so Featured is not a QA-curated shortlist.'
+    q: 'What do I need to send a request?',
+    a: 'Request type, subject, and message are required. Priority, the program or campus, and an attachment are optional.'
   }
 ] as const;
 
@@ -63,8 +40,7 @@ export function OpenHelp() {
             Help & Guidelines
           </h1>
           <p className="mt-2 text-[14px] font-medium leading-relaxed text-ink-muted sm:text-[15px]">
-            Practical guidance for searching, browsing, previewing, and downloading documents in the Faculty &amp;
-            Staff Accreditation Resource Center.
+            How to search, open a framework, preview a file, and ask the Quality Assurance Office for a document.
           </p>
         </div>
       </section>
@@ -72,64 +48,58 @@ export function OpenHelp() {
       <HelpSection
         id="help-search"
         icon={FileSearchIcon}
-        title="How to Search Documents"
+        title="Search"
         steps={[
-          'Open Search Documents from the sidebar or Home.',
-          'Enter keywords related to the document title, description, or topic.',
-          'Optionally apply accreditation area, academic program, document type, publication date, and sort filters.',
-          'Open Preview to inspect a result, or Download when a public file is available.',
-          'Use Clear all to reset your search and filters.'
+          'Open Search from the dashboard, or type in the search box on the home page.',
+          'Enter a keyword from the title or topic.',
+          'Use only these parameters when you need to narrow the list: document type, program, and academic year.',
+          'Open Preview, then Download when the file is available.'
         ]}
-        action={{ to: '/open/search', label: 'Go to Search Documents' }}
+        action={{ to: '/open/search', label: 'Open search' }}
       />
 
       <HelpSection
-        id="help-browse"
-        icon={FolderOpenIcon}
-        title="How to use the Accreditation Repository"
+        id="help-frameworks"
+        icon={ShieldCheckIcon}
+        title="Accreditation frameworks"
         steps={[
-          'Open Accreditation Repository from the sidebar or dashboard resource cards.',
-          'Switch between AACCUP Certificates, Technical Reviews, and COPC Records tabs.',
-          'For certificates, browse by campus folders and use search or filters as needed.',
-          'Switch between Grid and List views on the certificates catalog.',
-          'Open document details or preview when a local sample file is available.'
+          'Choose Institutional (IA), Program (AACCUP), CHED COPC, PQA, or ISO 9001 in the sidebar.',
+          'Select the campus or program the page asks for.',
+          'Open an area or record to preview and download files that are available to you.',
+          'These pages are read-only. Use Requests when you need a file that is not listed.'
         ]}
-        action={{ to: '/open/browse', label: 'Go to Accreditation Repository' }}
+        action={{ to: '/open/frameworks/ia', label: 'Open Institutional (IA)' }}
       />
 
       <HelpSection
         id="help-preview"
         icon={EyeIcon}
-        title="How to Preview Documents"
+        title="Preview and download"
         steps={[
-          'Select Preview on any public document card.',
-          'Review public-safe details such as type, area, program, and publication date.',
-          'View the file in the preview modal when the format is supported (for example PDF or common images).',
-          'If inline preview is unsupported or the file is missing, follow the on-screen message and use Download when available.'
+          'Choose Preview on a document.',
+          'Check the document type, program, and academic year shown with the file.',
+          'Use Download when the original file is stored.',
+          'If the browser cannot show the file, download it and open it on your computer.'
         ]}
       />
 
       <HelpSection
-        id="help-download"
-        icon={DownloadIcon}
-        title="How to Download Documents"
+        id="help-requests"
+        icon={InboxIcon}
+        title="Requests"
         steps={[
-          'Select Download on a document card or inside the preview modal.',
-          'Downloads succeed only for currently eligible published documents with a stored original file.',
-          'The portal does not guarantee that every listed document has a downloadable file.',
-          'If a download fails, the document may have been unpublished, archived, or may no longer have a stored file.'
+          'Open Requests and choose New Request.',
+          'Required: request type, subject, and message.',
+          'Optional: priority, the program or campus, and a supporting file.',
+          'The reply from the QA Office stays in the same request.'
         ]}
+        action={{ to: '/open/requests', label: 'Open requests' }}
       />
 
       <section aria-labelledby="help-faq-heading" className="space-y-4">
-        <div>
-          <h2 id="help-faq-heading" className="text-lg font-extrabold tracking-tight text-ink sm:text-xl">
-            Frequently Asked Questions
-          </h2>
-          <p className="mt-1 text-[13px] font-medium text-ink-muted">
-            Answers reflect the current prototype behavior.
-          </p>
-        </div>
+        <h2 id="help-faq-heading" className="text-lg font-extrabold tracking-tight text-ink sm:text-xl">
+          Common questions
+        </h2>
         <div className="space-y-3">
           {faqs.map((item) => (
             <details key={item.q} className="panel group p-4 sm:p-5">
@@ -145,24 +115,14 @@ export function OpenHelp() {
         </div>
       </section>
 
-      <section aria-labelledby="help-guidelines-heading" className="space-y-3">
-        <h2 id="help-guidelines-heading" className="text-lg font-extrabold tracking-tight text-ink sm:text-xl">
-          Public Access Guidelines
-        </h2>
-        <div className="panel p-5 sm:p-6">
-          <p className="text-[14px] font-medium leading-relaxed text-ink-muted">
-            This portal is intended for accessing accreditation documents that the Quality Assurance Office has
-            explicitly published for public use. It is not a substitute for internal QA systems, private sharing, or
-            confidential records.
-          </p>
-          <p className="mt-3 text-[14px] font-medium leading-relaxed text-ink-muted">
-            For more about the portal’s purpose, see{' '}
-            <Link to="/open/about" className="font-semibold text-brand-700 hover:underline">
-              About the Quality Assurance Office
-            </Link>
-            .
-          </p>
-        </div>
+      <section className="panel p-5 sm:p-6">
+        <p className="text-[14px] font-medium leading-relaxed text-ink-muted">
+          For a short map of each feature, see{' '}
+          <Link to="/open/about" className="font-semibold text-brand-700 hover:underline">
+            About the Quality Assurance Office
+          </Link>
+          .
+        </p>
       </section>
     </div>
   );
@@ -176,7 +136,7 @@ function HelpSection({
   action
 }: {
   id: string;
-  icon: typeof BookOpenIcon;
+  icon: typeof DownloadIcon;
   title: string;
   steps: string[];
   action?: { to: string; label: string };

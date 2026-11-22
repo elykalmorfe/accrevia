@@ -18,13 +18,9 @@ def _build_filter(filters: dict | None) -> qm.Filter | None:
         return None
     must: list[qm.FieldCondition] = []
     mapping = {
-        "frameworkId": "framework_id",
-        "areaId": "area_id",
-        "criterionId": "criterion_id",
-        "indicatorId": "indicator_id",
-        "campusId": "campus_id",
+        "docType": "doc_type",
         "program": "program",
-        "confidentiality": "confidentiality",
+        "academicYear": "academic_year",
     }
     for key, field in mapping.items():
         val = (filters or {}).get(key)

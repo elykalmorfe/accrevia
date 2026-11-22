@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { TextField } from '../ui/TextField';
 import { SelectField } from '../ui/SelectField';
-import { PortalUser, UserRole, UserStatus } from '../../types/user';
+import { PersonnelClassification, PortalUser, UserRole, UserStatus } from '../../types/user';
 import { SYSTEM_FEATURES, ALL_FEATURE_IDS } from '../../data/features';
 import { managedAdminRoles } from '../../data/options';
+import { isRoleClassification, ROLE_CLASSIFICATIONS } from '../../utils/registrationProfile';
 import {
   AlertCircleIcon,
   CheckIcon,
@@ -74,13 +75,26 @@ function generateUniqueTemporaryPassword(): string {
   return `Nem#${block1.join('')}-${block2.join('')}${timeSalt}`;
 }
 
+const CLASSIFICATION_LABELS: Record<PersonnelClassification, string> = {
+  'Faculty (Teaching - Accreditation Committee)': 'Teaching',
+  'Faculty (Non-Teaching Coordinator)': 'Non-teaching',
+  'Staff (Administrative)': 'Administrative staff',
+  'Staff (Technical)': 'Technical staff',
+  'Accreditor (External)': 'External'
+};
+
+function needsClassification(role: string): role is 'Faculty' {
+  return role === 'Faculty';
+}
+
 export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProps) {
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
     role: 'Administrator' as UserRole,
-    status: 'Active' as UserStatus
+    status: 'Active' as UserStatus,
+    personnelClassification: '' as '' | PersonnelClassification
   });
 
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(ALL_FEATURE_IDS);
@@ -105,7 +119,11 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
           user.role === 'Superadmin' || user.role === 'Faculty' || user.role === 'Staff' || user.role === 'Administrator'
             ? user.role
             : 'Administrator',
-        status: user.status || 'Active'
+        status: user.status || 'Active',
+        personnelClassification:
+          needsClassification(user.role) && user.personnelClassification && isRoleClassification(user.role, user.personnelClassification)
+            ? user.personnelClassification
+            : ''
       });
       setSelectedFeatures(user.allowedFeatures && user.allowedFeatures.length > 0 ? user.allowedFeatures : ALL_FEATURE_IDS);
     } else {
@@ -114,14 +132,22 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
         email: '',
         password: generateUniqueTemporaryPassword(),
         role: 'Administrator',
-        status: 'Active'
+        status: 'Active',
+        personnelClassification: ''
       });
       setSelectedFeatures(ALL_FEATURE_IDS);
     }
   }, [open, user]);
 
   const handleRoleChange = (role: UserRole) => {
-    setForm((f) => ({ ...f, role }));
+    setForm((current) => ({
+      ...current,
+      role,
+      personnelClassification:
+        needsClassification(role) && isRoleClassification(role, current.personnelClassification)
+          ? current.personnelClassification
+          : ''
+    }));
   };
 
   const roleOptions =
@@ -188,6 +214,10 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
       return setError('Please provide or generate a new temporary password.');
     }
 
+    if (needsClassification(form.role) && !isRoleClassification(form.role, form.personnelClassification)) {
+      return setError('Please select a classification.');
+    }
+
     if (selectedFeatures.length === 0) {
       return setError('Please select at least one feature for this user account.');
     }
@@ -201,12 +231,7 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
       role: form.role,
       office: user?.office || (form.role === 'Superadmin' ? 'Office of the President' : 'Quality Assurance Office'),
       campusId: user?.campusId || 'Main Campus (Tandag City)',
-      personnelClassification:
-        form.role === 'Faculty'
-          ? 'Faculty (Teaching - Accreditation Committee)'
-          : form.role === 'Staff' || form.role === 'Superadmin'
-            ? 'Staff (Administrative)'
-            : 'Staff (Technical)',
+      personnelClassification: needsClassification(form.role) ? form.personnelClassification : undefined,
       affiliationVerified: true,
       temporaryPassword: form.password.trim() || undefined,
       allowedFeatures: selectedFeatures,
@@ -440,6 +465,22 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
           onChange={(role) => handleRoleChange(role as UserRole)}
           options={roleOptions}
         />
+
+        {needsClassification(form.role) && (
+          <SelectField
+            label="Classification"
+            required
+            value={form.personnelClassification}
+            onChange={(value) =>
+              setForm((current) => ({ ...current, personnelClassification: value as PersonnelClassification }))
+            }
+            placeholder="Select classification"
+            options={ROLE_CLASSIFICATIONS[form.role].map((value) => ({
+              value,
+              label: CLASSIFICATION_LABELS[value]
+            }))}
+          />
+        )}
 
         {/* 5. Module & Feature Permissions */}
         <div className="space-y-3 pt-3 border-t border-line">

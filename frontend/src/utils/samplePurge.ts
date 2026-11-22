@@ -3,7 +3,10 @@ import type { EvidenceDocument, EvidenceFolder } from '../types/evidence';
 
 const PURGE_VERSION_KEY = 'accrevia_sample_purge';
 /** Bump to force one-time cleanup of dummy/demo content in existing browsers. */
-const PURGE_VERSION = 'no-dummy-data-2';
+const PURGE_VERSION = 'empty-framework-folders-1';
+const FRAMEWORK_IDS = new Set(['ia', 'pa', 'copc', 'pqa', 'iso']);
+/** Folders created by an upload use a timestamp id. The five framework folders stay. */
+const UPLOADED_FOLDER_ID = /^folder-\d{10,}-/;
 
 const SAMPLE_CAMPUS = '(bislig|cagwait|cantilan|lianga|sanmiguel|tagbina|tandag)';
 const SAMPLE_DOCUMENT_ID = new RegExp(
@@ -52,8 +55,14 @@ const SAMPLE_DRIVE_LINKS = new Set([
 const USER_NOTIFICATION_ID = /^notif-\d{13}/;
 const USER_ACCESS_REQUEST_ID = /^req-\d{13}/;
 
+/** User uploads use doc-cert-{timestamp}-…, not the seeded doc-cert-{program}-… ids. */
+function isUserCertificateId(id: string): boolean {
+  return /^doc-cert-\d{10,}-/.test(id);
+}
+
 function isDummyDocument(d: EvidenceDocument): boolean {
   const id = String(d.id || '');
+  if (isUserCertificateId(id)) return false;
   if (SAMPLE_DOCUMENT_ID.test(id)) return true;
   if (id.startsWith('mock-doc-') || id.startsWith('demo-') || id.startsWith('doc-cert-') || id.startsWith('doc-rating-')) {
     return true;
@@ -90,14 +99,50 @@ function mapStored<T>(key: string, map: (item: T) => T) {
  * Removes bundled demo / mock records from data persisted by earlier builds.
  * Keeps user-created uploads and the Superadmin directory seed.
  */
+/** ISO no longer has clause or Quality Manual folders. */
+export function isIsoClauseFolder(folder: { id?: string; frameworkId?: string; areaId?: string; code?: string; name?: string }): boolean {
+  const id = String(folder.id || '');
+  if (id === 'folder-iso') return false;
+  if (/^folder-iso-(qm|c\d+)/i.test(id)) return true;
+  if (folder.frameworkId && folder.frameworkId !== 'iso') return false;
+  const area = String(folder.areaId || '').toLowerCase();
+  const code = String(folder.code || '').toUpperCase();
+  const name = String(folder.name || '');
+  if (/^iso-(qm|c\d+)/.test(area)) return true;
+  if (code === 'QM' || /^C\d{1,2}$/.test(code)) return true;
+  if (/^clause\s+\d/i.test(name) || /quality manual/i.test(name)) return true;
+  return false;
+}
+
+function dropIsoClauseFolders() {
+  const stored = read<EvidenceFolder[]>('folders');
+  if (!Array.isArray(stored)) return;
+  const removed = new Set(stored.filter(isIsoClauseFolder).map((folder) => folder.id));
+  if (removed.size === 0) return;
+  write('folders', stored.filter((folder) => !removed.has(folder.id)));
+  const documents = read<EvidenceDocument[]>('documents');
+  if (!Array.isArray(documents)) return;
+  write(
+    'documents',
+    documents.map((document) =>
+      document.folderId && removed.has(document.folderId) ? { ...document, folderId: 'folder-iso', areaId: 'iso' } : document
+    )
+  );
+}
+
 export function purgeLegacySampleData() {
   try {
+    dropIsoClauseFolders();
     if (localStorage.getItem(PURGE_VERSION_KEY) === PURGE_VERSION) return;
 
-    filterStored<EvidenceDocument>('documents', (d) => !isDummyDocument(d));
+    filterStored<EvidenceDocument>(
+      'documents',
+      (d) => !isDummyDocument(d) && !FRAMEWORK_IDS.has(String(d.frameworkId || ''))
+    );
     filterStored<EvidenceFolder>(
       'folders',
       (f) =>
+        !UPLOADED_FOLDER_ID.test(f.id) &&
         !SAMPLE_FOLDER_ID.test(f.id) &&
         !SAMPLE_SUBFOLDER_IDS.has(f.id) &&
         !(typeof f.areaId === 'string' && f.areaId.startsWith('trba-')) &&

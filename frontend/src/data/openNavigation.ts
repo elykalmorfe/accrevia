@@ -1,9 +1,12 @@
 import {
+  AwardIcon,
+  FileCheck2Icon,
+  FileSpreadsheetIcon,
+  GraduationCapIcon,
   HelpCircleIcon,
   InboxIcon,
   LayoutDashboardIcon,
   LucideIcon,
-  SettingsIcon,
   ShieldCheckIcon,
   UserIcon
 } from 'lucide-react';
@@ -52,18 +55,39 @@ export const openNavigation: OpenNavItem[] = [
     section: 'main'
   },
   {
-    label: 'Accreditation',
+    label: 'Institutional (IA)',
     to: '/open/frameworks/ia',
     icon: ShieldCheckIcon,
     section: 'main',
-    matchPrefix: '/open/frameworks',
-    children: [
-      { label: 'Institutional (IA)', to: '/open/frameworks/ia' },
-      { label: 'Program (AACCUP)', to: '/open/frameworks/pa' },
-      { label: 'CHED COPC', to: '/open/frameworks/copc' },
-      { label: 'PQA Standards', to: '/open/frameworks/pqa' },
-      { label: 'ISO 9001', to: '/open/frameworks/iso' }
-    ]
+    matchPrefix: '/open/frameworks/ia'
+  },
+  {
+    label: 'Program (AACCUP)',
+    to: '/open/frameworks/pa',
+    icon: GraduationCapIcon,
+    section: 'main',
+    matchPrefix: '/open/frameworks/pa'
+  },
+  {
+    label: 'CHED COPC',
+    to: '/open/frameworks/copc',
+    icon: FileCheck2Icon,
+    section: 'main',
+    matchPrefix: '/open/frameworks/copc'
+  },
+  {
+    label: 'PQA',
+    to: '/open/frameworks/pqa',
+    icon: AwardIcon,
+    section: 'main',
+    matchPrefix: '/open/frameworks/pqa'
+  },
+  {
+    label: 'ISO 9001',
+    to: '/open/frameworks/iso',
+    icon: FileSpreadsheetIcon,
+    section: 'main',
+    matchPrefix: '/open/frameworks/iso'
   },
   {
     label: 'Requests',
@@ -84,18 +108,14 @@ export const openNavigation: OpenNavItem[] = [
     ]
   },
   {
-    label: 'My Profile',
+    label: 'Account',
     to: '/open/account',
     icon: UserIcon,
     section: 'account',
-    matchPrefix: '/open/account'
-  },
-  {
-    label: 'Settings',
-    to: '/open/settings',
-    icon: SettingsIcon,
-    section: 'account',
-    matchPrefix: '/open/settings'
+    children: [
+      { label: 'My Profile', to: '/open/account' },
+      { label: 'Settings', to: '/open/settings' }
+    ]
   }
 ];
 

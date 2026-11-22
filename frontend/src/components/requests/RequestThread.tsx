@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeftIcon,
   CheckCircle2Icon,
@@ -10,7 +10,7 @@ import {
   XCircleIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
-import { DocumentRequest, RequestMessage, RequestStatus } from '../../types/request';
+import { AttachmentAccess, AttachmentRole, DocumentRequest, RequestMessage, RequestStatus } from '../../types/request';
 import { UserRole } from '../../types/user';
 import { formatDateTime, initials } from '../../utils/format';
 import { requestStatusTone } from '../../utils/requests';
@@ -19,6 +19,7 @@ import { Badge } from '../ui/Badge';
 import { RowAction, RowActionsMenu } from '../ui/RowActionsMenu';
 import { AttachmentChip } from './AttachmentChip';
 import { ReplyComposer } from './ReplyComposer';
+import { ShareMenu } from './ShareMenu';
 
 interface RequestThreadProps {
   request: DocumentRequest;
@@ -26,10 +27,20 @@ interface RequestThreadProps {
   onBack: () => void;
 }
 
-function MessageCard({ message, request }: { message: RequestMessage; request: DocumentRequest }) {
+function MessageCard({ message, request, asAdmin }: { message: RequestMessage; request: DocumentRequest; asAdmin: boolean }) {
+  const { updateSentAttachmentAccess } = usePortal();
+  const [shareMenu, setShareMenu] = useState<string | null>(null);
   const fromStaff = isAdminRole(message.authorRole as UserRole);
   const to = fromStaff ? request.requesterName : 'QA Office';
+  const canEditAccess = asAdmin && message.attachments.length > 0;
+  const first = message.attachments[0];
+  const sharedAccess = first?.access ?? 'restricted';
+  const sharedRole = first?.role ?? 'viewer';
+  const sameForAll = message.attachments.every((file) => (file.access ?? 'restricted') === sharedAccess && (file.role ?? 'viewer') === sharedRole);
 
+  const saveAccess = (attachmentId: string | null, next: { access: AttachmentAccess; role: AttachmentRole }) => {
+    updateSentAttachmentAccess(request.id, message.id, attachmentId, next);
+  };
   return (
     <article className="rounded-xl border border-line bg-surface shadow-2xs">
       <header className="flex items-start gap-3 px-4 py-3 sm:px-5">
@@ -55,12 +66,43 @@ function MessageCard({ message, request }: { message: RequestMessage; request: D
       <div className="whitespace-pre-line px-4 pb-4 text-[13px] leading-relaxed text-ink sm:px-5 sm:pl-[68px]">{message.body}</div>
       {message.attachments.length > 0 && (
         <div className="border-t border-line-subtle px-4 py-3 sm:px-5 sm:pl-[68px]">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
-            {message.attachments.length} attachment{message.attachments.length === 1 ? '' : 's'}
-          </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
+              {message.attachments.length} attachment{message.attachments.length === 1 ? '' : 's'}
+            </p>
+            {canEditAccess && message.attachments.length > 1 && (
+              <ShareMenu
+                title="Every file"
+                label="Access for every file in this reply"
+                everyFile
+                access={sharedAccess}
+                role={sharedRole}
+                requesterName={request.requesterName}
+                open={shareMenu === 'all'}
+                onOpenChange={(open) => setShareMenu(open ? 'all' : null)}
+                onChange={(next) => saveAccess(null, next)}
+              />
+            )}
+          </div>
+          {!sameForAll && canEditAccess && (
+            <p className="mb-2 text-[11px] text-ink-subtle">These files do not all use the same access.</p>
+          )}
+          <div className="flex flex-col gap-2">
             {message.attachments.map((a) => (
-              <AttachmentChip key={a.id} attachment={a} />
+              <AttachmentChip
+                key={a.id}
+                attachment={a}
+                share={
+                  canEditAccess
+                    ? {
+                        requesterName: request.requesterName,
+                        open: shareMenu === a.id,
+                        onOpenChange: (open) => setShareMenu(open ? a.id : null),
+                        onChange: (next) => saveAccess(a.id, next)
+                      }
+                    : undefined
+                }
+              />
             ))}
           </div>
         </div>
@@ -137,7 +179,7 @@ export function RequestThread({ request, asAdmin, onBack }: RequestThreadProps) 
 
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-canvas/50 px-3 py-4 sm:px-6">
         {request.messages.map((m) => (
-          <MessageCard key={m.id} message={m} request={request} />
+          <MessageCard key={m.id} message={m} request={request} asAdmin={asAdmin} />
         ))}
       </div>
 
