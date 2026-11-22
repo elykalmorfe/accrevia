@@ -7,6 +7,8 @@ from pathlib import Path
 
 from django.conf import settings
 
+from .portal_storage import store_file
+
 SAFE_ID = re.compile(r"^[\w.-]{1,120}$")
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -37,6 +39,8 @@ def save_shared_file(document_id: str, filename: str, content_type: str, source)
         "name": Path(filename).name or destination.name,
         "type": content_type or "application/octet-stream",
     }
+    with destination.open("rb") as original:
+        store_file("shared", document_id, meta["name"], meta["type"], original)
     (folder / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
 
 

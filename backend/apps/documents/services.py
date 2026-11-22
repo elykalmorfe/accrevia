@@ -6,7 +6,9 @@ import uuid
 from pathlib import Path
 
 from django.conf import settings
+from django.db import transaction
 
+from apps.auth.portal_storage import store_file
 from apps.documents.models import EvidenceDocument
 
 
@@ -77,7 +79,9 @@ def create_document_from_upload(uploaded_file, meta: dict) -> EvidenceDocument:
         status="Processing",
         progress={"stage": "queued", "percent": 0},
     )
-    doc.save()
+    with transaction.atomic(), absolute.open("rb") as source:
+        doc.save()
+        store_file("upload", doc_id, uploaded_file.name, mime, source)
 
     from apps.ingestion.tasks import ingest_document
 

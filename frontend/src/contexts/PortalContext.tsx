@@ -103,6 +103,7 @@ import {
 } from '../utils/findingsDocuments';
 import { getSettings } from '../settings/portalSettings';
 import { useSessionAccount } from '../utils/auth';
+import { usePortalDatabase } from '../services/api/portalDatabase';
 
 purgeLegacySampleData();
 seedMockDocuments();
@@ -768,6 +769,11 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   });
 
   const session = useSessionAccount();
+  usePortalDatabase(Boolean(session), {
+    frameworks, areas, criteria, indicators, documents, folders, pending, shares, accessLog, recentSearches,
+    campuses, iaRecords, pqaRecords, programAccreditations, copcRecords, isoRecords,
+    saved_ids: savedIds, selected_campus: selectedCampus, sidebar_collapsed: sidebarCollapsed
+  });
   const currentUser = useMemo(() => {
     if (session?.email) {
       const byId = session.id ? users.find((u) => u.id === session.id) : undefined;

@@ -52,6 +52,12 @@ export function getStoredFile(id: string): Promise<StoredFile | undefined> {
   return withStore<StoredFile | undefined>('readonly', (store) => store.get(id));
 }
 
+export function listStoredFileIds(): Promise<string[]> {
+  return withStore<IDBValidKey[]>('readonly', (store) => store.getAllKeys()).then((keys) =>
+    keys.filter((key): key is string => typeof key === 'string')
+  );
+}
+
 export async function deleteStoredFile(id: string): Promise<void> {
   await withStore('readwrite', (store) => store.delete(id));
 }

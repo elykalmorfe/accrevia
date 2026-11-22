@@ -30,3 +30,22 @@ VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
 
 Without that variable (or when the API is down), search/upload keep working with localStorage / IndexedDB fallbacks.
+
+## Browse portal data in MySQL
+
+Start the Docker Compose services from `backend/`. After installing the frontend and backend dependencies, run these commands from `backend/` to add the tables and copy the catalog and files available on this checkout:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py migrate
+.\.venv\Scripts\python.exe manage.py import_portal_catalog
+```
+
+Open [phpMyAdmin](http://localhost:8080/index.php?route=/database/structure&db=accrevia) and select `accrevia`.
+
+- `portal_records` lists accreditation records, document and folder metadata, settings, and other portal records. Use `collection_id` to filter the project catalog or a browser's copy.
+- `portal_file_inventory` lists original files by source, name, size, and SHA-256. `portal_file_chunks` contains their binary contents.
+- `portal_accounts`, `portal_live_board`, and `evidence_documents` contain the existing shared accounts, requests, and API-upload metadata.
+
+The local development portal (`localhost:5173` or `127.0.0.1:5173` with the Django API on port `8000`) copies the signed-in browser's records and IndexedDB files to MySQL. Use **System Settings → Maintenance → Copy to MySQL** to verify a copy from that browser. Each browser and each site address has its own local storage. The portal continues to use it for its local workflows, and phpMyAdmin shows the copied data.
+
+Git distributes the code, migrations, and import command. Each developer runs the commands against their local MySQL instance. Local certificate binaries in `frontend/public/certificates/` must be present for the importer to copy them. External Drive entries are stored as links.

@@ -6,6 +6,7 @@ import { Badge } from '../ui/Badge';
 import { Modal } from '../ui/Modal';
 import { usePortal } from '../../contexts/PortalContext';
 import { formatNumber } from '../../utils/format';
+import { canSyncPortalDatabase, syncPortalDatabase } from '../../services/api/portalDatabase';
 
 const KEY_PREFIX = 'accrevia_';
 const FILE_DB_NAME = 'accrevia-files';
@@ -79,6 +80,7 @@ export function MaintenanceSettings() {
   const [pendingImport, setPendingImport] = useState<{ name: string; data: Record<string, unknown> } | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearText, setClearText] = useState('');
+  const [copying, setCopying] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
   const passageCount = documents.reduce((sum, d) => sum + (d.passages?.length ?? 0), 0);
 
@@ -103,8 +105,35 @@ export function MaintenanceSettings() {
     });
   };
 
+  const copyToDatabase = async () => {
+    setCopying(true);
+    try {
+      await syncPortalDatabase();
+      toast.success('Browser records and files copied to MySQL.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'The MySQL copy failed.');
+    } finally {
+      setCopying(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {canSyncPortalDatabase() && (
+        <SettingsGroup title="MySQL database">
+          <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-ink-muted">Copy this browser’s portal records and original files to MySQL.</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn btn-secondary" disabled={copying} onClick={copyToDatabase}>
+                {copying ? 'Copying…' : 'Copy to MySQL'}
+              </button>
+              <a className="btn btn-secondary" href="http://localhost:8080/index.php?route=/database/structure&db=accrevia" target="_blank" rel="noreferrer">
+                Open phpMyAdmin
+              </a>
+            </div>
+          </div>
+        </SettingsGroup>
+      )}
       <SettingsGroup title="System status">
         <ul className="divide-y divide-line">
           {services.map((s) =>

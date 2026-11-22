@@ -116,3 +116,53 @@ class PortalLiveBoard(models.Model):
 
     class Meta:
         db_table = "portal_live_board"
+
+
+class PortalCollection(models.Model):
+    id = models.CharField(primary_key=True, max_length=160)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "portal_collections"
+
+
+class PortalRecord(models.Model):
+    collection = models.ForeignKey(PortalCollection, on_delete=models.CASCADE, related_name="records")
+    record_key = models.CharField(max_length=190)
+    position = models.PositiveIntegerField()
+    data = models.JSONField(null=True)
+
+    class Meta:
+        db_table = "portal_records"
+        constraints = [models.UniqueConstraint(fields=["collection", "position"], name="portal_record_position")]
+
+
+class PortalFileContent(models.Model):
+    sha256 = models.CharField(primary_key=True, max_length=64)
+    size_bytes = models.PositiveBigIntegerField()
+
+    class Meta:
+        db_table = "portal_file_contents"
+
+
+class PortalFileChunk(models.Model):
+    content = models.ForeignKey(PortalFileContent, on_delete=models.CASCADE, related_name="chunks")
+    position = models.PositiveIntegerField()
+    data = models.BinaryField()
+
+    class Meta:
+        db_table = "portal_file_chunks"
+        constraints = [models.UniqueConstraint(fields=["content", "position"], name="portal_file_chunk_position")]
+
+
+class PortalFile(models.Model):
+    source = models.CharField(max_length=64)
+    key = models.CharField(max_length=512)
+    name = models.CharField(max_length=512)
+    mime_type = models.CharField(max_length=128)
+    content = models.ForeignKey(PortalFileContent, on_delete=models.PROTECT, related_name="files")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "portal_files"
+        constraints = [models.UniqueConstraint(fields=["source", "key"], name="portal_file_key")]
