@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
 def get_qdrant() -> QdrantClient:
-    return QdrantClient(url=settings.QDRANT_URL, timeout=60)
+    return QdrantClient(url=settings.QDRANT_URL, timeout=60, check_compatibility=False)
 
 
 def ensure_collection() -> None:

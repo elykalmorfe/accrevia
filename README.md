@@ -21,6 +21,8 @@ npm run dev
 
 See [`backend/README.md`](backend/README.md) for MySQL, Docker (Qdrant, Redis), Tesseract, Celery, and API examples.
 
+On Windows, run the API and Celery in **two terminals**; use `celery -A config worker -l info --pool=solo` (prefork crashes with WinError 5).
+
 Set in `frontend/.env`:
 
 ```env

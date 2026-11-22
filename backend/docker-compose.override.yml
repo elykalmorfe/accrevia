@@ -1,5 +1,6 @@
+# Local overrides. Keep Qdrant on the standard host ports so QDRANT_URL=http://localhost:6333 works.
 services:
   qdrant:
     ports: !override
-      - "6335:6333"
-      - "6336:6334"
+      - "6333:6333"
+      - "6334:6334"

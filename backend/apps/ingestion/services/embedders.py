@@ -89,11 +89,27 @@ def _dense_model():
         return ("hash", None)
 
 
+def dense_backend_status() -> dict:
+    """Lightweight status for /api/health/ — never downloads or loads models."""
+    cache_info = getattr(_dense_model, "cache_info", None)
+    loaded = bool(cache_info and cache_info().currsize > 0) if callable(cache_info) else False
+    if loaded:
+        kind, _model = _dense_model()
+        name, degraded = _BACKEND_META.get(kind, (kind, True))
+        return {"name": name, "degraded": degraded, "kind": kind, "loaded": True}
+    return {
+        "name": getattr(settings, "BGE_MODEL", "BAAI/bge-m3"),
+        "degraded": False,
+        "kind": "configured",
+        "loaded": False,
+    }
+
+
 def dense_backend_info() -> dict:
-    """Return {name, degraded, kind} for the active dense backend."""
+    """Return {name, degraded, kind} for the active dense backend (loads model if needed)."""
     kind, _model = _dense_model()
     name, degraded = _BACKEND_META.get(kind, (kind, True))
-    return {"name": name, "degraded": degraded, "kind": kind}
+    return {"name": name, "degraded": degraded, "kind": kind, "loaded": True}
 
 
 def _hashed_dense(text: str, dim: int | None = None) -> list[float]:

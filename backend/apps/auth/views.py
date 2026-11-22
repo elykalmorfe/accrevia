@@ -7,7 +7,7 @@ from qdrant_client import QdrantClient
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.ingestion.services.embedders import dense_backend_info
+from apps.ingestion.services.embedders import dense_backend_status
 
 
 class HealthView(APIView):
@@ -19,8 +19,6 @@ class HealthView(APIView):
         qdrant_ok = False
         mysql_error = None
         qdrant_error = None
-        embedding = None
-        embedding_error = None
 
         try:
             connection.ensure_connection()
@@ -32,36 +30,32 @@ class HealthView(APIView):
             mysql_error = str(exc)
 
         try:
-            client = QdrantClient(url=settings.QDRANT_URL, timeout=3)
+            # Skip client/server semver nag — local Docker image may lag pip client.
+            client = QdrantClient(url=settings.QDRANT_URL, timeout=3, check_compatibility=False)
             client.get_collections()
             qdrant_ok = True
         except Exception as exc:  # noqa: BLE001
             qdrant_error = str(exc)
 
-        try:
-            embedding = dense_backend_info()
-        except Exception as exc:  # noqa: BLE001
-            embedding_error = str(exc)
-            embedding = {"name": "unavailable", "degraded": True, "kind": "error"}
-
+        # Do not load BGE/FastEmbed here — that blocks the whole runserver for minutes.
+        embedding = dense_backend_status()
         ready = mysql_ok and qdrant_ok
-        embedding_degraded = bool(embedding and embedding.get("degraded"))
+        embedding_degraded = bool(embedding.get("degraded"))
         payload = {
             "status": "ok" if ready and not embedding_degraded else "degraded" if ready else "unavailable",
             "mysql": mysql_ok,
             "qdrant": qdrant_ok,
             "jwt_required": settings.REQUIRE_JWT,
             "collection": settings.QDRANT_COLLECTION,
-            "embedding_backend": embedding.get("name") if embedding else None,
+            "embedding_backend": embedding.get("name"),
             "embedding_degraded": embedding_degraded,
+            "embedding_loaded": embedding.get("loaded", False),
         }
         if mysql_error:
             payload["mysql_error"] = mysql_error
         if qdrant_error:
             payload["qdrant_error"] = qdrant_error
-        if embedding_error:
-            payload["embedding_error"] = embedding_error
-        # Infra ready => 200 even when embeddings are degraded (search still works)
+        # Infra ready => 200 (embeddings load lazily on first search/ingest)
         return Response(payload, status=200 if ready else 503)
 
 

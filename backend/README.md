@@ -44,14 +44,19 @@ python manage.py migrate
 
 `.env` defaults: `MYSQL_HOST=127.0.0.1`, `MYSQL_PORT=3306`, `MYSQL_DATABASE=accrevia`, `MYSQL_USER=root`, `MYSQL_PASSWORD=` (empty for Laragon).
 
-4. Run API + worker (two terminals):
+4. Run API + worker in **two separate terminals** (venv activated in both):
 
 ```powershell
-celery -A config worker -l info
+# Terminal A — API
 python manage.py runserver 8000
+
+# Terminal B — background jobs (Windows needs --pool=solo; prefork crashes with WinError 5)
+celery -A config worker -l info --pool=solo
 ```
 
-For a single-process smoke test without Celery, set `CELERY_TASK_ALWAYS_EAGER=true` in `.env`.
+On Windows, `config/celery.py` also defaults the worker pool to `solo` if you omit `--pool`.
+
+For a single-process smoke test without a worker process, set `CELERY_TASK_ALWAYS_EAGER=true` in `.env` and only run `python manage.py runserver 8000`.
 
 5. Frontend: in `frontend/.env` set:
 
