@@ -19,7 +19,8 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
   ChevronLeftIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  FileCheckIcon
 } from 'lucide-react';
 import { deleteStoredFile, getStoredFile, persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
@@ -27,6 +28,16 @@ import type { EvidenceDocument } from '../../types/evidence';
 import { UploadDropzone } from '../../components/upload/UploadDropzone';
 import { FileList, FileRow, FileRowAction } from '../../components/upload/FileRow';
 import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
+import { isUrl } from '../../utils/programAccreditation';
+import { isLocalCertificatePath } from '../../utils/linkedCertificates';
+import { CopcDocumentsModal } from '../../components/accreditation/CopcDocumentsModal';
+
+function borResHref(value?: string): string | undefined {
+  const v = (value || '').trim();
+  if (!v) return undefined;
+  if (isUrl(v) || isLocalCertificatePath(v) || v.startsWith('/')) return v;
+  return undefined;
+}
 
 /** Starting zoom so the 640px-wide paper preview fits narrow screens. */
 function fitPaperZoom(): number {
@@ -50,15 +61,27 @@ export function COPCView() {
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
-  // Certificate & Requirements Viewer Modal State (Eye icon: views Certificate and 5/5 Requirements Audit files)
+  // Certificate / BOR / Requirements Viewer Modal (same chrome for Certificate Number & BOR Resolution)
   const [viewingCertificateCopc, setViewingCertificateCopc] = useState<COPCRecord | null>(null);
-  const [viewModalTab, setViewModalTab] = useState<'certificate' | 'requirements'>('certificate');
+  const [viewModalTab, setViewModalTab] = useState<'certificate' | 'bor' | 'requirements'>('certificate');
   const [selectedPreviewReq, setSelectedPreviewReq] = useState<COPCRequirementItem | null>(null);
+  const [docsModalCopc, setDocsModalCopc] = useState<COPCRecord | null>(null);
+  const [docsModalFolder, setDocsModalFolder] = useState<'certificate' | 'bor'>('certificate');
+
+  const openCopcDocs = (copc: COPCRecord, folder: 'certificate' | 'bor' = 'certificate') => {
+    setDocsModalFolder(folder);
+    setDocsModalCopc(copc);
+  };
 
   const [officialCertUrl, setOfficialCertUrl] = useState<string | null>(null);
   const [officialCertKind, setOfficialCertKind] = useState<'pdf' | 'image' | null>(null);
   const [officialCertLoading, setOfficialCertLoading] = useState(false);
   const [officialCertMissing, setOfficialCertMissing] = useState(false);
+
+  const [borDocUrl, setBorDocUrl] = useState<string | null>(null);
+  const [borDocKind, setBorDocKind] = useState<'pdf' | 'image' | null>(null);
+  const [borDocLoading, setBorDocLoading] = useState(false);
+  const [borDocMissing, setBorDocMissing] = useState(false);
 
   const certificateKind = (blob: Blob, name: string): 'pdf' | 'image' | null => {
     const type = (blob.type || '').toLowerCase();
@@ -124,12 +147,73 @@ export function COPCView() {
     setOfficialCertLoading(false);
   };
 
-  const handleOpenView = (copc: COPCRecord, defaultTab: 'certificate' | 'requirements' = 'certificate') => {
+  const loadBorDocument = async (copc: COPCRecord) => {
+    setBorDocLoading(true);
+    setBorDocUrl(null);
+    setBorDocKind(null);
+    setBorDocMissing(false);
+    const href = borResHref(copc.borRes);
+    if (!href) {
+      setBorDocMissing(true);
+      setBorDocLoading(false);
+      return;
+    }
+    try {
+      if (isUrl(href)) {
+        setBorDocUrl(href);
+        setBorDocKind('pdf');
+        setBorDocLoading(false);
+        return;
+      }
+      const res = await fetch(href);
+      if (!res.ok) {
+        setBorDocMissing(true);
+        setBorDocLoading(false);
+        return;
+      }
+      const blob = await res.blob();
+      const kind = certificateKind(blob, href);
+      if (!kind) {
+        setBorDocMissing(true);
+        setBorDocLoading(false);
+        return;
+      }
+      setBorDocUrl(URL.createObjectURL(blob));
+      setBorDocKind(kind);
+    } catch {
+      setBorDocMissing(true);
+    }
+    setBorDocLoading(false);
+  };
+
+  const closeViewModal = () => {
     if (officialCertUrl?.startsWith('blob:')) URL.revokeObjectURL(officialCertUrl);
+    if (borDocUrl?.startsWith('blob:')) URL.revokeObjectURL(borDocUrl);
+    setOfficialCertUrl(null);
+    setOfficialCertKind(null);
+    setBorDocUrl(null);
+    setBorDocKind(null);
+    setViewingCertificateCopc(null);
+  };
+
+  const handleOpenView = (
+    copc: COPCRecord,
+    defaultTab: 'certificate' | 'bor' | 'requirements' = 'certificate'
+  ) => {
+    if (officialCertUrl?.startsWith('blob:')) URL.revokeObjectURL(officialCertUrl);
+    if (borDocUrl?.startsWith('blob:')) URL.revokeObjectURL(borDocUrl);
+    setOfficialCertUrl(null);
+    setBorDocUrl(null);
     setViewingCertificateCopc(copc);
     setViewModalTab(defaultTab);
     setSelectedPreviewReq(null);
-    void loadOfficialCertificate(copc);
+    if (defaultTab === 'bor') {
+      void loadBorDocument(copc);
+      void loadOfficialCertificate(copc);
+    } else {
+      void loadOfficialCertificate(copc);
+      if (borResHref(copc.borRes)) void loadBorDocument(copc);
+    }
   };
 
   // Real PDF Document Viewer Modal State (shows actual uploaded file or authentic CHED compliance PDF)
@@ -974,22 +1058,22 @@ export function COPCView() {
                     </td>
 
                     <td className="td py-3 whitespace-nowrap">
-                      {copc.certificateNumber ? (
+                      {copc.certificateNumber || copc.documentLink ? (
                         <button
                           type="button"
                           onClick={() => handleOpenView(copc, 'certificate')}
-                          className="font-mono text-xs font-semibold text-brand-700 hover:underline flex items-center gap-1 cursor-pointer"
+                          className="inline-flex items-center gap-1 rounded-md border border-line bg-canvas px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 transition hover:border-brand-300 cursor-pointer"
                           title="View Official COPC Certificate"
                         >
                           <AwardIcon className="h-3.5 w-3.5 text-brand-600 shrink-0" />
-                          <span>{copc.certificateNumber}</span>
+                          <span className="font-mono">{copc.certificateNumber || 'View'}</span>
                         </button>
                       ) : canMutate ? (
                         <button
                           type="button"
-                          onClick={() => handleOpenUpload(copc)}
+                          onClick={() => openCopcDocs(copc, 'certificate')}
                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200/80 rounded-md px-2 py-0.5 transition-colors cursor-pointer"
-                          title="Click to upload official COPC certificate"
+                          title="Upload into Certificate Number folder"
                         >
                           <UploadIcon className="h-3 w-3" />
                           <span>Upload Certificate</span>
@@ -1007,8 +1091,30 @@ export function COPCView() {
                       {copc.cmoNo || '—'}
                     </td>
 
-                    <td className="td py-3 text-xs text-ink-muted truncate max-w-[150px]">
-                      {copc.borRes || '—'}
+                    <td className="td py-3 text-xs whitespace-nowrap">
+                      {borResHref(copc.borRes) ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenView(copc, 'bor')}
+                          className="inline-flex items-center gap-1 rounded-md border border-line bg-canvas px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 transition hover:border-brand-300 cursor-pointer"
+                          title="View Board of Regents Resolution"
+                        >
+                          <FileCheckIcon className="h-3 w-3 shrink-0" />
+                          View
+                        </button>
+                      ) : canMutate ? (
+                        <button
+                          type="button"
+                          onClick={() => openCopcDocs(copc, 'bor')}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200/80 rounded-md px-2 py-0.5 transition-colors cursor-pointer"
+                          title="Upload into BOR Resolution folder"
+                        >
+                          <UploadIcon className="h-3 w-3" />
+                          <span>Upload BOR</span>
+                        </button>
+                      ) : (
+                        <span className="text-ink-muted truncate max-w-[150px] inline-block">{copc.borRes || '—'}</span>
+                      )}
                     </td>
 
                     <td className="td py-3 text-right whitespace-nowrap">
@@ -1025,9 +1131,9 @@ export function COPCView() {
                         {canMutate && (
                           <button
                             type="button"
-                            onClick={() => handleOpenUpload(copc)}
+                            onClick={() => openCopcDocs(copc, 'certificate')}
                             className="flex h-7 w-7 items-center justify-center text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
-                            title="Upload official certificate"
+                            title="Open COPC Certificate Number / BOR folders"
                           >
                             <UploadIcon className="h-3.5 w-3.5" />
                           </button>
@@ -1090,21 +1196,22 @@ export function COPCView() {
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs bg-canvas/60 p-2.5 rounded-lg border border-line">
                     <div>
                       <span className="text-[11px] text-ink-muted">Certificate No:</span>
-                      {copc.certificateNumber ? (
+                      {copc.certificateNumber || copc.documentLink ? (
                         <button
                           type="button"
                           onClick={() => handleOpenView(copc, 'certificate')}
-                          className="font-mono font-medium text-brand-700 hover:underline truncate mt-0.5 text-left block cursor-pointer"
+                          className="inline-flex items-center gap-1 rounded-md border border-line bg-canvas px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 transition hover:border-brand-300 mt-0.5 cursor-pointer"
                           title="View Official Certificate"
                         >
-                          {copc.certificateNumber}
+                          <AwardIcon className="h-3 w-3 shrink-0" />
+                          <span className="font-mono truncate">{copc.certificateNumber || 'View'}</span>
                         </button>
                       ) : canMutate ? (
                         <button
                           type="button"
-                          onClick={() => handleOpenUpload(copc)}
+                          onClick={() => openCopcDocs(copc, 'certificate')}
                           className="text-[11px] font-semibold text-brand-700 hover:underline mt-0.5 flex items-center gap-1 cursor-pointer"
-                          title="Upload Certificate"
+                          title="Upload into Certificate Number folder"
                         >
                           <UploadIcon className="h-3 w-3" />
                           <span>Upload Certificate</span>
@@ -1121,8 +1228,32 @@ export function COPCView() {
                     </div>
                     <div className="col-span-2">
                       <span className="text-[11px] text-ink-muted">CMO / BOR:</span>
-                      <p className="font-medium text-ink truncate mt-0.5">
-                        {copc.cmoNo || '—'} · {copc.borRes || '—'}
+                      <p className="font-medium text-ink truncate mt-0.5 flex flex-wrap items-center gap-1.5">
+                        <span>{copc.cmoNo || '—'}</span>
+                        <span className="text-ink-subtle">·</span>
+                        {borResHref(copc.borRes) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenView(copc, 'bor')}
+                            className="inline-flex items-center gap-1 text-brand-700 font-semibold hover:underline cursor-pointer"
+                            title="View Board of Regents Resolution"
+                          >
+                            <FileCheckIcon className="h-3 w-3" />
+                            BOR View
+                          </button>
+                        ) : canMutate ? (
+                          <button
+                            type="button"
+                            onClick={() => openCopcDocs(copc, 'bor')}
+                            className="inline-flex items-center gap-1 text-brand-700 font-semibold hover:underline cursor-pointer"
+                            title="Upload into BOR Resolution folder"
+                          >
+                            <UploadIcon className="h-3 w-3" />
+                            Upload BOR
+                          </button>
+                        ) : (
+                          <span>{copc.borRes || '—'}</span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -1143,9 +1274,9 @@ export function COPCView() {
                       {canMutate && (
                         <button
                           type="button"
-                          onClick={() => handleOpenUpload(copc)}
+                          onClick={() => openCopcDocs(copc, 'certificate')}
                           className="flex h-8 px-2.5 items-center gap-1.5 text-xs text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
-                          title="Upload official certificate"
+                          title="Open COPC Certificate Number / BOR folders"
                         >
                           <UploadIcon className="h-3.5 w-3.5" />
                           <span>Upload</span>
@@ -1175,29 +1306,26 @@ export function COPCView() {
       {viewingCertificateCopc && (
         <Modal
           open={!!viewingCertificateCopc}
-          onClose={() => {
-            if (officialCertUrl?.startsWith('blob:')) URL.revokeObjectURL(officialCertUrl);
-            setOfficialCertUrl(null);
-            setOfficialCertKind(null);
-            setViewingCertificateCopc(null);
-          }}
+          onClose={closeViewModal}
           zIndex="z-[60]"
           title={
-            viewModalTab === 'certificate'
-              ? 'Official Certificate of Program Compliance (COPC)'
-              : 'Requirements Audit Uploaded Files'
+            viewModalTab === 'bor'
+              ? 'Board of Regents Resolution'
+              : viewModalTab === 'certificate'
+                ? 'Official Certificate of Program Compliance (COPC)'
+                : 'Requirements Audit Uploaded Files'
           }
           description={`${viewingCertificateCopc.programName} · ${viewingCertificateCopc.campusName}`}
           size="xl"
           footer={
             <div className="flex w-full items-center justify-between gap-2">
-              {canMutate && (
+              {canMutate && viewModalTab !== 'bor' && (
                 <div>
                   <button
                     type="button"
                     onClick={() => {
                       const target = viewingCertificateCopc;
-                      setViewingCertificateCopc(null);
+                      closeViewModal();
                       handleOpenUpload(target);
                     }}
                     className="btn btn-primary btn-sm inline-flex items-center gap-1.5 shadow-2xs font-semibold cursor-pointer"
@@ -1207,10 +1335,17 @@ export function COPCView() {
                   </button>
                 </div>
               )}
+              {viewModalTab === 'bor' && <div />}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={() => {
+                    if (viewModalTab === 'bor' && borDocUrl) {
+                      window.open(borDocUrl, '_blank', 'noopener,noreferrer');
+                      return;
+                    }
+                    window.print();
+                  }}
                   className="btn btn-secondary btn-sm inline-flex items-center gap-1.5 cursor-pointer"
                 >
                   <PrinterIcon className="h-3.5 w-3.5" />
@@ -1218,7 +1353,7 @@ export function COPCView() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setViewingCertificateCopc(null)}
+                  onClick={closeViewModal}
                   className="btn btn-secondary btn-sm cursor-pointer"
                 >
                   Close
@@ -1228,9 +1363,9 @@ export function COPCView() {
           }
         >
           <div className="space-y-4">
-            {/* Modal Tabs Header: Switch between Official Certificate and Requirements Audit Files */}
+            {/* Modal Tabs Header: Official Certificate · BOR Resolution */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-line pb-3">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setViewModalTab('certificate')}
@@ -1243,6 +1378,23 @@ export function COPCView() {
                   <AwardIcon className="h-3.5 w-3.5" />
                   <span>Official Certificate</span>
                 </button>
+                {borResHref(viewingCertificateCopc.borRes) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewModalTab('bor');
+                      if (!borDocUrl && !borDocLoading) void loadBorDocument(viewingCertificateCopc);
+                    }}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                      viewModalTab === 'bor'
+                        ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-500/30 shadow-2xs'
+                        : 'text-ink-muted hover:bg-slate-100 hover:text-ink'
+                    }`}
+                  >
+                    <FileCheckIcon className="h-3.5 w-3.5" />
+                    <span>BOR Resolution</span>
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -1251,6 +1403,42 @@ export function COPCView() {
                 </Badge>
               </div>
             </div>
+
+            {/* TAB: BOR Resolution — same viewer chrome as Official Certificate */}
+            {viewModalTab === 'bor' && (
+              borDocLoading ? (
+                <div className="flex items-center justify-center rounded-2xl border border-line bg-white py-20 text-sm text-ink-muted">
+                  Loading Board of Regents Resolution…
+                </div>
+              ) : borDocMissing && !borDocUrl ? (
+                <div className="rounded-xl border border-dashed border-line bg-canvas/60 px-6 py-10 text-center">
+                  <p className="text-sm font-semibold text-ink">BOR Resolution file is not available</p>
+                  <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-muted">
+                    This program is linked to a BOR Resolution, but that file could not be loaded.
+                  </p>
+                </div>
+              ) : borDocUrl && borDocKind === 'image' ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-ink-muted">Board of Regents Resolution on file.</p>
+                  <div className="flex justify-center rounded-xl border border-line bg-white p-3">
+                    <img
+                      src={borDocUrl}
+                      alt={`BOR – ${viewingCertificateCopc.programName}`}
+                      className="max-h-[min(78vh,720px)] max-w-full rounded-lg object-contain"
+                    />
+                  </div>
+                </div>
+              ) : borDocUrl ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-ink-muted">Board of Regents Resolution on file.</p>
+                  <iframe
+                    title={`BOR – ${viewingCertificateCopc.programName}`}
+                    src={`${borDocUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                    className="h-[min(78vh,720px)] w-full rounded-xl border border-line bg-white"
+                  />
+                </div>
+              ) : null
+            )}
 
             {/* TAB 1: Official Certificate — real file when available */}
             {viewModalTab === 'certificate' && (
@@ -1281,7 +1469,7 @@ export function COPCView() {
                   <p className="text-xs text-ink-muted">Official CHED COPC certificate on file.</p>
                   <iframe
                     title={`COPC – ${viewingCertificateCopc.programName}`}
-                    src={`${officialCertUrl}#toolbar=1&navpanes=0&view=FitH`}
+                    src={`${officialCertUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
                     className="h-[min(78vh,720px)] w-full rounded-xl border border-line bg-white"
                   />
                 </div>
@@ -1349,9 +1537,23 @@ export function COPCView() {
                     and is officially recognized and confirmed compliant pursuant to Board of Regents Resolution:
                   </p>
 
-                  <p className="font-semibold text-ink">
-                    {viewingCertificateCopc.borRes || 'BOR Res. Pending Ratification'}
-                  </p>
+                  {borResHref(viewingCertificateCopc.borRes) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewModalTab('bor');
+                        if (!borDocUrl && !borDocLoading) void loadBorDocument(viewingCertificateCopc);
+                      }}
+                      className="inline-flex items-center gap-1.5 font-semibold text-brand-700 hover:underline cursor-pointer"
+                    >
+                      <FileCheckIcon className="h-4 w-4" />
+                      View Board of Regents Resolution
+                    </button>
+                  ) : (
+                    <p className="font-semibold text-ink">
+                      {viewingCertificateCopc.borRes || 'BOR Res. Pending Ratification'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Certificate Verification Badge & Signatures */}
@@ -1588,7 +1790,26 @@ export function COPCView() {
                     </div>
                     <div>
                       <span className="text-slate-500 text-[10px] block uppercase font-semibold">BOR Approval:</span>
-                      <span className="font-semibold text-slate-800">{activePdfDoc.copcRecord.borRes || 'BOR Confirmed'}</span>
+                      {(() => {
+                        const href = borResHref(activePdfDoc.copcRecord.borRes);
+                        if (href) {
+                          return (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-semibold text-brand-800 hover:underline"
+                            >
+                              View BOR Resolution
+                            </a>
+                          );
+                        }
+                        return (
+                          <span className="font-semibold text-slate-800">
+                            {activePdfDoc.copcRecord.borRes || 'BOR Confirmed'}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -2139,6 +2360,13 @@ export function COPCView() {
           </form>
         </Modal>
       )}
+
+      <CopcDocumentsModal
+        open={!!docsModalCopc}
+        record={docsModalCopc}
+        preferredFolderCode={docsModalFolder}
+        onClose={() => setDocsModalCopc(null)}
+      />
     </>
   );
 }

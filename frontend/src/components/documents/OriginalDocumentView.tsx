@@ -359,10 +359,12 @@ export function OriginalDocumentView({
   const pdfHeight = doc.docType === 'Certificate' ? 'h-[min(78vh,620px)]' : heightClass;
   switch (detectKind(file)) {
     case 'pdf':
+      // Hide the browser PDF chrome (zoom / Summarize / download bar) so the
+      // preview shows only the certificate page itself.
       return (
         <iframe
           title={file.name}
-          src={`${url}#toolbar=1&navpanes=0&view=FitH`}
+          src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
           className={`w-full rounded-xl border border-line bg-white ${pdfHeight}`}
         />
       );

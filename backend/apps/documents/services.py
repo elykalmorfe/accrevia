@@ -49,6 +49,7 @@ def create_document_from_upload(uploaded_file, meta: dict) -> EvidenceDocument:
     keywords = [k.strip() for k in keywords_raw.split(",") if k.strip()] if isinstance(keywords_raw, str) else list(keywords_raw)
 
     doc = EvidenceDocument(
+        id=doc_id,
         title=title,
         description=meta.get("description") or "",
         keywords=keywords,
@@ -76,8 +77,6 @@ def create_document_from_upload(uploaded_file, meta: dict) -> EvidenceDocument:
         status="Processing",
         progress={"stage": "queued", "percent": 0},
     )
-    # Force id to match file stem for easier FE correlation when provided later
-    doc.id = doc_id
     doc.save()
 
     from apps.ingestion.tasks import ingest_document
@@ -91,7 +90,7 @@ def create_document_from_upload(uploaded_file, meta: dict) -> EvidenceDocument:
 
 
 def get_document(doc_id: str) -> EvidenceDocument | None:
-    return EvidenceDocument.objects(id=doc_id).first()
+    return EvidenceDocument.objects.filter(pk=doc_id).first()
 
 
 def document_status_payload(doc: EvidenceDocument) -> dict:

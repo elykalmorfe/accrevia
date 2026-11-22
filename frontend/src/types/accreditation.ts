@@ -19,6 +19,8 @@ export type AccreditationLevel =
   | 'Level 3'
   | 'Level 4'
   | 'Not Accreditable'
+  | 'Not Yet Due for Accreditation'
+  | 'New Program'
   | 'for accreditation'
   | 'waiting';
 

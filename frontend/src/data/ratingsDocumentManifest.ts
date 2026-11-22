@@ -1431,7 +1431,7 @@ export const ratingsDocumentManifest = {
       "fileName": "Ratings_BSED Math.pdf"
     }
   ],
-  "pa-tan-g03": [
+  "pa-tan-26": [
     {
       "period": "2022-2026",
       "path": "/certificates/ratings/tandag/edd-elt/2022-2026/ed.d-english-language-teaching-2nd-survey.pdf",
@@ -1443,7 +1443,7 @@ export const ratingsDocumentManifest = {
       "fileName": "2026-2030.pdf"
     }
   ],
-  "pa-tan-g02": [
+  "pa-tan-25": [
     {
       "period": "2024-2026",
       "path": "/certificates/ratings/tandag/edd-em/2024-2026/doctor-of-education-in-edm.pdf",
@@ -1455,14 +1455,14 @@ export const ratingsDocumentManifest = {
       "fileName": "EdD in Educational Management.pdf"
     }
   ],
-  "pa-tan-g07": [
+  "pa-tan-30": [
     {
       "period": "2023-2028",
       "path": "/certificates/ratings/tandag/maed/2023-2028/maed-educ.-management.pdf",
       "fileName": "MAED-Educ. Management.pdf"
     }
   ],
-  "pa-tan-g08": [
+  "pa-tan-31": [
     {
       "period": "2024-2026",
       "path": "/certificates/ratings/tandag/maelt/2024-2026/maelt.pdf",
@@ -1479,14 +1479,14 @@ export const ratingsDocumentManifest = {
       "fileName": "MAELT.png"
     }
   ],
-  "pa-tan-g09": [
+  "pa-tan-32": [
     {
       "period": "2023-2028",
       "path": "/certificates/ratings/tandag/maflt/2023-2028/maflt.pdf",
       "fileName": "MAFLT.pdf"
     }
   ],
-  "pa-tan-g10": [
+  "pa-tan-33": [
     {
       "period": "2024-2025",
       "path": "/certificates/ratings/tandag/mahet/2024-2025/mahet.pdf",
@@ -1498,7 +1498,7 @@ export const ratingsDocumentManifest = {
       "fileName": "MAHET.pdf"
     }
   ],
-  "pa-tan-g13": [
+  "pa-tan-36": [
     {
       "period": "2024-2026",
       "path": "/certificates/ratings/tandag/masst/2024-2026/masst.pdf",
@@ -1510,7 +1510,7 @@ export const ratingsDocumentManifest = {
       "fileName": "MASST.pdf"
     }
   ],
-  "pa-tan-g04": [
+  "pa-tan-27": [
     {
       "period": "2025-2026",
       "path": "/certificates/ratings/tandag/mba/2025-2026/mba.pdf",
@@ -1532,14 +1532,14 @@ export const ratingsDocumentManifest = {
       "fileName": "MBA.pdf"
     }
   ],
-  "pa-tan-g14": [
+  "pa-tan-37": [
     {
       "period": "2023-2028",
       "path": "/certificates/ratings/tandag/mpa/2023-2028/mpa.pdf",
       "fileName": "MPA.pdf"
     }
   ],
-  "pa-tan-g06": [
+  "pa-tan-29": [
     {
       "period": "2025-2029",
       "path": "/certificates/ratings/tandag/mscs/2025-2029/mscs.pdf",
@@ -1561,14 +1561,14 @@ export const ratingsDocumentManifest = {
       "fileName": "Ratings-MSCS.pdf"
     }
   ],
-  "pa-tan-g11": [
+  "pa-tan-34": [
     {
       "period": "2023-2028",
       "path": "/certificates/ratings/tandag/mst-math/2023-2028/mst-math.pdf",
       "fileName": "MST-Math.pdf"
     }
   ],
-  "pa-tan-g12": [
+  "pa-tan-35": [
     {
       "period": "2025-2026",
       "path": "/certificates/ratings/tandag/msts/2025-2026/msts.pdf",
@@ -1585,7 +1585,7 @@ export const ratingsDocumentManifest = {
       "fileName": "MSTS.pdf"
     }
   ],
-  "pa-tan-g01": [
+  "pa-tan-24": [
     {
       "period": "2024-2027",
       "path": "/certificates/ratings/tandag/phd-math/2024-2027/phd-in-math.pdf",
@@ -1607,7 +1607,7 @@ export const ratingsDocumentManifest = {
       "fileName": "Phd. Mathematics Educ.-August 23-27, 2021.docx"
     }
   ],
-  "pa-tan-g05": [
+  "pa-tan-28": [
     {
       "period": "2025-2029",
       "path": "/certificates/ratings/tandag/phd-scie.ed/2025-2029/phd-science-education.pdf",

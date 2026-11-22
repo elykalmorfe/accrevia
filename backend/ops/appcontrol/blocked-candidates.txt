@@ -1,7 +1,6 @@
 C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\onnxruntime\capi\onnxruntime.dll
 C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\onnxruntime\capi\onnxruntime_providers_shared.dll
 C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\onnxruntime\capi\onnxruntime_pybind11_state.pyd
-C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\pymongo\_cmessage.cp313-win_amd64.pyd
 C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\regex\_regex.cp313-win_amd64.pyd
 C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\lib\c10.dll
 C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\torch\lib\libiomp5md.dll

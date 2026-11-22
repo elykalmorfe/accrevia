@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeftIcon,
@@ -43,6 +43,13 @@ import { UploadDropzone } from '../../components/upload/UploadDropzone';
 import { StagedFileList } from '../../components/upload/StagedFileList';
 import { usePortalSettings } from '../../settings/portalSettings';
 import { uploadDocumentRemote } from '../../services/documents/uploadClient';
+import {
+  COPC_ROOT_FOLDER_ID,
+  isCopcCanonicalFolderId,
+  isPaCanonicalFolderId,
+  PA_ROOT_FOLDER_ID,
+  reconcilePaCopcRepository
+} from '../../utils/programAccreditation';
 import { toast } from 'sonner';
 
 const FOLDER_THEMES: Record<FolderColor, { iconBg: string; iconColor: string; tagBg: string; tagText: string; borderHover: string }> = {
@@ -118,6 +125,27 @@ export function UploadEvidence() {
   const settings = usePortalSettings();
   const uploadDefaults = { academicYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
 
+  // Keep PA/COPC Online Repository flattened to the allowlisted folders only.
+  useEffect(() => {
+    const result = reconcilePaCopcRepository(folders, documents);
+    if (!result.changed) return;
+    result.folders.forEach((f) => {
+      if (!folders.some((e) => e.id === f.id)) saveFolder(f);
+    });
+    folders.forEach((f) => {
+      if ((f.frameworkId === 'pa' || f.frameworkId === 'copc') && !result.folders.some((e) => e.id === f.id)) {
+        hideFolderId(f.id);
+        deleteFolder(f.id);
+      }
+    });
+    result.documents.forEach((d) => {
+      const prev = documents.find((p) => p.id === d.id);
+      if (prev && prev.folderId !== d.folderId) updateDocument(d.id, { folderId: d.folderId });
+    });
+    // Run when entering the repository page / when folder set drifts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Root directory view states
   const [folderSearch, setFolderSearch] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -169,11 +197,11 @@ export function UploadEvidence() {
     }
   };
 
-  // The 5 Canonical Framework Root Repositories: IA, PA, COPC, PQA, ISO ONLY (EXACTLY 5 AT ALL CAMPUSES AND AT EACH CAMPUS)
+  // The 5 Canonical Framework Root Repositories: IA, PA, COPC, PQA, ISO ONLY
   const rootFrameworkFolders = useMemo(() => {
     const hidden = new Set(hiddenFolderIds);
     return initialFolders
-      .filter((initF) => !hidden.has(initF.id))
+      .filter((initF) => isRootFrameworkFolder(initF) && !hidden.has(initF.id))
       .map((initF) => {
         const match = folders.find(
           (f) => f.id === initF.id || (f.code?.toUpperCase() === initF.code?.toUpperCase() && isRootFrameworkFolder(f))
@@ -196,12 +224,31 @@ export function UploadEvidence() {
     return rootFrameworkFolders.find((rf) => rf.frameworkId === currentFolder.frameworkId) || currentFolder;
   }, [currentFolder, isCurrentRoot, rootFrameworkFolders]);
 
+  const isPaRepo = currentFrameworkId === 'pa';
+  const isCopcRepo = currentFrameworkId === 'copc';
+  const isFlatFrameworkRepo = isPaRepo || isCopcRepo;
+  const isPaOrCopcCanonicalChild =
+    isPaCanonicalFolderId(currentFolder?.id) || isCopcCanonicalFolderId(currentFolder?.id);
+  /** PA/COPC: no nested folders under the fixed status folders. */
+  const blockNestedFolders = isFlatFrameworkRepo && (isCurrentRoot || isPaOrCopcCanonicalChild);
+
   // Strictly isolated subfolders belonging to this framework AND matching selectedCampus
   const insideSubfolders = useMemo(() => {
     if (!currentFolder) return [];
+    // Inside a fixed PA/COPC status folder: files only (no nested folders).
+    if (isPaOrCopcCanonicalChild) return [];
+
     return folders.filter((f) => {
       if (isRootFrameworkFolder(f)) return false;
       if (f.frameworkId !== currentFrameworkId) return false;
+
+      if (isCurrentRoot && isPaRepo) {
+        return f.parentId === PA_ROOT_FOLDER_ID && isPaCanonicalFolderId(f.id);
+      }
+      if (isCurrentRoot && isCopcRepo) {
+        return f.parentId === COPC_ROOT_FOLDER_ID && isCopcCanonicalFolderId(f.id);
+      }
+
       if (isCurrentRoot) {
         if (f.parentId && f.parentId !== currentFolder.id) return false;
       } else {
@@ -209,17 +256,32 @@ export function UploadEvidence() {
       }
       return isFolderCampusMatch(f, selectedCampus);
     });
-  }, [currentFolder, folders, currentFrameworkId, isCurrentRoot, selectedCampus]);
+  }, [
+    currentFolder,
+    folders,
+    currentFrameworkId,
+    isCurrentRoot,
+    selectedCampus,
+    isPaRepo,
+    isCopcRepo,
+    isPaOrCopcCanonicalChild
+  ]);
 
   // All sibling subfolders belonging to this framework (for quick-switching within a subfolder view)
   const siblingSubfolders = useMemo(() => {
     if (!parentFrameworkFolder) return [];
+    if (isPaRepo) {
+      return folders.filter((f) => f.parentId === PA_ROOT_FOLDER_ID && isPaCanonicalFolderId(f.id));
+    }
+    if (isCopcRepo) {
+      return folders.filter((f) => f.parentId === COPC_ROOT_FOLDER_ID && isCopcCanonicalFolderId(f.id));
+    }
     return folders.filter((f) => {
       if (isRootFrameworkFolder(f)) return false;
       if (f.frameworkId !== currentFrameworkId) return false;
       return isFolderCampusMatch(f, selectedCampus);
     });
-  }, [parentFrameworkFolder, folders, currentFrameworkId, selectedCampus]);
+  }, [parentFrameworkFolder, folders, currentFrameworkId, selectedCampus, isPaRepo, isCopcRepo]);
 
   // Filtered subfolders by live subfolder search input
   const filteredInsideSubfolders = useMemo(() => {
@@ -288,15 +350,31 @@ export function UploadEvidence() {
     return documents.filter((d) => {
       if (d.frameworkId !== currentFrameworkId) return false;
       if (!isDocCampusMatch(d, selectedCampus)) return false;
+      // Inside a fixed PA/COPC folder: only that folder's files.
       if (!isCurrentRoot) {
         return d.folderId === currentFolder.id;
+      }
+      // PA/COPC roots are folder grids only — files live in Certificate Number / BOR / Level folders.
+      if (isFlatFrameworkRepo) {
+        if (activeSubfolderFilter !== 'all') {
+          return d.folderId === activeSubfolderFilter;
+        }
+        return false;
       }
       if (activeSubfolderFilter !== 'all') {
         return d.folderId === activeSubfolderFilter;
       }
       return true;
     });
-  }, [currentFolder, documents, currentFrameworkId, selectedCampus, isCurrentRoot, activeSubfolderFilter]);
+  }, [
+    currentFolder,
+    documents,
+    currentFrameworkId,
+    selectedCampus,
+    isCurrentRoot,
+    activeSubfolderFilter,
+    isFlatFrameworkRepo
+  ]);
 
   // Filtered & sorted documents inside currently selected folder (search & sort)
   const docsInFolder = useMemo(() => {
@@ -353,6 +431,10 @@ export function UploadEvidence() {
 
   // Folder creation/update handler
   const handleCreateOrEditFolder = (f: EvidenceFolder) => {
+    if (!editingFolder && blockNestedFolders) {
+      toast.error('Program Accreditation and COPC use fixed folders only — nested folders are not allowed.');
+      return;
+    }
     const targetCampusId = selectedCampus !== 'all' ? selectedCampus : 'tandag';
     const targetCampusName = selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)';
     const folderToSave: EvidenceFolder = editingFolder
@@ -374,6 +456,18 @@ export function UploadEvidence() {
           campus: f.campus || targetCampusName,
           libraryOnly: true
         };
+    // Never persist user folders under PA/COPC trees.
+    if (
+      !editingFolder &&
+      (folderToSave.frameworkId === 'pa' || folderToSave.frameworkId === 'copc') &&
+      !isPaCanonicalFolderId(folderToSave.id) &&
+      !isCopcCanonicalFolderId(folderToSave.id) &&
+      folderToSave.id !== PA_ROOT_FOLDER_ID &&
+      folderToSave.id !== COPC_ROOT_FOLDER_ID
+    ) {
+      toast.error('Only the fixed Program Accreditation / COPC folders are allowed.');
+      return;
+    }
     saveFolder(folderToSave);
     toast.success(editingFolder ? `Updated folder: ${f.name}` : `Created folder: ${f.name}`);
   };
@@ -448,7 +542,8 @@ export function UploadEvidence() {
       let targetFolderName = currentFolder.name;
 
       // Mode: Entire Folder upload from directory input
-      if (uploadMode === 'folder' && uploadedFileList[0]?.path) {
+      // PA/COPC stay flat — never create nested folders; dump files into the current fixed folder.
+      if (uploadMode === 'folder' && uploadedFileList[0]?.path && !blockNestedFolders) {
         const rootDirName = uploadedFileList[0].path.split('/')[0];
         if (rootDirName && rootDirName !== uploadedFileList[0].name) {
           const existingSub = insideSubfolders.find(
@@ -481,6 +576,12 @@ export function UploadEvidence() {
             targetFolderName = rootDirName;
           }
         }
+      }
+
+      if (blockNestedFolders && isCurrentRoot) {
+        toast.error('Open Candidate, Level 1–4, TRBA, Findings, or a COPC folder before uploading.');
+        setIsProcessingUpload(false);
+        return;
       }
 
       const campusTag = selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)';
@@ -749,14 +850,19 @@ export function UploadEvidence() {
               type="button"
               onClick={() => {
                 setUploadedFileList([]);
+                setUploadMode(blockNestedFolders ? 'files' : uploadMode);
                 setSelectedDestinationFolderId(activeSubfolderFilter !== 'all' ? activeSubfolderFilter : currentFolder.id);
                 setUploadModalOpen(true);
               }}
               className="btn btn-primary btn-sm shadow-xs font-semibold gap-1.5"
-              title={`Upload individual files or entire folder into ${currentFolder.code}`}
+              title={
+                blockNestedFolders
+                  ? `Upload files into a fixed ${currentFolder.code} folder`
+                  : `Upload individual files or entire folder into ${currentFolder.code}`
+              }
             >
               <CloudUploadIcon className="h-4 w-4" />
-              <span>Upload Files / Folder</span>
+              <span>{blockNestedFolders ? 'Upload Files' : 'Upload Files / Folder'}</span>
             </button>
           </div>
         ) : (
@@ -774,6 +880,7 @@ export function UploadEvidence() {
               type="button"
               onClick={() => {
                 setUploadedFileList([]);
+                setUploadMode(blockNestedFolders ? 'files' : uploadMode);
                 setSelectedDestinationFolderId(currentFolder.id);
                 setUploadModalOpen(true);
               }}
@@ -1407,26 +1514,36 @@ export function UploadEvidence() {
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingFolder(null);
-                      setIsFolderModalOpen(true);
-                    }}
-                    className="btn btn-secondary btn-sm text-xs font-semibold gap-1 text-brand-600 hover:text-brand-700"
-                  >
-                    <FolderPlusIcon className="h-3.5 w-3.5" />
-                    <span>+ Add Subfolder</span>
-                  </button>
+                  {!blockNestedFolders && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingFolder(null);
+                        setIsFolderModalOpen(true);
+                      }}
+                      className="btn btn-secondary btn-sm text-xs font-semibold gap-1 text-brand-600 hover:text-brand-700"
+                    >
+                      <FolderPlusIcon className="h-3.5 w-3.5" />
+                      <span>+ Add Subfolder</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
               {insideSubfolders.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center text-xs text-ink-muted">
                   <FolderIcon className="mx-auto h-7 w-7 text-slate-300 mb-1.5" />
-                  <p className="font-semibold text-slate-700">No subfolders yet in {currentFolder.code}</p>
+                  <p className="font-semibold text-slate-700">
+                    {isPaOrCopcCanonicalChild
+                      ? 'Files only in this folder'
+                      : `No subfolders yet in ${currentFolder.code}`}
+                  </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Click &quot;+ Add Subfolder&quot; or upload an entire folder to automatically create subdirectories.
+                    {isPaOrCopcCanonicalChild
+                      ? 'Upload documents directly here — nested folders are not used for Program Accreditation or COPC.'
+                      : blockNestedFolders
+                        ? 'Only the fixed status folders are shown for this repository.'
+                        : 'Click "+ Add Subfolder" or upload an entire folder to automatically create subdirectories.'}
                   </p>
                 </div>
               ) : filteredInsideSubfolders.length === 0 ? (
@@ -1566,6 +1683,7 @@ export function UploadEvidence() {
                       type="button"
                       onClick={() => {
                         setUploadedFileList([]);
+                        setUploadMode(blockNestedFolders ? 'files' : uploadMode);
                         setSelectedDestinationFolderId(currentFolder.id);
                         setUploadModalOpen(true);
                       }}
@@ -1744,40 +1862,42 @@ export function UploadEvidence() {
               </span>
             </div>
 
-            {/* Upload Mode Selector (Individual Files vs Entire Folder) */}
-            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100/80 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setUploadMode('files');
-                  setUploadedFileList([]);
-                }}
-                className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
-                  uploadMode === 'files'
-                    ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <FileTextIcon className="h-4 w-4 text-brand-600" />
-                <span>Individual Files</span>
-              </button>
+            {/* Upload Mode Selector — PA/COPC stay flat (files only). */}
+            {!blockNestedFolders ? (
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100/80 p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUploadMode('files');
+                    setUploadedFileList([]);
+                  }}
+                  className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
+                    uploadMode === 'files'
+                      ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <FileTextIcon className="h-4 w-4 text-brand-600" />
+                  <span>Individual Files</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setUploadMode('folder');
-                  setUploadedFileList([]);
-                }}
-                className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
-                  uploadMode === 'folder'
-                    ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <FolderArchiveIcon className="h-4 w-4 text-brand-600" />
-                <span>Entire Folder</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUploadMode('folder');
+                    setUploadedFileList([]);
+                  }}
+                  className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
+                    uploadMode === 'folder'
+                      ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <FolderArchiveIcon className="h-4 w-4 text-brand-600" />
+                  <span>Entire Folder</span>
+                </button>
+              </div>
+            ) : null}
 
             {/* Destination Subfolder Selector (Optional) */}
             {insideSubfolders.length > 0 && (

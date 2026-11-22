@@ -748,7 +748,7 @@ export const aaccupCertificateManifest = {
       "fileName": "Certification-across campuses-2023.pdf"
     }
   ],
-  "pa-tan-g02": [
+  "pa-tan-25": [
     {
       "level": "Level 2",
       "path": "/certificates/aaccup/tandag/edd-in-educational-managament/level-2/edd-ed-tdg-2024.pdf",
@@ -760,7 +760,7 @@ export const aaccupCertificateManifest = {
       "fileName": "Tandag Certificate.jpg"
     }
   ],
-  "pa-tan-g03": [
+  "pa-tan-26": [
     {
       "level": "Level 2",
       "path": "/certificates/aaccup/tandag/edd-english/level-2/aaccup-certification-2022.pdf",
@@ -772,14 +772,14 @@ export const aaccupCertificateManifest = {
       "fileName": "Ed.D English Language Teaching.png"
     }
   ],
-  "pa-tan-g07": [
+  "pa-tan-30": [
     {
       "level": "Level 3",
       "path": "/certificates/aaccup/tandag/maed/level-3/maed.png",
       "fileName": "MAED.png"
     }
   ],
-  "pa-tan-g08": [
+  "pa-tan-31": [
     {
       "level": "Level 3",
       "path": "/certificates/aaccup/tandag/maelt/level-3/beedbsedmaelt-tdg-2024.pdf",
@@ -791,7 +791,7 @@ export const aaccupCertificateManifest = {
       "fileName": "MAELT.png"
     }
   ],
-  "pa-tan-g04": [
+  "pa-tan-27": [
     {
       "level": "Level 2",
       "path": "/certificates/aaccup/tandag/mba/level-2/img199.jpg",
@@ -803,14 +803,14 @@ export const aaccupCertificateManifest = {
       "fileName": "img199.jpg"
     }
   ],
-  "pa-tan-g14": [
+  "pa-tan-37": [
     {
       "level": "Level 3",
       "path": "/certificates/aaccup/tandag/mpa/level-3/mpa.png",
       "fileName": "MPA.png"
     }
   ],
-  "pa-tan-g06": [
+  "pa-tan-29": [
     {
       "level": "Level 1",
       "path": "/certificates/aaccup/tandag/mscs/level-1/ba-pol.scie.-mscs-bsba-hrm-beed-pre-school.jpg",
@@ -827,14 +827,14 @@ export const aaccupCertificateManifest = {
       "fileName": "Tandag Certificate.jpg"
     }
   ],
-  "pa-tan-g09": [
+  "pa-tan-32": [
     {
       "level": "Level 3",
       "path": "/certificates/aaccup/tandag/mst-filipino/level-3/mst-filipino.png",
       "fileName": "MST-Filipino.png"
     }
   ],
-  "pa-tan-g10": [
+  "pa-tan-33": [
     {
       "level": "Level 3",
       "path": "/certificates/aaccup/tandag/mst-he/level-3/mahetmasstmsts-tdg-2024.pdf",
@@ -846,14 +846,14 @@ export const aaccupCertificateManifest = {
       "fileName": "MST-HE.png"
     }
   ],
-  "pa-tan-g11": [
+  "pa-tan-34": [
     {
       "level": "Level 3",
       "path": "/certificates/aaccup/tandag/mst-mathematics/level-3/mst-mathematics.png",
       "fileName": "MST-Mathematics.png"
     }
   ],
-  "pa-tan-g12": [
+  "pa-tan-35": [
     {
       "level": "Level 3",
       "path": "/certificates/aaccup/tandag/mst-scie.ed/level-3/mahetmasstmsts-tdg-2024.pdf",
@@ -865,7 +865,7 @@ export const aaccupCertificateManifest = {
       "fileName": "MST-Scie.Ed.png"
     }
   ],
-  "pa-tan-g13": [
+  "pa-tan-36": [
     {
       "level": "Level 3",
       "path": "/certificates/aaccup/tandag/mst-ss/level-3/mahetmasstmsts-tdg-2024.pdf",
@@ -877,7 +877,7 @@ export const aaccupCertificateManifest = {
       "fileName": "MST-SS.png"
     }
   ],
-  "pa-tan-g01": [
+  "pa-tan-24": [
     {
       "level": "Level 1",
       "path": "/certificates/aaccup/tandag/phd-in-math/level-1/bsesphd-math-tdg-2027.pdf",
@@ -889,7 +889,7 @@ export const aaccupCertificateManifest = {
       "fileName": "Program Certificate- Lianga, Cagwait & Tandag.pdf"
     }
   ],
-  "pa-tan-g05": [
+  "pa-tan-28": [
     {
       "level": "Level 1",
       "path": "/certificates/aaccup/tandag/phd-scie.ed/level-1/ph.d-sci.ed.png",

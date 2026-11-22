@@ -24,6 +24,8 @@ import { FolderAction, FolderCard, FolderStatus } from '../folders/FolderCard';
 import { downloadStoredFile, persistUpload } from '../../utils/fileStore';
 import { filesFromInput, PendingUpload } from '../../utils/dropFiles';
 import { pluralize } from '../../utils/format';
+import { uploadDocumentRemote } from '../../services/documents/uploadClient';
+import { filterAllowedUploads } from '../../utils/uploadRules';
 import type { EvidenceDocument, EvidenceFolder } from '../../types/evidence';
 import { formatSize } from './fileTypeStyle';
 import { FileList, FileRow, FileRowAction, FileStatusPill } from './FileRow';
@@ -61,6 +63,13 @@ interface FolderExplorerProps {
   emptyHint?: string;
   /** Changing this resets navigation (e.g. a different area or program). */
   resetKey?: string;
+  /** After reset, open this folder when it exists (e.g. current accreditation level). */
+  preferredFolderId?: string | null;
+  /**
+   * When false, only fixed/system folders are used: hide New Folder / Upload Folder,
+   * and put every file directly in the upload target (no nested path folders).
+   */
+  allowNestedFolders?: boolean;
 }
 
 const isSystem = (f: EvidenceFolder) => !!f.isSystem;
@@ -83,7 +92,9 @@ export function FolderExplorer({
   summary,
   folderLayout = 'grid',
   emptyHint,
-  resetKey
+  resetKey,
+  preferredFolderId = null,
+  allowNestedFolders = true
 }: FolderExplorerProps) {
   const { saveFolder, deleteFolder, addDocument, deleteDocument } = usePortal();
 
@@ -94,6 +105,7 @@ export function FolderExplorer({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [previewDoc, setPreviewDoc] = useState<EvidenceDocument | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +116,12 @@ export function FolderExplorer({
     setCreatingFolder(false);
     setRenamingId(null);
   }, [resetKey]);
+
+  useEffect(() => {
+    if (preferredFolderId && folders.some((f) => f.id === preferredFolderId)) {
+      setCurrentFolderId(preferredFolderId);
+    }
+  }, [resetKey, preferredFolderId, folders]);
 
   useEffect(() => {
     folderInputRef.current?.setAttribute('webkitdirectory', '');
@@ -139,13 +157,26 @@ export function FolderExplorer({
 
   const q = query.trim().toLowerCase();
   const visibleFolders = (
-    q ? folders.filter((f) => f.name.toLowerCase().includes(q)) : folders.filter((f) => (f.parentId ?? null) === currentFolderId)
+    q
+      ? folders.filter((f) => f.name.toLowerCase().includes(q) && (allowNestedFolders || isSystem(f)))
+      : folders.filter(
+          (f) =>
+            (f.parentId ?? null) === currentFolderId && (allowNestedFolders || isSystem(f) || currentFolderId === null)
+        )
   )
     .slice()
     .sort((a, b) => (isSystem(a) === isSystem(b) ? (isSystem(a) ? 0 : a.name.localeCompare(b.name)) : isSystem(a) ? -1 : 1));
-  const visibleDocs = q
-    ? documents.filter((d) => d.title.toLowerCase().includes(q))
-    : documents.filter((d) => (d.folderId ?? null) === currentFolderId);
+
+  /** Flat mode: show every file in this folder tree as one list (no nested folder browsing). */
+  const docsInCurrent = (() => {
+    if (!allowNestedFolders && currentFolderId) {
+      const ids = new Set(descendantFolderIds(currentFolderId));
+      return documents.filter((d) => d.folderId && ids.has(d.folderId));
+    }
+    return documents.filter((d) => (d.folderId ?? null) === currentFolderId);
+  })();
+
+  const visibleDocs = q ? docsInCurrent.filter((d) => d.title.toLowerCase().includes(q)) : docsInCurrent;
 
   const locationLabel = breadcrumb.length ? breadcrumb[breadcrumb.length - 1].name : rootLabel;
   const target: UploadTarget = resolveUploadTarget
@@ -153,12 +184,13 @@ export function FolderExplorer({
     : { folderId: currentFolderId, label: locationLabel };
 
   const ingest = (uploads: PendingUpload[]) => {
-    if (!canEdit) return;
-    const accepted = uploads.filter((item) => item.file);
+    if (!canEdit || uploading) return;
+    const accepted = filterAllowedUploads(uploads, (u) => u.file);
     if (!accepted.length) return;
 
     const created: EvidenceFolder[] = [];
     const resolveFolder = (segments: string[]): string | null => {
+      if (!allowNestedFolders) return target.folderId;
       let parent = target.folderId;
       for (const name of segments) {
         const match = [...folders, ...created].find((f) => f.name === name && (f.parentId ?? null) === parent);
@@ -173,20 +205,61 @@ export function FolderExplorer({
       return parent;
     };
 
-    const docs = accepted.map(({ file, path }) => {
-      const segments = path.split('/').filter(Boolean);
-      const doc = buildDocument(file, resolveFolder(segments.slice(0, -1)));
-      persistUpload(doc.id, file);
-      addDocument(doc);
-      return doc;
-    });
-    created.forEach(saveFolder);
-    onUploaded?.(docs);
-
-    toast.success(
-      `Uploaded ${pluralize(docs.length, 'file')} to "${target.label}"` +
-        (created.length ? ` and created ${pluralize(created.length, 'folder')}` : '')
-    );
+    void (async () => {
+      setUploading(true);
+      const docs: EvidenceDocument[] = [];
+      try {
+        for (const { file, path } of accepted) {
+          const segments = allowNestedFolders ? path.split('/').filter(Boolean) : [file.name];
+          let doc = buildDocument(file, resolveFolder(segments.slice(0, -1)));
+          const remote = await uploadDocumentRemote(
+            file,
+            {
+              title: doc.title,
+              description: doc.description,
+              frameworkId: doc.frameworkId,
+              areaId: doc.areaId,
+              folderId: doc.folderId,
+              docType: doc.docType,
+              academicYear: doc.academicYear,
+              cycle: doc.cycle,
+              program: doc.program,
+              campus: doc.campus,
+              campusId: doc.campusId,
+              confidentiality: doc.confidentiality,
+              uploadedBy: doc.uploadedBy,
+              keywords: (doc.keywords || []).join(',')
+            },
+            doc
+          );
+          if (remote) {
+            doc = {
+              ...doc,
+              ...remote,
+              frameworkId: doc.frameworkId,
+              areaId: doc.areaId,
+              folderId: doc.folderId,
+              requirementId: doc.requirementId,
+              isActive: doc.isActive,
+              docType: doc.docType || remote.docType
+            };
+          }
+          persistUpload(doc.id, file);
+          addDocument(doc);
+          docs.push(doc);
+        }
+        created.forEach(saveFolder);
+        onUploaded?.(docs);
+        toast.success(
+          `Uploaded ${pluralize(docs.length, 'file')} to "${target.label}"` +
+            (created.length ? ` and created ${pluralize(created.length, 'folder')}` : '')
+        );
+      } catch {
+        toast.error('Upload failed. Please try again.');
+      } finally {
+        setUploading(false);
+      }
+    })();
   };
 
   const handleCreateFolder = () => {
@@ -284,28 +357,33 @@ export function FolderExplorer({
           </div>
           {canEdit && (
             <>
-              <button
-                type="button"
-                onClick={() => {
-                  setCreatingFolder(true);
-                  setQuery('');
-                }}
-                className={toolbarButton}
-              >
-                <FolderPlusIcon className="h-4 w-4" />
-                New Folder
-              </button>
-              <button type="button" onClick={() => folderInputRef.current?.click()} className={toolbarButton}>
-                <FolderUpIcon className="h-4 w-4" />
-                Upload Folder
-              </button>
+              {allowNestedFolders && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreatingFolder(true);
+                      setQuery('');
+                    }}
+                    className={toolbarButton}
+                  >
+                    <FolderPlusIcon className="h-4 w-4" />
+                    New Folder
+                  </button>
+                  <button type="button" onClick={() => folderInputRef.current?.click()} className={toolbarButton}>
+                    <FolderUpIcon className="h-4 w-4" />
+                    Upload Folder
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 text-[13px] font-semibold text-white shadow-sm shadow-brand-600/30 transition hover:bg-brand-700"
+                disabled={uploading}
               >
                 <UploadIcon className="h-4 w-4" />
-                Upload Files
+                {uploading ? 'Uploading…' : 'Upload Files'}
               </button>
               <input
                 ref={fileInputRef}

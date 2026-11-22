@@ -18,18 +18,20 @@ logger = logging.getLogger(__name__)
 def _set_progress(doc: EvidenceDocument, stage: str, percent: int) -> None:
     doc.progress = {"stage": stage, "percent": percent}
     doc.mark_updated()
-    doc.save()
+    doc.save(update_fields=["progress", "updated_at"])
 
 
 @shared_task(bind=True, name="ingestion.ingest_document")
 def ingest_document(self, doc_id: str) -> dict:
-    doc = EvidenceDocument.objects(id=doc_id).first()
+    doc = EvidenceDocument.objects.filter(pk=doc_id).first()
     if not doc:
         return {"ok": False, "error": "not_found"}
 
     try:
         doc.status = "Processing"
-        _set_progress(doc, "extracting", 10)
+        doc.progress = {"stage": "extracting", "percent": 10}
+        doc.mark_updated()
+        doc.save(update_fields=["status", "progress", "updated_at"])
 
         path = Path(settings.MEDIA_ROOT) / doc.storage_path
         text, ocr_applied = extract_text(path)
@@ -51,6 +53,18 @@ def ingest_document(self, doc_id: str) -> dict:
         doc.indexed_at = utcnow()
         doc.error_message = ""
         _set_progress(doc, "done", 100)
+        doc.save(
+            update_fields=[
+                "ocr_applied",
+                "passages",
+                "chunk_count",
+                "status",
+                "indexed_at",
+                "error_message",
+                "progress",
+                "updated_at",
+            ]
+        )
         return {"ok": True, "doc_id": doc_id, "chunks": count, "ocr": ocr_applied}
     except Exception as exc:  # noqa: BLE001
         logger.exception("Ingestion failed for %s", doc_id)
@@ -58,5 +72,5 @@ def ingest_document(self, doc_id: str) -> dict:
         doc.error_message = str(exc)
         doc.progress = {"stage": "failed", "percent": 100}
         doc.mark_updated()
-        doc.save()
+        doc.save(update_fields=["status", "error_message", "progress", "updated_at"])
         return {"ok": False, "doc_id": doc_id, "error": str(exc)}

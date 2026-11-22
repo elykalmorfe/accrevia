@@ -4,6 +4,7 @@ import {
   ProgramAccreditation,
   ProgramLevelHistoryEntry
 } from '../types/accreditation';
+import type { EvidenceDocument, EvidenceFolder } from '../types/evidence';
 import { getSettings, ValidityLevel } from '../settings/portalSettings';
 
 const MONTH_INDEX: Record<string, number> = {
@@ -94,14 +95,238 @@ export function isAccreditedLevel(level?: AccreditationLevel | null): boolean {
 /** Levels that get their own certificate folder, in display order. */
 export const CERTIFICATE_LEVELS: AccreditationLevel[] = ['Candidate', 'Level 1', 'Level 2', 'Level 3', 'Level 4'];
 
+/** Fixed Program Accreditation repository folders (flat — no nested user folders). */
+export const PROGRAM_ACCREDITATION_DOC_FOLDERS: { code: string; label: string; id: string }[] = [
+  { code: 'Candidate', label: 'Candidate', id: 'folder-pa-candidate' },
+  { code: 'Level 1', label: 'Level 1', id: 'folder-pa-level-1' },
+  { code: 'Level 2', label: 'Level 2', id: 'folder-pa-level-2' },
+  { code: 'Level 3', label: 'Level 3', id: 'folder-pa-level-3' },
+  { code: 'Level 4', label: 'Level 4', id: 'folder-pa-level-4' },
+  { code: 'trba', label: 'Technical Review & Board Action', id: 'folder-pa-trba' },
+  { code: 'findings', label: 'Summary of Findings & Recommendation', id: 'folder-pa-findings' }
+];
+
+/** Fixed COPC repository folders (flat — no nested user folders). */
+export const COPC_DOC_FOLDERS: { code: string; label: string; id: string }[] = [
+  { code: 'certificate', label: 'Certificate Number', id: 'folder-copc-certificate' },
+  { code: 'bor', label: 'BOR Resolution', id: 'folder-copc-bor' }
+];
+
+export const PA_ROOT_FOLDER_ID = 'folder-pa';
+export const COPC_ROOT_FOLDER_ID = 'folder-copc';
+
+export const PA_CANONICAL_FOLDER_IDS = new Set(PROGRAM_ACCREDITATION_DOC_FOLDERS.map((f) => f.id));
+export const COPC_CANONICAL_FOLDER_IDS = new Set(COPC_DOC_FOLDERS.map((f) => f.id));
+export const PA_CANONICAL_CODES = new Set(PROGRAM_ACCREDITATION_DOC_FOLDERS.map((f) => f.code));
+export const COPC_CANONICAL_CODES = new Set(COPC_DOC_FOLDERS.map((f) => f.code));
+
+/** Normalize common display labels (Level I → Level 1) to canonical PA codes. */
+export function normalizePaFolderCode(codeOrName?: string | null): string | null {
+  const raw = (codeOrName || '').trim();
+  if (!raw) return null;
+  if (PA_CANONICAL_CODES.has(raw)) return raw;
+  const lower = raw.toLowerCase();
+  if (lower === 'candidate') return 'Candidate';
+  if (lower === 'trba' || lower.includes('technical review') || lower.includes('board action')) return 'trba';
+  if (lower === 'findings' || lower.includes('summary of findings')) return 'findings';
+  const roman: Record<string, string> = {
+    'level i': 'Level 1',
+    'level ii': 'Level 2',
+    'level iii': 'Level 3',
+    'level iv': 'Level 4',
+    'level 1': 'Level 1',
+    'level 2': 'Level 2',
+    'level 3': 'Level 3',
+    'level 4': 'Level 4'
+  };
+  return roman[lower] || null;
+}
+
+export function paCanonicalFolderIdForCode(code: string): string | null {
+  return PROGRAM_ACCREDITATION_DOC_FOLDERS.find((f) => f.code === code)?.id ?? null;
+}
+
+export function copcCanonicalFolderIdForCode(code: string): string | null {
+  return COPC_DOC_FOLDERS.find((f) => f.code === code)?.id ?? null;
+}
+
+export function isPaCanonicalFolderId(id?: string | null): boolean {
+  return !!id && PA_CANONICAL_FOLDER_IDS.has(id);
+}
+
+export function isCopcCanonicalFolderId(id?: string | null): boolean {
+  return !!id && COPC_CANONICAL_FOLDER_IDS.has(id);
+}
+
+/** Build the 7 PA + 2 COPC canonical Online Repository folders. */
+export function buildCanonicalRepoFolders(createdAt = '2026-01-15'): EvidenceFolder[] {
+  return [
+    ...PROGRAM_ACCREDITATION_DOC_FOLDERS.map(
+      (f): EvidenceFolder => ({
+        id: f.id,
+        name: f.label,
+        code: f.code,
+        frameworkId: 'pa',
+        category: 'Accreditation',
+        description: `${f.label} documents for Program Accreditation (flat repository — no nested folders).`,
+        isSystem: true,
+        color: 'purple',
+        createdAt,
+        parentId: PA_ROOT_FOLDER_ID,
+        hasNoDeadline: true
+      })
+    ),
+    ...COPC_DOC_FOLDERS.map(
+      (f): EvidenceFolder => ({
+        id: f.id,
+        name: f.label,
+        code: f.code,
+        frameworkId: 'copc',
+        category: 'Compliance',
+        description: `${f.label} documents for COPC (flat repository — no nested folders).`,
+        isSystem: true,
+        color: 'emerald',
+        createdAt,
+        parentId: COPC_ROOT_FOLDER_ID,
+        hasNoDeadline: true
+      })
+    )
+  ];
+}
+
+/**
+ * Ensure canonical PA/COPC folders exist; re-home docs from stray PA/COPC folders;
+ * return folders list with stray PA/COPC entries removed (docs kept, folderId remapped).
+ */
+export function reconcilePaCopcRepository(
+  folders: EvidenceFolder[],
+  documents: EvidenceDocument[]
+): { folders: EvidenceFolder[]; documents: EvidenceDocument[]; changed: boolean } {
+  const canonical = buildCanonicalRepoFolders();
+  const byId = new Map(folders.map((f) => [f.id, f]));
+  let changed = false;
+
+  for (const c of canonical) {
+    const existing = byId.get(c.id);
+    if (!existing) {
+      byId.set(c.id, c);
+      changed = true;
+    } else if (existing.parentId !== c.parentId || existing.code !== c.code || existing.name !== c.name) {
+      byId.set(c.id, { ...existing, ...c });
+      changed = true;
+    }
+  }
+
+  const codeToCanonicalId = (frameworkId: string, codeOrName?: string | null): string | null => {
+    if (frameworkId === 'pa') {
+      const code = normalizePaFolderCode(codeOrName);
+      return code ? paCanonicalFolderIdForCode(code) : null;
+    }
+    if (frameworkId === 'copc') {
+      const raw = (codeOrName || '').trim().toLowerCase();
+      if (raw === 'certificate' || raw.includes('certificate')) return 'folder-copc-certificate';
+      if (raw === 'bor' || raw.includes('bor')) return 'folder-copc-bor';
+    }
+    return null;
+  };
+
+  const nextDocs = documents.map((d) => {
+    if (d.frameworkId !== 'pa' && d.frameworkId !== 'copc') return d;
+    const folder = d.folderId ? byId.get(d.folderId) : undefined;
+    if (d.frameworkId === 'pa') {
+      if (isPaCanonicalFolderId(d.folderId)) return d;
+      const mapped =
+        codeToCanonicalId('pa', folder?.code) ||
+        codeToCanonicalId('pa', folder?.name) ||
+        (d.areaId?.startsWith('trba-') ? 'folder-pa-trba' : null) ||
+        (d.areaId?.startsWith('findings-') ? 'folder-pa-findings' : null) ||
+        (d.areaId?.startsWith('cert-') ? paCanonicalFolderIdForCode(normalizePaFolderCode(folder?.code) || 'Candidate') : null);
+      if (mapped && mapped !== d.folderId) {
+        changed = true;
+        return { ...d, folderId: mapped };
+      }
+      return d;
+    }
+    // copc — every COPC file belongs in Certificate Number or BOR Resolution
+    if (isCopcCanonicalFolderId(d.folderId)) return d;
+    const haystack = [folder?.code, folder?.name, d.title, d.description, ...(d.keywords || [])]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    const looksBor = /\bbor\b|board of regents|resolution/.test(haystack);
+    const mapped =
+      codeToCanonicalId('copc', folder?.code) ||
+      codeToCanonicalId('copc', folder?.name) ||
+      (looksBor ? 'folder-copc-bor' : null) ||
+      (d.areaId?.startsWith('copc-docs-') ? 'folder-copc-certificate' : null) ||
+      // Docs left on COPC root (or any non-canonical COPC folder) → Certificate Number by default
+      'folder-copc-certificate';
+    if (mapped && mapped !== d.folderId) {
+      changed = true;
+      return { ...d, folderId: mapped };
+    }
+    return d;
+  });
+
+  const nextFolders: EvidenceFolder[] = [];
+  for (const f of byId.values()) {
+    const isPaStray =
+      f.frameworkId === 'pa' &&
+      f.id !== PA_ROOT_FOLDER_ID &&
+      !isPaCanonicalFolderId(f.id);
+    const isCopcStray =
+      f.frameworkId === 'copc' &&
+      f.id !== COPC_ROOT_FOLDER_ID &&
+      !isCopcCanonicalFolderId(f.id);
+    if (isPaStray || isCopcStray) {
+      changed = true;
+      continue;
+    }
+    nextFolders.push(f);
+  }
+
+  // Keep stable order: roots and other frameworks first, then canonical children already in map
+  return { folders: nextFolders, documents: nextDocs, changed };
+}
+
 /** `areaId` shared by a program's certificate folders and documents. */
 export function certificateAreaKey(programId: string): string {
   return `cert-${programId}`;
 }
 
+/** `areaId` for a COPC record's Certificate Number / BOR document folders. */
+export function copcDocumentsAreaKey(copcId: string): string {
+  return `copc-docs-${copcId}`;
+}
+
 /** `areaId` shared by a program's Technical Review & Board Action / ratings folders. */
 export function ratingsAreaKey(programId: string): string {
   return `trba-${programId}`;
+}
+
+/** `areaId` shared by a program's Summary of Findings & Recommendation folders. */
+export function findingsAreaKey(programId: string): string {
+  return `findings-${programId}`;
+}
+
+/** All evidence area keys that belong to one program (certs, ratings, findings). */
+export function programDocumentAreaKeys(programId: string): string[] {
+  return [certificateAreaKey(programId), ratingsAreaKey(programId), findingsAreaKey(programId)];
+}
+
+export type ProgramLinkedDocKind = 'certificate' | 'ratings' | 'findings' | 'area';
+
+/** Classify a PA evidence document by its areaId / requirement linkage. */
+export function programLinkedDocKind(
+  areaId: string,
+  programId: string,
+  requirementIds: string[] = []
+): ProgramLinkedDocKind | null {
+  if (areaId === certificateAreaKey(programId)) return 'certificate';
+  if (areaId === ratingsAreaKey(programId)) return 'ratings';
+  if (areaId === findingsAreaKey(programId)) return 'findings';
+  if (requirementIds.includes(areaId)) return 'area';
+  return null;
 }
 
 /** `areaId` shared by a campus's institutional (IA) certificate folders and documents. */

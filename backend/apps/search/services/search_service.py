@@ -23,7 +23,7 @@ def run_search(query: str, filters: dict | None = None, limit: int | None = None
 
     results: list[dict] = []
     for item in aggregated:
-        doc = EvidenceDocument.objects(id=item["document_id"]).first()
+        doc = EvidenceDocument.objects.filter(pk=item["document_id"]).first()
         doc_payload = doc.to_api_dict() if doc else {
             "id": item["document_id"],
             "title": item["payload"].get("title") or "Untitled",

@@ -1,12 +1,15 @@
-import type { ProgramAccreditation } from '../types/accreditation';
+import type { COPCRecord, ProgramAccreditation } from '../types/accreditation';
 import type { EvidenceDocument, EvidenceFolder, FileType } from '../types/evidence';
 import { getSettings } from '../settings/portalSettings';
 import {
   CERTIFICATE_LEVELS,
   certificateAreaKey,
+  copcDocumentsAreaKey,
   formatLevel,
   isUrl,
   levelRank,
+  normalizePaFolderCode,
+  paCanonicalFolderIdForCode,
   parseAccreditationDate
 } from './programAccreditation';
 import { deleteStoredFile, getStoredFile, saveStoredFile } from './fileStore';
@@ -16,10 +19,39 @@ import { copcCertificateManifest } from '../data/copcCertificateManifest';
 /**
  * Bump when the linked-certificate seed shape changes (local AACCUP files by level).
  */
-export const LINKED_CERTIFICATES_VERSION = 'aaccup-local-certs-1';
+export const LINKED_CERTIFICATES_VERSION = 'aaccup-local-certs-3';
 export const LINKED_CERTIFICATES_KEY = 'accrevia_linked_certificates';
 export const COPC_CERT_FILES_KEY = 'accrevia_copc_cert_files';
-export const COPC_CERT_FILES_VERSION = 'copc-local-certs-1';
+export const COPC_CERT_FILES_VERSION = 'copc-local-certs-2';
+/** Seed COPC Status certificates/BOR into Upload Documents → COPC folders. */
+export const LINKED_COPC_DOCUMENTS_VERSION = 'copc-repo-docs-1';
+export const LINKED_COPC_DOCUMENTS_KEY = 'accrevia_linked_copc_documents';
+
+export const COPC_CERT_FOLDER_ID = 'folder-copc-certificate';
+export const COPC_BOR_FOLDER_ID = 'folder-copc-bor';
+
+export function linkedCopcCertDocId(copcId: string): string {
+  return `doc-copc-cert-${copcId}`;
+}
+
+export function linkedCopcBorDocId(copcId: string): string {
+  return `doc-copc-bor-${copcId}`;
+}
+
+/** True when the value points at a viewable file (path, Drive URL, or blob). */
+export function isCopcFileRef(value?: string | null): boolean {
+  const v = (value || '').trim();
+  if (!v) return false;
+  return isUrl(v) || isLocalCertificatePath(v) || v.startsWith('/') || v.startsWith('blob:');
+}
+
+function resolveCopcCertPath(record: COPCRecord): string | undefined {
+  const entry = (copcCertificateManifest as Record<string, { path?: string; driveUrl?: string }>)[record.programId];
+  if (entry?.path) return entry.path;
+  if (isCopcFileRef(record.documentLink)) return record.documentLink!.trim();
+  if (entry?.driveUrl) return entry.driveUrl;
+  return undefined;
+}
 
 type ManifestEntry = { level: string; path: string; fileName: string };
 
@@ -83,7 +115,6 @@ export function buildLinkedCertificates(programs: ProgramAccreditation[]): {
   const { defaultAcademicYear } = getSettings().general;
   const folders: EvidenceFolder[] = [];
   const documents: EvidenceDocument[] = [];
-  const folderKeys = new Set<string>();
 
   for (const p of programs) {
     const entries = manifestEntriesFor(p.id);
@@ -96,29 +127,11 @@ export function buildLinkedCertificates(programs: ProgramAccreditation[]): {
     const year = certificateYear(p);
     const areaKey = certificateAreaKey(p.id);
 
+    /** Use Online Repository canonical PA folders — do not seed orphan per-program folders. */
     const ensureFolder = (level: string) => {
-      const levelIndex = CERTIFICATE_LEVELS.indexOf(level as (typeof CERTIFICATE_LEVELS)[number]);
-      if (levelIndex < 0) return null;
-      const folderId = `folder-${areaKey}-${levelIndex}`;
-      if (!folderKeys.has(folderId)) {
-        folderKeys.add(folderId);
-        folders.push({
-          id: folderId,
-          name: formatLevel(level as ProgramAccreditation['status']),
-          code: level,
-          frameworkId: 'pa',
-          category: 'Accreditation',
-          description: `${formatLevel(level as ProgramAccreditation['status'])} certificates — ${p.programName}`,
-          isSystem: true,
-          color: 'amber',
-          createdAt: today,
-          areaId: areaKey,
-          campusId: p.campusId,
-          campus: p.campusName,
-          hasNoDeadline: true
-        });
-      }
-      return folderId;
+      const code = normalizePaFolderCode(level) || level;
+      if (CERTIFICATE_LEVELS.indexOf(code as (typeof CERTIFICATE_LEVELS)[number]) < 0) return null;
+      return paCanonicalFolderIdForCode(code);
     };
 
     if (hasLocal) {
@@ -267,6 +280,136 @@ export async function prefetchCertificateFiles(
     }
   }
   return stored;
+}
+
+/**
+ * Mirror COPC Status certificate / BOR files into Online Repository
+ * (Upload Documents → COPC → Certificate Number / BOR Resolution).
+ */
+export function buildLinkedCopcDocuments(records: COPCRecord[]): EvidenceDocument[] {
+  const today = new Date().toISOString().slice(0, 10);
+  const { defaultAcademicYear } = getSettings().general;
+  const documents: EvidenceDocument[] = [];
+
+  for (const r of records) {
+    const areaKey = copcDocumentsAreaKey(r.id);
+    const certPath = resolveCopcCertPath(r);
+    if (certPath) {
+      const fileName = certPath.split('/').pop() || 'copc-certificate.pdf';
+      documents.push({
+        id: linkedCopcCertDocId(r.id),
+        title:
+          r.certificateNumber ||
+          `COPC Certificate – ${r.programName}`,
+        description: `Certificate of Program Compliance for ${r.programName} (${r.campusName}).`,
+        keywords: ['COPC', 'Certificate', 'CHED', r.programName, r.certificateNumber || ''].filter(Boolean),
+        frameworkId: 'copc',
+        areaId: areaKey,
+        criterionId: '',
+        indicatorId: '',
+        docType: 'Certificate',
+        documentUrl: certPath,
+        academicYear: defaultAcademicYear,
+        cycle: 'Certificate of Program Compliance',
+        program: r.programName,
+        college: '—',
+        department: '—',
+        office: 'Accreditation Office',
+        campus: r.campusName,
+        campusId: r.campusId,
+        documentDate: /^\d{4}-\d{2}-\d{2}$/.test(r.dateIssued || '') ? r.dateIssued! : today,
+        confidentiality: 'Internal',
+        status: 'Indexed',
+        dateAdded: today,
+        fileType: fileTypeFromName(fileName),
+        pages: 1,
+        sizeMb: 0.2,
+        uploadedBy: 'Accreditation Office',
+        passages: [
+          'Certificate of Program Compliance',
+          `Program: ${r.programName}`,
+          r.certificateNumber ? `Certificate No.: ${r.certificateNumber}` : '',
+          `File: ${fileName}`
+        ].filter(Boolean),
+        folderId: COPC_CERT_FOLDER_ID,
+        approvalStatus: 'Approved',
+        isActive: true
+      });
+    }
+
+    if (isCopcFileRef(r.borRes)) {
+      const borPath = r.borRes!.trim();
+      const fileName = borPath.split('/').pop() || 'bor-resolution.pdf';
+      documents.push({
+        id: linkedCopcBorDocId(r.id),
+        title: `BOR Resolution – ${r.programName}`,
+        description: `Board of Regents resolution supporting COPC for ${r.programName}.`,
+        keywords: ['COPC', 'BOR', 'Resolution', r.programName],
+        frameworkId: 'copc',
+        areaId: areaKey,
+        criterionId: '',
+        indicatorId: '',
+        docType: 'Report',
+        documentUrl: borPath,
+        academicYear: defaultAcademicYear,
+        cycle: 'Certificate of Program Compliance',
+        program: r.programName,
+        college: '—',
+        department: '—',
+        office: 'Accreditation Office',
+        campus: r.campusName,
+        campusId: r.campusId,
+        documentDate: today,
+        confidentiality: 'Internal',
+        status: 'Indexed',
+        dateAdded: today,
+        fileType: fileTypeFromName(fileName),
+        pages: 1,
+        sizeMb: 0.2,
+        uploadedBy: 'Accreditation Office',
+        passages: ['BOR Resolution', `Program: ${r.programName}`, `File: ${fileName}`],
+        folderId: COPC_BOR_FOLDER_ID,
+        approvalStatus: 'Approved',
+        isActive: true
+      });
+    }
+  }
+
+  return documents;
+}
+
+/** Upsert certificate / BOR EvidenceDocuments for one COPC Status record. */
+export function syncCopcRecordToDocuments(
+  existing: EvidenceDocument[],
+  record: COPCRecord
+): EvidenceDocument[] {
+  const seeded = buildLinkedCopcDocuments([record]);
+  const byId = new Map(existing.map((d) => [d.id, d]));
+  const certId = linkedCopcCertDocId(record.id);
+  const borId = linkedCopcBorDocId(record.id);
+
+  if (!seeded.some((d) => d.id === certId)) byId.delete(certId);
+  if (!seeded.some((d) => d.id === borId)) byId.delete(borId);
+
+  for (const doc of seeded) {
+    const prev = byId.get(doc.id);
+    byId.set(doc.id, prev ? { ...prev, ...doc, dateAdded: prev.dateAdded || doc.dateAdded } : doc);
+  }
+  return Array.from(byId.values());
+}
+
+/** Copy COPC Status IndexedDB blobs onto repository document ids for preview. */
+export async function mirrorCopcStoredFiles(record: COPCRecord): Promise<void> {
+  const certId = linkedCopcCertDocId(record.id);
+  const borId = linkedCopcBorDocId(record.id);
+  const certStored = await getStoredFile(`${record.id}-COPC-CERT`).catch(() => undefined);
+  if (certStored) {
+    await saveStoredFile(certId, certStored.blob, certStored.name);
+  }
+  const borStored = await getStoredFile(`${record.id}-COPC-BOR`).catch(() => undefined);
+  if (borStored) {
+    await saveStoredFile(borId, borStored.blob, borStored.name);
+  }
 }
 
 export async function prefetchCopcCertificateFiles(

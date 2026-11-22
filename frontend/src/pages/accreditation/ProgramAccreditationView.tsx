@@ -8,22 +8,27 @@ import { ProgramFormModal } from '../../components/accreditation/ProgramFormModa
 import { ProgramAreaRepositoryModal } from '../../components/accreditation/ProgramAreaRepositoryModal';
 import { ProgramCertificatesModal } from '../../components/accreditation/ProgramCertificatesModal';
 import { ProgramRatingsModal } from '../../components/accreditation/ProgramRatingsModal';
+import { ProgramFindingsModal } from '../../components/accreditation/ProgramFindingsModal';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
 import { EvidenceDocument } from '../../types/evidence';
 import { ExpiryIndicator } from '../../components/accreditation/ExpiryIndicator';
 import { ProgramReportPrintModal, ProgramReportType } from '../../components/accreditation/reports/ProgramReportPrintModal';
-import { FindingsPrintModal } from '../../components/accreditation/reports/FindingsPrintModal';
 import { Modal } from '../../components/ui/Modal';
 import {
   certificateAreaKey,
   compareYears,
+  findingsAreaKey,
+  formatLevel,
   getExpiryInfo,
   isUrl,
   levelAsOf,
+  programLinkedDocKind,
   statusLabel
 } from '../../utils/programAccreditation';
 import { isLocalCertificatePath, localCertificationFileFor } from '../../utils/linkedCertificates';
 import { hasRatingsDocuments, primaryRatingsPath } from '../../utils/ratingsDocuments';
+import { hasFindingsDocuments, primaryFindingsPath } from '../../utils/findingsDocuments';
+import { getSettings } from '../../settings/portalSettings';
 
 type HigherLevelFilter = 'all' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'improved';
 
@@ -195,12 +200,116 @@ export function ProgramAccreditationView() {
     return stats;
   }, [detailsModalProgram?.requirements, documents, folders]);
 
+  /** Documents linked to the open program, categorized by cert level / ratings / findings / survey area. */
+  const programUploadedDocuments = useMemo(() => {
+    if (!detailsModalProgram) return [];
+    const programId = detailsModalProgram.id;
+    const reqIds = (detailsModalProgram.requirements || []).map((r) => r.id);
+    const reqName = new Map((detailsModalProgram.requirements || []).map((r) => [r.id, r.areaName]));
+    const systemFolder = (folderId?: string) => {
+      if (!folderId) return null;
+      let cursor = folders.find((f) => f.id === folderId);
+      while (cursor && !cursor.isSystem) cursor = folders.find((f) => f.id === cursor?.parentId);
+      return cursor;
+    };
+
+    return documents
+      .filter((d) => d.frameworkId === 'pa')
+      .map((d) => {
+        let kind = programLinkedDocKind(d.areaId, programId, reqIds);
+        const sys = systemFolder(d.folderId);
+        const levelCode = sys?.code || null;
+        // Unified PA repo: TRBA / findings live under certificateAreaKey with fixed folder codes.
+        if (!kind && d.areaId === certificateAreaKey(programId)) {
+          if (levelCode === 'trba') kind = 'ratings';
+          else if (levelCode === 'findings') kind = 'findings';
+          else kind = 'certificate';
+        }
+        if (!kind) return null;
+        const category =
+          kind === 'ratings'
+            ? 'Technical Review & Board Action'
+            : kind === 'findings'
+              ? 'Summary of Findings & Recommendation'
+              : kind === 'certificate'
+                ? levelCode && levelCode !== 'trba' && levelCode !== 'findings'
+                  ? `Certificate · ${formatLevel(levelCode as ProgramAccreditation['status'])}`
+                  : 'Certificate'
+                : reqName.get(d.areaId) || 'Survey area';
+        return { doc: d, kind, category, levelCode };
+      })
+      .filter((row): row is NonNullable<typeof row> => !!row)
+      .sort((a, b) => b.doc.dateAdded.localeCompare(a.doc.dateAdded));
+  }, [detailsModalProgram, documents, folders]);
+
   // AACCUP certificates (per-program level folders)
   const [certificateProgramId, setCertificateProgramId] = useState<string | null>(null);
   const certificateProgram = programAccreditations.find((p) => p.id === certificateProgramId) ?? null;
   const [ratingsProgramId, setRatingsProgramId] = useState<string | null>(null);
   const ratingsProgram = programAccreditations.find((p) => p.id === ratingsProgramId) ?? null;
+  const [findingsProgramId, setFindingsProgramId] = useState<string | null>(null);
+  const findingsProgram = programAccreditations.find((p) => p.id === findingsProgramId) ?? null;
   const [previewCertificate, setPreviewCertificate] = useState<EvidenceDocument | null>(null);
+
+  const openFindingsPreview = (prog: ProgramAccreditation) => {
+    // Only real files from the Summary of Findings folder — no Drive / dummy fallbacks.
+    if (!hasFindingsDocuments(prog.id)) return;
+
+    const areaId = findingsAreaKey(prog.id);
+    const seeded =
+      documents.find((d) => d.areaId === areaId && d.isActive) ||
+      documents.find((d) => d.areaId === areaId);
+    if (seeded) {
+      setPreviewCertificate(seeded);
+      return;
+    }
+
+    const path = primaryFindingsPath(prog.id);
+    if (!path || !isLocalCertificatePath(path)) return;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const { defaultAcademicYear } = getSettings().general;
+    const fileName = path.split('/').pop() || 'findings.pdf';
+    setPreviewCertificate({
+      id: `doc-findings-preview-${prog.id}`,
+      title: `Summary of Findings & Recommendation – ${prog.programName}`,
+      description: `AACCUP Summary of Findings & Recommendation for ${prog.programName}.`,
+      keywords: ['AACCUP', 'Findings', 'Recommendation', prog.programName],
+      frameworkId: 'pa',
+      areaId,
+      criterionId: '',
+      indicatorId: '',
+      docType: 'Report',
+      documentUrl: path,
+      academicYear: defaultAcademicYear,
+      cycle: 'AACCUP Summary of Findings & Recommendation',
+      program: prog.programName,
+      college: '—',
+      department: '—',
+      office: 'Accreditation Office',
+      campus: prog.campusName,
+      campusId: prog.campusId,
+      documentDate: today,
+      confidentiality: 'Internal',
+      status: 'Indexed',
+      dateAdded: today,
+      fileType: fileName.toLowerCase().endsWith('.png')
+        ? 'PNG'
+        : fileName.toLowerCase().endsWith('.jpg') || fileName.toLowerCase().endsWith('.jpeg')
+          ? 'JPG'
+          : 'PDF',
+      pages: 1,
+      sizeMb: 0.2,
+      uploadedBy: 'Accreditation Office',
+      passages: [
+        'Summary of Findings & Recommendation',
+        `Program: ${prog.programName}`,
+        `File: ${fileName}`
+      ],
+      approvalStatus: 'Approved',
+      isActive: true
+    });
+  };
 
   /** Per certificate area: how many certificates it holds and which one is switched on, with its level folder name. */
   const certificateSummary = useMemo(() => {
@@ -229,8 +338,6 @@ export function ProgramAccreditationView() {
     fromYear?: number;
     targetYear?: number;
   }>({ open: false, type: 'summary' });
-  const [findingsProgramId, setFindingsProgramId] = useState<string | null>(null);
-
   const improvedProgramIds = useMemo(
     () => new Set(compareYears(programAccreditations, BASELINE_YEAR, TARGET_YEAR).improved.map((c) => c.program.id)),
     [programAccreditations]
@@ -1049,9 +1156,16 @@ export function ProgramAccreditationView() {
                         </button>
                       )}
                       <div className="flex items-center gap-1">
-                        <button type="button" onClick={() => setFindingsProgramId(prog.id)} className="btn btn-ghost btn-icon h-8 w-8 min-h-0 min-w-0" aria-label="Summary of findings">
-                          <PrinterIcon className="h-3.5 w-3.5" />
-                        </button>
+                        {hasFindingsDocuments(prog.id) ? (
+                          <button
+                            type="button"
+                            onClick={() => openFindingsPreview(prog)}
+                            className="btn btn-ghost btn-icon h-8 w-8 min-h-0 min-w-0"
+                            aria-label="Summary of findings"
+                          >
+                            <PrinterIcon className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
                         {canMutate && (
                           <button
                             type="button"
@@ -1120,7 +1234,6 @@ export function ProgramAccreditationView() {
                 </tr>
               ) : (
                 filtered.map((prog) => {
-                  const hasFindingsText = !!(prog.findingsSummary || prog.recommendations);
                   return (
                     <tr key={prog.id} className="tr-hover">
                       <td className="td py-3">
@@ -1129,7 +1242,22 @@ export function ProgramAccreditationView() {
                           <span className="rounded bg-canvas px-1.5 py-0.5 border border-line">
                             {prog.degreeLevel}
                           </span>
-                          {prog.borRes && <span>BOR: {prog.borRes}</span>}
+                          {prog.borRes &&
+                            (isUrl(prog.borRes) ||
+                            isLocalCertificatePath(prog.borRes) ||
+                            prog.borRes.startsWith('/') ? (
+                              <a
+                                href={prog.borRes}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-semibold text-brand-700 hover:underline"
+                                title="Open Board of Regents Resolution"
+                              >
+                                BOR: View
+                              </a>
+                            ) : (
+                              <span>BOR: {prog.borRes}</span>
+                            ))}
                           {prog.cmoNo && <span>CMO: {prog.cmoNo}</span>}
                           {prog.scheduleForAccreditation && (
                             <span className="font-semibold text-brand-700">Survey: {prog.scheduleForAccreditation}</span>
@@ -1177,6 +1305,15 @@ export function ProgramAccreditationView() {
                         {(() => {
                           const cert = certificateSummary[certificateAreaKey(prog.id)];
                           const count = cert?.count ?? 0;
+                          const localPath = localCertificationFileFor(prog);
+                          const driveOrPath =
+                            localPath || prog.certificationFile || undefined;
+                          const hasLocalPath = Boolean(
+                            localPath ||
+                              (driveOrPath &&
+                                (isLocalCertificatePath(driveOrPath) || driveOrPath.startsWith('/')))
+                          );
+                          const hasDriveUrl = !hasLocalPath && isUrl(driveOrPath);
                           return (
                             <div className="flex flex-col items-start gap-1">
                               {cert?.active ? (
@@ -1210,6 +1347,27 @@ export function ProgramAccreditationView() {
                                   <FileCheckIcon className="h-3 w-3 shrink-0" />
                                   None active ({count})
                                 </button>
+                              ) : hasDriveUrl ? (
+                                <a
+                                  href={driveOrPath}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-line bg-canvas px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 transition hover:border-brand-300"
+                                  title="Open AACCUP certificate"
+                                >
+                                  <ExternalLinkIcon className="h-3 w-3 shrink-0" />
+                                  View
+                                </a>
+                              ) : hasLocalPath ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setCertificateProgramId(prog.id)}
+                                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-line bg-canvas px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 transition hover:border-brand-300"
+                                  title="Open AACCUP certificate"
+                                >
+                                  <FileCheckIcon className="h-3 w-3 shrink-0" />
+                                  View
+                                </button>
                               ) : canMutate ? (
                                 <button
                                   type="button"
@@ -1220,8 +1378,19 @@ export function ProgramAccreditationView() {
                                   <UploadIcon className="h-3 w-3 shrink-0" />
                                   Upload
                                 </button>
-                              ) : !(isUrl(prog.certificationFile) || isLocalCertificatePath(prog.certificationFile) || localCertificationFileFor(prog)) ? (
+                              ) : (
                                 <span className="text-ink-subtle">—</span>
+                              )}
+                              {canMutate && (hasDriveUrl || hasLocalPath) && count === 0 && !cert?.active ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setCertificateProgramId(prog.id)}
+                                  className="inline-flex items-center gap-1 text-[10px] font-medium text-ink-muted hover:text-brand-700"
+                                  title="Upload or manage local certificate copies"
+                                >
+                                  <UploadIcon className="h-3 w-3 shrink-0" />
+                                  Manage
+                                </button>
                               ) : null}
                             </div>
                           );
@@ -1279,26 +1448,18 @@ export function ProgramAccreditationView() {
                       </td>
 
                       <td className="td py-3 text-xs whitespace-nowrap">
-                        {prog.findingsLink ? (
-                            <a
-                              href={prog.findingsLink}
-                              target="_blank"
-                              rel="noreferrer"
-                            className="inline-flex items-center gap-1 rounded border border-line bg-canvas px-2 py-0.5 font-medium text-brand-700 hover:border-brand-300"
-                            title="Open Summary of Findings & Recommendation"
-                          >
-                            <ExternalLinkIcon className="h-3.5 w-3.5" /> View
-                          </a>
-                        ) : hasFindingsText ? (
+                        {hasFindingsDocuments(prog.id) ? (
                           <button
                             type="button"
-                            onClick={() => setFindingsProgramId(prog.id)}
+                            onClick={() => openFindingsPreview(prog)}
                             className="inline-flex items-center gap-1 rounded border border-line bg-canvas px-2 py-0.5 font-medium text-brand-700 hover:border-brand-300"
-                            title="View recorded Summary of Findings & Recommendation"
+                            title="View Summary of Findings & Recommendation"
                           >
                             <FileCheckIcon className="h-3.5 w-3.5" /> View
                           </button>
-                        ) : null}
+                        ) : (
+                          <span className="text-ink-subtle">—</span>
+                        )}
                       </td>
 
                       <td className="td py-3 text-right whitespace-nowrap">
@@ -1308,7 +1469,17 @@ export function ProgramAccreditationView() {
                               type="button"
                               onClick={() => setFindingsProgramId(prog.id)}
                               className="btn btn-ghost btn-sm h-7 w-7 p-0"
-                              title="Print Summary of Findings & Recommendation"
+                              title="Open Summary of Findings & Recommendation folder"
+                            >
+                              <UploadIcon className="h-3.5 w-3.5 text-ink-muted" />
+                            </button>
+                          ) : null}
+                          {canMutate && hasFindingsDocuments(prog.id) ? (
+                            <button
+                              type="button"
+                              onClick={() => openFindingsPreview(prog)}
+                              className="btn btn-ghost btn-sm h-7 w-7 p-0"
+                              title="View Summary of Findings & Recommendation"
                             >
                               <PrinterIcon className="h-3.5 w-3.5 text-ink-muted" />
                             </button>
@@ -1374,45 +1545,130 @@ export function ProgramAccreditationView() {
             </div>
           }
         >
-          <div className="panel divide-y divide-line overflow-hidden max-h-[32rem] overflow-y-auto">
-            {(detailsModalProgram.requirements || []).map((req) => {
-              const repo = areaRepositoryStats[req.id];
-              return (
-                <div
-                  key={req.id}
-                  className="flex items-center justify-between p-3 text-xs hover:bg-canvas/50"
-                >
-                  <div className="min-w-0">
-                    <p className="font-semibold text-ink">{req.areaName}</p>
-                    <p className="text-[11px] text-ink-muted mt-0.5">
-                      {repo ? (
-                        <span className="inline-flex items-center gap-1 font-medium text-brand-700">
-                          <FolderOpenIcon className="h-3 w-3" />
-                          {repo.files} file{repo.files === 1 ? '' : 's'}
-                          {repo.folders > 0 && ` · ${repo.folders} folder${repo.folders === 1 ? '' : 's'}`}
-                        </span>
-                      ) : req.documentName ? (
-                        <span className="font-medium text-brand-700">{req.documentName}</span>
-                      ) : (
-                        'No document uploaded yet'
-                      )}
-                    </p>
-                  </div>
-
-                  {canMutate && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setRepositoryReqId(req.id)}
-                        className="btn btn-secondary btn-sm h-7 px-2"
-                      >
-                        <UploadIcon className="h-3.5 w-3.5" /> Upload
-                      </button>
-                    </div>
-                  )}
+          <div className="space-y-4 max-h-[32rem] overflow-y-auto">
+            <section className="panel overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-canvas/40 px-3 py-2">
+                <div>
+                  <p className="text-xs font-bold text-ink">Uploaded Documents</p>
+                  <p className="text-[11px] text-ink-muted">
+                    Linked to this program · shown under {formatLevel(detailsModalProgram.status)} and matching folders
+                  </p>
                 </div>
-              );
-            })}
+                {canMutate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCertificateProgramId(detailsModalProgram.id);
+                      setDetailsModalProgram(null);
+                    }}
+                    className="btn btn-secondary btn-sm h-7 px-2"
+                  >
+                    <UploadIcon className="h-3.5 w-3.5" /> Upload certificate
+                  </button>
+                )}
+              </div>
+              {programUploadedDocuments.length === 0 ? (
+                <p className="px-3 py-4 text-xs text-ink-muted">No documents uploaded for this program yet.</p>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {programUploadedDocuments.map(({ doc, category, kind, levelCode }) => (
+                    <li key={doc.id} className="flex items-center justify-between gap-3 p-3 text-xs">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-ink">{doc.title}</p>
+                        <p className="mt-0.5 text-[11px] text-ink-muted">
+                          {category}
+                          {doc.isActive ? ' · Active' : ''}
+                          {kind === 'certificate' && levelCode && levelCode === detailsModalProgram.status
+                            ? ' · Current status folder'
+                            : ''}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm h-7 px-2"
+                          onClick={() => setPreviewCertificate(doc)}
+                          title="Preview"
+                        >
+                          <EyeIcon className="h-3.5 w-3.5" />
+                        </button>
+                        {kind === 'certificate' && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm h-7 px-2"
+                            onClick={() => {
+                              setCertificateProgramId(detailsModalProgram.id);
+                              setDetailsModalProgram(null);
+                            }}
+                            title="Open certificate folders"
+                          >
+                            <FolderOpenIcon className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {kind === 'ratings' && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm h-7 px-2"
+                            onClick={() => {
+                              setRatingsProgramId(detailsModalProgram.id);
+                              setDetailsModalProgram(null);
+                            }}
+                            title="Open ratings"
+                          >
+                            <FolderOpenIcon className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="panel divide-y divide-line overflow-hidden">
+              <div className="border-b border-line bg-canvas/40 px-3 py-2">
+                <p className="text-xs font-bold text-ink">Survey areas</p>
+                <p className="text-[11px] text-ink-muted">Area evidence repositories for this program</p>
+              </div>
+              {(detailsModalProgram.requirements || []).map((req) => {
+                const repo = areaRepositoryStats[req.id];
+                return (
+                  <div
+                    key={req.id}
+                    className="flex items-center justify-between p-3 text-xs hover:bg-canvas/50"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-semibold text-ink">{req.areaName}</p>
+                      <p className="text-[11px] text-ink-muted mt-0.5">
+                        {repo ? (
+                          <span className="inline-flex items-center gap-1 font-medium text-brand-700">
+                            <FolderOpenIcon className="h-3 w-3" />
+                            {repo.files} file{repo.files === 1 ? '' : 's'}
+                            {repo.folders > 0 && ` · ${repo.folders} folder${repo.folders === 1 ? '' : 's'}`}
+                          </span>
+                        ) : req.documentName ? (
+                          <span className="font-medium text-brand-700">{req.documentName}</span>
+                        ) : (
+                          'No document uploaded yet'
+                        )}
+                      </p>
+                    </div>
+
+                    {canMutate && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRepositoryReqId(req.id)}
+                          className="btn btn-secondary btn-sm h-7 px-2"
+                        >
+                          <UploadIcon className="h-3.5 w-3.5" /> Upload
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </section>
           </div>
         </Modal>
       )}
@@ -1433,12 +1689,6 @@ export function ProgramAccreditationView() {
         onClose={() => setReportModal((prev) => ({ ...prev, open: false }))}
       />
 
-      <FindingsPrintModal
-        open={!!findingsProgramId}
-        programId={findingsProgramId}
-        onClose={() => setFindingsProgramId(null)}
-      />
-
       {/* Program Area Evidence Repository */}
       <ProgramAreaRepositoryModal
         open={!!repositoryRequirement}
@@ -1456,6 +1706,11 @@ export function ProgramAccreditationView() {
         open={!!ratingsProgram}
         program={ratingsProgram}
         onClose={() => setRatingsProgramId(null)}
+      />
+      <ProgramFindingsModal
+        open={!!findingsProgram}
+        program={findingsProgram}
+        onClose={() => setFindingsProgramId(null)}
       />
       <DocumentPreviewModal doc={previewCertificate} onClose={() => setPreviewCertificate(null)} grantAccess />
     </>

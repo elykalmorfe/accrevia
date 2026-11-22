@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from mongoengine import connect
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -60,11 +59,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Django still needs a relational DB for admin/sessions; sqlite is fine alongside Mongo.
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.getenv("MYSQL_DATABASE", "accrevia"),
+        "USER": os.getenv("MYSQL_USER", "root"),
+        "PASSWORD": os.getenv("MYSQL_PASSWORD", ""),
+        "HOST": os.getenv("MYSQL_HOST", "127.0.0.1"),
+        "PORT": os.getenv("MYSQL_PORT", "3306"),
+        "OPTIONS": {
+            "charset": "utf8mb4",
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
 }
 
@@ -98,15 +104,6 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Upload → OCR → chunk → BM25+BGE-M3 → Qdrant hybrid search → accreditation scoring → cross-encoder rerank.",
     "VERSION": "1.0.0",
 }
-
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/accrevia")
-try:
-    connect(host=MONGO_URI, alias="default", serverSelectionTimeoutMS=3000)
-except Exception as exc:  # noqa: BLE001
-    # Allow `manage.py` commands to load; /api/health/ reports mongo status.
-    import logging
-
-    logging.getLogger(__name__).warning("MongoDB connect deferred/failed: %s", exc)
 
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "accrevia_chunks")

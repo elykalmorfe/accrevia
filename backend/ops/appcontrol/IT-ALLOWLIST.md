@@ -8,7 +8,7 @@ Windows **Smart App Control** (`VerifiedAndReputableDesktop`, Policy ID `{0283ac
 
 `C:\Users\My Pc\Documents\accrevia\backend\.venv\Lib\site-packages\regex\_regex.cp313-win_amd64.pyd`
 
-Also seen: `pymongo\_cmessage.cp313-win_amd64.pyd` (and likely other torch / transformers `.pyd`/`.dll` under the same venv when those imports run).
+Also seen: other unsigned native extensions under `.venv` (e.g. torch / transformers `.pyd`/`.dll`) when those imports run.
 
 **Machine state (2026-11-18):**
 

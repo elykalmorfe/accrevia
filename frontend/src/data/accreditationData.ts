@@ -12,6 +12,19 @@ import {
 import { programAccreditationRecords } from './programAccreditationRecords';
 import { copcCertificateManifest } from './copcCertificateManifest';
 
+/** Shared BOR Resolution PDF from D1 workbook (BOR RES. column). */
+export const LOCAL_BOR_RESOLUTION_PATH = '/certificates/bor/bor-resolution.pdf';
+const WORKBOOK_BOR_DRIVE_ID = '1xsNkKL7GoKyB47CFHPqu0lkF-CmuwH9p';
+
+function resolveWorkbookBorRes(borRes?: string): string | undefined {
+  const value = (borRes || '').trim();
+  if (!value) return undefined;
+  if (value.includes(WORKBOOK_BOR_DRIVE_ID) || value.startsWith('/certificates/bor/')) {
+    return LOCAL_BOR_RESOLUTION_PATH;
+  }
+  return value;
+}
+
 export const campuses: Campus[] = [
   {
     id: 'tandag',
@@ -674,7 +687,10 @@ export const initialCOPCRecords: COPCRecord[] = initialProgramAccreditations.map
     certificateNumber: isPending ? undefined : (p.copcCertificateNumber || details.certNo),
     dateIssued: isPending ? undefined : details.dateIssued,
     cmoNo: details.cmo,
-    borRes: isPending ? 'BOR Res. No. 08, S. 2024 (Endorsed)' : (p.borRes || details.borRes),
+    // Prefer real BOR RES. links from the D1 workbook; fall back to generated label only when missing.
+    borRes:
+      resolveWorkbookBorRes(p.borRes) ||
+      (isPending ? 'BOR Res. No. 08, S. 2024 (Endorsed)' : details.borRes),
     documentLink: (() => {
       const cert = (copcCertificateManifest as Record<string, { path?: string; driveUrl?: string }>)[p.id];
       if (cert?.path) return cert.path;

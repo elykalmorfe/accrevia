@@ -108,20 +108,20 @@ const ZIP_ALIASES = {
     BPED: 'pa-tan-01',
     'BSED Science, English & Filipino': 'pa-tan-16',
     'BSED-Mathematics': 'pa-tan-18',
-    'EdD in Educational Managament': 'pa-tan-g02',
-    'EdD-English': 'pa-tan-g03',
-    MAED: 'pa-tan-g07',
-    MAELT: 'pa-tan-g08',
-    MBA: 'pa-tan-g04',
-    MPA: 'pa-tan-g14',
-    MSCS: 'pa-tan-g06',
-    'MST-Filipino': 'pa-tan-g09',
-    'MST-HE': 'pa-tan-g10',
-    'MST-Mathematics': 'pa-tan-g11',
-    'MST-Scie.Ed': 'pa-tan-g12',
-    'MST-SS': 'pa-tan-g13',
-    'PhD in Math': 'pa-tan-g01',
-    'PhD Scie.Ed': 'pa-tan-g05'
+    'EdD in Educational Managament': 'pa-tan-25',
+    'EdD-English': 'pa-tan-26',
+    MAED: 'pa-tan-30',
+    MAELT: 'pa-tan-31',
+    MBA: 'pa-tan-27',
+    MPA: 'pa-tan-37',
+    MSCS: 'pa-tan-29',
+    'MST-Filipino': 'pa-tan-32',
+    'MST-HE': 'pa-tan-33',
+    'MST-Mathematics': 'pa-tan-34',
+    'MST-Scie.Ed': 'pa-tan-35',
+    'MST-SS': 'pa-tan-36',
+    'PhD in Math': 'pa-tan-24',
+    'PhD Scie.Ed': 'pa-tan-28'
   }
 };
 
@@ -156,8 +156,9 @@ function normalizeLevel(folderName) {
 }
 
 function parsePrograms(ts) {
+  // Seed file may use single or double quotes.
   const re =
-    /id: '(pa-[^']+)'[\s\S]*?campusId: '([^']+)'[\s\S]*?programName: '([^']*(?:\\'[^']*)*)'[\s\S]*?status: '([^']+)'/g;
+    /id:\s*['"](pa-[^'"]+)['"][\s\S]*?campusId:\s*['"]([^'"]+)['"][\s\S]*?programName:\s*['"]([^'"]*)['"][\s\S]*?status:\s*['"]([^'"]+)['"]/g;
   const rows = [];
   let m;
   while ((m = re.exec(ts))) {

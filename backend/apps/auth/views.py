@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from django.conf import settings
+from django.db import connection
 from qdrant_client import QdrantClient
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from mongoengine.connection import get_db
 
 from apps.ingestion.services.embedders import dense_backend_info
 
@@ -15,18 +15,21 @@ class HealthView(APIView):
     permission_classes = []
 
     def get(self, request):
-        mongo_ok = False
+        mysql_ok = False
         qdrant_ok = False
-        mongo_error = None
+        mysql_error = None
         qdrant_error = None
         embedding = None
         embedding_error = None
 
         try:
-            get_db().command("ping")
-            mongo_ok = True
+            connection.ensure_connection()
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+            mysql_ok = True
         except Exception as exc:  # noqa: BLE001
-            mongo_error = str(exc)
+            mysql_error = str(exc)
 
         try:
             client = QdrantClient(url=settings.QDRANT_URL, timeout=3)
@@ -41,19 +44,19 @@ class HealthView(APIView):
             embedding_error = str(exc)
             embedding = {"name": "unavailable", "degraded": True, "kind": "error"}
 
-        ready = mongo_ok and qdrant_ok
+        ready = mysql_ok and qdrant_ok
         embedding_degraded = bool(embedding and embedding.get("degraded"))
         payload = {
             "status": "ok" if ready and not embedding_degraded else "degraded" if ready else "unavailable",
-            "mongo": mongo_ok,
+            "mysql": mysql_ok,
             "qdrant": qdrant_ok,
             "jwt_required": settings.REQUIRE_JWT,
             "collection": settings.QDRANT_COLLECTION,
             "embedding_backend": embedding.get("name") if embedding else None,
             "embedding_degraded": embedding_degraded,
         }
-        if mongo_error:
-            payload["mongo_error"] = mongo_error
+        if mysql_error:
+            payload["mysql_error"] = mysql_error
         if qdrant_error:
             payload["qdrant_error"] = qdrant_error
         if embedding_error:
@@ -76,3 +79,31 @@ class JwtStubView(APIView):
             },
             status=501,
         )
+
+
+class RootView(APIView):
+    """API index so GET / is not a bare 404."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        return Response(
+            {
+                "service": "accrevia-api",
+                "health": "/api/health/",
+                "docs": "/api/docs/",
+                "documents": "/api/documents/",
+                "search": "/api/search/",
+            }
+        )
+
+
+class DockerDesktopProbeView(APIView):
+    """Docker Desktop probes /json/version; return a harmless 200 stub."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        return Response({"ApiVersion": "1.0", "service": "accrevia-api"})

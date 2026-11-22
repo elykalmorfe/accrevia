@@ -109,20 +109,20 @@ const ZIP_ALIASES = {
     BPED: 'pa-tan-01',
     'BSED-English,Filipino&Science': 'pa-tan-16',
     'BSED-Math': 'pa-tan-18',
-    'EdD-ELT': 'pa-tan-g03',
-    'EdD-EM': 'pa-tan-g02',
-    MAED: 'pa-tan-g07',
-    MAELT: 'pa-tan-g08',
-    MAFLT: 'pa-tan-g09',
-    MAHET: 'pa-tan-g10',
-    MASST: 'pa-tan-g13',
-    MBA: 'pa-tan-g04',
-    MPA: 'pa-tan-g14',
-    MSCS: 'pa-tan-g06',
-    'MST-Math': 'pa-tan-g11',
-    MSTS: 'pa-tan-g12',
-    'PhD-Math': 'pa-tan-g01',
-    'PhD-Scie.Ed': 'pa-tan-g05'
+    'EdD-ELT': 'pa-tan-26',
+    'EdD-EM': 'pa-tan-25',
+    MAED: 'pa-tan-30',
+    MAELT: 'pa-tan-31',
+    MAFLT: 'pa-tan-32',
+    MAHET: 'pa-tan-33',
+    MASST: 'pa-tan-36',
+    MBA: 'pa-tan-27',
+    MPA: 'pa-tan-37',
+    MSCS: 'pa-tan-29',
+    'MST-Math': 'pa-tan-34',
+    MSTS: 'pa-tan-35',
+    'PhD-Math': 'pa-tan-24',
+    'PhD-Scie.Ed': 'pa-tan-28'
   }
 };
 
@@ -163,8 +163,9 @@ function normalizePeriod(name) {
 }
 
 function parsePrograms(ts) {
+  // Seed file may use single or double quotes.
   const re =
-    /id: '(pa-[^']+)'[\s\S]*?campusId: '([^']+)'[\s\S]*?programName: '([^']*(?:\\'[^']*)*)'[\s\S]*?status: '([^']+)'/g;
+    /id:\s*['"](pa-[^'"]+)['"][\s\S]*?campusId:\s*['"]([^'"]+)['"][\s\S]*?programName:\s*['"]([^'"]*)['"][\s\S]*?status:\s*['"]([^'"]+)['"]/g;
   const rows = [];
   let m;
   while ((m = re.exec(ts))) {

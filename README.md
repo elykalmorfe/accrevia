@@ -19,7 +19,7 @@ npm run dev
 
 **Backend** (OCR → chunk → BM25 + BGE-M3 → Qdrant hybrid search)
 
-See [`backend/README.md`](backend/README.md) for Docker (MongoDB, Qdrant, Redis), Tesseract, Celery, and API examples.
+See [`backend/README.md`](backend/README.md) for MySQL, Docker (Qdrant, Redis), Tesseract, Celery, and API examples.
 
 Set in `frontend/.env`:
 

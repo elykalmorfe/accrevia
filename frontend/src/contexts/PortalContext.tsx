@@ -61,18 +61,46 @@ import { isAdminRole, isRecipientRole, nowIso, permissionLabel, recipientRoles, 
 import { formatDate } from '../utils/format';
 import { isCampusMatch } from '../utils/campus';
 import { normalizeDocumentsPublishingFields, normalizePublishingFields } from '../utils/publicDocuments';
-import { deleteStoredFile } from '../utils/fileStore';
-import { applyLevelChange, ensureLevelHistory, normalizeLegacyStatus } from '../utils/programAccreditation';
+import { deleteStoredFile, getStoredFile, saveStoredFile } from '../utils/fileStore';
+import {
+  applyLevelChange,
+  ensureLevelHistory,
+  normalizeLegacyStatus,
+  reconcilePaCopcRepository
+} from '../utils/programAccreditation';
 import { isIsoClauseFolder, purgeLegacySampleData } from '../utils/samplePurge';
-import { getStoredFile, saveStoredFile } from '../utils/fileStore';
 import { publishSharedOriginal } from '../services/live/sharedFiles';
 import {
   COPC_CERT_FILES_KEY,
   COPC_CERT_FILES_VERSION,
   LINKED_CERTIFICATES_KEY,
-  LINKED_CERTIFICATES_VERSION
+  LINKED_CERTIFICATES_VERSION,
+  LINKED_COPC_DOCUMENTS_KEY,
+  LINKED_COPC_DOCUMENTS_VERSION,
+  buildLinkedCertificates,
+  buildLinkedCopcDocuments,
+  clearGeneratedLinkedCertificateFiles,
+  localCertificationFileFor,
+  mirrorCopcStoredFiles,
+  prefetchCertificateFiles,
+  prefetchCopcCertificateFiles,
+  refreshLinkedCertificateMeta,
+  syncCopcRecordToDocuments
 } from '../utils/linkedCertificates';
-import { RATINGS_DOCUMENTS_KEY, RATINGS_DOCUMENTS_VERSION } from '../utils/ratingsDocuments';
+import {
+  RATINGS_DOCUMENTS_KEY,
+  RATINGS_DOCUMENTS_VERSION,
+  buildRatingsDocuments,
+  primaryRatingsPath,
+  prefetchRatingsDocuments
+} from '../utils/ratingsDocuments';
+import {
+  FINDINGS_DOCUMENTS_KEY,
+  FINDINGS_DOCUMENTS_VERSION,
+  buildFindingsDocuments,
+  primaryFindingsPath,
+  prefetchFindingsDocuments
+} from '../utils/findingsDocuments';
 import { getSettings } from '../settings/portalSettings';
 import { useSessionAccount } from '../utils/auth';
 
@@ -272,16 +300,25 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const [areas, setAreas] = useState(initialAreas);
   const [criteria, setCriteria] = useState(initialCriteria);
   const [indicators, setIndicators] = useState(initialIndicators);
-  const [documents, setDocuments] = useState<EvidenceDocument[]>(() =>
-    normalizeDocumentsPublishingFields(loadStorage<EvidenceDocument[]>('documents', []))
-  );
-  const [folders, setFolders] = useState<EvidenceFolder[]>(() => {
+  const [documents, setDocuments] = useState<EvidenceDocument[]>(() => {
+    const docs = normalizeDocumentsPublishingFields(loadStorage<EvidenceDocument[]>('documents', []));
     const stored = loadStorage<EvidenceFolder[]>('folders', initialFolders);
     const hidden = new Set(loadHiddenFolderIds());
     const visible = stored.filter((f) => !hidden.has(f.id));
     const existingIds = new Set(visible.map((f) => f.id));
     const missingRoots = initialFolders.filter((f) => !existingIds.has(f.id) && !hidden.has(f.id));
-    return missingRoots.length > 0 ? [...missingRoots, ...visible] : visible;
+    const merged = missingRoots.length > 0 ? [...missingRoots, ...visible] : visible;
+    return reconcilePaCopcRepository(merged, docs).documents;
+  });
+  const [folders, setFolders] = useState<EvidenceFolder[]>(() => {
+    const docs = normalizeDocumentsPublishingFields(loadStorage<EvidenceDocument[]>('documents', []));
+    const stored = loadStorage<EvidenceFolder[]>('folders', initialFolders);
+    const hidden = new Set(loadHiddenFolderIds());
+    const visible = stored.filter((f) => !hidden.has(f.id));
+    const existingIds = new Set(visible.map((f) => f.id));
+    const missingRoots = initialFolders.filter((f) => !existingIds.has(f.id) && !hidden.has(f.id));
+    const merged = missingRoots.length > 0 ? [...missingRoots, ...visible] : visible;
+    return reconcilePaCopcRepository(merged, docs).folders;
   });
   const [pending, setPending] = useState<PendingDocument[]>([]);
   const [users, setUsers] = useState<PortalUser[]>(() => {
@@ -503,16 +540,202 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   });
   const [isoRecords, setIsoRecords] = useState<ISOSurveillanceRecord[]>(() => loadStorage('isoRecords', initialISORecords));
 
-  // Dummy certificate / ratings / COPC binary seeding disabled — upload real files instead.
+  // Seed AACCUP certificate folders/docs from the local manifest (once per seed version).
   useEffect(() => {
     try {
-      localStorage.setItem(LINKED_CERTIFICATES_KEY, LINKED_CERTIFICATES_VERSION);
-      localStorage.setItem(RATINGS_DOCUMENTS_KEY, RATINGS_DOCUMENTS_VERSION);
+      if (localStorage.getItem(LINKED_CERTIFICATES_KEY) !== LINKED_CERTIFICATES_VERSION) {
+        localStorage.setItem(LINKED_CERTIFICATES_KEY, LINKED_CERTIFICATES_VERSION);
+        const seed = buildLinkedCertificates(programAccreditations);
+        const folderIdFor = new Map<string, string>();
+        const addedFolders = seed.folders.filter((f) => {
+          const existing = folders.find((e) => e.isSystem && e.areaId === f.areaId && e.code === f.code);
+          if (existing) folderIdFor.set(f.id, existing.id);
+          return !existing && !folders.some((e) => e.id === f.id);
+        });
+        const seededDocs = seed.documents.map((d) =>
+          d.folderId && folderIdFor.has(d.folderId) ? { ...d, folderId: folderIdFor.get(d.folderId) } : d
+        );
+        if (addedFolders.length) setFolders((prev) => [...prev, ...addedFolders.filter((f) => !prev.some((p) => p.id === f.id))]);
+        setDocuments((prev) => {
+          const seededIds = new Set(seededDocs.map((d) => d.id));
+          const areaIds = new Set(seededDocs.map((d) => d.areaId));
+          const kept = prev.filter(
+            (d) =>
+              !(d.frameworkId === 'pa' && areaIds.has(d.areaId) && (d.id.startsWith('doc-cert-') || seededIds.has(d.id)))
+          );
+          return normalizeDocumentsPublishingFields(
+            refreshLinkedCertificateMeta([...kept, ...seededDocs], programAccreditations)
+          );
+        });
+        // Prefer local level-anchored certificate paths over Drive-only links.
+        setProgramAccreditations((prev) => {
+          let changed = false;
+          const next = prev.map((p) => {
+            const local = localCertificationFileFor(p);
+            if (!local || p.certificationFile === local) return p;
+            changed = true;
+            return { ...p, certificationFile: local };
+          });
+          if (changed) {
+            saveStorage('programAccreditations', next);
+            return next;
+          }
+          return prev;
+        });
+        void clearGeneratedLinkedCertificateFiles(programAccreditations)
+          .then(() => prefetchCertificateFiles(seededDocs))
+          .catch((err) => console.error('Could not prefetch certificate files', err));
+      }
+    } catch {
+      // Storage unavailable; skip seeding.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programAccreditations]);
+
+  // Prefetch COPC official certificate binaries into IndexedDB once per version.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(COPC_CERT_FILES_KEY) === COPC_CERT_FILES_VERSION) return;
       localStorage.setItem(COPC_CERT_FILES_KEY, COPC_CERT_FILES_VERSION);
+      void prefetchCopcCertificateFiles(copcRecords).catch((err) =>
+        console.error('Could not prefetch COPC certificate files', err)
+      );
     } catch {
       // ignore
     }
-  }, []);
+  }, [copcRecords]);
+
+  // Seed COPC Status certificates / BOR into Upload Documents → COPC folders.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(LINKED_COPC_DOCUMENTS_KEY) === LINKED_COPC_DOCUMENTS_VERSION) return;
+      localStorage.setItem(LINKED_COPC_DOCUMENTS_KEY, LINKED_COPC_DOCUMENTS_VERSION);
+      const seeded = buildLinkedCopcDocuments(copcRecords);
+      if (!seeded.length) return;
+      setFolders((prev) => reconcilePaCopcRepository(prev, seeded).folders);
+      setDocuments((prev) => {
+        const seededIds = new Set(seeded.map((d) => d.id));
+        const kept = prev.filter((d) => !seededIds.has(d.id));
+        return normalizeDocumentsPublishingFields(
+          reconcilePaCopcRepository([], [...kept, ...seeded]).documents
+        );
+      });
+    } catch {
+      // Storage unavailable; skip seeding.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [copcRecords]);
+
+  // Seed Technical Review & Board Action rating documents (once per version).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(RATINGS_DOCUMENTS_KEY) === RATINGS_DOCUMENTS_VERSION) return;
+      localStorage.setItem(RATINGS_DOCUMENTS_KEY, RATINGS_DOCUMENTS_VERSION);
+      const seed = buildRatingsDocuments(programAccreditations);
+      const folderIdFor = new Map<string, string>();
+      const addedFolders = seed.folders.filter((f) => {
+        const existing = folders.find((e) => e.isSystem && e.areaId === f.areaId && e.code === f.code);
+        if (existing) folderIdFor.set(f.id, existing.id);
+        return !existing && !folders.some((e) => e.id === f.id);
+      });
+      const seededDocs = seed.documents.map((d) =>
+        d.folderId && folderIdFor.has(d.folderId) ? { ...d, folderId: folderIdFor.get(d.folderId) } : d
+      );
+      if (addedFolders.length) setFolders((prev) => [...prev, ...addedFolders.filter((f) => !prev.some((p) => p.id === f.id))]);
+      setDocuments((prev) => {
+        const areaIds = new Set(seededDocs.map((d) => d.areaId));
+        const kept = prev.filter(
+          (d) => !(d.frameworkId === 'pa' && typeof d.areaId === 'string' && d.areaId.startsWith('trba-') && areaIds.has(d.areaId))
+        );
+        return normalizeDocumentsPublishingFields([
+          ...kept,
+          ...seededDocs.filter((d) => !kept.some((p) => p.id === d.id))
+        ]);
+      });
+      setProgramAccreditations((prev) => {
+        let changed = false;
+        const next = prev.map((p) => {
+          const primary =
+            primaryRatingsPath(p.id) ||
+            seed.documents.find((d) => d.areaId === `trba-${p.id}` && d.isActive)?.documentUrl ||
+            seed.documents.find((d) => d.areaId === `trba-${p.id}`)?.documentUrl;
+          if (!primary || p.technicalReviewLink === primary) return p;
+          changed = true;
+          return { ...p, technicalReviewLink: primary };
+        });
+        if (changed) {
+          saveStorage('programAccreditations', next);
+          return next;
+        }
+        return prev;
+      });
+      void prefetchRatingsDocuments(seededDocs).catch((err) =>
+        console.error('Could not prefetch ratings documents', err)
+      );
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programAccreditations]);
+
+  // Seed Summary of Findings & Recommendation documents (once per version).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(FINDINGS_DOCUMENTS_KEY) === FINDINGS_DOCUMENTS_VERSION) return;
+      localStorage.setItem(FINDINGS_DOCUMENTS_KEY, FINDINGS_DOCUMENTS_VERSION);
+      const seed = buildFindingsDocuments(programAccreditations);
+      const folderIdFor = new Map<string, string>();
+      const addedFolders = seed.folders.filter((f) => {
+        const existing = folders.find((e) => e.isSystem && e.areaId === f.areaId && e.code === f.code);
+        if (existing) folderIdFor.set(f.id, existing.id);
+        return !existing && !folders.some((e) => e.id === f.id);
+      });
+      const seededDocs = seed.documents.map((d) =>
+        d.folderId && folderIdFor.has(d.folderId) ? { ...d, folderId: folderIdFor.get(d.folderId) } : d
+      );
+      if (addedFolders.length) setFolders((prev) => [...prev, ...addedFolders.filter((f) => !prev.some((p) => p.id === f.id))]);
+      setDocuments((prev) => {
+        const areaIds = new Set(seededDocs.map((d) => d.areaId));
+        const kept = prev.filter(
+          (d) =>
+            !(d.frameworkId === 'pa' && typeof d.areaId === 'string' && d.areaId.startsWith('findings-') && areaIds.has(d.areaId))
+        );
+        return normalizeDocumentsPublishingFields([
+          ...kept,
+          ...seededDocs.filter((d) => !kept.some((p) => p.id === d.id))
+        ]);
+      });
+      setProgramAccreditations((prev) => {
+        let changed = false;
+        const next = prev.map((p) => {
+          const primary = primaryFindingsPath(p.id);
+          // Only keep real folder files; clear Drive / dummy findings links.
+          if (primary) {
+            if (p.findingsLink === primary) return p;
+            changed = true;
+            return { ...p, findingsLink: primary };
+          }
+          if (p.findingsLink) {
+            changed = true;
+            const { findingsLink: _removed, ...rest } = p;
+            return rest as typeof p;
+          }
+          return p;
+        });
+        if (changed) {
+          saveStorage('programAccreditations', next);
+          return next;
+        }
+        return prev;
+      });
+      void prefetchFindingsDocuments(seededDocs).catch((err) =>
+        console.error('Could not prefetch findings documents', err)
+      );
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programAccreditations]);
 
   // Selected campus derived helpers
   const selectedCampusObj = useMemo(() => {
@@ -1176,6 +1399,14 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     setCopcRecords((prev) => {
       const next = prev.map((item) => (item.id === id ? { ...item, ...patch } : item));
       saveStorage('copcRecords', next);
+      const updated = next.find((item) => item.id === id);
+      if (
+        updated &&
+        ('documentLink' in patch || 'borRes' in patch || 'certificateNumber' in patch || 'dateIssued' in patch)
+      ) {
+        setDocuments((docs) => normalizeDocumentsPublishingFields(syncCopcRecordToDocuments(docs, updated)));
+        void mirrorCopcStoredFiles(updated).catch(() => undefined);
+      }
       return next;
     });
   }, []);

@@ -1,12 +1,12 @@
 import type { ProgramAccreditation } from '../types/accreditation';
 import type { EvidenceDocument, EvidenceFolder, FileType } from '../types/evidence';
 import { getSettings } from '../settings/portalSettings';
-import { ratingsAreaKey } from './programAccreditation';
+import { paCanonicalFolderIdForCode, ratingsAreaKey } from './programAccreditation';
 import { getStoredFile, saveStoredFile } from './fileStore';
 import { isLocalCertificatePath } from './linkedCertificates';
 import { ratingsDocumentManifest } from '../data/ratingsDocumentManifest';
 
-export const RATINGS_DOCUMENTS_VERSION = 'aaccup-ratings-local-1';
+export const RATINGS_DOCUMENTS_VERSION = 'aaccup-ratings-local-3';
 export const RATINGS_DOCUMENTS_KEY = 'accrevia_ratings_documents';
 
 type RatingsEntry = { period: string; path: string; fileName: string };
@@ -61,7 +61,6 @@ export function buildRatingsDocuments(programs: ProgramAccreditation[]): {
   const { defaultAcademicYear } = getSettings().general;
   const folders: EvidenceFolder[] = [];
   const documents: EvidenceDocument[] = [];
-  const folderKeys = new Set<string>();
 
   for (const p of programs) {
     const entries = manifestEntriesFor(p.id);
@@ -72,26 +71,7 @@ export function buildRatingsDocuments(programs: ProgramAccreditation[]): {
 
     for (const entry of entries) {
       const period = entry.period || 'general';
-      const folderId = `folder-${areaKey}-${slugPeriod(period)}`;
-      if (!folderKeys.has(folderId)) {
-        folderKeys.add(folderId);
-        folders.push({
-          id: folderId,
-          name: period === 'general' ? 'General' : period,
-          code: period,
-          frameworkId: 'pa',
-          category: 'Accreditation',
-          description: `Technical Review & Board Action — ${p.programName} (${period})`,
-          isSystem: true,
-          color: 'blue',
-          createdAt: today,
-          areaId: areaKey,
-          campusId: p.campusId,
-          campus: p.campusName,
-          hasNoDeadline: true
-        });
-      }
-
+      const folderId = paCanonicalFolderIdForCode('trba')!;
       const idx = periodCounters.get(period) ?? 0;
       periodCounters.set(period, idx + 1);
       const docId = `doc-trba-${p.id}-${slugPeriod(period)}-${idx}`;

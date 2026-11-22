@@ -43,6 +43,16 @@ interface CertificateFoldersModalProps {
    * `levelCode` is the code of the level folder holding the certificate, or null at the root.
    */
   onActivate?: (doc: EvidenceDocument, levelCode: string | null) => void;
+  /** Codes that support activate/switch (defaults to all level codes when onActivate is set). */
+  activatableCodes?: string[];
+  /** Root label in the explorer breadcrumb. */
+  rootLabel?: string;
+  /** When false (default), files go directly into the fixed level folders — no nested folders. */
+  allowNestedFolders?: boolean;
+  /** When set, use these Online Repository folders instead of per-area seeded folders. */
+  canonicalFolders?: EvidenceFolder[];
+  /** Preferred folder id to open (canonical Online Repository). */
+  preferredFolderId?: string | null;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -64,22 +74,54 @@ export function CertificateFoldersModal({
   campusId,
   campusName,
   stats,
-  onActivate
+  onActivate,
+  activatableCodes,
+  rootLabel = 'Certificates',
+  allowNestedFolders = false,
+  canonicalFolders,
+  preferredFolderId = null
 }: CertificateFoldersModalProps) {
   const { folders, documents, saveFolder, updateDocument, currentUser } = usePortal();
   const { canMutate } = useInstitutionalMutationAccess();
+  const useCanonical = !!canonicalFolders?.length;
 
-  const certFolders = useMemo(
-    () => folders.filter((f) => f.frameworkId === frameworkId && f.areaId === areaKey && !f.libraryOnly),
-    [folders, frameworkId, areaKey]
-  );
-  const certDocs = useMemo(
-    () => documents.filter((d) => d.frameworkId === frameworkId && d.areaId === areaKey && !d.libraryOnly),
-    [documents, frameworkId, areaKey]
+  const certFolders = useMemo(() => {
+    if (useCanonical) return canonicalFolders!;
+    return folders.filter(
+      (f) =>
+        f.frameworkId === frameworkId &&
+        f.areaId === areaKey &&
+        !f.libraryOnly &&
+        (allowNestedFolders || f.isSystem || !f.parentId)
+    );
+  }, [useCanonical, canonicalFolders, folders, frameworkId, areaKey, allowNestedFolders]);
+
+  const certFolderIds = useMemo(() => new Set(certFolders.map((f) => f.id)), [certFolders]);
+
+  const certDocs = useMemo(() => {
+    if (useCanonical) {
+      // Shared Online Repository folders; scope the modal to this program/subject.
+      return documents.filter(
+        (d) =>
+          d.frameworkId === frameworkId &&
+          !d.libraryOnly &&
+          d.folderId &&
+          certFolderIds.has(d.folderId) &&
+          (d.program === program || d.areaId === areaKey)
+      );
+    }
+    return documents.filter(
+      (d) => d.frameworkId === frameworkId && d.areaId === areaKey && !d.libraryOnly
+    );
+  }, [useCanonical, documents, frameworkId, areaKey, certFolderIds, program]);
+
+  const switchableCodes = useMemo(
+    () => new Set(activatableCodes ?? (onActivate ? levels.map((l) => l.code) : [])),
+    [activatableCodes, onActivate, levels]
   );
 
   useEffect(() => {
-    if (!open || !canMutate) return;
+    if (!open || !canMutate || useCanonical) return;
     levels.forEach((level, i) => {
       if (certFolders.some((f) => f.isSystem && f.code === level.code)) return;
       saveFolder({
@@ -98,9 +140,23 @@ export function CertificateFoldersModal({
         hasNoDeadline: true
       });
     });
-  }, [open, canMutate, levels, certFolders, saveFolder, areaKey, frameworkId, subject, campusId, campusName]);
+  }, [
+    open,
+    canMutate,
+    useCanonical,
+    levels,
+    certFolders,
+    saveFolder,
+    areaKey,
+    frameworkId,
+    subject,
+    campusId,
+    campusName
+  ]);
 
-  const currentFolder = certFolders.find((f) => f.isSystem && f.code === currentLevelCode);
+  const currentFolder =
+    (preferredFolderId ? certFolders.find((f) => f.id === preferredFolderId) : undefined) ||
+    certFolders.find((f) => f.isSystem && f.code === currentLevelCode);
   const currentLabel = levels.find((l) => l.code === currentLevelCode)?.label ?? currentLevelCode;
 
   const buildFolder = (name: string, parentId: string | null): EvidenceFolder => ({
@@ -128,16 +184,23 @@ export function CertificateFoldersModal({
   const levelCodeOf = (folderId: string | null | undefined): string | null => levelFolderOf(folderId)?.code ?? null;
 
   const activation = !!onActivate;
-  const activeDoc = activation ? certDocs.find((d) => d.isActive) : undefined;
+  const activeDoc = activation
+    ? certDocs.find((d) => d.isActive && switchableCodes.has(levelCodeOf(d.folderId) || ''))
+    : undefined;
   const activeLevelFolder = activeDoc ? levelFolderOf(activeDoc.folderId) : undefined;
 
   const activate = (doc: EvidenceDocument) => {
     if (!canMutate) return;
+    const code = levelCodeOf(doc.folderId);
+    if (code && !switchableCodes.has(code)) {
+      toast.message('This folder does not use an active certificate switch.');
+      return;
+    }
     certDocs.forEach((d) => {
       const isActive = d.id === doc.id;
       if (!!d.isActive !== isActive) updateDocument(d.id, { isActive });
     });
-    onActivate?.(doc, levelCodeOf(doc.folderId));
+    onActivate?.(doc, code);
   };
 
   const deactivate = (doc: EvidenceDocument) => {
@@ -149,13 +212,14 @@ export function CertificateFoldersModal({
   const buildDocument = (file: File, folderId: string | null): EvidenceDocument => {
     const { general } = getSettings();
     const level = levelOf(folderId);
+    const levelCode = levelCodeOf(folderId) ?? currentLevelCode;
     return {
       id: uid('doc-cert'),
       title: file.name.replace(/\.[^.]+$/, ''),
       description: `${body} ${level} certificate for ${subject}`,
-      keywords: [body, 'Certificate', level, subject],
+      keywords: [body, 'Certificate', level, levelCode, subject, areaKey, 'Program Accreditation'],
       frameworkId,
-      areaId: areaKey,
+      areaId: useCanonical ? areaKey : areaKey,
       criterionId: '',
       indicatorId: '',
       docType: 'Certificate',
@@ -176,8 +240,9 @@ export function CertificateFoldersModal({
       sizeMb: Math.max(0.1, Math.round((file.size / (1024 * 1024)) * 10) / 10),
       uploadedBy: currentUser.name,
       passages: [`${body} ${level} certificate — ${subject} (${campusName})`],
-      folderId: folderId ?? `folder-${frameworkId}`,
-      approvalStatus: 'Approved'
+      folderId: folderId ?? undefined,
+      approvalStatus: 'Approved',
+      ...(activation && switchableCodes.has(levelCode) ? { isActive: false } : {})
     };
   };
 
@@ -231,19 +296,21 @@ export function CertificateFoldersModal({
       <FolderExplorer
         folders={certFolders}
         documents={certDocs}
-        rootLabel="Certificates"
+        rootLabel={rootLabel}
         canEdit={canMutate}
         openToViewers
         showApproval={false}
+        allowNestedFolders={allowNestedFolders}
         buildFolder={buildFolder}
         buildDocument={buildDocument}
         resolveUploadTarget={resolveUploadTarget}
-        folderEyebrow={(f) => (f.isSystem ? `${body} level` : undefined)}
+        preferredFolderId={preferredFolderId || currentFolder?.id || null}
+        folderEyebrow={(f) => (f.isSystem ? 'Fixed folder' : undefined)}
         folderStatus={(f, count) =>
           activeLevelFolder && f.id === activeLevelFolder.id
             ? { label: 'Active certificate', tone: 'success' }
             : f.id === currentFolder?.id
-            ? { label: 'Current level', tone: 'info' }
+            ? { label: 'Current', tone: 'info' }
             : count === 0
             ? { label: 'Empty', tone: 'neutral' }
             : null
@@ -251,40 +318,51 @@ export function CertificateFoldersModal({
         documentStatus={
           !activation
             ? undefined
-            : canMutate
-            ? (doc) => (
-                <span className="inline-flex items-center gap-2">
-                  <span className={`text-[11px] font-bold ${doc.isActive ? 'text-success-700' : 'text-ink-subtle'}`}>
-                    {doc.isActive ? 'On' : 'Off'}
+            : (doc) => {
+                const code = levelCodeOf(doc.folderId);
+                if (!code || !switchableCodes.has(code)) {
+                  return <span className="text-[10.5px] font-bold text-ink-subtle">On file</span>;
+                }
+                return canMutate ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className={`text-[11px] font-bold ${doc.isActive ? 'text-success-700' : 'text-ink-subtle'}`}>
+                      {doc.isActive ? 'On' : 'Off'}
+                    </span>
+                    <Switch
+                      checked={!!doc.isActive}
+                      onChange={(on) => (on ? activate(doc) : deactivate(doc))}
+                      label={`${doc.isActive ? 'Deactivate' : 'Activate'} ${doc.title}`}
+                    />
                   </span>
-                  <Switch
-                    checked={!!doc.isActive}
-                    onChange={(on) => (on ? activate(doc) : deactivate(doc))}
-                    label={`${doc.isActive ? 'Deactivate' : 'Activate'} ${doc.title}`}
-                  />
-                </span>
-              )
-            : (doc) => (
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
-                    doc.isActive ? 'bg-success-50 text-success-700' : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {doc.isActive ? 'Active' : 'Inactive'}
-                </span>
-              )
+                ) : (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
+                      doc.isActive ? 'bg-success-50 text-success-700' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {doc.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                );
+              }
         }
         onUploaded={
           activation
-            ? (docs) =>
-                toast.info(`${docs.length === 1 ? 'The certificate is' : 'New certificates are'} inactive`, {
-                  description: 'Switch it on to make it the current certificate.'
-                })
+            ? (docs) => {
+                const inSwitchable = docs.some((d) => {
+                  const code = levelCodeOf(d.folderId);
+                  return !!code && switchableCodes.has(code);
+                });
+                if (inSwitchable) {
+                  toast.info(`${docs.length === 1 ? 'The certificate is' : 'New certificates are'} inactive`, {
+                    description: 'Switch it on to make it the current certificate.'
+                  });
+                }
+              }
             : undefined
         }
         summary={summary}
-        emptyHint="Upload the certificate for this level, or create a folder to organize it."
-        resetKey={`${areaKey}-${open}`}
+        emptyHint="Upload files directly into this folder. Nested folders are not used here."
+        resetKey={`${areaKey}-${open}-${currentLevelCode}`}
       />
     </Modal>
   );

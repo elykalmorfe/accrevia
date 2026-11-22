@@ -208,8 +208,9 @@ export function purgeLegacySampleData() {
     }));
 
     // Mark one-time seeders as already applied so they do not re-inject dummy docs.
-    localStorage.setItem('accrevia_linked_certificates', 'aaccup-local-certs-1');
-    localStorage.setItem('accrevia_ratings_documents', 'aaccup-ratings-local-1');
+    localStorage.setItem('accrevia_linked_certificates', 'aaccup-local-certs-2');
+    localStorage.setItem('accrevia_ratings_documents', 'aaccup-ratings-local-2');
+    localStorage.setItem('accrevia_findings_documents', 'aaccup-findings-folder-only-1');
     localStorage.setItem('accrevia_mock_documents', 'v3-empty');
 
     localStorage.setItem(PURGE_VERSION_KEY, PURGE_VERSION);

@@ -7,7 +7,7 @@ Backend for accreditation document **upload → OCR → chunk → BM25 + BGE-M3 
 | Component | Technology |
 |-----------|------------|
 | API | Django + Django REST Framework |
-| Metadata DB | MongoDB (mongoengine) |
+| Metadata DB | MySQL (Django ORM) |
 | Vectors | Qdrant (dense BGE-M3 + sparse BM25) |
 | Rerank | Cross-Encoder `cross-encoder/ms-marco-MiniLM-L-6-v2` |
 | OCR | Tesseract (+ pypdf for digital PDFs) |
@@ -21,11 +21,17 @@ Backend for accreditation document **upload → OCR → chunk → BM25 + BGE-M3 
 
 ## Windows 10/11 setup
 
-1. Install **Docker Desktop**, **Python 3.11+**, and **Tesseract OCR**  
+1. Install **Python 3.11+**, **MySQL 8.4+** (Docker recommended; Django 6 requires 8.4+), **Docker Desktop** (Qdrant + Redis + optional MySQL), and **Tesseract OCR**  
    ([UB Mannheim installer](https://github.com/UB-Mannheim/tesseract/wiki)).  
    If needed, set `TESSERACT_CMD` in `.env` to `tesseract.exe`.
 
-2. From `backend/`:
+2. Create the MySQL database (if not using `docker compose`, which already creates `accrevia`):
+
+```sql
+CREATE DATABASE accrevia CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+3. From `backend/`:
 
 ```powershell
 copy .env.example .env
@@ -36,7 +42,9 @@ pip install -r requirements.txt
 python manage.py migrate
 ```
 
-3. Run API + worker (two terminals):
+`.env` defaults: `MYSQL_HOST=127.0.0.1`, `MYSQL_PORT=3306`, `MYSQL_DATABASE=accrevia`, `MYSQL_USER=root`, `MYSQL_PASSWORD=` (empty for Laragon).
+
+4. Run API + worker (two terminals):
 
 ```powershell
 celery -A config worker -l info
@@ -45,7 +53,7 @@ python manage.py runserver 8000
 
 For a single-process smoke test without Celery, set `CELERY_TASK_ALWAYS_EAGER=true` in `.env`.
 
-4. Frontend: in `frontend/.env` set:
+5. Frontend: in `frontend/.env` set:
 
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8000
@@ -55,7 +63,7 @@ VITE_API_BASE_URL=http://127.0.0.1:8000
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/health/` | Mongo + Qdrant readiness |
+| GET | `/api/health/` | MySQL + Qdrant readiness |
 | POST | `/api/documents/` | Multipart upload + metadata |
 | GET | `/api/documents/{id}/` | Document metadata |
 | GET | `/api/documents/{id}/status/` | Ingestion progress |
@@ -107,7 +115,7 @@ On this machine (re-checked 2026-11-18):
 - **Enforcing policy:** `VerifiedAndReputableDesktop` `{0283ac0f-fff1-49ae-ada1-8a933130cad6}` (allows supplemental policies)
 - **Blocked file:** `backend\.venv\Lib\site-packages\regex\_regex.cp313-win_amd64.pyd`  
   Code Integrity **3033 / 3077** (“Enterprise signing level requirements”)
-- **Also blocked when hit:** e.g. `pymongo\_cmessage*.pyd` (same policy)
+- **Also blocked when hit:** other unsigned native extensions under `.venv` (same policy)
 - **Tried locally (did not unblock):** `Unblock-File`, copying `regex` outside `Documents`, AppLocker (empty)
 - **No Settings UI** to allowlist a single folder under Smart App Control
 - **Works without allowlist:** FastEmbed dense/sparse — search stays up with `embedding_degraded: true` (not full BGE-M3)

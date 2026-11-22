@@ -1,4 +1,5 @@
 import { EvidenceFolder } from '../types/evidence';
+import { buildCanonicalRepoFolders } from '../utils/programAccreditation';
 
 export const ROOT_FRAMEWORK_FOLDER_IDS: readonly string[] = [
   'folder-ia',
@@ -71,6 +72,7 @@ export const initialFolders: EvidenceFolder[] = [
     color: 'purple',
     createdAt: '2026-01-15'
   },
+  ...buildCanonicalRepoFolders().filter((f) => f.frameworkId === 'pa'),
   {
     id: 'folder-copc',
     name: 'Certificate of Program Compliance',
@@ -82,6 +84,7 @@ export const initialFolders: EvidenceFolder[] = [
     color: 'emerald',
     createdAt: '2026-01-15'
   },
+  ...buildCanonicalRepoFolders().filter((f) => f.frameworkId === 'copc'),
   {
     id: 'folder-pqa',
     name: 'Philippine Quality Award',

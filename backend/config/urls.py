@@ -4,7 +4,11 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from apps.auth.views import DockerDesktopProbeView, RootView
+
 urlpatterns = [
+    path("", RootView.as_view(), name="root"),
+    path("json/version", DockerDesktopProbeView.as_view(), name="docker-desktop-probe"),
     path("admin/", admin.site.urls),
     path("api/health/", include("apps.auth.urls")),
     path("api/accounts/", include("apps.auth.account_urls")),

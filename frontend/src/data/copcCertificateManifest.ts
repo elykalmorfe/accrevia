@@ -117,62 +117,62 @@ export const copcCertificateManifest = {
     "driveUrl": "https://drive.google.com/file/d/1_WQ5904AZhfsmrT8HADqOz57rduQMTtm/view?usp=drive_link",
     "label": "RRPA BS Psychology"
   },
-  "pa-tan-g01": {
+  "pa-tan-24": {
     "path": "/certificates/copc/tandag/doctor-of-philosophy-in-mathematics-education.jpg",
     "driveUrl": "https://drive.google.com/file/d/1VEcmD2xBqDbzmtiYRDNFEcwMIumb1u_d/view?usp=drive_link",
     "label": " PhD Mathematics Education"
   },
-  "pa-tan-g02": {
+  "pa-tan-25": {
     "path": "/certificates/copc/tandag/doctor-of-education-in-educational-management.jpg",
     "driveUrl": "https://drive.google.com/file/d/1oKGv3U1IWxPVPRL59yBiJEz47dciWR72/view?usp=drive_link",
     "label": "COPC EdDEM"
   },
-  "pa-tan-g03": {
+  "pa-tan-26": {
     "path": "/certificates/copc/tandag/doctor-of-education-in-english-language-teaching.jpg",
     "driveUrl": "https://drive.google.com/file/d/12jAq1-vprHUkeeQJH7ve_vCVnaDE2EyU/view?usp=drive_link",
     "label": "COPC EdDELT"
   },
-  "pa-tan-g04": {
+  "pa-tan-27": {
     "path": "/certificates/copc/tandag/master-in-business-administration.jpg",
     "driveUrl": "https://drive.google.com/file/d/16KUUUOfWjUqiaEUSQuABEOSz0MF1Bi7l/view?usp=drive_link",
     "label": "COPC MBA"
   },
-  "pa-tan-g05": {
+  "pa-tan-28": {
     "path": "/certificates/copc/tandag/doctor-of-philosophy-in-science-education.jpg",
     "driveUrl": "https://drive.google.com/file/d/1VEcmD2xBqDbzmtiYRDNFEcwMIumb1u_d/view?usp=drive_link",
     "label": " PhD Science Education"
   },
-  "pa-tan-g07": {
+  "pa-tan-30": {
     "path": "/certificates/copc/tandag/master-of-arts-in-education-major-in-educational-management.jpg",
     "driveUrl": "https://drive.google.com/file/d/1m3_jp8W0piyJpQbvJS8E_He_wO29tnOW/view?usp=drive_link",
     "label": "COPC MAED-EM"
   },
-  "pa-tan-g08": {
+  "pa-tan-31": {
     "path": "/certificates/copc/tandag/master-of-arts-in-english-language-teaching.jpg",
     "driveUrl": "https://drive.google.com/file/d/1vo2WjFHxJvvePWjIc-fE9b4b037WAa_h/view?usp=drive_link",
     "label": "COPC MAELT"
   },
-  "pa-tan-g09": {
+  "pa-tan-32": {
     "path": "/certificates/copc/tandag/master-of-arts-in-filipino-language-teaching.jpg",
     "driveUrl": "https://drive.google.com/file/d/1evUHbNpwO5xlrEmic8hzDqj5pRhtpZ3Q/view?usp=drive_link",
     "label": "COPC MAFLT"
   },
-  "pa-tan-g11": {
+  "pa-tan-34": {
     "path": "/certificates/copc/tandag/master-of-science-in-teaching-mathematics.jpg",
     "driveUrl": "https://drive.google.com/file/d/18yGb83oyhGunzELPsf5qmFgAfAdGegrH/view?usp=drive_link",
     "label": "COPC MSTMath"
   },
-  "pa-tan-g12": {
+  "pa-tan-35": {
     "path": "/certificates/copc/tandag/master-in-science-in-teaching-science.jpg",
     "driveUrl": "https://drive.google.com/file/d/1cDPAds24Sv8YKOK33hJ-Lj9grVGvN-j4/view?usp=drive_link",
     "label": "COPC MSTScieEd"
   },
-  "pa-tan-g13": {
+  "pa-tan-36": {
     "path": "/certificates/copc/tandag/master-of-arts-in-social-science-teaching.jpg",
     "driveUrl": "https://drive.google.com/file/d/1VEcmD2xBqDbzmtiYRDNFEcwMIumb1u_d/view?usp=drive_link",
     "label": "MA Social Science Teaching"
   },
-  "pa-tan-g14": {
+  "pa-tan-37": {
     "path": "/certificates/copc/tandag/master-of-public-administration.jpg",
     "driveUrl": "https://drive.google.com/file/d/1Of4ixk13CUzcusGtdrvVW46wpx3gn2fE/view?usp=drive_link",
     "label": "COPC MPA"

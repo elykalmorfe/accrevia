@@ -1,67 +1,71 @@
-"""MongoDB document model (MVC Model)."""
+"""Evidence document model (Django ORM / MySQL)."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from mongoengine import DateTimeField, DictField, Document, FloatField, IntField, ListField, StringField
+from django.db import models
 
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class EvidenceDocument(Document):
-    meta = {
-        "collection": "evidence_documents",
-        "indexes": ["status", "framework_id", "campus_id", "uploaded_by"],
-    }
+class EvidenceDocument(models.Model):
+    id = models.CharField(max_length=64, primary_key=True)
+    title = models.CharField(max_length=512)
+    description = models.TextField(blank=True, default="")
+    keywords = models.JSONField(default=list, blank=True)
 
-    id = StringField(primary_key=True)
-    title = StringField(required=True)
-    description = StringField(default="")
-    keywords = ListField(StringField(), default=list)
+    framework_id = models.CharField(max_length=64, default="ia", db_index=True)
+    area_id = models.CharField(max_length=128, blank=True, default="")
+    criterion_id = models.CharField(max_length=128, blank=True, default="")
+    indicator_id = models.CharField(max_length=128, blank=True, default="")
+    requirement_id = models.CharField(max_length=128, blank=True, default="")
+    folder_id = models.CharField(max_length=128, blank=True, default="")
 
-    framework_id = StringField(default="ia")
-    area_id = StringField(default="")
-    criterion_id = StringField(default="")
-    indicator_id = StringField(default="")
-    requirement_id = StringField(default="")
-    folder_id = StringField(default="")
+    doc_type = models.CharField(max_length=64, default="Other")
+    common_doc_type = models.CharField(max_length=128, blank=True, default="")
+    iso_stage = models.CharField(max_length=64, blank=True, default="")
+    academic_year = models.CharField(max_length=64, blank=True, default="")
+    cycle = models.CharField(max_length=128, blank=True, default="")
+    program = models.CharField(max_length=512, blank=True, default="")
+    college = models.CharField(max_length=256, blank=True, default="")
+    department = models.CharField(max_length=256, blank=True, default="")
+    office = models.CharField(max_length=256, blank=True, default="")
+    campus = models.CharField(max_length=256, blank=True, default="")
+    campus_id = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    document_date = models.CharField(max_length=64, blank=True, default="")
+    confidentiality = models.CharField(max_length=64, default="Internal")
 
-    doc_type = StringField(default="Other")
-    common_doc_type = StringField(default="")
-    iso_stage = StringField(default="")
-    academic_year = StringField(default="")
-    cycle = StringField(default="")
-    program = StringField(default="")
-    college = StringField(default="")
-    department = StringField(default="")
-    office = StringField(default="")
-    campus = StringField(default="")
-    campus_id = StringField(default="")
-    document_date = StringField(default="")
-    confidentiality = StringField(default="Internal")
+    original_file_name = models.CharField(max_length=512, blank=True, default="")
+    mime_type = models.CharField(max_length=128, blank=True, default="")
+    file_type = models.CharField(max_length=32, default="PDF")
+    size_bytes = models.BigIntegerField(default=0)
+    storage_path = models.CharField(max_length=1024)
+    pages = models.IntegerField(default=0)
 
-    original_file_name = StringField(default="")
-    mime_type = StringField(default="")
-    file_type = StringField(default="PDF")
-    size_bytes = IntField(default=0)
-    storage_path = StringField(required=True)
-    pages = IntField(default=0)
+    status = models.CharField(max_length=32, default="Processing", db_index=True)
+    approval_status = models.CharField(max_length=64, default="Pending Review")
+    uploaded_by = models.CharField(max_length=128, default="system", db_index=True)
+    passages = models.JSONField(default=list, blank=True)
 
-    status = StringField(default="Processing")  # Processing | Indexed | Failed | Archived
-    approval_status = StringField(default="Pending Review")
-    uploaded_by = StringField(default="system")
-    passages = ListField(StringField(), default=list)
+    ocr_applied = models.CharField(max_length=8, default="false")
+    indexed_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(blank=True, default="")
+    progress = models.JSONField(default=dict, blank=True)
+    chunk_count = models.IntegerField(default=0)
 
-    ocr_applied = StringField(default="false")
-    indexed_at = DateTimeField(null=True)
-    error_message = StringField(default="")
-    progress = DictField(default=dict)
-    chunk_count = IntField(default=0)
+    date_added = models.DateTimeField(default=utcnow)
+    updated_at = models.DateTimeField(default=utcnow)
 
-    date_added = DateTimeField(default=utcnow)
-    updated_at = DateTimeField(default=utcnow)
+    class Meta:
+        db_table = "evidence_documents"
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["framework_id"]),
+            models.Index(fields=["campus_id"]),
+            models.Index(fields=["uploaded_by"]),
+        ]
 
     def mark_updated(self) -> None:
         self.updated_at = utcnow()
@@ -71,7 +75,7 @@ class EvidenceDocument(Document):
             "id": str(self.id),
             "title": self.title,
             "description": self.description,
-            "keywords": self.keywords,
+            "keywords": self.keywords or [],
             "frameworkId": self.framework_id,
             "areaId": self.area_id,
             "criterionId": self.criterion_id,
@@ -99,7 +103,7 @@ class EvidenceDocument(Document):
             "status": self.status,
             "approvalStatus": self.approval_status,
             "uploadedBy": self.uploaded_by,
-            "passages": self.passages,
+            "passages": self.passages or [],
             "ocrApplied": self.ocr_applied == "true",
             "indexedAt": self.indexed_at.isoformat() if self.indexed_at else None,
             "errorMessage": self.error_message or None,
@@ -107,3 +111,6 @@ class EvidenceDocument(Document):
             "chunkCount": self.chunk_count,
             "dateAdded": self.date_added.isoformat() if self.date_added else None,
         }
+
+    def __str__(self) -> str:
+        return f"{self.id}:{self.title}"
