@@ -2,8 +2,7 @@ import type { ProgramAccreditation } from '../types/accreditation';
 import type { EvidenceDocument, EvidenceFolder, FileType } from '../types/evidence';
 import { getSettings } from '../settings/portalSettings';
 import { paCanonicalFolderIdForCode, ratingsAreaKey } from './programAccreditation';
-import { getStoredFile, saveStoredFile } from './fileStore';
-import { isLocalCertificatePath } from './linkedCertificates';
+import { prefetchCertificateFiles } from './linkedCertificates';
 import { ratingsDocumentManifest } from '../data/ratingsDocumentManifest';
 
 export const RATINGS_DOCUMENTS_VERSION = 'aaccup-ratings-local-3';
@@ -114,24 +113,4 @@ export function buildRatingsDocuments(programs: ProgramAccreditation[]): {
   return { folders, documents };
 }
 
-export async function prefetchRatingsDocuments(documents: EvidenceDocument[]): Promise<number> {
-  let stored = 0;
-  for (const doc of documents) {
-    if (!isLocalCertificatePath(doc.documentUrl)) continue;
-    const existing = await getStoredFile(doc.id).catch(() => undefined);
-    if (existing) continue;
-    const docUrl = doc.documentUrl;
-    if (!docUrl) continue;
-    try {
-      const res = await fetch(docUrl);
-      if (!res.ok) continue;
-      const blob = await res.blob();
-      const name = docUrl.split('/').pop() || `${doc.id}.pdf`;
-      await saveStoredFile(doc.id, blob, name);
-      stored += 1;
-    } catch {
-      // ignore
-    }
-  }
-  return stored;
-}
+export const prefetchRatingsDocuments = prefetchCertificateFiles;

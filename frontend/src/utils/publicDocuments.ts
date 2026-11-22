@@ -1,5 +1,6 @@
 import { EvidenceDocument } from '../types/evidence';
-import { getStoredFile } from './fileStore';
+import { getStoredFile, loadRepositoryFile } from './fileStore';
+import { isLocalCertificatePath } from './repositoryFiles';
 
 /**
  * Prototype public-portal helpers.
@@ -237,7 +238,9 @@ export async function downloadPublicStoredFile(doc: EvidenceDocument): Promise<P
   }
 
   try {
-    const stored = await getStoredFile(current.id).catch(() => undefined);
+    const stored = current.documentUrl && isLocalCertificatePath(current.documentUrl)
+      ? await loadRepositoryFile(current.id, current.documentUrl)
+      : await getStoredFile(current.id).catch(() => undefined);
     if (!stored?.blob) {
       return {
         ok: false,

@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { DownloadIcon, ExternalLinkIcon, FileWarningIcon, InfoIcon, LoaderIcon } from 'lucide-react';
 import { EvidenceDocument } from '../../types/evidence';
-import { getStoredFile, saveStoredFile, StoredFile } from '../../utils/fileStore';
+import { getStoredFile, loadRepositoryFile, saveStoredFile, StoredFile } from '../../utils/fileStore';
 import { fetchSharedOriginal } from '../../services/live/sharedFiles';
 import { driveEmbedUrl } from '../../utils/driveLinks';
-import { isLocalCertificatePath } from '../../utils/linkedCertificates';
+import { isLocalCertificatePath } from '../../utils/repositoryFiles';
 import { DocumentPage } from './DocumentPage';
 
 interface OriginalDocumentViewProps {
@@ -250,7 +250,9 @@ function LinkedDocumentView({ doc, url, heightClass }: { doc: EvidenceDocument; 
 }
 
 async function loadOriginalFile(doc: EvidenceDocument): Promise<StoredFile | undefined> {
-  const stored = await getStoredFile(doc.id).catch(() => undefined);
+  const original = doc.documentUrl;
+  const stored = await (original && isLocalCertificatePath(original)
+    ? loadRepositoryFile(doc.id, original) : getStoredFile(doc.id)).catch(() => undefined);
   if (stored) return stored;
 
   const shared = await fetchSharedOriginal(doc.id);
@@ -267,22 +269,7 @@ async function loadOriginalFile(doc: EvidenceDocument): Promise<StoredFile | und
     };
   }
 
-  const href = doc.documentUrl?.trim();
-  if (!href || !isLocalCertificatePath(href)) return undefined;
-
-  const res = await fetch(href);
-  if (!res.ok) return undefined;
-  const blob = await res.blob();
-  const name = href.split('/').pop() || `${doc.id}.pdf`;
-  await saveStoredFile(doc.id, blob, name).catch(() => undefined);
-  return {
-    id: doc.id,
-    name,
-    type: blob.type,
-    size: blob.size,
-    blob,
-    storedAt: new Date().toISOString()
-  };
+  return undefined;
 }
 
 export function OriginalDocumentView({
@@ -327,9 +314,8 @@ export function OriginalDocumentView({
     return (
       <UnsupportedNotice
         name={doc.title}
-        url={doc.documentUrl}
-        canDownload={canDownload}
-        message="The certificate file could not be loaded from local storage. Open or download it directly."
+        canDownload={false}
+        message="The original file is unavailable. Install the Accrevia document bundle or import the original into this instance’s MySQL database."
       />
     );
   }

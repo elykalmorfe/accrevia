@@ -5,7 +5,7 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from apps.auth.views import DockerDesktopProbeView, RootView
-from apps.auth.portal_storage_views import PortalFilesView, PortalRecordsView
+from apps.auth.portal_storage_views import CatalogOriginalView, PortalFilesView, PortalRecordsView
 
 urlpatterns = [
     path("", RootView.as_view(), name="root"),
@@ -16,6 +16,7 @@ urlpatterns = [
     path("api/live/", include("apps.auth.live_urls")),
     path("api/portal-storage/<uuid:browser_id>/records/", PortalRecordsView.as_view(), name="portal-records"),
     path("api/portal-storage/<uuid:browser_id>/files/", PortalFilesView.as_view(), name="portal-files"),
+    path("api/portal-storage/catalog/original/", CatalogOriginalView.as_view(), name="portal-catalog-original"),
     path("api/documents/", include("apps.documents.urls")),
     path("api/search/", include("apps.search.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

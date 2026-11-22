@@ -1,3 +1,5 @@
+import { fetchRepositoryFile, isLocalCertificatePath, isRepositoryFile } from './repositoryFiles';
+
 export interface StoredFile {
   id: string;
   name: string;
@@ -68,8 +70,22 @@ export function persistUpload(id: string, file: File | Blob | undefined, name?: 
   saveStoredFile(id, file, name).catch((err) => console.error(`Could not store original file for ${id}`, err));
 }
 
-export async function downloadStoredFile(id: string, fallbackName: string): Promise<boolean> {
-  const stored = await getStoredFile(id).catch(() => undefined);
+export async function loadRepositoryFile(id: string, path: string, force = false): Promise<StoredFile | undefined> {
+  if (!force) {
+    const stored = await getStoredFile(id).catch(() => undefined);
+    if (stored && await isRepositoryFile(stored.blob, path)) return stored;
+  }
+  const blob = await fetchRepositoryFile(path);
+  if (!blob) return undefined;
+  const name = path.trim().split('/').pop() || id;
+  await saveStoredFile(id, blob, name).catch(() => undefined);
+  return { id, name, blob, type: blob.type, size: blob.size, storedAt: new Date().toISOString() };
+}
+
+export async function downloadStoredFile(id: string, fallbackName: string, originalPath?: string): Promise<boolean> {
+  const stored = await (originalPath && isLocalCertificatePath(originalPath)
+    ? loadRepositoryFile(id, originalPath) : getStoredFile(id))
+    .catch(() => undefined);
   if (!stored) return false;
   const url = URL.createObjectURL(stored.blob);
   const a = document.createElement('a');

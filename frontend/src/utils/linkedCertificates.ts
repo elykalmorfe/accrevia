@@ -12,7 +12,8 @@ import {
   paCanonicalFolderIdForCode,
   parseAccreditationDate
 } from './programAccreditation';
-import { deleteStoredFile, getStoredFile, saveStoredFile } from './fileStore';
+import { deleteStoredFile, getStoredFile, loadRepositoryFile, saveStoredFile } from './fileStore';
+import { isLocalCertificatePath } from './repositoryFiles';
 import { aaccupCertificateManifest } from '../data/aaccupCertificateManifest';
 import { copcCertificateManifest } from '../data/copcCertificateManifest';
 
@@ -80,9 +81,7 @@ export function isLinkedCertificateId(id: string): boolean {
   return id.startsWith('doc-cert-link-') || id.startsWith('doc-cert-');
 }
 
-export function isLocalCertificatePath(url?: string | null): boolean {
-  return /^\/certificates\//i.test((url || '').trim());
-}
+export { isLocalCertificatePath } from './repositoryFiles';
 
 function certificateYear(program: ProgramAccreditation): number {
   return (
@@ -261,23 +260,8 @@ export async function prefetchCertificateFiles(
 ): Promise<number> {
   let stored = 0;
   for (const doc of documents) {
-    if (!isLocalCertificatePath(doc.documentUrl)) continue;
-    if (!options?.force) {
-      const existing = await getStoredFile(doc.id).catch(() => undefined);
-      if (existing) continue;
-    }
-    const docUrl = doc.documentUrl;
-    if (!docUrl) continue;
-    try {
-      const res = await fetch(docUrl);
-      if (!res.ok) continue;
-      const blob = await res.blob();
-      const name = docUrl.split('/').pop() || `${doc.id}.pdf`;
-      await saveStoredFile(doc.id, blob, name);
-      stored += 1;
-    } catch {
-      // Ignore individual fetch failures
-    }
+    if (!doc.documentUrl || !isLocalCertificatePath(doc.documentUrl)) continue;
+    if (await loadRepositoryFile(doc.id, doc.documentUrl, options?.force).catch(() => undefined)) stored += 1;
   }
   return stored;
 }
@@ -421,17 +405,7 @@ export async function prefetchCopcCertificateFiles(
     const path = entry?.path || (isLocalCertificatePath(rec.documentLink) ? rec.documentLink : '');
     if (!path) continue;
     const key = `${rec.id}-COPC-CERT`;
-    const existing = await getStoredFile(key).catch(() => undefined);
-    if (existing) continue;
-    try {
-      const res = await fetch(path);
-      if (!res.ok) continue;
-      const blob = await res.blob();
-      await saveStoredFile(key, blob, path.split('/').pop() || 'copc-certificate.pdf');
-      stored += 1;
-    } catch {
-      // ignore
-    }
+    if (await loadRepositoryFile(key, path).catch(() => undefined)) stored += 1;
   }
   return stored;
 }

@@ -2,8 +2,7 @@ import type { ProgramAccreditation } from '../types/accreditation';
 import type { EvidenceDocument, EvidenceFolder, FileType } from '../types/evidence';
 import { getSettings } from '../settings/portalSettings';
 import { findingsAreaKey, paCanonicalFolderIdForCode } from './programAccreditation';
-import { getStoredFile, saveStoredFile } from './fileStore';
-import { isLocalCertificatePath } from './linkedCertificates';
+import { prefetchCertificateFiles } from './linkedCertificates';
 import { findingsDocumentManifest } from '../data/findingsDocumentManifest';
 
 export const FINDINGS_DOCUMENTS_VERSION = 'aaccup-findings-folder-only-2';
@@ -96,24 +95,4 @@ export function buildFindingsDocuments(programs: ProgramAccreditation[]): {
   return { folders, documents };
 }
 
-export async function prefetchFindingsDocuments(documents: EvidenceDocument[]): Promise<number> {
-  let stored = 0;
-  for (const doc of documents) {
-    if (!isLocalCertificatePath(doc.documentUrl)) continue;
-    const existing = await getStoredFile(doc.id).catch(() => undefined);
-    if (existing) continue;
-    const docUrl = doc.documentUrl;
-    if (!docUrl) continue;
-    try {
-      const res = await fetch(docUrl);
-      if (!res.ok) continue;
-      const blob = await res.blob();
-      const name = docUrl.split('/').pop() || `${doc.id}.pdf`;
-      await saveStoredFile(doc.id, blob, name);
-      stored += 1;
-    } catch {
-      // ignore
-    }
-  }
-  return stored;
-}
+export const prefetchFindingsDocuments = prefetchCertificateFiles;

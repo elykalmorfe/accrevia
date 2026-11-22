@@ -44,8 +44,9 @@ export function DocumentPreviewModal({ doc, onClose, terms = [], query, grantAcc
           className="btn btn-secondary"
           onClick={async () => {
             logAccess('Downloaded', doc.id);
-            const saved = await downloadStoredFile(doc.id, doc.title);
-            toast.success(saved ? `Downloading ${doc.title}` : `No original file stored for ${doc.title}`);
+            const saved = await downloadStoredFile(doc.id, doc.title, doc.documentUrl);
+            if (saved) toast.success(`Downloading ${doc.title}`);
+            else toast.error(`Original file unavailable for ${doc.title}`);
           }}>
           
                 <DownloadIcon className="h-4 w-4" /> Download

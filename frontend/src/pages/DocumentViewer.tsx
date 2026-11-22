@@ -185,7 +185,7 @@ export function DocumentViewer() {
   const download = async () => {
     if (!rights.canDownload) return;
     logAccess('Downloaded', doc.id);
-    const saved = await downloadStoredFile(doc.id, doc.title);
+    const saved = await downloadStoredFile(doc.id, doc.title, doc.documentUrl);
     if (saved) toast.success(`Downloading ${doc.title}`, { description: 'Download recorded in the access log.' });
     else toast.error(`No original file stored for ${doc.title}`);
   };

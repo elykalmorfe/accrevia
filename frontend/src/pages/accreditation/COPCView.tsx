@@ -30,6 +30,7 @@ import { FileList, FileRow, FileRowAction } from '../../components/upload/FileRo
 import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
 import { isUrl } from '../../utils/programAccreditation';
 import { isLocalCertificatePath } from '../../utils/linkedCertificates';
+import { fetchRepositoryFile, isRepositoryFile } from '../../utils/repositoryFiles';
 import { CopcDocumentsModal } from '../../components/accreditation/CopcDocumentsModal';
 
 function borResHref(value?: string): string | undefined {
@@ -101,7 +102,7 @@ export function COPCView() {
     const link = copc.documentLink?.trim();
     try {
       const stored = await getStoredFile(key);
-      if (stored?.blob) {
+      if (stored?.blob && await isRepositoryFile(stored.blob, stored.name || link || '')) {
         const kind = certificateKind(stored.blob, stored.name || link || '');
         if (kind) {
           setOfficialCertUrl(URL.createObjectURL(stored.blob));
@@ -123,10 +124,8 @@ export function COPCView() {
           setOfficialCertLoading(false);
           return;
         }
-        const res = await fetch(link);
-        const type = (res.headers.get('content-type') || '').toLowerCase();
-        if (res.ok && !type.includes('text/html')) {
-          const blob = await res.blob();
+        const blob = await fetchRepositoryFile(link);
+        if (blob) {
           const name = link.split('/').pop() || '';
           const kind = certificateKind(blob, name);
           if (kind) {
@@ -165,13 +164,14 @@ export function COPCView() {
         setBorDocLoading(false);
         return;
       }
-      const res = await fetch(href);
-      if (!res.ok) {
+      const blob = isLocalCertificatePath(href)
+        ? await fetchRepositoryFile(href)
+        : await fetch(href).then((response) => response.ok ? response.blob() : undefined);
+      if (!blob || !(await isRepositoryFile(blob, href))) {
         setBorDocMissing(true);
         setBorDocLoading(false);
         return;
       }
-      const blob = await res.blob();
       const kind = certificateKind(blob, href);
       if (!kind) {
         setBorDocMissing(true);
