@@ -6,6 +6,7 @@ import { fetchSharedOriginal } from '../../services/live/sharedFiles';
 import { driveEmbedUrl } from '../../utils/driveLinks';
 import { isLocalCertificatePath } from '../../utils/repositoryFiles';
 import { DocumentPage } from './DocumentPage';
+import { apiFetch } from '../../services/api/client';
 
 interface OriginalDocumentViewProps {
   doc: EvidenceDocument;
@@ -22,7 +23,7 @@ interface OriginalDocumentViewProps {
   missingFallback?: 'summary' | 'notice';
 }
 
-type Kind = 'pdf' | 'image' | 'docx' | 'xlsx' | 'csv' | 'text' | 'unsupported';
+type Kind = 'pdf' | 'image' | 'docx' | 'xlsx' | 'csv' | 'text' | 'legacy' | 'unsupported';
 
 const BROWSER_IMAGE = /^image\/(png|jpe?g|gif|webp|svg\+xml|bmp|avif)$/;
 
@@ -32,6 +33,7 @@ function isUrlLike(value?: string | null): boolean {
 
 function detectKind(file: StoredFile): Kind {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+  if (ext === 'pub' || ext === 'doc') return 'legacy';
   if (file.type === 'application/pdf' || ext === 'pdf') return 'pdf';
   if (BROWSER_IMAGE.test(file.type) || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) return 'image';
   if (file.type.includes('wordprocessingml') || ext === 'docx') return 'docx';
@@ -97,7 +99,34 @@ function SheetTable({ rows }: { rows: unknown[][] }) {
   );
 }
 
-function DocxView({ blob }: { blob: Blob }) {
+function LegacyOfficeView({ documentId, name, heightClass }: { documentId: string; name: string; heightClass: string }) {
+  const [state, setState] = useState<{ url?: string; error?: boolean }>({});
+  useEffect(() => {
+    let cancelled = false;
+    let url: string | undefined;
+    const controller = new AbortController();
+    setState({});
+    void apiFetch(`/api/portal-storage/workspace/files/?id=${encodeURIComponent(documentId)}&preview=1`, { signal: controller.signal }, 60_000)
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Preview unavailable');
+        const blob = await response.blob();
+        if (cancelled) return;
+        url = URL.createObjectURL(blob);
+        setState({ url });
+      }).catch(() => { if (!cancelled) setState({ error: true }); });
+    return () => { cancelled = true; controller.abort(); if (url) URL.revokeObjectURL(url); };
+  }, [documentId]);
+  if (state.error) return <UnsupportedNotice name={name} message="The original file is stored. Download it to open in its original application; a PDF preview has not been prepared." />;
+  if (!state.url) return <Loading />;
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-ink-muted">PDF preview exported from {name}. Download original keeps the original file format.</p>
+      <iframe title={name} src={state.url} className={`w-full rounded-xl border border-line bg-white ${heightClass}`} />
+    </div>
+  );
+}
+
+function DocxView({ blob, documentId, name, heightClass }: { blob: Blob; documentId: string; name: string; heightClass: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
 
@@ -105,18 +134,20 @@ function DocxView({ blob }: { blob: Blob }) {
     let cancelled = false;
     const container = containerRef.current;
     if (!container) return;
+    setError(false);
     container.innerHTML = '';
     import('docx-preview')
-      .then(({ renderAsync }) =>
-        renderAsync(blob, container, undefined, { className: 'docx', inWrapper: true, ignoreLastRenderedPageBreak: true })
-      )
+      .then(async ({ renderAsync }) => {
+        const bytes = await blob.arrayBuffer();
+        if (!cancelled) await renderAsync(bytes, container, undefined, { className: 'docx', inWrapper: true, ignoreLastRenderedPageBreak: true });
+      })
       .catch(() => !cancelled && setError(true));
     return () => {
       cancelled = true;
     };
   }, [blob]);
 
-  if (error) return <UnsupportedNotice message="This Word document could not be rendered in the browser." />;
+  if (error) return <LegacyOfficeView documentId={documentId} name={name} heightClass={heightClass} />;
   return <div ref={containerRef} className="docx-original overflow-auto" />;
 }
 
@@ -302,7 +333,7 @@ export function OriginalDocumentView({
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [doc]);
+  }, [doc.id, doc.documentUrl]);
 
   if (state.status === 'loading') return <Loading />;
 
@@ -344,6 +375,8 @@ export function OriginalDocumentView({
   const { file, url } = state;
   const pdfHeight = doc.docType === 'Certificate' ? 'h-[min(78vh,620px)]' : heightClass;
   switch (detectKind(file)) {
+    case 'legacy':
+      return <LegacyOfficeView documentId={doc.id} name={file.name} heightClass={heightClass} />;
     case 'pdf':
       // Hide the browser PDF chrome (zoom / Summarize / download bar) so the
       // preview shows only the certificate page itself.
@@ -361,7 +394,7 @@ export function OriginalDocumentView({
         </div>
       );
     case 'docx':
-      return <DocxView blob={file.blob} />;
+      return <DocxView blob={file.blob} documentId={doc.id} name={file.name} heightClass={heightClass} />;
     case 'xlsx':
       return <XlsxView blob={file.blob} heightClass={heightClass} />;
     case 'csv':

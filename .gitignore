@@ -39,6 +39,9 @@ backend/media/**
 .pytest_cache/
 .mypy_cache/
 *.egg-info/
+backend/exports/
+*.portal-bundle.zip
+*.portal-bundle.zip.partial
 
 # Model / HF caches (local)
 .cache/

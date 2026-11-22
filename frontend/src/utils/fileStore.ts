@@ -1,4 +1,5 @@
 import { fetchRepositoryFile, isLocalCertificatePath, isRepositoryFile } from './repositoryFiles';
+import { apiFetch, isApiConfigured } from '../services/api/client';
 
 export interface StoredFile {
   id: string;
@@ -50,8 +51,24 @@ export async function saveStoredFile(id: string, file: File | Blob, name?: strin
   await withStore('readwrite', (store) => store.put(record));
 }
 
-export function getStoredFile(id: string): Promise<StoredFile | undefined> {
+export function getLocalStoredFile(id: string): Promise<StoredFile | undefined> {
   return withStore<StoredFile | undefined>('readonly', (store) => store.get(id));
+}
+
+export async function getStoredFile(id: string): Promise<StoredFile | undefined> {
+  const local = await getLocalStoredFile(id).catch(() => undefined);
+  if (local && await isRepositoryFile(local.blob, local.name)) return local;
+  if (!isApiConfigured()) return undefined;
+  const response = await apiFetch(`/api/portal-storage/workspace/files/?id=${encodeURIComponent(id)}`, {}, 120_000);
+  if (!response.ok) return undefined;
+  const blob = await response.blob();
+  const disposition = response.headers.get('Content-Disposition') || '';
+  const encoded = /filename\*=utf-8''([^;]+)/i.exec(disposition)?.[1];
+  const name = encoded ? decodeURIComponent(encoded) : /filename="([^"]+)"/.exec(disposition)?.[1] || id;
+  if (!await isRepositoryFile(blob, name)) return undefined;
+  const stored: StoredFile = { id, name, type: blob.type, size: blob.size, blob, storedAt: new Date().toISOString() };
+  await withStore('readwrite', (store) => store.put(stored)).catch(() => undefined);
+  return stored;
 }
 
 export function listStoredFileIds(): Promise<string[]> {

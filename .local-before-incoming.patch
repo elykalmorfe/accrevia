@@ -1,0 +1,2338 @@
+diff --git a/backend/config/settings.py b/backend/config/settings.py
+index cc380bc..d8a05eb 100644
+--- a/backend/config/settings.py
++++ b/backend/config/settings.py
+@@ -59,18 +59,16 @@ TEMPLATES = [
+ 
+ WSGI_APPLICATION = "config.wsgi.application"
+ 
++# Use the configured MySQL database for all Django models.
+ DATABASES = {
+     "default": {
+         "ENGINE": "django.db.backends.mysql",
++        "HOST": os.getenv("MYSQL_HOST", "127.0.0.1"),
++        "PORT": os.getenv("MYSQL_PORT", "3306"),
+         "NAME": os.getenv("MYSQL_DATABASE", "accrevia"),
+         "USER": os.getenv("MYSQL_USER", "root"),
+         "PASSWORD": os.getenv("MYSQL_PASSWORD", ""),
+-        "HOST": os.getenv("MYSQL_HOST", "127.0.0.1"),
+-        "PORT": os.getenv("MYSQL_PORT", "3306"),
+-        "OPTIONS": {
+-            "charset": "utf8mb4",
+-            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+-        },
++        "OPTIONS": {"charset": "utf8mb4"},
+     }
+ }
+ 
+diff --git a/backend/config/urls.py b/backend/config/urls.py
+index 3810c63..4d77c17 100644
+--- a/backend/config/urls.py
++++ b/backend/config/urls.py
+@@ -4,11 +4,7 @@ from django.contrib import admin
+ from django.urls import include, path
+ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+ 
+-from apps.auth.views import DockerDesktopProbeView, RootView
+-
+ urlpatterns = [
+-    path("", RootView.as_view(), name="root"),
+-    path("json/version", DockerDesktopProbeView.as_view(), name="docker-desktop-probe"),
+     path("admin/", admin.site.urls),
+     path("api/health/", include("apps.auth.urls")),
+     path("api/accounts/", include("apps.auth.account_urls")),
+diff --git a/backend/requirements.txt b/backend/requirements.txt
+index 765d00b..f1dc23b 100644
+--- a/backend/requirements.txt
++++ b/backend/requirements.txt
+@@ -16,4 +16,4 @@ numpy>=1.26
+ FlagEmbedding>=1.2
+ sentence-transformers>=3.0
+ fastembed>=0.4
+-requests>=2.32
+\ No newline at end of file
++requests>=2.32
+diff --git a/frontend/src/components/accreditation/CertificateFoldersModal.tsx b/frontend/src/components/accreditation/CertificateFoldersModal.tsx
+index 3930508..eb6e3e3 100644
+--- a/frontend/src/components/accreditation/CertificateFoldersModal.tsx
++++ b/frontend/src/components/accreditation/CertificateFoldersModal.tsx
+@@ -43,16 +43,6 @@ interface CertificateFoldersModalProps {
+    * `levelCode` is the code of the level folder holding the certificate, or null at the root.
+    */
+   onActivate?: (doc: EvidenceDocument, levelCode: string | null) => void;
+-  /** Codes that support activate/switch (defaults to all level codes when onActivate is set). */
+-  activatableCodes?: string[];
+-  /** Root label in the explorer breadcrumb. */
+-  rootLabel?: string;
+-  /** When false (default), files go directly into the fixed level folders — no nested folders. */
+-  allowNestedFolders?: boolean;
+-  /** When set, use these Online Repository folders instead of per-area seeded folders. */
+-  canonicalFolders?: EvidenceFolder[];
+-  /** Preferred folder id to open (canonical Online Repository). */
+-  preferredFolderId?: string | null;
+ }
+ 
+ const today = () => new Date().toISOString().slice(0, 10);
+@@ -74,54 +64,22 @@ export function CertificateFoldersModal({
+   campusId,
+   campusName,
+   stats,
+-  onActivate,
+-  activatableCodes,
+-  rootLabel = 'Certificates',
+-  allowNestedFolders = false,
+-  canonicalFolders,
+-  preferredFolderId = null
++  onActivate
+ }: CertificateFoldersModalProps) {
+   const { folders, documents, saveFolder, updateDocument, currentUser } = usePortal();
+   const { canMutate } = useInstitutionalMutationAccess();
+-  const useCanonical = !!canonicalFolders?.length;
+ 
+-  const certFolders = useMemo(() => {
+-    if (useCanonical) return canonicalFolders!;
+-    return folders.filter(
+-      (f) =>
+-        f.frameworkId === frameworkId &&
+-        f.areaId === areaKey &&
+-        !f.libraryOnly &&
+-        (allowNestedFolders || f.isSystem || !f.parentId)
+-    );
+-  }, [useCanonical, canonicalFolders, folders, frameworkId, areaKey, allowNestedFolders]);
+-
+-  const certFolderIds = useMemo(() => new Set(certFolders.map((f) => f.id)), [certFolders]);
+-
+-  const certDocs = useMemo(() => {
+-    if (useCanonical) {
+-      // Shared Online Repository folders; scope the modal to this program/subject.
+-      return documents.filter(
+-        (d) =>
+-          d.frameworkId === frameworkId &&
+-          !d.libraryOnly &&
+-          d.folderId &&
+-          certFolderIds.has(d.folderId) &&
+-          (d.program === program || d.areaId === areaKey)
+-      );
+-    }
+-    return documents.filter(
+-      (d) => d.frameworkId === frameworkId && d.areaId === areaKey && !d.libraryOnly
+-    );
+-  }, [useCanonical, documents, frameworkId, areaKey, certFolderIds, program]);
+-
+-  const switchableCodes = useMemo(
+-    () => new Set(activatableCodes ?? (onActivate ? levels.map((l) => l.code) : [])),
+-    [activatableCodes, onActivate, levels]
++  const certFolders = useMemo(
++    () => folders.filter((f) => f.frameworkId === frameworkId && f.areaId === areaKey && !f.libraryOnly),
++    [folders, frameworkId, areaKey]
++  );
++  const certDocs = useMemo(
++    () => documents.filter((d) => d.frameworkId === frameworkId && d.areaId === areaKey && !d.libraryOnly),
++    [documents, frameworkId, areaKey]
+   );
+ 
+   useEffect(() => {
+-    if (!open || !canMutate || useCanonical) return;
++    if (!open || !canMutate) return;
+     levels.forEach((level, i) => {
+       if (certFolders.some((f) => f.isSystem && f.code === level.code)) return;
+       saveFolder({
+@@ -140,23 +98,9 @@ export function CertificateFoldersModal({
+         hasNoDeadline: true
+       });
+     });
+-  }, [
+-    open,
+-    canMutate,
+-    useCanonical,
+-    levels,
+-    certFolders,
+-    saveFolder,
+-    areaKey,
+-    frameworkId,
+-    subject,
+-    campusId,
+-    campusName
+-  ]);
++  }, [open, canMutate, levels, certFolders, saveFolder, areaKey, frameworkId, subject, campusId, campusName]);
+ 
+-  const currentFolder =
+-    (preferredFolderId ? certFolders.find((f) => f.id === preferredFolderId) : undefined) ||
+-    certFolders.find((f) => f.isSystem && f.code === currentLevelCode);
++  const currentFolder = certFolders.find((f) => f.isSystem && f.code === currentLevelCode);
+   const currentLabel = levels.find((l) => l.code === currentLevelCode)?.label ?? currentLevelCode;
+ 
+   const buildFolder = (name: string, parentId: string | null): EvidenceFolder => ({
+@@ -184,23 +128,16 @@ export function CertificateFoldersModal({
+   const levelCodeOf = (folderId: string | null | undefined): string | null => levelFolderOf(folderId)?.code ?? null;
+ 
+   const activation = !!onActivate;
+-  const activeDoc = activation
+-    ? certDocs.find((d) => d.isActive && switchableCodes.has(levelCodeOf(d.folderId) || ''))
+-    : undefined;
++  const activeDoc = activation ? certDocs.find((d) => d.isActive) : undefined;
+   const activeLevelFolder = activeDoc ? levelFolderOf(activeDoc.folderId) : undefined;
+ 
+   const activate = (doc: EvidenceDocument) => {
+     if (!canMutate) return;
+-    const code = levelCodeOf(doc.folderId);
+-    if (code && !switchableCodes.has(code)) {
+-      toast.message('This folder does not use an active certificate switch.');
+-      return;
+-    }
+     certDocs.forEach((d) => {
+       const isActive = d.id === doc.id;
+       if (!!d.isActive !== isActive) updateDocument(d.id, { isActive });
+     });
+-    onActivate?.(doc, code);
++    onActivate?.(doc, levelCodeOf(doc.folderId));
+   };
+ 
+   const deactivate = (doc: EvidenceDocument) => {
+@@ -212,14 +149,13 @@ export function CertificateFoldersModal({
+   const buildDocument = (file: File, folderId: string | null): EvidenceDocument => {
+     const { general } = getSettings();
+     const level = levelOf(folderId);
+-    const levelCode = levelCodeOf(folderId) ?? currentLevelCode;
+     return {
+       id: uid('doc-cert'),
+       title: file.name.replace(/\.[^.]+$/, ''),
+       description: `${body} ${level} certificate for ${subject}`,
+-      keywords: [body, 'Certificate', level, levelCode, subject, areaKey, 'Program Accreditation'],
++      keywords: [body, 'Certificate', level, subject],
+       frameworkId,
+-      areaId: useCanonical ? areaKey : areaKey,
++      areaId: areaKey,
+       criterionId: '',
+       indicatorId: '',
+       docType: 'Certificate',
+@@ -240,9 +176,8 @@ export function CertificateFoldersModal({
+       sizeMb: Math.max(0.1, Math.round((file.size / (1024 * 1024)) * 10) / 10),
+       uploadedBy: currentUser.name,
+       passages: [`${body} ${level} certificate — ${subject} (${campusName})`],
+-      folderId: folderId ?? undefined,
+-      approvalStatus: 'Approved',
+-      ...(activation && switchableCodes.has(levelCode) ? { isActive: false } : {})
++      folderId: folderId ?? `folder-${frameworkId}`,
++      approvalStatus: 'Approved'
+     };
+   };
+ 
+@@ -296,21 +231,19 @@ export function CertificateFoldersModal({
+       <FolderExplorer
+         folders={certFolders}
+         documents={certDocs}
+-        rootLabel={rootLabel}
++        rootLabel="Certificates"
+         canEdit={canMutate}
+         openToViewers
+         showApproval={false}
+-        allowNestedFolders={allowNestedFolders}
+         buildFolder={buildFolder}
+         buildDocument={buildDocument}
+         resolveUploadTarget={resolveUploadTarget}
+-        preferredFolderId={preferredFolderId || currentFolder?.id || null}
+-        folderEyebrow={(f) => (f.isSystem ? 'Fixed folder' : undefined)}
++        folderEyebrow={(f) => (f.isSystem ? `${body} level` : undefined)}
+         folderStatus={(f, count) =>
+           activeLevelFolder && f.id === activeLevelFolder.id
+             ? { label: 'Active certificate', tone: 'success' }
+             : f.id === currentFolder?.id
+-            ? { label: 'Current', tone: 'info' }
++            ? { label: 'Current level', tone: 'info' }
+             : count === 0
+             ? { label: 'Empty', tone: 'neutral' }
+             : null
+@@ -318,51 +251,40 @@ export function CertificateFoldersModal({
+         documentStatus={
+           !activation
+             ? undefined
+-            : (doc) => {
+-                const code = levelCodeOf(doc.folderId);
+-                if (!code || !switchableCodes.has(code)) {
+-                  return <span className="text-[10.5px] font-bold text-ink-subtle">On file</span>;
+-                }
+-                return canMutate ? (
+-                  <span className="inline-flex items-center gap-2">
+-                    <span className={`text-[11px] font-bold ${doc.isActive ? 'text-success-700' : 'text-ink-subtle'}`}>
+-                      {doc.isActive ? 'On' : 'Off'}
+-                    </span>
+-                    <Switch
+-                      checked={!!doc.isActive}
+-                      onChange={(on) => (on ? activate(doc) : deactivate(doc))}
+-                      label={`${doc.isActive ? 'Deactivate' : 'Activate'} ${doc.title}`}
+-                    />
+-                  </span>
+-                ) : (
+-                  <span
+-                    className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
+-                      doc.isActive ? 'bg-success-50 text-success-700' : 'bg-slate-100 text-slate-600'
+-                    }`}
+-                  >
+-                    {doc.isActive ? 'Active' : 'Inactive'}
++            : canMutate
++            ? (doc) => (
++                <span className="inline-flex items-center gap-2">
++                  <span className={`text-[11px] font-bold ${doc.isActive ? 'text-success-700' : 'text-ink-subtle'}`}>
++                    {doc.isActive ? 'On' : 'Off'}
+                   </span>
+-                );
+-              }
++                  <Switch
++                    checked={!!doc.isActive}
++                    onChange={(on) => (on ? activate(doc) : deactivate(doc))}
++                    label={`${doc.isActive ? 'Deactivate' : 'Activate'} ${doc.title}`}
++                  />
++                </span>
++              )
++            : (doc) => (
++                <span
++                  className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
++                    doc.isActive ? 'bg-success-50 text-success-700' : 'bg-slate-100 text-slate-600'
++                  }`}
++                >
++                  {doc.isActive ? 'Active' : 'Inactive'}
++                </span>
++              )
+         }
+         onUploaded={
+           activation
+-            ? (docs) => {
+-                const inSwitchable = docs.some((d) => {
+-                  const code = levelCodeOf(d.folderId);
+-                  return !!code && switchableCodes.has(code);
+-                });
+-                if (inSwitchable) {
+-                  toast.info(`${docs.length === 1 ? 'The certificate is' : 'New certificates are'} inactive`, {
+-                    description: 'Switch it on to make it the current certificate.'
+-                  });
+-                }
+-              }
++            ? (docs) =>
++                toast.info(`${docs.length === 1 ? 'The certificate is' : 'New certificates are'} inactive`, {
++                  description: 'Switch it on to make it the current certificate.'
++                })
+             : undefined
+         }
+         summary={summary}
+-        emptyHint="Upload files directly into this folder. Nested folders are not used here."
+-        resetKey={`${areaKey}-${open}-${currentLevelCode}`}
++        emptyHint="Upload the certificate for this level, or create a folder to organize it."
++        resetKey={`${areaKey}-${open}`}
+       />
+     </Modal>
+   );
+diff --git a/frontend/src/components/documents/OriginalDocumentView.tsx b/frontend/src/components/documents/OriginalDocumentView.tsx
+index d430bb6..2da54b3 100644
+--- a/frontend/src/components/documents/OriginalDocumentView.tsx
++++ b/frontend/src/components/documents/OriginalDocumentView.tsx
+@@ -359,12 +359,10 @@ export function OriginalDocumentView({
+   const pdfHeight = doc.docType === 'Certificate' ? 'h-[min(78vh,620px)]' : heightClass;
+   switch (detectKind(file)) {
+     case 'pdf':
+-      // Hide the browser PDF chrome (zoom / Summarize / download bar) so the
+-      // preview shows only the certificate page itself.
+       return (
+         <iframe
+           title={file.name}
+-          src={`${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
++          src={`${url}#toolbar=1&navpanes=0&view=FitH`}
+           className={`w-full rounded-xl border border-line bg-white ${pdfHeight}`}
+         />
+       );
+diff --git a/frontend/src/components/upload/FolderExplorer.tsx b/frontend/src/components/upload/FolderExplorer.tsx
+index e50047c..6ae4480 100644
+--- a/frontend/src/components/upload/FolderExplorer.tsx
++++ b/frontend/src/components/upload/FolderExplorer.tsx
+@@ -24,8 +24,6 @@ import { FolderAction, FolderCard, FolderStatus } from '../folders/FolderCard';
+ import { downloadStoredFile, persistUpload } from '../../utils/fileStore';
+ import { filesFromInput, PendingUpload } from '../../utils/dropFiles';
+ import { pluralize } from '../../utils/format';
+-import { uploadDocumentRemote } from '../../services/documents/uploadClient';
+-import { filterAllowedUploads } from '../../utils/uploadRules';
+ import type { EvidenceDocument, EvidenceFolder } from '../../types/evidence';
+ import { formatSize } from './fileTypeStyle';
+ import { FileList, FileRow, FileRowAction, FileStatusPill } from './FileRow';
+@@ -63,13 +61,6 @@ interface FolderExplorerProps {
+   emptyHint?: string;
+   /** Changing this resets navigation (e.g. a different area or program). */
+   resetKey?: string;
+-  /** After reset, open this folder when it exists (e.g. current accreditation level). */
+-  preferredFolderId?: string | null;
+-  /**
+-   * When false, only fixed/system folders are used: hide New Folder / Upload Folder,
+-   * and put every file directly in the upload target (no nested path folders).
+-   */
+-  allowNestedFolders?: boolean;
+ }
+ 
+ const isSystem = (f: EvidenceFolder) => !!f.isSystem;
+@@ -92,9 +83,7 @@ export function FolderExplorer({
+   summary,
+   folderLayout = 'grid',
+   emptyHint,
+-  resetKey,
+-  preferredFolderId = null,
+-  allowNestedFolders = true
++  resetKey
+ }: FolderExplorerProps) {
+   const { saveFolder, deleteFolder, addDocument, deleteDocument } = usePortal();
+ 
+@@ -105,7 +94,6 @@ export function FolderExplorer({
+   const [renamingId, setRenamingId] = useState<string | null>(null);
+   const [renameValue, setRenameValue] = useState('');
+   const [previewDoc, setPreviewDoc] = useState<EvidenceDocument | null>(null);
+-  const [uploading, setUploading] = useState(false);
+ 
+   const fileInputRef = useRef<HTMLInputElement>(null);
+   const folderInputRef = useRef<HTMLInputElement>(null);
+@@ -117,12 +105,6 @@ export function FolderExplorer({
+     setRenamingId(null);
+   }, [resetKey]);
+ 
+-  useEffect(() => {
+-    if (preferredFolderId && folders.some((f) => f.id === preferredFolderId)) {
+-      setCurrentFolderId(preferredFolderId);
+-    }
+-  }, [resetKey, preferredFolderId, folders]);
+-
+   useEffect(() => {
+     folderInputRef.current?.setAttribute('webkitdirectory', '');
+     folderInputRef.current?.setAttribute('directory', '');
+@@ -157,26 +139,13 @@ export function FolderExplorer({
+ 
+   const q = query.trim().toLowerCase();
+   const visibleFolders = (
+-    q
+-      ? folders.filter((f) => f.name.toLowerCase().includes(q) && (allowNestedFolders || isSystem(f)))
+-      : folders.filter(
+-          (f) =>
+-            (f.parentId ?? null) === currentFolderId && (allowNestedFolders || isSystem(f) || currentFolderId === null)
+-        )
++    q ? folders.filter((f) => f.name.toLowerCase().includes(q)) : folders.filter((f) => (f.parentId ?? null) === currentFolderId)
+   )
+     .slice()
+     .sort((a, b) => (isSystem(a) === isSystem(b) ? (isSystem(a) ? 0 : a.name.localeCompare(b.name)) : isSystem(a) ? -1 : 1));
+-
+-  /** Flat mode: show every file in this folder tree as one list (no nested folder browsing). */
+-  const docsInCurrent = (() => {
+-    if (!allowNestedFolders && currentFolderId) {
+-      const ids = new Set(descendantFolderIds(currentFolderId));
+-      return documents.filter((d) => d.folderId && ids.has(d.folderId));
+-    }
+-    return documents.filter((d) => (d.folderId ?? null) === currentFolderId);
+-  })();
+-
+-  const visibleDocs = q ? docsInCurrent.filter((d) => d.title.toLowerCase().includes(q)) : docsInCurrent;
++  const visibleDocs = q
++    ? documents.filter((d) => d.title.toLowerCase().includes(q))
++    : documents.filter((d) => (d.folderId ?? null) === currentFolderId);
+ 
+   const locationLabel = breadcrumb.length ? breadcrumb[breadcrumb.length - 1].name : rootLabel;
+   const target: UploadTarget = resolveUploadTarget
+@@ -184,13 +153,12 @@ export function FolderExplorer({
+     : { folderId: currentFolderId, label: locationLabel };
+ 
+   const ingest = (uploads: PendingUpload[]) => {
+-    if (!canEdit || uploading) return;
+-    const accepted = filterAllowedUploads(uploads, (u) => u.file);
++    if (!canEdit) return;
++    const accepted = uploads.filter((item) => item.file);
+     if (!accepted.length) return;
+ 
+     const created: EvidenceFolder[] = [];
+     const resolveFolder = (segments: string[]): string | null => {
+-      if (!allowNestedFolders) return target.folderId;
+       let parent = target.folderId;
+       for (const name of segments) {
+         const match = [...folders, ...created].find((f) => f.name === name && (f.parentId ?? null) === parent);
+@@ -205,61 +173,20 @@ export function FolderExplorer({
+       return parent;
+     };
+ 
+-    void (async () => {
+-      setUploading(true);
+-      const docs: EvidenceDocument[] = [];
+-      try {
+-        for (const { file, path } of accepted) {
+-          const segments = allowNestedFolders ? path.split('/').filter(Boolean) : [file.name];
+-          let doc = buildDocument(file, resolveFolder(segments.slice(0, -1)));
+-          const remote = await uploadDocumentRemote(
+-            file,
+-            {
+-              title: doc.title,
+-              description: doc.description,
+-              frameworkId: doc.frameworkId,
+-              areaId: doc.areaId,
+-              folderId: doc.folderId,
+-              docType: doc.docType,
+-              academicYear: doc.academicYear,
+-              cycle: doc.cycle,
+-              program: doc.program,
+-              campus: doc.campus,
+-              campusId: doc.campusId,
+-              confidentiality: doc.confidentiality,
+-              uploadedBy: doc.uploadedBy,
+-              keywords: (doc.keywords || []).join(',')
+-            },
+-            doc
+-          );
+-          if (remote) {
+-            doc = {
+-              ...doc,
+-              ...remote,
+-              frameworkId: doc.frameworkId,
+-              areaId: doc.areaId,
+-              folderId: doc.folderId,
+-              requirementId: doc.requirementId,
+-              isActive: doc.isActive,
+-              docType: doc.docType || remote.docType
+-            };
+-          }
+-          persistUpload(doc.id, file);
+-          addDocument(doc);
+-          docs.push(doc);
+-        }
+-        created.forEach(saveFolder);
+-        onUploaded?.(docs);
+-        toast.success(
+-          `Uploaded ${pluralize(docs.length, 'file')} to "${target.label}"` +
+-            (created.length ? ` and created ${pluralize(created.length, 'folder')}` : '')
+-        );
+-      } catch {
+-        toast.error('Upload failed. Please try again.');
+-      } finally {
+-        setUploading(false);
+-      }
+-    })();
++    const docs = accepted.map(({ file, path }) => {
++      const segments = path.split('/').filter(Boolean);
++      const doc = buildDocument(file, resolveFolder(segments.slice(0, -1)));
++      persistUpload(doc.id, file);
++      addDocument(doc);
++      return doc;
++    });
++    created.forEach(saveFolder);
++    onUploaded?.(docs);
++
++    toast.success(
++      `Uploaded ${pluralize(docs.length, 'file')} to "${target.label}"` +
++        (created.length ? ` and created ${pluralize(created.length, 'folder')}` : '')
++    );
+   };
+ 
+   const handleCreateFolder = () => {
+@@ -357,33 +284,28 @@ export function FolderExplorer({
+           </div>
+           {canEdit && (
+             <>
+-              {allowNestedFolders && (
+-                <>
+-                  <button
+-                    type="button"
+-                    onClick={() => {
+-                      setCreatingFolder(true);
+-                      setQuery('');
+-                    }}
+-                    className={toolbarButton}
+-                  >
+-                    <FolderPlusIcon className="h-4 w-4" />
+-                    New Folder
+-                  </button>
+-                  <button type="button" onClick={() => folderInputRef.current?.click()} className={toolbarButton}>
+-                    <FolderUpIcon className="h-4 w-4" />
+-                    Upload Folder
+-                  </button>
+-                </>
+-              )}
++              <button
++                type="button"
++                onClick={() => {
++                  setCreatingFolder(true);
++                  setQuery('');
++                }}
++                className={toolbarButton}
++              >
++                <FolderPlusIcon className="h-4 w-4" />
++                New Folder
++              </button>
++              <button type="button" onClick={() => folderInputRef.current?.click()} className={toolbarButton}>
++                <FolderUpIcon className="h-4 w-4" />
++                Upload Folder
++              </button>
+               <button
+                 type="button"
+                 onClick={() => fileInputRef.current?.click()}
+                 className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 text-[13px] font-semibold text-white shadow-sm shadow-brand-600/30 transition hover:bg-brand-700"
+-                disabled={uploading}
+               >
+                 <UploadIcon className="h-4 w-4" />
+-                {uploading ? 'Uploading…' : 'Upload Files'}
++                Upload Files
+               </button>
+               <input
+                 ref={fileInputRef}
+diff --git a/frontend/src/contexts/PortalContext.tsx b/frontend/src/contexts/PortalContext.tsx
+index 0f66550..ae09b9c 100644
+--- a/frontend/src/contexts/PortalContext.tsx
++++ b/frontend/src/contexts/PortalContext.tsx
+@@ -61,46 +61,18 @@ import { isAdminRole, isRecipientRole, nowIso, permissionLabel, recipientRoles,
+ import { formatDate } from '../utils/format';
+ import { isCampusMatch } from '../utils/campus';
+ import { normalizeDocumentsPublishingFields, normalizePublishingFields } from '../utils/publicDocuments';
+-import { deleteStoredFile, getStoredFile, saveStoredFile } from '../utils/fileStore';
+-import {
+-  applyLevelChange,
+-  ensureLevelHistory,
+-  normalizeLegacyStatus,
+-  reconcilePaCopcRepository
+-} from '../utils/programAccreditation';
++import { deleteStoredFile } from '../utils/fileStore';
++import { applyLevelChange, ensureLevelHistory, normalizeLegacyStatus } from '../utils/programAccreditation';
+ import { isIsoClauseFolder, purgeLegacySampleData } from '../utils/samplePurge';
++import { getStoredFile, saveStoredFile } from '../utils/fileStore';
+ import { publishSharedOriginal } from '../services/live/sharedFiles';
+ import {
+   COPC_CERT_FILES_KEY,
+   COPC_CERT_FILES_VERSION,
+   LINKED_CERTIFICATES_KEY,
+-  LINKED_CERTIFICATES_VERSION,
+-  LINKED_COPC_DOCUMENTS_KEY,
+-  LINKED_COPC_DOCUMENTS_VERSION,
+-  buildLinkedCertificates,
+-  buildLinkedCopcDocuments,
+-  clearGeneratedLinkedCertificateFiles,
+-  localCertificationFileFor,
+-  mirrorCopcStoredFiles,
+-  prefetchCertificateFiles,
+-  prefetchCopcCertificateFiles,
+-  refreshLinkedCertificateMeta,
+-  syncCopcRecordToDocuments
++  LINKED_CERTIFICATES_VERSION
+ } from '../utils/linkedCertificates';
+-import {
+-  RATINGS_DOCUMENTS_KEY,
+-  RATINGS_DOCUMENTS_VERSION,
+-  buildRatingsDocuments,
+-  primaryRatingsPath,
+-  prefetchRatingsDocuments
+-} from '../utils/ratingsDocuments';
+-import {
+-  FINDINGS_DOCUMENTS_KEY,
+-  FINDINGS_DOCUMENTS_VERSION,
+-  buildFindingsDocuments,
+-  primaryFindingsPath,
+-  prefetchFindingsDocuments
+-} from '../utils/findingsDocuments';
++import { RATINGS_DOCUMENTS_KEY, RATINGS_DOCUMENTS_VERSION } from '../utils/ratingsDocuments';
+ import { getSettings } from '../settings/portalSettings';
+ import { useSessionAccount } from '../utils/auth';
+ 
+@@ -300,25 +272,16 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
+   const [areas, setAreas] = useState(initialAreas);
+   const [criteria, setCriteria] = useState(initialCriteria);
+   const [indicators, setIndicators] = useState(initialIndicators);
+-  const [documents, setDocuments] = useState<EvidenceDocument[]>(() => {
+-    const docs = normalizeDocumentsPublishingFields(loadStorage<EvidenceDocument[]>('documents', []));
+-    const stored = loadStorage<EvidenceFolder[]>('folders', initialFolders);
+-    const hidden = new Set(loadHiddenFolderIds());
+-    const visible = stored.filter((f) => !hidden.has(f.id));
+-    const existingIds = new Set(visible.map((f) => f.id));
+-    const missingRoots = initialFolders.filter((f) => !existingIds.has(f.id) && !hidden.has(f.id));
+-    const merged = missingRoots.length > 0 ? [...missingRoots, ...visible] : visible;
+-    return reconcilePaCopcRepository(merged, docs).documents;
+-  });
++  const [documents, setDocuments] = useState<EvidenceDocument[]>(() =>
++    normalizeDocumentsPublishingFields(loadStorage<EvidenceDocument[]>('documents', []))
++  );
+   const [folders, setFolders] = useState<EvidenceFolder[]>(() => {
+-    const docs = normalizeDocumentsPublishingFields(loadStorage<EvidenceDocument[]>('documents', []));
+     const stored = loadStorage<EvidenceFolder[]>('folders', initialFolders);
+     const hidden = new Set(loadHiddenFolderIds());
+     const visible = stored.filter((f) => !hidden.has(f.id));
+     const existingIds = new Set(visible.map((f) => f.id));
+     const missingRoots = initialFolders.filter((f) => !existingIds.has(f.id) && !hidden.has(f.id));
+-    const merged = missingRoots.length > 0 ? [...missingRoots, ...visible] : visible;
+-    return reconcilePaCopcRepository(merged, docs).folders;
++    return missingRoots.length > 0 ? [...missingRoots, ...visible] : visible;
+   });
+   const [pending, setPending] = useState<PendingDocument[]>([]);
+   const [users, setUsers] = useState<PortalUser[]>(() => {
+@@ -540,202 +503,16 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
+   });
+   const [isoRecords, setIsoRecords] = useState<ISOSurveillanceRecord[]>(() => loadStorage('isoRecords', initialISORecords));
+ 
+-  // Seed AACCUP certificate folders/docs from the local manifest (once per seed version).
+-  useEffect(() => {
+-    try {
+-      if (localStorage.getItem(LINKED_CERTIFICATES_KEY) !== LINKED_CERTIFICATES_VERSION) {
+-        localStorage.setItem(LINKED_CERTIFICATES_KEY, LINKED_CERTIFICATES_VERSION);
+-        const seed = buildLinkedCertificates(programAccreditations);
+-        const folderIdFor = new Map<string, string>();
+-        const addedFolders = seed.folders.filter((f) => {
+-          const existing = folders.find((e) => e.isSystem && e.areaId === f.areaId && e.code === f.code);
+-          if (existing) folderIdFor.set(f.id, existing.id);
+-          return !existing && !folders.some((e) => e.id === f.id);
+-        });
+-        const seededDocs = seed.documents.map((d) =>
+-          d.folderId && folderIdFor.has(d.folderId) ? { ...d, folderId: folderIdFor.get(d.folderId) } : d
+-        );
+-        if (addedFolders.length) setFolders((prev) => [...prev, ...addedFolders.filter((f) => !prev.some((p) => p.id === f.id))]);
+-        setDocuments((prev) => {
+-          const seededIds = new Set(seededDocs.map((d) => d.id));
+-          const areaIds = new Set(seededDocs.map((d) => d.areaId));
+-          const kept = prev.filter(
+-            (d) =>
+-              !(d.frameworkId === 'pa' && areaIds.has(d.areaId) && (d.id.startsWith('doc-cert-') || seededIds.has(d.id)))
+-          );
+-          return normalizeDocumentsPublishingFields(
+-            refreshLinkedCertificateMeta([...kept, ...seededDocs], programAccreditations)
+-          );
+-        });
+-        // Prefer local level-anchored certificate paths over Drive-only links.
+-        setProgramAccreditations((prev) => {
+-          let changed = false;
+-          const next = prev.map((p) => {
+-            const local = localCertificationFileFor(p);
+-            if (!local || p.certificationFile === local) return p;
+-            changed = true;
+-            return { ...p, certificationFile: local };
+-          });
+-          if (changed) {
+-            saveStorage('programAccreditations', next);
+-            return next;
+-          }
+-          return prev;
+-        });
+-        void clearGeneratedLinkedCertificateFiles(programAccreditations)
+-          .then(() => prefetchCertificateFiles(seededDocs))
+-          .catch((err) => console.error('Could not prefetch certificate files', err));
+-      }
+-    } catch {
+-      // Storage unavailable; skip seeding.
+-    }
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, [programAccreditations]);
+-
+-  // Prefetch COPC official certificate binaries into IndexedDB once per version.
+-  useEffect(() => {
+-    try {
+-      if (localStorage.getItem(COPC_CERT_FILES_KEY) === COPC_CERT_FILES_VERSION) return;
+-      localStorage.setItem(COPC_CERT_FILES_KEY, COPC_CERT_FILES_VERSION);
+-      void prefetchCopcCertificateFiles(copcRecords).catch((err) =>
+-        console.error('Could not prefetch COPC certificate files', err)
+-      );
+-    } catch {
+-      // ignore
+-    }
+-  }, [copcRecords]);
+-
+-  // Seed COPC Status certificates / BOR into Upload Documents → COPC folders.
+-  useEffect(() => {
+-    try {
+-      if (localStorage.getItem(LINKED_COPC_DOCUMENTS_KEY) === LINKED_COPC_DOCUMENTS_VERSION) return;
+-      localStorage.setItem(LINKED_COPC_DOCUMENTS_KEY, LINKED_COPC_DOCUMENTS_VERSION);
+-      const seeded = buildLinkedCopcDocuments(copcRecords);
+-      if (!seeded.length) return;
+-      setFolders((prev) => reconcilePaCopcRepository(prev, seeded).folders);
+-      setDocuments((prev) => {
+-        const seededIds = new Set(seeded.map((d) => d.id));
+-        const kept = prev.filter((d) => !seededIds.has(d.id));
+-        return normalizeDocumentsPublishingFields(
+-          reconcilePaCopcRepository([], [...kept, ...seeded]).documents
+-        );
+-      });
+-    } catch {
+-      // Storage unavailable; skip seeding.
+-    }
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, [copcRecords]);
+-
+-  // Seed Technical Review & Board Action rating documents (once per version).
++  // Dummy certificate / ratings / COPC binary seeding disabled — upload real files instead.
+   useEffect(() => {
+     try {
+-      if (localStorage.getItem(RATINGS_DOCUMENTS_KEY) === RATINGS_DOCUMENTS_VERSION) return;
++      localStorage.setItem(LINKED_CERTIFICATES_KEY, LINKED_CERTIFICATES_VERSION);
+       localStorage.setItem(RATINGS_DOCUMENTS_KEY, RATINGS_DOCUMENTS_VERSION);
+-      const seed = buildRatingsDocuments(programAccreditations);
+-      const folderIdFor = new Map<string, string>();
+-      const addedFolders = seed.folders.filter((f) => {
+-        const existing = folders.find((e) => e.isSystem && e.areaId === f.areaId && e.code === f.code);
+-        if (existing) folderIdFor.set(f.id, existing.id);
+-        return !existing && !folders.some((e) => e.id === f.id);
+-      });
+-      const seededDocs = seed.documents.map((d) =>
+-        d.folderId && folderIdFor.has(d.folderId) ? { ...d, folderId: folderIdFor.get(d.folderId) } : d
+-      );
+-      if (addedFolders.length) setFolders((prev) => [...prev, ...addedFolders.filter((f) => !prev.some((p) => p.id === f.id))]);
+-      setDocuments((prev) => {
+-        const areaIds = new Set(seededDocs.map((d) => d.areaId));
+-        const kept = prev.filter(
+-          (d) => !(d.frameworkId === 'pa' && typeof d.areaId === 'string' && d.areaId.startsWith('trba-') && areaIds.has(d.areaId))
+-        );
+-        return normalizeDocumentsPublishingFields([
+-          ...kept,
+-          ...seededDocs.filter((d) => !kept.some((p) => p.id === d.id))
+-        ]);
+-      });
+-      setProgramAccreditations((prev) => {
+-        let changed = false;
+-        const next = prev.map((p) => {
+-          const primary =
+-            primaryRatingsPath(p.id) ||
+-            seed.documents.find((d) => d.areaId === `trba-${p.id}` && d.isActive)?.documentUrl ||
+-            seed.documents.find((d) => d.areaId === `trba-${p.id}`)?.documentUrl;
+-          if (!primary || p.technicalReviewLink === primary) return p;
+-          changed = true;
+-          return { ...p, technicalReviewLink: primary };
+-        });
+-        if (changed) {
+-          saveStorage('programAccreditations', next);
+-          return next;
+-        }
+-        return prev;
+-      });
+-      void prefetchRatingsDocuments(seededDocs).catch((err) =>
+-        console.error('Could not prefetch ratings documents', err)
+-      );
+-    } catch {
+-      // ignore
+-    }
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, [programAccreditations]);
+-
+-  // Seed Summary of Findings & Recommendation documents (once per version).
+-  useEffect(() => {
+-    try {
+-      if (localStorage.getItem(FINDINGS_DOCUMENTS_KEY) === FINDINGS_DOCUMENTS_VERSION) return;
+-      localStorage.setItem(FINDINGS_DOCUMENTS_KEY, FINDINGS_DOCUMENTS_VERSION);
+-      const seed = buildFindingsDocuments(programAccreditations);
+-      const folderIdFor = new Map<string, string>();
+-      const addedFolders = seed.folders.filter((f) => {
+-        const existing = folders.find((e) => e.isSystem && e.areaId === f.areaId && e.code === f.code);
+-        if (existing) folderIdFor.set(f.id, existing.id);
+-        return !existing && !folders.some((e) => e.id === f.id);
+-      });
+-      const seededDocs = seed.documents.map((d) =>
+-        d.folderId && folderIdFor.has(d.folderId) ? { ...d, folderId: folderIdFor.get(d.folderId) } : d
+-      );
+-      if (addedFolders.length) setFolders((prev) => [...prev, ...addedFolders.filter((f) => !prev.some((p) => p.id === f.id))]);
+-      setDocuments((prev) => {
+-        const areaIds = new Set(seededDocs.map((d) => d.areaId));
+-        const kept = prev.filter(
+-          (d) =>
+-            !(d.frameworkId === 'pa' && typeof d.areaId === 'string' && d.areaId.startsWith('findings-') && areaIds.has(d.areaId))
+-        );
+-        return normalizeDocumentsPublishingFields([
+-          ...kept,
+-          ...seededDocs.filter((d) => !kept.some((p) => p.id === d.id))
+-        ]);
+-      });
+-      setProgramAccreditations((prev) => {
+-        let changed = false;
+-        const next = prev.map((p) => {
+-          const primary = primaryFindingsPath(p.id);
+-          // Only keep real folder files; clear Drive / dummy findings links.
+-          if (primary) {
+-            if (p.findingsLink === primary) return p;
+-            changed = true;
+-            return { ...p, findingsLink: primary };
+-          }
+-          if (p.findingsLink) {
+-            changed = true;
+-            const { findingsLink: _removed, ...rest } = p;
+-            return rest as typeof p;
+-          }
+-          return p;
+-        });
+-        if (changed) {
+-          saveStorage('programAccreditations', next);
+-          return next;
+-        }
+-        return prev;
+-      });
+-      void prefetchFindingsDocuments(seededDocs).catch((err) =>
+-        console.error('Could not prefetch findings documents', err)
+-      );
++      localStorage.setItem(COPC_CERT_FILES_KEY, COPC_CERT_FILES_VERSION);
+     } catch {
+       // ignore
+     }
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, [programAccreditations]);
++  }, []);
+ 
+   // Selected campus derived helpers
+   const selectedCampusObj = useMemo(() => {
+@@ -1399,14 +1176,6 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
+     setCopcRecords((prev) => {
+       const next = prev.map((item) => (item.id === id ? { ...item, ...patch } : item));
+       saveStorage('copcRecords', next);
+-      const updated = next.find((item) => item.id === id);
+-      if (
+-        updated &&
+-        ('documentLink' in patch || 'borRes' in patch || 'certificateNumber' in patch || 'dateIssued' in patch)
+-      ) {
+-        setDocuments((docs) => normalizeDocumentsPublishingFields(syncCopcRecordToDocuments(docs, updated)));
+-        void mirrorCopcStoredFiles(updated).catch(() => undefined);
+-      }
+       return next;
+     });
+   }, []);
+diff --git a/frontend/src/data/folders.ts b/frontend/src/data/folders.ts
+index 5841778..7732cd4 100644
+--- a/frontend/src/data/folders.ts
++++ b/frontend/src/data/folders.ts
+@@ -1,5 +1,4 @@
+ import { EvidenceFolder } from '../types/evidence';
+-import { buildCanonicalRepoFolders } from '../utils/programAccreditation';
+ 
+ export const ROOT_FRAMEWORK_FOLDER_IDS: readonly string[] = [
+   'folder-ia',
+@@ -72,7 +71,6 @@ export const initialFolders: EvidenceFolder[] = [
+     color: 'purple',
+     createdAt: '2026-01-15'
+   },
+-  ...buildCanonicalRepoFolders().filter((f) => f.frameworkId === 'pa'),
+   {
+     id: 'folder-copc',
+     name: 'Certificate of Program Compliance',
+@@ -84,7 +82,6 @@ export const initialFolders: EvidenceFolder[] = [
+     color: 'emerald',
+     createdAt: '2026-01-15'
+   },
+-  ...buildCanonicalRepoFolders().filter((f) => f.frameworkId === 'copc'),
+   {
+     id: 'folder-pqa',
+     name: 'Philippine Quality Award',
+diff --git a/frontend/src/pages/accreditation/COPCView.tsx b/frontend/src/pages/accreditation/COPCView.tsx
+index 3351bd3..06b4300 100644
+--- a/frontend/src/pages/accreditation/COPCView.tsx
++++ b/frontend/src/pages/accreditation/COPCView.tsx
+@@ -19,8 +19,7 @@ import {
+   ZoomInIcon,
+   ZoomOutIcon,
+   ChevronLeftIcon,
+-  ChevronRightIcon,
+-  FileCheckIcon
++  ChevronRightIcon
+ } from 'lucide-react';
+ import { deleteStoredFile, getStoredFile, persistUpload } from '../../utils/fileStore';
+ import { fileTypeFromName } from '../../utils/fileTypes';
+@@ -28,16 +27,6 @@ import type { EvidenceDocument } from '../../types/evidence';
+ import { UploadDropzone } from '../../components/upload/UploadDropzone';
+ import { FileList, FileRow, FileRowAction } from '../../components/upload/FileRow';
+ import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
+-import { isUrl } from '../../utils/programAccreditation';
+-import { isLocalCertificatePath } from '../../utils/linkedCertificates';
+-import { CopcDocumentsModal } from '../../components/accreditation/CopcDocumentsModal';
+-
+-function borResHref(value?: string): string | undefined {
+-  const v = (value || '').trim();
+-  if (!v) return undefined;
+-  if (isUrl(v) || isLocalCertificatePath(v) || v.startsWith('/')) return v;
+-  return undefined;
+-}
+ 
+ /** Starting zoom so the 640px-wide paper preview fits narrow screens. */
+ function fitPaperZoom(): number {
+@@ -61,28 +50,16 @@ export function COPCView() {
+   const [search, setSearch] = useState('');
+   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+ 
+-  // Certificate / BOR / Requirements Viewer Modal (same chrome for Certificate Number & BOR Resolution)
++  // Certificate & Requirements Viewer Modal State (Eye icon: views Certificate and 5/5 Requirements Audit files)
+   const [viewingCertificateCopc, setViewingCertificateCopc] = useState<COPCRecord | null>(null);
+-  const [viewModalTab, setViewModalTab] = useState<'certificate' | 'bor' | 'requirements'>('certificate');
++  const [viewModalTab, setViewModalTab] = useState<'certificate' | 'requirements'>('certificate');
+   const [selectedPreviewReq, setSelectedPreviewReq] = useState<COPCRequirementItem | null>(null);
+-  const [docsModalCopc, setDocsModalCopc] = useState<COPCRecord | null>(null);
+-  const [docsModalFolder, setDocsModalFolder] = useState<'certificate' | 'bor'>('certificate');
+-
+-  const openCopcDocs = (copc: COPCRecord, folder: 'certificate' | 'bor' = 'certificate') => {
+-    setDocsModalFolder(folder);
+-    setDocsModalCopc(copc);
+-  };
+ 
+   const [officialCertUrl, setOfficialCertUrl] = useState<string | null>(null);
+   const [officialCertKind, setOfficialCertKind] = useState<'pdf' | 'image' | null>(null);
+   const [officialCertLoading, setOfficialCertLoading] = useState(false);
+   const [officialCertMissing, setOfficialCertMissing] = useState(false);
+ 
+-  const [borDocUrl, setBorDocUrl] = useState<string | null>(null);
+-  const [borDocKind, setBorDocKind] = useState<'pdf' | 'image' | null>(null);
+-  const [borDocLoading, setBorDocLoading] = useState(false);
+-  const [borDocMissing, setBorDocMissing] = useState(false);
+-
+   const certificateKind = (blob: Blob, name: string): 'pdf' | 'image' | null => {
+     const type = (blob.type || '').toLowerCase();
+     if (type.includes('html') || type.startsWith('text/')) return null;
+@@ -147,73 +124,12 @@ export function COPCView() {
+     setOfficialCertLoading(false);
+   };
+ 
+-  const loadBorDocument = async (copc: COPCRecord) => {
+-    setBorDocLoading(true);
+-    setBorDocUrl(null);
+-    setBorDocKind(null);
+-    setBorDocMissing(false);
+-    const href = borResHref(copc.borRes);
+-    if (!href) {
+-      setBorDocMissing(true);
+-      setBorDocLoading(false);
+-      return;
+-    }
+-    try {
+-      if (isUrl(href)) {
+-        setBorDocUrl(href);
+-        setBorDocKind('pdf');
+-        setBorDocLoading(false);
+-        return;
+-      }
+-      const res = await fetch(href);
+-      if (!res.ok) {
+-        setBorDocMissing(true);
+-        setBorDocLoading(false);
+-        return;
+-      }
+-      const blob = await res.blob();
+-      const kind = certificateKind(blob, href);
+-      if (!kind) {
+-        setBorDocMissing(true);
+-        setBorDocLoading(false);
+-        return;
+-      }
+-      setBorDocUrl(URL.createObjectURL(blob));
+-      setBorDocKind(kind);
+-    } catch {
+-      setBorDocMissing(true);
+-    }
+-    setBorDocLoading(false);
+-  };
+-
+-  const closeViewModal = () => {
+-    if (officialCertUrl?.startsWith('blob:')) URL.revokeObjectURL(officialCertUrl);
+-    if (borDocUrl?.startsWith('blob:')) URL.revokeObjectURL(borDocUrl);
+-    setOfficialCertUrl(null);
+-    setOfficialCertKind(null);
+-    setBorDocUrl(null);
+-    setBorDocKind(null);
+-    setViewingCertificateCopc(null);
+-  };
+-
+-  const handleOpenView = (
+-    copc: COPCRecord,
+-    defaultTab: 'certificate' | 'bor' | 'requirements' = 'certificate'
+-  ) => {
++  const handleOpenView = (copc: COPCRecord, defaultTab: 'certificate' | 'requirements' = 'certificate') => {
+     if (officialCertUrl?.startsWith('blob:')) URL.revokeObjectURL(officialCertUrl);
+-    if (borDocUrl?.startsWith('blob:')) URL.revokeObjectURL(borDocUrl);
+-    setOfficialCertUrl(null);
+-    setBorDocUrl(null);
+     setViewingCertificateCopc(copc);
+     setViewModalTab(defaultTab);
+     setSelectedPreviewReq(null);
+-    if (defaultTab === 'bor') {
+-      void loadBorDocument(copc);
+-      void loadOfficialCertificate(copc);
+-    } else {
+-      void loadOfficialCertificate(copc);
+-      if (borResHref(copc.borRes)) void loadBorDocument(copc);
+-    }
++    void loadOfficialCertificate(copc);
+   };
+ 
+   // Real PDF Document Viewer Modal State (shows actual uploaded file or authentic CHED compliance PDF)
+@@ -1058,22 +974,22 @@ export function COPCView() {
+                     </td>
+ 
+                     <td className="td py-3 whitespace-nowrap">
+-                      {copc.certificateNumber || copc.documentLink ? (
++                      {copc.certificateNumber ? (
+                         <button
+                           type="button"
+                           onClick={() => handleOpenView(copc, 'certificate')}
+-                          className="inline-flex items-center gap-1 rounded-md border border-line bg-canvas px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 transition hover:border-brand-300 cursor-pointer"
++                          className="font-mono text-xs font-semibold text-brand-700 hover:underline flex items-center gap-1 cursor-pointer"
+                           title="View Official COPC Certificate"
+                         >
+                           <AwardIcon className="h-3.5 w-3.5 text-brand-600 shrink-0" />
+-                          <span className="font-mono">{copc.certificateNumber || 'View'}</span>
++                          <span>{copc.certificateNumber}</span>
+                         </button>
+                       ) : canMutate ? (
+                         <button
+                           type="button"
+-                          onClick={() => openCopcDocs(copc, 'certificate')}
++                          onClick={() => handleOpenUpload(copc)}
+                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200/80 rounded-md px-2 py-0.5 transition-colors cursor-pointer"
+-                          title="Upload into Certificate Number folder"
++                          title="Click to upload official COPC certificate"
+                         >
+                           <UploadIcon className="h-3 w-3" />
+                           <span>Upload Certificate</span>
+@@ -1091,30 +1007,8 @@ export function COPCView() {
+                       {copc.cmoNo || '—'}
+                     </td>
+ 
+-                    <td className="td py-3 text-xs whitespace-nowrap">
+-                      {borResHref(copc.borRes) ? (
+-                        <button
+-                          type="button"
+-                          onClick={() => handleOpenView(copc, 'bor')}
+-                          className="inline-flex items-center gap-1 rounded-md border border-line bg-canvas px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 transition hover:border-brand-300 cursor-pointer"
+-                          title="View Board of Regents Resolution"
+-                        >
+-                          <FileCheckIcon className="h-3 w-3 shrink-0" />
+-                          View
+-                        </button>
+-                      ) : canMutate ? (
+-                        <button
+-                          type="button"
+-                          onClick={() => openCopcDocs(copc, 'bor')}
+-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200/80 rounded-md px-2 py-0.5 transition-colors cursor-pointer"
+-                          title="Upload into BOR Resolution folder"
+-                        >
+-                          <UploadIcon className="h-3 w-3" />
+-                          <span>Upload BOR</span>
+-                        </button>
+-                      ) : (
+-                        <span className="text-ink-muted truncate max-w-[150px] inline-block">{copc.borRes || '—'}</span>
+-                      )}
++                    <td className="td py-3 text-xs text-ink-muted truncate max-w-[150px]">
++                      {copc.borRes || '—'}
+                     </td>
+ 
+                     <td className="td py-3 text-right whitespace-nowrap">
+@@ -1131,9 +1025,9 @@ export function COPCView() {
+                         {canMutate && (
+                           <button
+                             type="button"
+-                            onClick={() => openCopcDocs(copc, 'certificate')}
++                            onClick={() => handleOpenUpload(copc)}
+                             className="flex h-7 w-7 items-center justify-center text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
+-                            title="Open COPC Certificate Number / BOR folders"
++                            title="Upload official certificate"
+                           >
+                             <UploadIcon className="h-3.5 w-3.5" />
+                           </button>
+@@ -1196,22 +1090,21 @@ export function COPCView() {
+                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs bg-canvas/60 p-2.5 rounded-lg border border-line">
+                     <div>
+                       <span className="text-[11px] text-ink-muted">Certificate No:</span>
+-                      {copc.certificateNumber || copc.documentLink ? (
++                      {copc.certificateNumber ? (
+                         <button
+                           type="button"
+                           onClick={() => handleOpenView(copc, 'certificate')}
+-                          className="inline-flex items-center gap-1 rounded-md border border-line bg-canvas px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 transition hover:border-brand-300 mt-0.5 cursor-pointer"
++                          className="font-mono font-medium text-brand-700 hover:underline truncate mt-0.5 text-left block cursor-pointer"
+                           title="View Official Certificate"
+                         >
+-                          <AwardIcon className="h-3 w-3 shrink-0" />
+-                          <span className="font-mono truncate">{copc.certificateNumber || 'View'}</span>
++                          {copc.certificateNumber}
+                         </button>
+                       ) : canMutate ? (
+                         <button
+                           type="button"
+-                          onClick={() => openCopcDocs(copc, 'certificate')}
++                          onClick={() => handleOpenUpload(copc)}
+                           className="text-[11px] font-semibold text-brand-700 hover:underline mt-0.5 flex items-center gap-1 cursor-pointer"
+-                          title="Upload into Certificate Number folder"
++                          title="Upload Certificate"
+                         >
+                           <UploadIcon className="h-3 w-3" />
+                           <span>Upload Certificate</span>
+@@ -1228,32 +1121,8 @@ export function COPCView() {
+                     </div>
+                     <div className="col-span-2">
+                       <span className="text-[11px] text-ink-muted">CMO / BOR:</span>
+-                      <p className="font-medium text-ink truncate mt-0.5 flex flex-wrap items-center gap-1.5">
+-                        <span>{copc.cmoNo || '—'}</span>
+-                        <span className="text-ink-subtle">·</span>
+-                        {borResHref(copc.borRes) ? (
+-                          <button
+-                            type="button"
+-                            onClick={() => handleOpenView(copc, 'bor')}
+-                            className="inline-flex items-center gap-1 text-brand-700 font-semibold hover:underline cursor-pointer"
+-                            title="View Board of Regents Resolution"
+-                          >
+-                            <FileCheckIcon className="h-3 w-3" />
+-                            BOR View
+-                          </button>
+-                        ) : canMutate ? (
+-                          <button
+-                            type="button"
+-                            onClick={() => openCopcDocs(copc, 'bor')}
+-                            className="inline-flex items-center gap-1 text-brand-700 font-semibold hover:underline cursor-pointer"
+-                            title="Upload into BOR Resolution folder"
+-                          >
+-                            <UploadIcon className="h-3 w-3" />
+-                            Upload BOR
+-                          </button>
+-                        ) : (
+-                          <span>{copc.borRes || '—'}</span>
+-                        )}
++                      <p className="font-medium text-ink truncate mt-0.5">
++                        {copc.cmoNo || '—'} · {copc.borRes || '—'}
+                       </p>
+                     </div>
+                   </div>
+@@ -1274,9 +1143,9 @@ export function COPCView() {
+                       {canMutate && (
+                         <button
+                           type="button"
+-                          onClick={() => openCopcDocs(copc, 'certificate')}
++                          onClick={() => handleOpenUpload(copc)}
+                           className="flex h-8 px-2.5 items-center gap-1.5 text-xs text-ink-muted hover:bg-slate-50 hover:text-brand-700 transition-colors cursor-pointer"
+-                          title="Open COPC Certificate Number / BOR folders"
++                          title="Upload official certificate"
+                         >
+                           <UploadIcon className="h-3.5 w-3.5" />
+                           <span>Upload</span>
+@@ -1306,26 +1175,29 @@ export function COPCView() {
+       {viewingCertificateCopc && (
+         <Modal
+           open={!!viewingCertificateCopc}
+-          onClose={closeViewModal}
++          onClose={() => {
++            if (officialCertUrl?.startsWith('blob:')) URL.revokeObjectURL(officialCertUrl);
++            setOfficialCertUrl(null);
++            setOfficialCertKind(null);
++            setViewingCertificateCopc(null);
++          }}
+           zIndex="z-[60]"
+           title={
+-            viewModalTab === 'bor'
+-              ? 'Board of Regents Resolution'
+-              : viewModalTab === 'certificate'
+-                ? 'Official Certificate of Program Compliance (COPC)'
+-                : 'Requirements Audit Uploaded Files'
++            viewModalTab === 'certificate'
++              ? 'Official Certificate of Program Compliance (COPC)'
++              : 'Requirements Audit Uploaded Files'
+           }
+           description={`${viewingCertificateCopc.programName} · ${viewingCertificateCopc.campusName}`}
+           size="xl"
+           footer={
+             <div className="flex w-full items-center justify-between gap-2">
+-              {canMutate && viewModalTab !== 'bor' && (
++              {canMutate && (
+                 <div>
+                   <button
+                     type="button"
+                     onClick={() => {
+                       const target = viewingCertificateCopc;
+-                      closeViewModal();
++                      setViewingCertificateCopc(null);
+                       handleOpenUpload(target);
+                     }}
+                     className="btn btn-primary btn-sm inline-flex items-center gap-1.5 shadow-2xs font-semibold cursor-pointer"
+@@ -1335,17 +1207,10 @@ export function COPCView() {
+                   </button>
+                 </div>
+               )}
+-              {viewModalTab === 'bor' && <div />}
+               <div className="flex items-center gap-2">
+                 <button
+                   type="button"
+-                  onClick={() => {
+-                    if (viewModalTab === 'bor' && borDocUrl) {
+-                      window.open(borDocUrl, '_blank', 'noopener,noreferrer');
+-                      return;
+-                    }
+-                    window.print();
+-                  }}
++                  onClick={() => window.print()}
+                   className="btn btn-secondary btn-sm inline-flex items-center gap-1.5 cursor-pointer"
+                 >
+                   <PrinterIcon className="h-3.5 w-3.5" />
+@@ -1353,7 +1218,7 @@ export function COPCView() {
+                 </button>
+                 <button
+                   type="button"
+-                  onClick={closeViewModal}
++                  onClick={() => setViewingCertificateCopc(null)}
+                   className="btn btn-secondary btn-sm cursor-pointer"
+                 >
+                   Close
+@@ -1363,9 +1228,9 @@ export function COPCView() {
+           }
+         >
+           <div className="space-y-4">
+-            {/* Modal Tabs Header: Official Certificate · BOR Resolution */}
++            {/* Modal Tabs Header: Switch between Official Certificate and Requirements Audit Files */}
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-line pb-3">
+-              <div className="flex items-center gap-1.5 flex-wrap">
++              <div className="flex items-center gap-1.5">
+                 <button
+                   type="button"
+                   onClick={() => setViewModalTab('certificate')}
+@@ -1378,23 +1243,6 @@ export function COPCView() {
+                   <AwardIcon className="h-3.5 w-3.5" />
+                   <span>Official Certificate</span>
+                 </button>
+-                {borResHref(viewingCertificateCopc.borRes) && (
+-                  <button
+-                    type="button"
+-                    onClick={() => {
+-                      setViewModalTab('bor');
+-                      if (!borDocUrl && !borDocLoading) void loadBorDocument(viewingCertificateCopc);
+-                    }}
+-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+-                      viewModalTab === 'bor'
+-                        ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-500/30 shadow-2xs'
+-                        : 'text-ink-muted hover:bg-slate-100 hover:text-ink'
+-                    }`}
+-                  >
+-                    <FileCheckIcon className="h-3.5 w-3.5" />
+-                    <span>BOR Resolution</span>
+-                  </button>
+-                )}
+               </div>
+ 
+               <div className="flex items-center gap-2">
+@@ -1404,42 +1252,6 @@ export function COPCView() {
+               </div>
+             </div>
+ 
+-            {/* TAB: BOR Resolution — same viewer chrome as Official Certificate */}
+-            {viewModalTab === 'bor' && (
+-              borDocLoading ? (
+-                <div className="flex items-center justify-center rounded-2xl border border-line bg-white py-20 text-sm text-ink-muted">
+-                  Loading Board of Regents Resolution…
+-                </div>
+-              ) : borDocMissing && !borDocUrl ? (
+-                <div className="rounded-xl border border-dashed border-line bg-canvas/60 px-6 py-10 text-center">
+-                  <p className="text-sm font-semibold text-ink">BOR Resolution file is not available</p>
+-                  <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-muted">
+-                    This program is linked to a BOR Resolution, but that file could not be loaded.
+-                  </p>
+-                </div>
+-              ) : borDocUrl && borDocKind === 'image' ? (
+-                <div className="space-y-2">
+-                  <p className="text-xs text-ink-muted">Board of Regents Resolution on file.</p>
+-                  <div className="flex justify-center rounded-xl border border-line bg-white p-3">
+-                    <img
+-                      src={borDocUrl}
+-                      alt={`BOR – ${viewingCertificateCopc.programName}`}
+-                      className="max-h-[min(78vh,720px)] max-w-full rounded-lg object-contain"
+-                    />
+-                  </div>
+-                </div>
+-              ) : borDocUrl ? (
+-                <div className="space-y-2">
+-                  <p className="text-xs text-ink-muted">Board of Regents Resolution on file.</p>
+-                  <iframe
+-                    title={`BOR – ${viewingCertificateCopc.programName}`}
+-                    src={`${borDocUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+-                    className="h-[min(78vh,720px)] w-full rounded-xl border border-line bg-white"
+-                  />
+-                </div>
+-              ) : null
+-            )}
+-
+             {/* TAB 1: Official Certificate — real file when available */}
+             {viewModalTab === 'certificate' && (
+               officialCertLoading ? (
+@@ -1469,7 +1281,7 @@ export function COPCView() {
+                   <p className="text-xs text-ink-muted">Official CHED COPC certificate on file.</p>
+                   <iframe
+                     title={`COPC – ${viewingCertificateCopc.programName}`}
+-                    src={`${officialCertUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
++                    src={`${officialCertUrl}#toolbar=1&navpanes=0&view=FitH`}
+                     className="h-[min(78vh,720px)] w-full rounded-xl border border-line bg-white"
+                   />
+                 </div>
+@@ -1537,23 +1349,9 @@ export function COPCView() {
+                     and is officially recognized and confirmed compliant pursuant to Board of Regents Resolution:
+                   </p>
+ 
+-                  {borResHref(viewingCertificateCopc.borRes) ? (
+-                    <button
+-                      type="button"
+-                      onClick={() => {
+-                        setViewModalTab('bor');
+-                        if (!borDocUrl && !borDocLoading) void loadBorDocument(viewingCertificateCopc);
+-                      }}
+-                      className="inline-flex items-center gap-1.5 font-semibold text-brand-700 hover:underline cursor-pointer"
+-                    >
+-                      <FileCheckIcon className="h-4 w-4" />
+-                      View Board of Regents Resolution
+-                    </button>
+-                  ) : (
+-                    <p className="font-semibold text-ink">
+-                      {viewingCertificateCopc.borRes || 'BOR Res. Pending Ratification'}
+-                    </p>
+-                  )}
++                  <p className="font-semibold text-ink">
++                    {viewingCertificateCopc.borRes || 'BOR Res. Pending Ratification'}
++                  </p>
+                 </div>
+ 
+                 {/* Certificate Verification Badge & Signatures */}
+@@ -1790,26 +1588,7 @@ export function COPCView() {
+                     </div>
+                     <div>
+                       <span className="text-slate-500 text-[10px] block uppercase font-semibold">BOR Approval:</span>
+-                      {(() => {
+-                        const href = borResHref(activePdfDoc.copcRecord.borRes);
+-                        if (href) {
+-                          return (
+-                            <a
+-                              href={href}
+-                              target="_blank"
+-                              rel="noreferrer"
+-                              className="font-semibold text-brand-800 hover:underline"
+-                            >
+-                              View BOR Resolution
+-                            </a>
+-                          );
+-                        }
+-                        return (
+-                          <span className="font-semibold text-slate-800">
+-                            {activePdfDoc.copcRecord.borRes || 'BOR Confirmed'}
+-                          </span>
+-                        );
+-                      })()}
++                      <span className="font-semibold text-slate-800">{activePdfDoc.copcRecord.borRes || 'BOR Confirmed'}</span>
+                     </div>
+                   </div>
+ 
+@@ -2360,13 +2139,6 @@ export function COPCView() {
+           </form>
+         </Modal>
+       )}
+-
+-      <CopcDocumentsModal
+-        open={!!docsModalCopc}
+-        record={docsModalCopc}
+-        preferredFolderCode={docsModalFolder}
+-        onClose={() => setDocsModalCopc(null)}
+-      />
+     </>
+   );
+ }
+diff --git a/frontend/src/pages/accreditation/ProgramAccreditationView.tsx b/frontend/src/pages/accreditation/ProgramAccreditationView.tsx
+index 249ba1f..f8abadf 100644
+--- a/frontend/src/pages/accreditation/ProgramAccreditationView.tsx
++++ b/frontend/src/pages/accreditation/ProgramAccreditationView.tsx
+@@ -8,27 +8,22 @@ import { ProgramFormModal } from '../../components/accreditation/ProgramFormModa
+ import { ProgramAreaRepositoryModal } from '../../components/accreditation/ProgramAreaRepositoryModal';
+ import { ProgramCertificatesModal } from '../../components/accreditation/ProgramCertificatesModal';
+ import { ProgramRatingsModal } from '../../components/accreditation/ProgramRatingsModal';
+-import { ProgramFindingsModal } from '../../components/accreditation/ProgramFindingsModal';
+ import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
+ import { EvidenceDocument } from '../../types/evidence';
+ import { ExpiryIndicator } from '../../components/accreditation/ExpiryIndicator';
+ import { ProgramReportPrintModal, ProgramReportType } from '../../components/accreditation/reports/ProgramReportPrintModal';
++import { FindingsPrintModal } from '../../components/accreditation/reports/FindingsPrintModal';
+ import { Modal } from '../../components/ui/Modal';
+ import {
+   certificateAreaKey,
+   compareYears,
+-  findingsAreaKey,
+-  formatLevel,
+   getExpiryInfo,
+   isUrl,
+   levelAsOf,
+-  programLinkedDocKind,
+   statusLabel
+ } from '../../utils/programAccreditation';
+ import { isLocalCertificatePath, localCertificationFileFor } from '../../utils/linkedCertificates';
+ import { hasRatingsDocuments, primaryRatingsPath } from '../../utils/ratingsDocuments';
+-import { hasFindingsDocuments, primaryFindingsPath } from '../../utils/findingsDocuments';
+-import { getSettings } from '../../settings/portalSettings';
+ 
+ type HigherLevelFilter = 'all' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'improved';
+ 
+@@ -200,117 +195,13 @@ export function ProgramAccreditationView() {
+     return stats;
+   }, [detailsModalProgram?.requirements, documents, folders]);
+ 
+-  /** Documents linked to the open program, categorized by cert level / ratings / findings / survey area. */
+-  const programUploadedDocuments = useMemo(() => {
+-    if (!detailsModalProgram) return [];
+-    const programId = detailsModalProgram.id;
+-    const reqIds = (detailsModalProgram.requirements || []).map((r) => r.id);
+-    const reqName = new Map((detailsModalProgram.requirements || []).map((r) => [r.id, r.areaName]));
+-    const systemFolder = (folderId?: string) => {
+-      if (!folderId) return null;
+-      let cursor = folders.find((f) => f.id === folderId);
+-      while (cursor && !cursor.isSystem) cursor = folders.find((f) => f.id === cursor?.parentId);
+-      return cursor;
+-    };
+-
+-    return documents
+-      .filter((d) => d.frameworkId === 'pa')
+-      .map((d) => {
+-        let kind = programLinkedDocKind(d.areaId, programId, reqIds);
+-        const sys = systemFolder(d.folderId);
+-        const levelCode = sys?.code || null;
+-        // Unified PA repo: TRBA / findings live under certificateAreaKey with fixed folder codes.
+-        if (!kind && d.areaId === certificateAreaKey(programId)) {
+-          if (levelCode === 'trba') kind = 'ratings';
+-          else if (levelCode === 'findings') kind = 'findings';
+-          else kind = 'certificate';
+-        }
+-        if (!kind) return null;
+-        const category =
+-          kind === 'ratings'
+-            ? 'Technical Review & Board Action'
+-            : kind === 'findings'
+-              ? 'Summary of Findings & Recommendation'
+-              : kind === 'certificate'
+-                ? levelCode && levelCode !== 'trba' && levelCode !== 'findings'
+-                  ? `Certificate · ${formatLevel(levelCode as ProgramAccreditation['status'])}`
+-                  : 'Certificate'
+-                : reqName.get(d.areaId) || 'Survey area';
+-        return { doc: d, kind, category, levelCode };
+-      })
+-      .filter((row): row is NonNullable<typeof row> => !!row)
+-      .sort((a, b) => b.doc.dateAdded.localeCompare(a.doc.dateAdded));
+-  }, [detailsModalProgram, documents, folders]);
+-
+   // AACCUP certificates (per-program level folders)
+   const [certificateProgramId, setCertificateProgramId] = useState<string | null>(null);
+   const certificateProgram = programAccreditations.find((p) => p.id === certificateProgramId) ?? null;
+   const [ratingsProgramId, setRatingsProgramId] = useState<string | null>(null);
+   const ratingsProgram = programAccreditations.find((p) => p.id === ratingsProgramId) ?? null;
+-  const [findingsProgramId, setFindingsProgramId] = useState<string | null>(null);
+-  const findingsProgram = programAccreditations.find((p) => p.id === findingsProgramId) ?? null;
+   const [previewCertificate, setPreviewCertificate] = useState<EvidenceDocument | null>(null);
+ 
+-  const openFindingsPreview = (prog: ProgramAccreditation) => {
+-    // Only real files from the Summary of Findings folder — no Drive / dummy fallbacks.
+-    if (!hasFindingsDocuments(prog.id)) return;
+-
+-    const areaId = findingsAreaKey(prog.id);
+-    const seeded =
+-      documents.find((d) => d.areaId === areaId && d.isActive) ||
+-      documents.find((d) => d.areaId === areaId);
+-    if (seeded) {
+-      setPreviewCertificate(seeded);
+-      return;
+-    }
+-
+-    const path = primaryFindingsPath(prog.id);
+-    if (!path || !isLocalCertificatePath(path)) return;
+-
+-    const today = new Date().toISOString().slice(0, 10);
+-    const { defaultAcademicYear } = getSettings().general;
+-    const fileName = path.split('/').pop() || 'findings.pdf';
+-    setPreviewCertificate({
+-      id: `doc-findings-preview-${prog.id}`,
+-      title: `Summary of Findings & Recommendation – ${prog.programName}`,
+-      description: `AACCUP Summary of Findings & Recommendation for ${prog.programName}.`,
+-      keywords: ['AACCUP', 'Findings', 'Recommendation', prog.programName],
+-      frameworkId: 'pa',
+-      areaId,
+-      criterionId: '',
+-      indicatorId: '',
+-      docType: 'Report',
+-      documentUrl: path,
+-      academicYear: defaultAcademicYear,
+-      cycle: 'AACCUP Summary of Findings & Recommendation',
+-      program: prog.programName,
+-      college: '—',
+-      department: '—',
+-      office: 'Accreditation Office',
+-      campus: prog.campusName,
+-      campusId: prog.campusId,
+-      documentDate: today,
+-      confidentiality: 'Internal',
+-      status: 'Indexed',
+-      dateAdded: today,
+-      fileType: fileName.toLowerCase().endsWith('.png')
+-        ? 'PNG'
+-        : fileName.toLowerCase().endsWith('.jpg') || fileName.toLowerCase().endsWith('.jpeg')
+-          ? 'JPG'
+-          : 'PDF',
+-      pages: 1,
+-      sizeMb: 0.2,
+-      uploadedBy: 'Accreditation Office',
+-      passages: [
+-        'Summary of Findings & Recommendation',
+-        `Program: ${prog.programName}`,
+-        `File: ${fileName}`
+-      ],
+-      approvalStatus: 'Approved',
+-      isActive: true
+-    });
+-  };
+-
+   /** Per certificate area: how many certificates it holds and which one is switched on, with its level folder name. */
+   const certificateSummary = useMemo(() => {
+     const summary: Record<string, { count: number; active?: EvidenceDocument; activeLevel?: string }> = {};
+@@ -338,6 +229,8 @@ export function ProgramAccreditationView() {
+     fromYear?: number;
+     targetYear?: number;
+   }>({ open: false, type: 'summary' });
++  const [findingsProgramId, setFindingsProgramId] = useState<string | null>(null);
++
+   const improvedProgramIds = useMemo(
+     () => new Set(compareYears(programAccreditations, BASELINE_YEAR, TARGET_YEAR).improved.map((c) => c.program.id)),
+     [programAccreditations]
+@@ -1156,16 +1049,9 @@ export function ProgramAccreditationView() {
+                         </button>
+                       )}
+                       <div className="flex items-center gap-1">
+-                        {hasFindingsDocuments(prog.id) ? (
+-                          <button
+-                            type="button"
+-                            onClick={() => openFindingsPreview(prog)}
+-                            className="btn btn-ghost btn-icon h-8 w-8 min-h-0 min-w-0"
+-                            aria-label="Summary of findings"
+-                          >
+-                            <PrinterIcon className="h-3.5 w-3.5" />
+-                          </button>
+-                        ) : null}
++                        <button type="button" onClick={() => setFindingsProgramId(prog.id)} className="btn btn-ghost btn-icon h-8 w-8 min-h-0 min-w-0" aria-label="Summary of findings">
++                          <PrinterIcon className="h-3.5 w-3.5" />
++                        </button>
+                         {canMutate && (
+                           <button
+                             type="button"
+@@ -1234,6 +1120,7 @@ export function ProgramAccreditationView() {
+                 </tr>
+               ) : (
+                 filtered.map((prog) => {
++                  const hasFindingsText = !!(prog.findingsSummary || prog.recommendations);
+                   return (
+                     <tr key={prog.id} className="tr-hover">
+                       <td className="td py-3">
+@@ -1242,22 +1129,7 @@ export function ProgramAccreditationView() {
+                           <span className="rounded bg-canvas px-1.5 py-0.5 border border-line">
+                             {prog.degreeLevel}
+                           </span>
+-                          {prog.borRes &&
+-                            (isUrl(prog.borRes) ||
+-                            isLocalCertificatePath(prog.borRes) ||
+-                            prog.borRes.startsWith('/') ? (
+-                              <a
+-                                href={prog.borRes}
+-                                target="_blank"
+-                                rel="noreferrer"
+-                                className="font-semibold text-brand-700 hover:underline"
+-                                title="Open Board of Regents Resolution"
+-                              >
+-                                BOR: View
+-                              </a>
+-                            ) : (
+-                              <span>BOR: {prog.borRes}</span>
+-                            ))}
++                          {prog.borRes && <span>BOR: {prog.borRes}</span>}
+                           {prog.cmoNo && <span>CMO: {prog.cmoNo}</span>}
+                           {prog.scheduleForAccreditation && (
+                             <span className="font-semibold text-brand-700">Survey: {prog.scheduleForAccreditation}</span>
+@@ -1305,15 +1177,6 @@ export function ProgramAccreditationView() {
+                         {(() => {
+                           const cert = certificateSummary[certificateAreaKey(prog.id)];
+                           const count = cert?.count ?? 0;
+-                          const localPath = localCertificationFileFor(prog);
+-                          const driveOrPath =
+-                            localPath || prog.certificationFile || undefined;
+-                          const hasLocalPath = Boolean(
+-                            localPath ||
+-                              (driveOrPath &&
+-                                (isLocalCertificatePath(driveOrPath) || driveOrPath.startsWith('/')))
+-                          );
+-                          const hasDriveUrl = !hasLocalPath && isUrl(driveOrPath);
+                           return (
+                             <div className="flex flex-col items-start gap-1">
+                               {cert?.active ? (
+@@ -1347,27 +1210,6 @@ export function ProgramAccreditationView() {
+                                   <FileCheckIcon className="h-3 w-3 shrink-0" />
+                                   None active ({count})
+                                 </button>
+-                              ) : hasDriveUrl ? (
+-                                <a
+-                                  href={driveOrPath}
+-                                  target="_blank"
+-                                  rel="noreferrer"
+-                                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-line bg-canvas px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 transition hover:border-brand-300"
+-                                  title="Open AACCUP certificate"
+-                                >
+-                                  <ExternalLinkIcon className="h-3 w-3 shrink-0" />
+-                                  View
+-                                </a>
+-                              ) : hasLocalPath ? (
+-                                <button
+-                                  type="button"
+-                                  onClick={() => setCertificateProgramId(prog.id)}
+-                                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-line bg-canvas px-2 py-0.5 text-[11.5px] font-semibold text-brand-700 transition hover:border-brand-300"
+-                                  title="Open AACCUP certificate"
+-                                >
+-                                  <FileCheckIcon className="h-3 w-3 shrink-0" />
+-                                  View
+-                                </button>
+                               ) : canMutate ? (
+                                 <button
+                                   type="button"
+@@ -1378,19 +1220,8 @@ export function ProgramAccreditationView() {
+                                   <UploadIcon className="h-3 w-3 shrink-0" />
+                                   Upload
+                                 </button>
+-                              ) : (
++                              ) : !(isUrl(prog.certificationFile) || isLocalCertificatePath(prog.certificationFile) || localCertificationFileFor(prog)) ? (
+                                 <span className="text-ink-subtle">—</span>
+-                              )}
+-                              {canMutate && (hasDriveUrl || hasLocalPath) && count === 0 && !cert?.active ? (
+-                                <button
+-                                  type="button"
+-                                  onClick={() => setCertificateProgramId(prog.id)}
+-                                  className="inline-flex items-center gap-1 text-[10px] font-medium text-ink-muted hover:text-brand-700"
+-                                  title="Upload or manage local certificate copies"
+-                                >
+-                                  <UploadIcon className="h-3 w-3 shrink-0" />
+-                                  Manage
+-                                </button>
+                               ) : null}
+                             </div>
+                           );
+@@ -1448,18 +1279,26 @@ export function ProgramAccreditationView() {
+                       </td>
+ 
+                       <td className="td py-3 text-xs whitespace-nowrap">
+-                        {hasFindingsDocuments(prog.id) ? (
++                        {prog.findingsLink ? (
++                            <a
++                              href={prog.findingsLink}
++                              target="_blank"
++                              rel="noreferrer"
++                            className="inline-flex items-center gap-1 rounded border border-line bg-canvas px-2 py-0.5 font-medium text-brand-700 hover:border-brand-300"
++                            title="Open Summary of Findings & Recommendation"
++                          >
++                            <ExternalLinkIcon className="h-3.5 w-3.5" /> View
++                          </a>
++                        ) : hasFindingsText ? (
+                           <button
+                             type="button"
+-                            onClick={() => openFindingsPreview(prog)}
++                            onClick={() => setFindingsProgramId(prog.id)}
+                             className="inline-flex items-center gap-1 rounded border border-line bg-canvas px-2 py-0.5 font-medium text-brand-700 hover:border-brand-300"
+-                            title="View Summary of Findings & Recommendation"
++                            title="View recorded Summary of Findings & Recommendation"
+                           >
+                             <FileCheckIcon className="h-3.5 w-3.5" /> View
+                           </button>
+-                        ) : (
+-                          <span className="text-ink-subtle">—</span>
+-                        )}
++                        ) : null}
+                       </td>
+ 
+                       <td className="td py-3 text-right whitespace-nowrap">
+@@ -1469,17 +1308,7 @@ export function ProgramAccreditationView() {
+                               type="button"
+                               onClick={() => setFindingsProgramId(prog.id)}
+                               className="btn btn-ghost btn-sm h-7 w-7 p-0"
+-                              title="Open Summary of Findings & Recommendation folder"
+-                            >
+-                              <UploadIcon className="h-3.5 w-3.5 text-ink-muted" />
+-                            </button>
+-                          ) : null}
+-                          {canMutate && hasFindingsDocuments(prog.id) ? (
+-                            <button
+-                              type="button"
+-                              onClick={() => openFindingsPreview(prog)}
+-                              className="btn btn-ghost btn-sm h-7 w-7 p-0"
+-                              title="View Summary of Findings & Recommendation"
++                              title="Print Summary of Findings & Recommendation"
+                             >
+                               <PrinterIcon className="h-3.5 w-3.5 text-ink-muted" />
+                             </button>
+@@ -1545,130 +1374,45 @@ export function ProgramAccreditationView() {
+             </div>
+           }
+         >
+-          <div className="space-y-4 max-h-[32rem] overflow-y-auto">
+-            <section className="panel overflow-hidden">
+-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-canvas/40 px-3 py-2">
+-                <div>
+-                  <p className="text-xs font-bold text-ink">Uploaded Documents</p>
+-                  <p className="text-[11px] text-ink-muted">
+-                    Linked to this program · shown under {formatLevel(detailsModalProgram.status)} and matching folders
+-                  </p>
+-                </div>
+-                {canMutate && (
+-                  <button
+-                    type="button"
+-                    onClick={() => {
+-                      setCertificateProgramId(detailsModalProgram.id);
+-                      setDetailsModalProgram(null);
+-                    }}
+-                    className="btn btn-secondary btn-sm h-7 px-2"
+-                  >
+-                    <UploadIcon className="h-3.5 w-3.5" /> Upload certificate
+-                  </button>
+-                )}
+-              </div>
+-              {programUploadedDocuments.length === 0 ? (
+-                <p className="px-3 py-4 text-xs text-ink-muted">No documents uploaded for this program yet.</p>
+-              ) : (
+-                <ul className="divide-y divide-line">
+-                  {programUploadedDocuments.map(({ doc, category, kind, levelCode }) => (
+-                    <li key={doc.id} className="flex items-center justify-between gap-3 p-3 text-xs">
+-                      <div className="min-w-0">
+-                        <p className="truncate font-semibold text-ink">{doc.title}</p>
+-                        <p className="mt-0.5 text-[11px] text-ink-muted">
+-                          {category}
+-                          {doc.isActive ? ' · Active' : ''}
+-                          {kind === 'certificate' && levelCode && levelCode === detailsModalProgram.status
+-                            ? ' · Current status folder'
+-                            : ''}
+-                        </p>
+-                      </div>
+-                      <div className="flex shrink-0 items-center gap-1.5">
+-                        <button
+-                          type="button"
+-                          className="btn btn-secondary btn-sm h-7 px-2"
+-                          onClick={() => setPreviewCertificate(doc)}
+-                          title="Preview"
+-                        >
+-                          <EyeIcon className="h-3.5 w-3.5" />
+-                        </button>
+-                        {kind === 'certificate' && (
+-                          <button
+-                            type="button"
+-                            className="btn btn-secondary btn-sm h-7 px-2"
+-                            onClick={() => {
+-                              setCertificateProgramId(detailsModalProgram.id);
+-                              setDetailsModalProgram(null);
+-                            }}
+-                            title="Open certificate folders"
+-                          >
+-                            <FolderOpenIcon className="h-3.5 w-3.5" />
+-                          </button>
+-                        )}
+-                        {kind === 'ratings' && (
+-                          <button
+-                            type="button"
+-                            className="btn btn-secondary btn-sm h-7 px-2"
+-                            onClick={() => {
+-                              setRatingsProgramId(detailsModalProgram.id);
+-                              setDetailsModalProgram(null);
+-                            }}
+-                            title="Open ratings"
+-                          >
+-                            <FolderOpenIcon className="h-3.5 w-3.5" />
+-                          </button>
+-                        )}
+-                      </div>
+-                    </li>
+-                  ))}
+-                </ul>
+-              )}
+-            </section>
++          <div className="panel divide-y divide-line overflow-hidden max-h-[32rem] overflow-y-auto">
++            {(detailsModalProgram.requirements || []).map((req) => {
++              const repo = areaRepositoryStats[req.id];
++              return (
++                <div
++                  key={req.id}
++                  className="flex items-center justify-between p-3 text-xs hover:bg-canvas/50"
++                >
++                  <div className="min-w-0">
++                    <p className="font-semibold text-ink">{req.areaName}</p>
++                    <p className="text-[11px] text-ink-muted mt-0.5">
++                      {repo ? (
++                        <span className="inline-flex items-center gap-1 font-medium text-brand-700">
++                          <FolderOpenIcon className="h-3 w-3" />
++                          {repo.files} file{repo.files === 1 ? '' : 's'}
++                          {repo.folders > 0 && ` · ${repo.folders} folder${repo.folders === 1 ? '' : 's'}`}
++                        </span>
++                      ) : req.documentName ? (
++                        <span className="font-medium text-brand-700">{req.documentName}</span>
++                      ) : (
++                        'No document uploaded yet'
++                      )}
++                    </p>
++                  </div>
+ 
+-            <section className="panel divide-y divide-line overflow-hidden">
+-              <div className="border-b border-line bg-canvas/40 px-3 py-2">
+-                <p className="text-xs font-bold text-ink">Survey areas</p>
+-                <p className="text-[11px] text-ink-muted">Area evidence repositories for this program</p>
+-              </div>
+-              {(detailsModalProgram.requirements || []).map((req) => {
+-                const repo = areaRepositoryStats[req.id];
+-                return (
+-                  <div
+-                    key={req.id}
+-                    className="flex items-center justify-between p-3 text-xs hover:bg-canvas/50"
+-                  >
+-                    <div className="min-w-0">
+-                      <p className="font-semibold text-ink">{req.areaName}</p>
+-                      <p className="text-[11px] text-ink-muted mt-0.5">
+-                        {repo ? (
+-                          <span className="inline-flex items-center gap-1 font-medium text-brand-700">
+-                            <FolderOpenIcon className="h-3 w-3" />
+-                            {repo.files} file{repo.files === 1 ? '' : 's'}
+-                            {repo.folders > 0 && ` · ${repo.folders} folder${repo.folders === 1 ? '' : 's'}`}
+-                          </span>
+-                        ) : req.documentName ? (
+-                          <span className="font-medium text-brand-700">{req.documentName}</span>
+-                        ) : (
+-                          'No document uploaded yet'
+-                        )}
+-                      </p>
++                  {canMutate && (
++                    <div className="flex items-center gap-2">
++                      <button
++                        type="button"
++                        onClick={() => setRepositoryReqId(req.id)}
++                        className="btn btn-secondary btn-sm h-7 px-2"
++                      >
++                        <UploadIcon className="h-3.5 w-3.5" /> Upload
++                      </button>
+                     </div>
+-
+-                    {canMutate && (
+-                      <div className="flex items-center gap-2">
+-                        <button
+-                          type="button"
+-                          onClick={() => setRepositoryReqId(req.id)}
+-                          className="btn btn-secondary btn-sm h-7 px-2"
+-                        >
+-                          <UploadIcon className="h-3.5 w-3.5" /> Upload
+-                        </button>
+-                      </div>
+-                    )}
+-                  </div>
+-                );
+-              })}
+-            </section>
++                  )}
++                </div>
++              );
++            })}
+           </div>
+         </Modal>
+       )}
+@@ -1689,6 +1433,12 @@ export function ProgramAccreditationView() {
+         onClose={() => setReportModal((prev) => ({ ...prev, open: false }))}
+       />
+ 
++      <FindingsPrintModal
++        open={!!findingsProgramId}
++        programId={findingsProgramId}
++        onClose={() => setFindingsProgramId(null)}
++      />
++
+       {/* Program Area Evidence Repository */}
+       <ProgramAreaRepositoryModal
+         open={!!repositoryRequirement}
+@@ -1707,11 +1457,6 @@ export function ProgramAccreditationView() {
+         program={ratingsProgram}
+         onClose={() => setRatingsProgramId(null)}
+       />
+-      <ProgramFindingsModal
+-        open={!!findingsProgram}
+-        program={findingsProgram}
+-        onClose={() => setFindingsProgramId(null)}
+-      />
+       <DocumentPreviewModal doc={previewCertificate} onClose={() => setPreviewCertificate(null)} grantAccess />
+     </>
+   );
+diff --git a/frontend/src/pages/evidence/UploadEvidence.tsx b/frontend/src/pages/evidence/UploadEvidence.tsx
+index d0502c6..0824488 100644
+--- a/frontend/src/pages/evidence/UploadEvidence.tsx
++++ b/frontend/src/pages/evidence/UploadEvidence.tsx
+@@ -1,4 +1,4 @@
+-import React, { useEffect, useMemo, useState } from 'react';
++import React, { useMemo, useState } from 'react';
+ import { Link, useSearchParams } from 'react-router-dom';
+ import {
+   ArrowLeftIcon,
+@@ -43,13 +43,6 @@ import { UploadDropzone } from '../../components/upload/UploadDropzone';
+ import { StagedFileList } from '../../components/upload/StagedFileList';
+ import { usePortalSettings } from '../../settings/portalSettings';
+ import { uploadDocumentRemote } from '../../services/documents/uploadClient';
+-import {
+-  COPC_ROOT_FOLDER_ID,
+-  isCopcCanonicalFolderId,
+-  isPaCanonicalFolderId,
+-  PA_ROOT_FOLDER_ID,
+-  reconcilePaCopcRepository
+-} from '../../utils/programAccreditation';
+ import { toast } from 'sonner';
+ 
+ const FOLDER_THEMES: Record<FolderColor, { iconBg: string; iconColor: string; tagBg: string; tagText: string; borderHover: string }> = {
+@@ -125,27 +118,6 @@ export function UploadEvidence() {
+   const settings = usePortalSettings();
+   const uploadDefaults = { academicYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
+ 
+-  // Keep PA/COPC Online Repository flattened to the allowlisted folders only.
+-  useEffect(() => {
+-    const result = reconcilePaCopcRepository(folders, documents);
+-    if (!result.changed) return;
+-    result.folders.forEach((f) => {
+-      if (!folders.some((e) => e.id === f.id)) saveFolder(f);
+-    });
+-    folders.forEach((f) => {
+-      if ((f.frameworkId === 'pa' || f.frameworkId === 'copc') && !result.folders.some((e) => e.id === f.id)) {
+-        hideFolderId(f.id);
+-        deleteFolder(f.id);
+-      }
+-    });
+-    result.documents.forEach((d) => {
+-      const prev = documents.find((p) => p.id === d.id);
+-      if (prev && prev.folderId !== d.folderId) updateDocument(d.id, { folderId: d.folderId });
+-    });
+-    // Run when entering the repository page / when folder set drifts.
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, []);
+-
+   // Root directory view states
+   const [folderSearch, setFolderSearch] = useState('');
+   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+@@ -197,11 +169,11 @@ export function UploadEvidence() {
+     }
+   };
+ 
+-  // The 5 Canonical Framework Root Repositories: IA, PA, COPC, PQA, ISO ONLY
++  // The 5 Canonical Framework Root Repositories: IA, PA, COPC, PQA, ISO ONLY (EXACTLY 5 AT ALL CAMPUSES AND AT EACH CAMPUS)
+   const rootFrameworkFolders = useMemo(() => {
+     const hidden = new Set(hiddenFolderIds);
+     return initialFolders
+-      .filter((initF) => isRootFrameworkFolder(initF) && !hidden.has(initF.id))
++      .filter((initF) => !hidden.has(initF.id))
+       .map((initF) => {
+         const match = folders.find(
+           (f) => f.id === initF.id || (f.code?.toUpperCase() === initF.code?.toUpperCase() && isRootFrameworkFolder(f))
+@@ -224,31 +196,12 @@ export function UploadEvidence() {
+     return rootFrameworkFolders.find((rf) => rf.frameworkId === currentFolder.frameworkId) || currentFolder;
+   }, [currentFolder, isCurrentRoot, rootFrameworkFolders]);
+ 
+-  const isPaRepo = currentFrameworkId === 'pa';
+-  const isCopcRepo = currentFrameworkId === 'copc';
+-  const isFlatFrameworkRepo = isPaRepo || isCopcRepo;
+-  const isPaOrCopcCanonicalChild =
+-    isPaCanonicalFolderId(currentFolder?.id) || isCopcCanonicalFolderId(currentFolder?.id);
+-  /** PA/COPC: no nested folders under the fixed status folders. */
+-  const blockNestedFolders = isFlatFrameworkRepo && (isCurrentRoot || isPaOrCopcCanonicalChild);
+-
+   // Strictly isolated subfolders belonging to this framework AND matching selectedCampus
+   const insideSubfolders = useMemo(() => {
+     if (!currentFolder) return [];
+-    // Inside a fixed PA/COPC status folder: files only (no nested folders).
+-    if (isPaOrCopcCanonicalChild) return [];
+-
+     return folders.filter((f) => {
+       if (isRootFrameworkFolder(f)) return false;
+       if (f.frameworkId !== currentFrameworkId) return false;
+-
+-      if (isCurrentRoot && isPaRepo) {
+-        return f.parentId === PA_ROOT_FOLDER_ID && isPaCanonicalFolderId(f.id);
+-      }
+-      if (isCurrentRoot && isCopcRepo) {
+-        return f.parentId === COPC_ROOT_FOLDER_ID && isCopcCanonicalFolderId(f.id);
+-      }
+-
+       if (isCurrentRoot) {
+         if (f.parentId && f.parentId !== currentFolder.id) return false;
+       } else {
+@@ -256,32 +209,17 @@ export function UploadEvidence() {
+       }
+       return isFolderCampusMatch(f, selectedCampus);
+     });
+-  }, [
+-    currentFolder,
+-    folders,
+-    currentFrameworkId,
+-    isCurrentRoot,
+-    selectedCampus,
+-    isPaRepo,
+-    isCopcRepo,
+-    isPaOrCopcCanonicalChild
+-  ]);
++  }, [currentFolder, folders, currentFrameworkId, isCurrentRoot, selectedCampus]);
+ 
+   // All sibling subfolders belonging to this framework (for quick-switching within a subfolder view)
+   const siblingSubfolders = useMemo(() => {
+     if (!parentFrameworkFolder) return [];
+-    if (isPaRepo) {
+-      return folders.filter((f) => f.parentId === PA_ROOT_FOLDER_ID && isPaCanonicalFolderId(f.id));
+-    }
+-    if (isCopcRepo) {
+-      return folders.filter((f) => f.parentId === COPC_ROOT_FOLDER_ID && isCopcCanonicalFolderId(f.id));
+-    }
+     return folders.filter((f) => {
+       if (isRootFrameworkFolder(f)) return false;
+       if (f.frameworkId !== currentFrameworkId) return false;
+       return isFolderCampusMatch(f, selectedCampus);
+     });
+-  }, [parentFrameworkFolder, folders, currentFrameworkId, selectedCampus, isPaRepo, isCopcRepo]);
++  }, [parentFrameworkFolder, folders, currentFrameworkId, selectedCampus]);
+ 
+   // Filtered subfolders by live subfolder search input
+   const filteredInsideSubfolders = useMemo(() => {
+@@ -350,31 +288,15 @@ export function UploadEvidence() {
+     return documents.filter((d) => {
+       if (d.frameworkId !== currentFrameworkId) return false;
+       if (!isDocCampusMatch(d, selectedCampus)) return false;
+-      // Inside a fixed PA/COPC folder: only that folder's files.
+       if (!isCurrentRoot) {
+         return d.folderId === currentFolder.id;
+       }
+-      // PA/COPC roots are folder grids only — files live in Certificate Number / BOR / Level folders.
+-      if (isFlatFrameworkRepo) {
+-        if (activeSubfolderFilter !== 'all') {
+-          return d.folderId === activeSubfolderFilter;
+-        }
+-        return false;
+-      }
+       if (activeSubfolderFilter !== 'all') {
+         return d.folderId === activeSubfolderFilter;
+       }
+       return true;
+     });
+-  }, [
+-    currentFolder,
+-    documents,
+-    currentFrameworkId,
+-    selectedCampus,
+-    isCurrentRoot,
+-    activeSubfolderFilter,
+-    isFlatFrameworkRepo
+-  ]);
++  }, [currentFolder, documents, currentFrameworkId, selectedCampus, isCurrentRoot, activeSubfolderFilter]);
+ 
+   // Filtered & sorted documents inside currently selected folder (search & sort)
+   const docsInFolder = useMemo(() => {
+@@ -431,10 +353,6 @@ export function UploadEvidence() {
+ 
+   // Folder creation/update handler
+   const handleCreateOrEditFolder = (f: EvidenceFolder) => {
+-    if (!editingFolder && blockNestedFolders) {
+-      toast.error('Program Accreditation and COPC use fixed folders only — nested folders are not allowed.');
+-      return;
+-    }
+     const targetCampusId = selectedCampus !== 'all' ? selectedCampus : 'tandag';
+     const targetCampusName = selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)';
+     const folderToSave: EvidenceFolder = editingFolder
+@@ -456,18 +374,6 @@ export function UploadEvidence() {
+           campus: f.campus || targetCampusName,
+           libraryOnly: true
+         };
+-    // Never persist user folders under PA/COPC trees.
+-    if (
+-      !editingFolder &&
+-      (folderToSave.frameworkId === 'pa' || folderToSave.frameworkId === 'copc') &&
+-      !isPaCanonicalFolderId(folderToSave.id) &&
+-      !isCopcCanonicalFolderId(folderToSave.id) &&
+-      folderToSave.id !== PA_ROOT_FOLDER_ID &&
+-      folderToSave.id !== COPC_ROOT_FOLDER_ID
+-    ) {
+-      toast.error('Only the fixed Program Accreditation / COPC folders are allowed.');
+-      return;
+-    }
+     saveFolder(folderToSave);
+     toast.success(editingFolder ? `Updated folder: ${f.name}` : `Created folder: ${f.name}`);
+   };
+@@ -542,8 +448,7 @@ export function UploadEvidence() {
+       let targetFolderName = currentFolder.name;
+ 
+       // Mode: Entire Folder upload from directory input
+-      // PA/COPC stay flat — never create nested folders; dump files into the current fixed folder.
+-      if (uploadMode === 'folder' && uploadedFileList[0]?.path && !blockNestedFolders) {
++      if (uploadMode === 'folder' && uploadedFileList[0]?.path) {
+         const rootDirName = uploadedFileList[0].path.split('/')[0];
+         if (rootDirName && rootDirName !== uploadedFileList[0].name) {
+           const existingSub = insideSubfolders.find(
+@@ -578,12 +483,6 @@ export function UploadEvidence() {
+         }
+       }
+ 
+-      if (blockNestedFolders && isCurrentRoot) {
+-        toast.error('Open Candidate, Level 1–4, TRBA, Findings, or a COPC folder before uploading.');
+-        setIsProcessingUpload(false);
+-        return;
+-      }
+-
+       const campusTag = selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)';
+       const campusIdTag = selectedCampus !== 'all' ? selectedCampus : 'tandag';
+       const today = new Date().toISOString().slice(0, 10);
+@@ -850,19 +749,14 @@ export function UploadEvidence() {
+               type="button"
+               onClick={() => {
+                 setUploadedFileList([]);
+-                setUploadMode(blockNestedFolders ? 'files' : uploadMode);
+                 setSelectedDestinationFolderId(activeSubfolderFilter !== 'all' ? activeSubfolderFilter : currentFolder.id);
+                 setUploadModalOpen(true);
+               }}
+               className="btn btn-primary btn-sm shadow-xs font-semibold gap-1.5"
+-              title={
+-                blockNestedFolders
+-                  ? `Upload files into a fixed ${currentFolder.code} folder`
+-                  : `Upload individual files or entire folder into ${currentFolder.code}`
+-              }
++              title={`Upload individual files or entire folder into ${currentFolder.code}`}
+             >
+               <CloudUploadIcon className="h-4 w-4" />
+-              <span>{blockNestedFolders ? 'Upload Files' : 'Upload Files / Folder'}</span>
++              <span>Upload Files / Folder</span>
+             </button>
+           </div>
+         ) : (
+@@ -880,7 +774,6 @@ export function UploadEvidence() {
+               type="button"
+               onClick={() => {
+                 setUploadedFileList([]);
+-                setUploadMode(blockNestedFolders ? 'files' : uploadMode);
+                 setSelectedDestinationFolderId(currentFolder.id);
+                 setUploadModalOpen(true);
+               }}
+@@ -1514,36 +1407,26 @@ export function UploadEvidence() {
+                     </div>
+                   )}
+ 
+-                  {!blockNestedFolders && (
+-                    <button
+-                      type="button"
+-                      onClick={() => {
+-                        setEditingFolder(null);
+-                        setIsFolderModalOpen(true);
+-                      }}
+-                      className="btn btn-secondary btn-sm text-xs font-semibold gap-1 text-brand-600 hover:text-brand-700"
+-                    >
+-                      <FolderPlusIcon className="h-3.5 w-3.5" />
+-                      <span>+ Add Subfolder</span>
+-                    </button>
+-                  )}
++                  <button
++                    type="button"
++                    onClick={() => {
++                      setEditingFolder(null);
++                      setIsFolderModalOpen(true);
++                    }}
++                    className="btn btn-secondary btn-sm text-xs font-semibold gap-1 text-brand-600 hover:text-brand-700"
++                  >
++                    <FolderPlusIcon className="h-3.5 w-3.5" />
++                    <span>+ Add Subfolder</span>
++                  </button>
+                 </div>
+               </div>
+ 
+               {insideSubfolders.length === 0 ? (
+                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center text-xs text-ink-muted">
+                   <FolderIcon className="mx-auto h-7 w-7 text-slate-300 mb-1.5" />
+-                  <p className="font-semibold text-slate-700">
+-                    {isPaOrCopcCanonicalChild
+-                      ? 'Files only in this folder'
+-                      : `No subfolders yet in ${currentFolder.code}`}
+-                  </p>
++                  <p className="font-semibold text-slate-700">No subfolders yet in {currentFolder.code}</p>
+                   <p className="text-[11px] text-slate-400 mt-0.5">
+-                    {isPaOrCopcCanonicalChild
+-                      ? 'Upload documents directly here — nested folders are not used for Program Accreditation or COPC.'
+-                      : blockNestedFolders
+-                        ? 'Only the fixed status folders are shown for this repository.'
+-                        : 'Click "+ Add Subfolder" or upload an entire folder to automatically create subdirectories.'}
++                    Click &quot;+ Add Subfolder&quot; or upload an entire folder to automatically create subdirectories.
+                   </p>
+                 </div>
+               ) : filteredInsideSubfolders.length === 0 ? (
+@@ -1683,7 +1566,6 @@ export function UploadEvidence() {
+                       type="button"
+                       onClick={() => {
+                         setUploadedFileList([]);
+-                        setUploadMode(blockNestedFolders ? 'files' : uploadMode);
+                         setSelectedDestinationFolderId(currentFolder.id);
+                         setUploadModalOpen(true);
+                       }}
+@@ -1862,42 +1744,40 @@ export function UploadEvidence() {
+               </span>
+             </div>
+ 
+-            {/* Upload Mode Selector — PA/COPC stay flat (files only). */}
+-            {!blockNestedFolders ? (
+-              <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100/80 p-1">
+-                <button
+-                  type="button"
+-                  onClick={() => {
+-                    setUploadMode('files');
+-                    setUploadedFileList([]);
+-                  }}
+-                  className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
+-                    uploadMode === 'files'
+-                      ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+-                      : 'text-slate-600 hover:text-slate-900'
+-                  }`}
+-                >
+-                  <FileTextIcon className="h-4 w-4 text-brand-600" />
+-                  <span>Individual Files</span>
+-                </button>
++            {/* Upload Mode Selector (Individual Files vs Entire Folder) */}
++            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100/80 p-1">
++              <button
++                type="button"
++                onClick={() => {
++                  setUploadMode('files');
++                  setUploadedFileList([]);
++                }}
++                className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
++                  uploadMode === 'files'
++                    ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
++                    : 'text-slate-600 hover:text-slate-900'
++                }`}
++              >
++                <FileTextIcon className="h-4 w-4 text-brand-600" />
++                <span>Individual Files</span>
++              </button>
+ 
+-                <button
+-                  type="button"
+-                  onClick={() => {
+-                    setUploadMode('folder');
+-                    setUploadedFileList([]);
+-                  }}
+-                  className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
+-                    uploadMode === 'folder'
+-                      ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
+-                      : 'text-slate-600 hover:text-slate-900'
+-                  }`}
+-                >
+-                  <FolderArchiveIcon className="h-4 w-4 text-brand-600" />
+-                  <span>Entire Folder</span>
+-                </button>
+-              </div>
+-            ) : null}
++              <button
++                type="button"
++                onClick={() => {
++                  setUploadMode('folder');
++                  setUploadedFileList([]);
++                }}
++                className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
++                  uploadMode === 'folder'
++                    ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
++                    : 'text-slate-600 hover:text-slate-900'
++                }`}
++              >
++                <FolderArchiveIcon className="h-4 w-4 text-brand-600" />
++                <span>Entire Folder</span>
++              </button>
++            </div>
+ 
+             {/* Destination Subfolder Selector (Optional) */}
+             {insideSubfolders.length > 0 && (
+diff --git a/frontend/src/utils/samplePurge.ts b/frontend/src/utils/samplePurge.ts
+index d2d5620..151cdb4 100644
+--- a/frontend/src/utils/samplePurge.ts
++++ b/frontend/src/utils/samplePurge.ts
+@@ -208,9 +208,8 @@ export function purgeLegacySampleData() {
+     }));
+ 
+     // Mark one-time seeders as already applied so they do not re-inject dummy docs.
+-    localStorage.setItem('accrevia_linked_certificates', 'aaccup-local-certs-2');
+-    localStorage.setItem('accrevia_ratings_documents', 'aaccup-ratings-local-2');
+-    localStorage.setItem('accrevia_findings_documents', 'aaccup-findings-folder-only-1');
++    localStorage.setItem('accrevia_linked_certificates', 'aaccup-local-certs-1');
++    localStorage.setItem('accrevia_ratings_documents', 'aaccup-ratings-local-1');
+     localStorage.setItem('accrevia_mock_documents', 'v3-empty');
+ 
+     localStorage.setItem(PURGE_VERSION_KEY, PURGE_VERSION);

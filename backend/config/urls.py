@@ -5,9 +5,11 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from apps.auth.views import DockerDesktopProbeView, RootView
-from apps.auth.portal_storage_views import CatalogOriginalView, PortalFilesView, PortalRecordsView
+from apps.auth.portal_storage_views import CatalogOriginalView, PortalFilesView, PortalRecordsView, WorkspaceRecordsView, WorkspaceOriginalView
 
 urlpatterns = [
+    path("api/portal-storage/workspace/records/", WorkspaceRecordsView.as_view(), name="workspace-records"),
+    path("api/portal-storage/workspace/files/", WorkspaceOriginalView.as_view(), name="workspace-files"),
     path("", RootView.as_view(), name="root"),
     path("json/version", DockerDesktopProbeView.as_view(), name="docker-desktop-probe"),
     path("admin/", admin.site.urls),

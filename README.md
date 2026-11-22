@@ -59,3 +59,29 @@ tar -xzf "C:\path\to\accrevia-certificates.tar.gz" -C frontend/public
 ```
 
 Open Program Accreditation and select **View** on a certificate to preview the original. The same bundle contains the available COPC certificates, Board resolutions, ratings, and findings. Running `import_portal_catalog` also makes these originals available from local MySQL.
+
+### Portable copy of the complete portal
+
+Git transfers application code. Use a portable portal bundle to transfer the local MySQL records and original files, including ISO documents, folders, accounts, settings, and browser snapshots. The bundle stores each original once and verifies its SHA-256 when exporting and importing. It does not contain `.env`, database credentials, or Python dependencies.
+
+On the source computer, sign in and use **System Settings → Maintenance → Copy to MySQL** to finish copying the browser's current data. Then, from `backend/`, export it with the browser source whose layout should appear on other computers:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py export_portal_bundle exports/accrevia.portal-bundle.zip --source browser-YOUR-BROWSER-ID
+```
+
+Find the browser ID in the browser's local storage key `accrevia-db-browser-id`; prefix its value with `browser-`. Export to a new filename for each snapshot. The bundle contains all saved browser snapshots and available originals, not only the selected browser. The selected source determines the initial portal layout.
+
+Run `manage.py prepare_portal_previews` on the source Windows computer with Publisher and Word installed **before the final export**. It stores PDF previews for `.pub`, `.doc`, and `.docx` originals in MySQL while preserving the original file bytes and format. Use `--formats .docx` to prepare only modern Word fallbacks. These previews travel inside the bundle, so recipients do not need Office installed to view them. Word documents render directly in the browser and use the PDF preview if that fails. The preview is labeled as a PDF export; downloading the original still returns the original Publisher or Word file. Publisher export uses Microsoft's [ExportAsFixedFormat](https://learn.microsoft.com/en-us/office/vba/api/publisher.document.exportasfixedformat) API.
+
+On another developer's computer, pull the application code, install dependencies, configure a **fresh MySQL database** in `backend/.env`, and copy the bundle to `backend/exports/`. From `backend/`, run:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py migrate
+.\.venv\Scripts\python.exe manage.py import_portal_bundle exports/accrevia.portal-bundle.zip
+.\.venv\Scripts\python.exe manage.py runserver 8000
+```
+
+Start the frontend with `VITE_API_BASE_URL=http://127.0.0.1:8000`. Open `http://localhost:5173` and sign in. The frontend restores the selected snapshot before loading the portal and retrieves missing ISO original files from MySQL. Existing browser edits are retained when adding records from the snapshot. Original files do not need to be installed separately under `public/` after this restore.
+
+Import refuses to overwrite existing portal data. Use a new database to keep existing work; `--replace` explicitly replaces portal records, original files, and accounts in the configured destination database. The bundle contains account password hashes and institutional documents, so distribute it through the team's document-sharing channel. Export files are excluded from Git; share the bundle alongside the code. Each developer's database is independent after restoring; later changes require a new export/import.

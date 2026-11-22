@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { getStoredFile, listStoredFileIds } from '../../utils/fileStore';
+import { getLocalStoredFile, listStoredFileIds } from '../../utils/fileStore';
+import { isRepositoryFile } from '../../utils/repositoryFiles';
 import { apiFetch, getApiBaseUrl } from './client';
 
 const BROWSER_ID = 'accrevia-db-browser-id';
@@ -76,8 +77,9 @@ export function usePortalDatabase(active: boolean, records: Record<string, unkno
 
       for (const id of await listStoredFileIds()) {
         if (stopped) return;
-        const file = await getStoredFile(id);
+        const file = await getLocalStoredFile(id);
         if (!file || fileStamps.get(id) === file.storedAt) continue;
+        if (!await isRepositoryFile(file.blob, file.name)) continue;
         const data = new FormData();
         data.set('id', id);
         data.set('file', file.blob, file.name);

@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from .models import PortalFile
 from .portal_storage import store_collection, store_file
+from .workspace_storage import workspace_records, workspace_source
 
 BROWSER_COLLECTIONS = {
     "accessLog", "areas", "campuses", "copcRecords", "criteria", "dismissed_reminders",
@@ -83,4 +84,31 @@ class CatalogOriginalView(APIView):
         response["Content-Disposition"] = content_disposition_header(False, file.name)
         response["Content-Length"] = file.content.size_bytes
         response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+
+class WorkspaceRecordsView(APIView):
+    def get(self, request):
+        require_local_browser(request)
+        return Response({"records": workspace_records()})
+
+
+class WorkspaceOriginalView(APIView):
+    def get(self, request):
+        require_local_browser(request)
+        source = workspace_source()
+        if not source:
+            raise NotFound()
+        file = PortalFile.objects.select_related("content").filter(source=source, key=request.query_params.get("id", "")).first()
+        if file is None:
+            raise NotFound("Original file is unavailable.")
+        if request.query_params.get("preview") == "1":
+            file = PortalFile.objects.select_related("content").filter(source="preview", key=file.content_id).first()
+            if file is None:
+                raise NotFound("A browser preview is unavailable.")
+        chunks = file.content.chunks.order_by("position").values_list("data", flat=True)
+        response = StreamingHttpResponse((bytes(data) for data in chunks.iterator(chunk_size=4)), content_type=file.mime_type or "application/octet-stream")
+        response["Content-Disposition"] = content_disposition_header(False, file.name)
+        response["Content-Length"] = file.content.size_bytes
+        response["Cache-Control"] = "no-store"
         return response
