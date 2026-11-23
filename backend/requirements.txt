@@ -17,3 +17,5 @@ FlagEmbedding>=1.2
 sentence-transformers>=3.0
 fastembed>=0.4
 requests>=2.32
+packaging>=24.0
+openpyxl>=3.1

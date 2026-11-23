@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { isCampusMatch } from '../../utils/campus';
+import { PQA_CATEGORY_AREAS } from '../../components/accreditation/folderFrameworks';
+import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeftIcon,
@@ -28,7 +30,7 @@ import { Badge, BadgeTone } from '../../components/ui/Badge';
 import { usePortal } from '../../contexts/PortalContext';
 import { DocumentType, EvidenceDocument, EvidenceFolder, FolderColor } from '../../types/evidence';
 import { CampusId } from '../../types/accreditation';
-import { isCampusMatch } from '../../utils/campus';
+import { matchesRepositoryCampus, repositoryChildren, repositoryDescendantIds, resolveUploadFolderPath, projectRepositoryAreas } from '../../utils/repositoryView';
 import { hideFolderId, initialFolders, isRootFrameworkFolder, loadHiddenFolderIds } from '../../data/folders';
 import { FolderFormModal } from '../../components/folders/FolderFormModal';
 import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
@@ -43,11 +45,8 @@ import { StagedFileList } from '../../components/upload/StagedFileList';
 import { usePortalSettings } from '../../settings/portalSettings';
 import { saveDocumentUpload } from '../../services/documents/uploadClient';
 import {
-  COPC_ROOT_FOLDER_ID,
   isCopcCanonicalFolderId,
   isPaCanonicalFolderId,
-  PA_ROOT_FOLDER_ID,
-  reconcilePaCopcRepository
 } from '../../utils/programAccreditation';
 import { toast } from 'sonner';
 
@@ -69,81 +68,32 @@ interface PreparedUploadItem {
   file?: File;
 }
 
-// Campus Isolation Matchers (Strictly isolates Tandag to Tandag, Cantilan to Cantilan, etc.)
-function isDocCampusMatch(doc: EvidenceDocument, target: CampusId | 'all') {
-  if (target === 'all') return true;
-  if (doc.campusId) return doc.campusId === target;
-  if (doc.campus) {
-    const cNorm = doc.campus.toLowerCase();
-    const idNorm = target.toLowerCase();
-    if (idNorm === 'tandag' && (cNorm.includes('tandag') || cNorm.includes('main campus'))) {
-      return true;
-    }
-    return cNorm.includes(idNorm) || isCampusMatch(doc.campus, target);
-  }
-  return target === 'tandag';
-}
-
-function isFolderCampusMatch(folder: EvidenceFolder, target: CampusId | 'all') {
-  if (target === 'all') return true;
-  if (isRootFrameworkFolder(folder)) return true;
-  if (folder.campusId) return folder.campusId === target;
-  if (folder.campus) {
-    const cNorm = folder.campus.toLowerCase();
-    const idNorm = target.toLowerCase();
-    if (idNorm === 'tandag' && (cNorm.includes('tandag') || cNorm.includes('main campus'))) {
-      return true;
-    }
-    return cNorm.includes(idNorm) || isCampusMatch(folder.campus, target);
-  }
-  // Shared starter subfolders for non-IA frameworks (PA, COPC, PQA, ISO)
-  if (folder.frameworkId && folder.frameworkId !== 'ia') {
-    return true;
-  }
-  return target === 'tandag';
-}
-
 export function UploadEvidence() {
   const [searchParams, setSearchParams] = useSearchParams();
   const folderParam = searchParams.get('folder');
 
   const {
-    folders,
+    folders: storedFolders,
     saveFolder,
     deleteFolder,
-    documents,
+    documents: storedDocuments,
     addDocument,
     updateDocument,
     deleteDocument,
-    campuses,
-    selectedCampus,
+    campuses: allCampuses,
+    selectedCampus: requestedCampus,
     setSelectedCampus,
-    selectedCampusObj,
     currentUser
   } = usePortal();
+  const campuses = useMemo(() => currentUser.role === 'Superadmin' || !currentUser.campusId ? allCampuses
+    : allCampuses.filter(campus => campus.id === currentUser.campusId || isCampusMatch(currentUser.campusId,campus.id)), [allCampuses,currentUser.role,currentUser.campusId]);
+  const selectedCampus = requestedCampus === 'all' ? 'all' : campuses.find(campus => campus.id === requestedCampus)?.id || campuses[0]?.id || 'all';
+  const selectedCampusObj = campuses.find(campus => campus.id === selectedCampus);
   const settings = usePortalSettings();
-  const uploadDefaults = { academicYear: settings.general.defaultAcademicYear };
-
-  // Keep PA/COPC Online Repository flattened to the allowlisted folders only.
-  useEffect(() => {
-    const result = reconcilePaCopcRepository(folders, documents);
-    if (!result.changed) return;
-    result.folders.forEach((f) => {
-      if (!folders.some((e) => e.id === f.id)) saveFolder(f);
-    });
-    folders.forEach((f) => {
-      if ((f.frameworkId === 'pa' || f.frameworkId === 'copc') && !result.folders.some((e) => e.id === f.id)) {
-        hideFolderId(f.id);
-        deleteFolder(f.id);
-      }
-    });
-    result.documents.forEach((d) => {
-      const prev = documents.find((p) => p.id === d.id);
-      if (prev && prev.folderId !== d.folderId) updateDocument(d.id, { folderId: d.folderId });
-    });
-    // Run when entering the repository page / when folder set drifts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const view = useMemo(() => projectRepositoryAreas(storedFolders, storedDocuments,
+    {ia:settings.accreditation.iaAreas,pqa:PQA_CATEGORY_AREAS},campuses), [storedFolders,storedDocuments,settings.accreditation.iaAreas,campuses]);
+  const {folders,documents} = view;
+  const uploadDefaults = { academicYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
 
   // Root directory view states
   const [folderSearch, setFolderSearch] = useState('');
@@ -196,11 +146,11 @@ export function UploadEvidence() {
     }
   };
 
-  // The 5 Canonical Framework Root Repositories: IA, PA, COPC, PQA, ISO ONLY
+  // Framework roots provide a shared view of source evidence for every campus.
   const rootFrameworkFolders = useMemo(() => {
     const hidden = new Set(hiddenFolderIds);
     return initialFolders
-      .filter((initF) => isRootFrameworkFolder(initF) && !hidden.has(initF.id))
+      .filter((initF) => isRootFrameworkFolder(initF))
       .map((initF) => {
         const match = folders.find(
           (f) => f.id === initF.id || (f.code?.toUpperCase() === initF.code?.toUpperCase() && isRootFrameworkFolder(f))
@@ -209,10 +159,15 @@ export function UploadEvidence() {
       });
   }, [folders, hiddenFolderIds]);
 
-  // Overall root folders: strictly and ONLY the 5 canonical frameworks (IA, PA, COPC, PQA, ISO)
+  // Keep framework roots alongside custom folders created in this directory.
   const allRootFolders = useMemo(() => {
-    return rootFrameworkFolders;
-  }, [rootFrameworkFolders]);
+    const hidden = new Set(hiddenFolderIds);
+    const customFolders = folders.filter((folder) =>
+      folder.libraryOnly && !folder.parentId && !isRootFrameworkFolder(folder) &&
+      !hidden.has(folder.id) && matchesRepositoryCampus(folder, selectedCampus, folders)
+    );
+    return [...rootFrameworkFolders, ...customFolders];
+  }, [rootFrameworkFolders, folders, hiddenFolderIds, selectedCampus]);
 
   // Determine current framework identity and parent root folder
   const isCurrentRoot = useMemo(() => isRootFrameworkFolder(currentFolder), [currentFolder]);
@@ -223,64 +178,20 @@ export function UploadEvidence() {
     return rootFrameworkFolders.find((rf) => rf.frameworkId === currentFolder.frameworkId) || currentFolder;
   }, [currentFolder, isCurrentRoot, rootFrameworkFolders]);
 
-  const isPaRepo = currentFrameworkId === 'pa';
-  const isCopcRepo = currentFrameworkId === 'copc';
-  const isFlatFrameworkRepo = isPaRepo || isCopcRepo;
-  const isPaOrCopcCanonicalChild =
-    isPaCanonicalFolderId(currentFolder?.id) || isCopcCanonicalFolderId(currentFolder?.id);
-  /** PA/COPC: no nested folders under the fixed status folders. */
-  const blockNestedFolders = isFlatFrameworkRepo && (isCurrentRoot || isPaOrCopcCanonicalChild);
+  const campusForUpload = selectedCampus !== 'all' ? selectedCampus : campuses.find(campus => campus.id === currentFolder?.campusId)?.id;
 
-  // Strictly isolated subfolders belonging to this framework AND matching selectedCampus
-  const insideSubfolders = useMemo(() => {
-    if (!currentFolder) return [];
-    // Inside a fixed PA/COPC status folder: files only (no nested folders).
-    if (isPaOrCopcCanonicalChild) return [];
+  // Every framework supports shared folders and complete directory uploads.
+  const blockNestedFolders = false;
 
-    return folders.filter((f) => {
-      if (isRootFrameworkFolder(f)) return false;
-      if (f.frameworkId !== currentFrameworkId) return false;
+  // Read the same folder records used by the accreditation features.
+  const insideSubfolders = useMemo(() => currentFolder
+    ? repositoryChildren(currentFolder, folders, selectedCampus, hiddenFolderIds)
+    : [], [currentFolder, folders, selectedCampus, hiddenFolderIds]);
 
-      if (isCurrentRoot && isPaRepo) {
-        return f.parentId === PA_ROOT_FOLDER_ID && isPaCanonicalFolderId(f.id);
-      }
-      if (isCurrentRoot && isCopcRepo) {
-        return f.parentId === COPC_ROOT_FOLDER_ID && isCopcCanonicalFolderId(f.id);
-      }
-
-      if (isCurrentRoot) {
-        if (f.parentId && f.parentId !== currentFolder.id) return false;
-      } else {
-        if (f.parentId !== currentFolder.id) return false;
-      }
-      return isFolderCampusMatch(f, selectedCampus);
-    });
-  }, [
-    currentFolder,
-    folders,
-    currentFrameworkId,
-    isCurrentRoot,
-    selectedCampus,
-    isPaRepo,
-    isCopcRepo,
-    isPaOrCopcCanonicalChild
-  ]);
-
-  // All sibling subfolders belonging to this framework (for quick-switching within a subfolder view)
-  const siblingSubfolders = useMemo(() => {
-    if (!parentFrameworkFolder) return [];
-    if (isPaRepo) {
-      return folders.filter((f) => f.parentId === PA_ROOT_FOLDER_ID && isPaCanonicalFolderId(f.id));
-    }
-    if (isCopcRepo) {
-      return folders.filter((f) => f.parentId === COPC_ROOT_FOLDER_ID && isCopcCanonicalFolderId(f.id));
-    }
-    return folders.filter((f) => {
-      if (isRootFrameworkFolder(f)) return false;
-      if (f.frameworkId !== currentFrameworkId) return false;
-      return isFolderCampusMatch(f, selectedCampus);
-    });
-  }, [parentFrameworkFolder, folders, currentFrameworkId, selectedCampus, isPaRepo, isCopcRepo]);
+  const siblingSubfolders = useMemo(() => !parentFrameworkFolder ? [] : folders.filter((folder) =>
+    !isRootFrameworkFolder(folder) && folder.frameworkId === currentFrameworkId &&
+    !hiddenFolderIds.includes(folder.id) && matchesRepositoryCampus(folder, selectedCampus, folders)
+  ), [parentFrameworkFolder, folders, currentFrameworkId, selectedCampus, hiddenFolderIds]);
 
   // Filtered subfolders by live subfolder search input
   const filteredInsideSubfolders = useMemo(() => {
@@ -298,10 +209,11 @@ export function UploadEvidence() {
   const folderStats = useMemo(() => {
     const stats: Record<string, { count: number; sizeMb: number }> = {};
     allRootFolders.forEach((f) => {
+      const descendantIds = repositoryDescendantIds(f.id, folders);
       const docs = documents.filter(
         (d) =>
-          (d.folderId === f.id || (isRootFrameworkFolder(f) && d.frameworkId === f.frameworkId)) &&
-          isDocCampusMatch(d, selectedCampus)
+          (isRootFrameworkFolder(f) ? d.frameworkId === f.frameworkId : !!d.folderId && descendantIds.has(d.folderId)) &&
+          matchesRepositoryCampus(d, selectedCampus, folders)
       );
       const size = docs.reduce((acc, curr) => acc + (curr.sizeMb || 0), 0);
       stats[f.id] = { count: docs.length, sizeMb: Math.round(size * 10) / 10 };
@@ -309,8 +221,9 @@ export function UploadEvidence() {
 
     folders.forEach((f) => {
       if (!stats[f.id]) {
+        const descendantIds = repositoryDescendantIds(f.id, folders);
         const docs = documents.filter(
-          (d) => d.folderId === f.id && isDocCampusMatch(d, selectedCampus)
+          (d) => !!d.folderId && descendantIds.has(d.folderId) && matchesRepositoryCampus(d, selectedCampus, folders)
         );
         const size = docs.reduce((acc, curr) => acc + (curr.sizeMb || 0), 0);
         stats[f.id] = { count: docs.length, sizeMb: Math.round(size * 10) / 10 };
@@ -322,15 +235,15 @@ export function UploadEvidence() {
 
   // Overall totals filtered by selectedCampus
   const totalStats = useMemo(() => {
-    const campusDocs = documents.filter((d) => isDocCampusMatch(d, selectedCampus));
+    const campusDocs = documents.filter((d) => matchesRepositoryCampus(d, selectedCampus, folders));
     const totalSize = campusDocs.reduce((acc, curr) => acc + (curr.sizeMb || 0), 0);
     return {
       folderCount: allRootFolders.length,
-      docCount: campusDocs.length,
+      docCount: campusDocs.filter(doc => doc.status === 'Indexed').length,
       totalSizeMb: Math.round(totalSize * 10) / 10,
       campusesCount: campuses.length
     };
-  }, [allRootFolders, documents, selectedCampus, campuses]);
+  }, [allRootFolders, documents, folders, selectedCampus, campuses]);
 
   // Filter root folders in directory view
   const filteredFolders = useMemo(() => {
@@ -348,17 +261,10 @@ export function UploadEvidence() {
     if (!currentFolder) return [];
     return documents.filter((d) => {
       if (d.frameworkId !== currentFrameworkId) return false;
-      if (!isDocCampusMatch(d, selectedCampus)) return false;
+      if (!matchesRepositoryCampus(d, selectedCampus, folders)) return false;
       // Inside a fixed PA/COPC folder: only that folder's files.
       if (!isCurrentRoot) {
         return d.folderId === currentFolder.id;
-      }
-      // PA/COPC roots are folder grids only — files live in Certificate Number / BOR / Level folders.
-      if (isFlatFrameworkRepo) {
-        if (activeSubfolderFilter !== 'all') {
-          return d.folderId === activeSubfolderFilter;
-        }
-        return false;
       }
       if (activeSubfolderFilter !== 'all') {
         return d.folderId === activeSubfolderFilter;
@@ -372,7 +278,7 @@ export function UploadEvidence() {
     selectedCampus,
     isCurrentRoot,
     activeSubfolderFilter,
-    isFlatFrameworkRepo
+    folders
   ]);
 
   // Filtered & sorted documents inside currently selected folder (search & sort)
@@ -423,18 +329,17 @@ export function UploadEvidence() {
 
   // Subfolder file count helper (strictly campus-isolated)
   const getSubfolderDocCount = (sub: EvidenceFolder) => {
+    const ids = repositoryDescendantIds(sub.id, folders);
     return documents.filter(
-      (d) => d.frameworkId === currentFrameworkId && isDocCampusMatch(d, selectedCampus) && d.folderId === sub.id
+      (d) => d.frameworkId === currentFrameworkId && matchesRepositoryCampus(d, selectedCampus, folders) && !!d.folderId && ids.has(d.folderId)
     ).length;
   };
 
   // Folder creation/update handler
   const handleCreateOrEditFolder = (f: EvidenceFolder) => {
-    if (!editingFolder && blockNestedFolders) {
-      toast.error('Program Accreditation and COPC use fixed folders only — nested folders are not allowed.');
-      return;
-    }
-    const targetCampusId = selectedCampus !== 'all' ? selectedCampus : 'tandag';
+    if (editingFolder && !editingFolder.libraryOnly) {toast.error('Modify this synchronized folder in its original accreditation feature.');return;}
+    if (!campusForUpload) {toast.error('Select a campus before creating a folder.');return;}
+    const targetCampusId = campusForUpload || 'tandag';
     const targetCampusName = selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)';
     const folderToSave: EvidenceFolder = editingFolder
       ? {
@@ -442,7 +347,7 @@ export function UploadEvidence() {
           ...f,
           frameworkId: editingFolder.frameworkId,
           category: editingFolder.category,
-          parentId: editingFolder.parentId,
+          parentId: storedFolders.find(folder => folder.id === editingFolder.id)?.parentId,
           campusId: editingFolder.campusId,
           campus: editingFolder.campus,
           isSystem: editingFolder.isSystem
@@ -450,28 +355,18 @@ export function UploadEvidence() {
       : {
           ...f,
           frameworkId: f.frameworkId || currentFrameworkId || 'ia',
-          parentId: currentFolder ? currentFolder.id : f.parentId,
+          parentId: currentFolder?.syncViewOnly ? `folder-${currentFrameworkId}` : currentFolder ? currentFolder.id : f.parentId,
+          areaId: currentFolder?.areaId || f.areaId,
           campusId: f.campusId || targetCampusId,
           campus: f.campus || targetCampusName,
           libraryOnly: true
         };
-    // Never persist user folders under PA/COPC trees.
-    if (
-      !editingFolder &&
-      (folderToSave.frameworkId === 'pa' || folderToSave.frameworkId === 'copc') &&
-      !isPaCanonicalFolderId(folderToSave.id) &&
-      !isCopcCanonicalFolderId(folderToSave.id) &&
-      folderToSave.id !== PA_ROOT_FOLDER_ID &&
-      folderToSave.id !== COPC_ROOT_FOLDER_ID
-    ) {
-      toast.error('Only the fixed Program Accreditation / COPC folders are allowed.');
-      return;
-    }
     saveFolder(folderToSave);
     toast.success(editingFolder ? `Updated folder: ${f.name}` : `Created folder: ${f.name}`);
   };
 
   const handleDeleteFolder = (folderId: string) => {
+    if (!folders.find(folder => folder.id === folderId)?.libraryOnly) {toast.error('Delete synchronized folders in their original feature.');return;}
     hideFolderId(folderId);
     setHiddenFolderIds(loadHiddenFolderIds());
     deleteFolder(folderId);
@@ -483,6 +378,7 @@ export function UploadEvidence() {
 
   // --- RENAME / EDIT DOCUMENT HANDLERS ---
   const handleOpenEditDoc = (doc: EvidenceDocument) => {
+    if (!doc.libraryOnly) {toast.error('Modify this document in its original accreditation feature.');return;}
     setEditingDoc(doc);
     setEditDocTitle(doc.title);
     setEditDocType(doc.docType || 'Report');
@@ -502,7 +398,8 @@ export function UploadEvidence() {
       docType: editDocType,
       description: editDocDescription.trim(),
       academicYear: editDocAcademicYear.trim() || undefined,
-      folderId: editDocFolderId || editingDoc.folderId
+      folderId: folders.find(folder => folder.id === editDocFolderId)?.syncViewOnly ? `folder-${editingDoc.frameworkId}` : editDocFolderId || editingDoc.folderId,
+      areaId: folders.find(folder => folder.id === editDocFolderId)?.areaId || editingDoc.areaId
     });
     toast.success(`Updated "${editDocTitle.trim()}"`);
     setEditingDoc(null);
@@ -510,7 +407,8 @@ export function UploadEvidence() {
 
   const handleDeleteDocument = (doc: EvidenceDocument) => {
     if (window.confirm(`Are you sure you want to delete "${doc.title}"?`)) {
-      deleteDocument(doc.id);
+      if (!doc.libraryOnly) {toast.error('Delete this document in its original accreditation feature.');return;}
+                                  deleteDocument(doc.id);
       toast.success(`Deleted "${doc.title}"`);
     }
   };
@@ -530,6 +428,7 @@ export function UploadEvidence() {
 
   const handleConfirmUpload = () => {
     if (!currentFolder) return;
+    if (!campusForUpload) {toast.error('Select the upload campus first.');return;}
     if (uploadedFileList.length === 0) {
       toast.error('Please choose files or select a folder to upload.');
       return;
@@ -537,60 +436,30 @@ export function UploadEvidence() {
 
     setIsProcessingUpload(true);
     void (async () => {
-      let targetFolderId = selectedDestinationFolderId || currentFolder.id;
-      let targetFolderName = currentFolder.name;
-
-      // Mode: Entire Folder upload from directory input
-      // PA/COPC stay flat — never create nested folders; dump files into the current fixed folder.
-      if (uploadMode === 'folder' && uploadedFileList[0]?.path && !blockNestedFolders) {
-        const rootDirName = uploadedFileList[0].path.split('/')[0];
-        if (rootDirName && rootDirName !== uploadedFileList[0].name) {
-          const existingSub = insideSubfolders.find(
-            (f) => f.name.toLowerCase() === rootDirName.toLowerCase()
-          );
-
-          if (existingSub) {
-            targetFolderId = existingSub.id;
-            targetFolderName = existingSub.name;
-          } else {
-            const newSubId = `folder-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-            const newFolder: EvidenceFolder = {
-              id: newSubId,
-              name: rootDirName,
-              code: rootDirName.slice(0, 4).toUpperCase(),
-              frameworkId: currentFrameworkId,
-              category: currentFolder.category,
-              description: `Imported directory containing ${uploadedFileList.length} evidence file(s).`,
-              color: 'amber',
-              createdAt: new Date().toISOString().slice(0, 10),
-              startDate: new Date().toISOString().slice(0, 10),
-              hasNoDeadline: true,
-              parentId: currentFolder.id,
-              campusId: selectedCampus !== 'all' ? selectedCampus : 'tandag',
-              campus: selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)',
-              libraryOnly: true
-            };
-            saveFolder(newFolder);
-            targetFolderId = newSubId;
-            targetFolderName = rootDirName;
-          }
-        }
-      }
-
-      if (blockNestedFolders && isCurrentRoot) {
-        toast.error('Open Candidate, Level 1–4, TRBA, Findings, or a COPC folder before uploading.');
-        setIsProcessingUpload(false);
-        return;
-      }
+      const selectedTarget = folders.find(folder => folder.id === selectedDestinationFolderId) || currentFolder;
+      const targetFolderId = selectedTarget.syncViewOnly ? `folder-${currentFrameworkId}` : selectedTarget.id;
+      const destination = selectedTarget;
+      const targetFolderName = destination.name;
 
       const campusTag = selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)';
-      const campusIdTag = selectedCampus !== 'all' ? selectedCampus : 'tandag';
+      const campusIdTag = campusForUpload || 'tandag';
       const today = new Date().toISOString().slice(0, 10);
       let remoteCount = 0;
+      const importedFolderIds = new Set<string>();
+      const batchFolders = folders.filter(folder => folder.frameworkId === currentFrameworkId && matchesRepositoryCampus(folder, campusIdTag, folders));
 
       for (const item of uploadedFileList) {
         if (!item.file) continue;
         const file = item.file;
+        const location = resolveUploadFolderPath(uploadMode === 'folder' ? item.path : undefined, targetFolderId, batchFolders, (name, parentId) => ({
+          id: `folder-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          name, code: name.slice(0, 4).toUpperCase(), frameworkId: currentFrameworkId,
+          category: destination.category, description: '', color: 'amber',
+          createdAt: today, hasNoDeadline: true, parentId, areaId: destination.areaId,
+          campusId: campusIdTag, campus: campusTag, libraryOnly: true
+        }), importedFolderIds);
+        for (const folder of location.created) { batchFolders.push(folder); importedFolderIds.add(folder.id); saveFolder(folder); }
+        const fileFolderId = location.folderId;
         const localId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const sizeMb = Math.max(0.1, Math.round((item.size / 1024 / 1024) * 10) / 10);
         const pages = Math.max(1, Math.round(sizeMb * 6));
@@ -607,10 +476,10 @@ export function UploadEvidence() {
           pages,
           sizeMb,
           frameworkId: currentFrameworkId,
-          areaId: currentFolder.areaId || 'area-1',
+          areaId: destination.areaId || 'area-1',
           criterionId: 'c1',
           indicatorId: 'i1',
-          folderId: targetFolderId,
+          folderId: fileFolderId,
           campusId: campusIdTag,
           campus: campusTag,
           docType: 'Report',
@@ -644,7 +513,10 @@ export function UploadEvidence() {
           ? { description: `${remoteCount} sent for AI indexing. Successful indexing marks the file Approved.` }
           : { description: 'Files were saved for QA review.' }
       );
-    })();
+    })().catch((error) => {
+      setIsProcessingUpload(false);
+      toast.error(error instanceof Error ? error.message : 'The upload could not be completed.');
+    });
   };
 
   const renderFileIcon = (fileType?: string) => {
@@ -1049,7 +921,7 @@ export function UploadEvidence() {
                     name={folder.name}
                     meta={`${pluralize(stats.count, 'file')} · ${stats.sizeMb} MB`}
                     status={stats.count === 0 ? { label: 'No files yet', tone: 'neutral' } : null}
-                    actions={
+                    actions={folder.libraryOnly ? (
                       <>
                         <FolderAction
                           icon={PencilIcon}
@@ -1066,7 +938,7 @@ export function UploadEvidence() {
                           onClick={() => setDeletingFolder(folder)}
                         />
                       </>
-                    }
+                    ) : null}
                   />
                 );
               })}
@@ -1329,17 +1201,17 @@ export function UploadEvidence() {
                 </>
               ) : null}
 
-              <button
+              {currentFolder.libraryOnly && <button
                 type="button"
                 onClick={() => {
                   setEditingFolder(currentFolder);
                   setIsFolderModalOpen(true);
                 }}
                 className="btn btn-ghost btn-icon h-8.5 w-8.5 text-ink-muted hover:text-ink"
-                title={isCurrentRoot ? 'Edit Repository' : 'Edit Subfolder'}
+                title="Edit Subfolder"
               >
                 <PencilIcon className="h-3.5 w-3.5" />
-              </button>
+              </button>}
             </div>
           </div>
 
@@ -1438,9 +1310,9 @@ export function UploadEvidence() {
           )}
 
           {/* ========================================================================= */}
-          {/* SECTION 1: SUBFOLDERS (RENDERED ONLY IN ROOT WHEN repoFilter !== 'files') */}
+          {/* Preserve nested source and independent folder levels. */}
           {/* ========================================================================= */}
-          {isCurrentRoot && (repoFilter === 'all' || repoFilter === 'folders') && (
+          {(repoFilter === 'all' || repoFilter === 'folders') && (
             <div className="space-y-3">
               <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
@@ -1499,16 +1371,10 @@ export function UploadEvidence() {
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center text-xs text-ink-muted">
                   <FolderIcon className="mx-auto h-7 w-7 text-slate-300 mb-1.5" />
                   <p className="font-semibold text-slate-700">
-                    {isPaOrCopcCanonicalChild
-                      ? 'Files only in this folder'
-                      : `No subfolders yet in ${currentFolder.code}`}
+                    {`No subfolders yet in ${currentFolder.code}`}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {isPaOrCopcCanonicalChild
-                      ? 'Upload documents directly here — nested folders are not used for Program Accreditation or COPC.'
-                      : blockNestedFolders
-                        ? 'Only the fixed status folders are shown for this repository.'
-                        : 'Click "+ Add Subfolder" or upload an entire folder to automatically create subdirectories.'}
+                    Click "+ Add Subfolder" or upload an entire folder to automatically create subdirectories.
                   </p>
                 </div>
               ) : filteredInsideSubfolders.length === 0 ? (
@@ -1536,7 +1402,7 @@ export function UploadEvidence() {
                         name={sub.name}
                         meta={pluralize(count, 'file')}
                         status={count === 0 ? { label: 'No files yet', tone: 'neutral' } : null}
-                        actions={
+                        actions={sub.libraryOnly ? (
                           <>
                             <FolderAction
                               icon={PencilIcon}
@@ -1548,7 +1414,7 @@ export function UploadEvidence() {
                             />
                             <FolderAction icon={Trash2Icon} label="Delete subfolder" danger onClick={() => setDeletingFolder(sub)} />
                           </>
-                        }
+                        ) : null}
                       />
                     );
                   })}
@@ -1915,6 +1781,7 @@ export function UploadEvidence() {
         simplified={true}
         parentId={currentFolder ? currentFolder.id : undefined}
         frameworkId={currentFrameworkId}
+        frameworkOptions={!currentFolder && !editingFolder ? rootFrameworkFolders.map(folder => ({id: folder.frameworkId, name: folder.name})) : undefined}
         category={currentFolder ? currentFolder.category : 'Accreditation'}
         onClose={() => {
           setIsFolderModalOpen(false);
@@ -1923,10 +1790,10 @@ export function UploadEvidence() {
         onSave={(f) => {
           const finalFolder: EvidenceFolder = {
             ...f,
-            frameworkId: currentFrameworkId,
-            category: currentFolder ? currentFolder.category : 'Accreditation',
+            frameworkId: currentFolder?.frameworkId || f.frameworkId,
+            category: currentFolder?.category || rootFrameworkFolders.find(root => root.frameworkId === f.frameworkId)?.category || 'Accreditation',
             parentId: currentFolder ? currentFolder.id : undefined,
-            campusId: selectedCampus !== 'all' ? selectedCampus : 'tandag',
+            campusId: campusForUpload || 'tandag',
             campus: selectedCampus !== 'all' ? (selectedCampusObj?.name || 'Tandag (Main Campus)') : 'Tandag (Main Campus)'
           };
           handleCreateOrEditFolder(finalFolder);
@@ -2072,7 +1939,6 @@ export function UploadEvidence() {
         open={!!deletingFolder}
         folder={deletingFolder}
         documentCount={deletingFolder ? folderStats[deletingFolder.id]?.count || 0 : 0}
-        allowSystem
         onClose={() => setDeletingFolder(null)}
         onConfirm={handleDeleteFolder}
       />

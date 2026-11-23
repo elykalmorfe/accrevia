@@ -64,7 +64,9 @@ function mapApiDoc(raw: Record<string, unknown>, localDocs: EvidenceDocument[]):
     dateAdded: String(raw.dateAdded ?? new Date().toISOString()),
     fileType: (raw.fileType as EvidenceDocument['fileType']) || 'PDF',
     pages: Number(raw.pages ?? 1),
-    sizeMb: Number(raw.sizeMb ?? 0.1),
+    sizeMb: Number(raw.sizeMb ?? (Number(raw.sizeBytes || 0) / (1024 * 1024))),
+    documentUrl: (raw.documentUrl as string) || undefined,
+    isoStage: (raw.isoStage as EvidenceDocument["isoStage"]) || undefined,
     uploadedBy: String(raw.uploadedBy ?? 'system'),
     passages: Array.isArray(raw.passages) ? (raw.passages as string[]) : [],
     approvalStatus: (raw.approvalStatus as EvidenceDocument['approvalStatus']) || 'Pending Review'

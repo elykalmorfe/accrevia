@@ -6,6 +6,8 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge, type BadgeTone } from '../../components/ui/Badge';
 import { ProgramFormModal } from '../../components/accreditation/ProgramFormModal';
 import { ProgramAreaRepositoryModal } from '../../components/accreditation/ProgramAreaRepositoryModal';
+import { AreaAssignmentMenu } from '../../components/accreditation/AreaAssignmentMenu';
+import { useAreaAccess } from '../../services/api/repositoryAccess';
 import { ProgramCertificatesModal } from '../../components/accreditation/ProgramCertificatesModal';
 import { ProgramRatingsModal } from '../../components/accreditation/ProgramRatingsModal';
 import { ProgramFindingsModal } from '../../components/accreditation/ProgramFindingsModal';
@@ -156,6 +158,7 @@ export function ProgramAccreditationView() {
     folders
   } = usePortal();
   const { canMutate } = useInstitutionalMutationAccess();
+  const areaAccess = useAreaAccess();
 
   // Search & Filters
   const [search, setSearch] = useState('');
@@ -1507,7 +1510,7 @@ export function ProgramAccreditationView() {
                 <p className="text-xs font-bold text-ink">Survey areas</p>
                 <p className="text-[11px] text-ink-muted">Area evidence repositories for this program</p>
               </div>
-              {(detailsModalProgram.requirements || []).map((req) => {
+              {(detailsModalProgram.requirements || []).filter(req => areaAccess.canView({campus: detailsModalProgram.campusId, framework: 'pa', area: req.id, program: detailsModalProgram.id})).map((req) => {
                 const repo = areaRepositoryStats[req.id];
                 return (
                   <div
@@ -1531,17 +1534,17 @@ export function ProgramAccreditationView() {
                       </p>
                     </div>
 
-                    {canMutate && (
                       <div className="flex items-center gap-2">
+                        <AreaAssignmentMenu scope={{campus: detailsModalProgram.campusId, framework: 'pa', area: req.id, program: detailsModalProgram.id}}
+                          campusName={detailsModalProgram.campusName} programName={detailsModalProgram.programName} label={req.areaName} />
                         <button
                           type="button"
                           onClick={() => setRepositoryReqId(req.id)}
                           className="btn btn-secondary btn-sm h-7 px-2"
                         >
-                          <UploadIcon className="h-3.5 w-3.5" /> Upload
+                          <FolderOpenIcon className="h-3.5 w-3.5" /> Open area
                         </button>
                       </div>
-                    )}
                   </div>
                 );
               })}

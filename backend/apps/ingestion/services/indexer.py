@@ -23,29 +23,36 @@ def ensure_collection() -> None:
     client = get_qdrant()
     name = settings.QDRANT_COLLECTION
     existing = {c.name for c in client.get_collections().collections}
-    info = client.get_collection(name) if name in existing else None
-    if info is not None:
-        sparse_vectors = info.config.params.sparse_vectors or {}
-        bm25 = sparse_vectors.get("bm25")
-        if bm25 is not None and bm25.modifier != qm.Modifier.IDF:
+    if name in existing:
+        info = client.get_collection(name)
+        sparse = info.config.params.sparse_vectors or {}
+        if "bm25" not in sparse or sparse["bm25"].modifier != qm.Modifier.IDF:
             client.update_collection(
                 name,
-                sparse_vectors_config={"bm25": qm.SparseVectorParams(modifier=qm.Modifier.IDF)},
+                sparse_vectors_config={"bm25": qm.SparseVectorParams(index=qm.SparseIndexParams(on_disk=False), modifier=qm.Modifier.IDF)},
             )
-    else:
-        size = dense_vector_size()
-        client.create_collection(
-            collection_name=name,
-            vectors_config={
-                "dense": qm.VectorParams(size=size, distance=qm.Distance.COSINE),
-            },
-            sparse_vectors_config={
-                "bm25": qm.SparseVectorParams(index=qm.SparseIndexParams(on_disk=False), modifier=qm.Modifier.IDF),
-            },
-        )
-        logger.info("Created Qdrant collection %s (dense=%s)", name, size)
+        _ensure_filter_indexes(client, name, info.payload_schema)
+        return
 
-    if info is None or "title" not in info.payload_schema:
+    size = dense_vector_size()
+    client.create_collection(
+        collection_name=name,
+        vectors_config={
+            "dense": qm.VectorParams(size=size, distance=qm.Distance.COSINE),
+        },
+        sparse_vectors_config={
+            "bm25": qm.SparseVectorParams(index=qm.SparseIndexParams(on_disk=False), modifier=qm.Modifier.IDF),
+        },
+    )
+    logger.info("Created Qdrant collection %s (dense=%s)", name, size)
+    _ensure_filter_indexes(client, name, {})
+
+
+def _ensure_filter_indexes(client, name, schema):
+    for field in ("document_id", "doc_type", "program", "academic_year", "framework_id", "campus_id"):
+        if field not in schema:
+            client.create_payload_index(name, field, field_schema=qm.PayloadSchemaType.KEYWORD, wait=True)
+    if "title" not in schema:
         client.create_payload_index(
             name,
             field_name="title",
@@ -94,13 +101,16 @@ def embed_chunks(chunks: list[str]):
     return vectors
 
 
-def index_chunks(doc, chunks: list[str], *, vectors=None, metadata=None) -> int:
+def index_chunks(doc, chunks: list[str], *, vectors=None, dense_vectors=None, sparse_vectors=None, metadata=None) -> int:
     if not chunks:
         return 0
     ensure_collection()
     client = get_qdrant()
     if vectors is None:
-        vectors = embed_chunks(chunks)
+        if dense_vectors is not None and sparse_vectors is not None:
+            vectors = list(zip(dense_vectors, sparse_vectors, strict=True))
+        else:
+            vectors = embed_chunks(chunks)
 
     points: list[qm.PointStruct] = []
     for i, (text, (dense, (indices, values))) in enumerate(zip(chunks, vectors, strict=True)):
@@ -118,14 +128,18 @@ def index_chunks(doc, chunks: list[str], *, vectors=None, metadata=None) -> int:
 
     for start in range(1, len(points), 100):
         client.upsert(collection_name=settings.QDRANT_COLLECTION, points=points[start:start + 100], wait=True)
-    client.delete(
-        collection_name=settings.QDRANT_COLLECTION,
-        points_selector=qm.FilterSelector(filter=qm.Filter(must=[
-            qm.FieldCondition(key="document_id", match=qm.MatchValue(value=str(doc.id))),
-            qm.FieldCondition(key="sequence", range=qm.Range(gte=len(chunks))),
-        ])),
-        wait=True,
-    )
+    try:
+        client.delete(
+            collection_name=settings.QDRANT_COLLECTION,
+            points_selector=qm.FilterSelector(filter=qm.Filter(must=[
+                qm.FieldCondition(key="document_id", match=qm.MatchValue(value=str(doc.id))),
+                qm.FieldCondition(key="sequence", range=qm.Range(gte=len(chunks))),
+            ])),
+            wait=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("No prior points to delete for %s (%s)", doc.id, exc)
+
     # The first point also marks a completed workspace indexing run for this file.
     client.upsert(collection_name=settings.QDRANT_COLLECTION, points=points[:1], wait=True)
     return len(points)

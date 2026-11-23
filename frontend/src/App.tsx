@@ -63,7 +63,7 @@ function isAuthenticated() {
     return false;
   }
 
-  return window.localStorage.getItem('accrevia-auth') === 'true';
+  return Boolean(getSessionAccount());
 }
 
 function FacultyDocumentRedirect() {

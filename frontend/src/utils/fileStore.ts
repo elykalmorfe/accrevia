@@ -2,6 +2,7 @@ import { fetchRepositoryFile, isLocalCertificatePath, isRepositoryFile } from '.
 import { apiFetch, isApiConfigured } from '../services/api/client';
 
 export interface StoredFile {
+  sha256?: string;
   id: string;
   name: string;
   type: string;
@@ -39,7 +40,8 @@ async function withStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStor
   });
 }
 
-export async function saveStoredFile(id: string, file: File | Blob, name?: string): Promise<void> {
+export async function saveStoredFile(id: string, file: File | Blob, name?: string, notify = true): Promise<void> {
+  const context = window.location.pathname.startsWith('/evidence/upload') ? 'upload-documents' : 'accreditation';
   const record: StoredFile = {
     id,
     name: name ?? (file instanceof File ? file.name : id),
@@ -49,6 +51,7 @@ export async function saveStoredFile(id: string, file: File | Blob, name?: strin
     storedAt: new Date().toISOString()
   };
   await withStore('readwrite', (store) => store.put(record));
+  if (notify) window.dispatchEvent(new CustomEvent('accrevia-original-stored',{detail:{id,context}}));
 }
 
 export function getLocalStoredFile(id: string): Promise<StoredFile | undefined> {
@@ -57,8 +60,19 @@ export function getLocalStoredFile(id: string): Promise<StoredFile | undefined> 
 
 export async function getStoredFile(id: string): Promise<StoredFile | undefined> {
   const local = await getLocalStoredFile(id).catch(() => undefined);
-  if (local && await isRepositoryFile(local.blob, local.name)) return local;
-  if (!isApiConfigured()) return undefined;
+  if (!isApiConfigured()) return local;
+  let repositoryResponse: Response | undefined;
+  try { repositoryResponse = await apiFetch(`/api/repository/files/${encodeURIComponent(id)}/`, {}, 120000); } catch { return undefined; }
+  if (repositoryResponse.ok) {
+    const blob = await repositoryResponse.blob();
+    const disposition = repositoryResponse.headers.get('Content-Disposition') || '';
+    const encoded = /filename\*=utf-8''([^;]+)/i.exec(disposition)?.[1];
+    const name = encoded ? decodeURIComponent(encoded) : /filename="([^"]+)"/.exec(disposition)?.[1] || id;
+    const stored: StoredFile = {id, name, type:blob.type, size:blob.size, blob, storedAt:new Date().toISOString(), sha256:repositoryResponse.headers.get('ETag')?.replace(/"/g,'')};
+    await withStore('readwrite', store => store.put(stored));
+    return stored;
+  }
+  if ([401,403,404].includes(repositoryResponse.status)) return undefined;
   const response = await apiFetch(`/api/portal-storage/workspace/files/?id=${encodeURIComponent(id)}`, {}, 120_000);
   if (!response.ok) return undefined;
   const blob = await response.blob();
@@ -82,9 +96,9 @@ export async function deleteStoredFile(id: string): Promise<void> {
 }
 
 /** Persists the original upload; failures are logged so the metadata upload still succeeds. */
-export function persistUpload(id: string, file: File | Blob | undefined, name?: string): void {
+export async function persistUpload(id: string, file: File | Blob | undefined, name?: string): Promise<void> {
   if (!file) return;
-  saveStoredFile(id, file, name).catch((err) => console.error(`Could not store original file for ${id}`, err));
+  await saveStoredFile(id, file, name);
 }
 
 export async function loadRepositoryFile(id: string, path: string, force = false): Promise<StoredFile | undefined> {
@@ -95,7 +109,7 @@ export async function loadRepositoryFile(id: string, path: string, force = false
   const blob = await fetchRepositoryFile(path);
   if (!blob) return undefined;
   const name = path.trim().split('/').pop() || id;
-  await saveStoredFile(id, blob, name).catch(() => undefined);
+  await saveStoredFile(id, blob, name, false).catch(() => undefined);
   return { id, name, blob, type: blob.type, size: blob.size, storedAt: new Date().toISOString() };
 }
 

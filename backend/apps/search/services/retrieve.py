@@ -24,6 +24,8 @@ def _build_filter(filters: dict | None, workspace_ids=None, workspace=None) -> q
         val = (filters or {}).get(key)
         if val:
             must.append(qm.FieldCondition(key=field, match=qm.MatchValue(value=val)))
+    if filters and "documentIds" in filters:
+        must.append(qm.FieldCondition(key="document_id", match=qm.MatchAny(any=filters["documentIds"])))
     workspace_indexed = qm.FieldCondition(key="workspace_indexed", match=qm.MatchValue(value=True))
     normal_uploads = qm.Filter(must_not=[workspace_indexed])
     if workspace and workspace_ids:

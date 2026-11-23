@@ -96,6 +96,7 @@ class EvidenceDocument(models.Model):
             "documentDate": self.document_date,
             "confidentiality": self.confidentiality,
             "originalFileName": self.original_file_name,
+            "documentUrl": (self.progress or {}).get("original_url") or None,
             "mimeType": self.mime_type,
             "fileType": self.file_type,
             "sizeBytes": self.size_bytes,

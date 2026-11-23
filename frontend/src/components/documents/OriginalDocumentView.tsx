@@ -34,6 +34,8 @@ function isUrlLike(value?: string | null): boolean {
 function detectKind(file: StoredFile): Kind {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
   if (ext === 'pub' || ext === 'doc') return 'legacy';
+  if (file.type.includes('wordprocessingml')) return 'docx';
+  if (file.type.includes('spreadsheetml')) return 'xlsx';
   if (file.type === 'application/pdf' || ext === 'pdf') return 'pdf';
   if (BROWSER_IMAGE.test(file.type) || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) return 'image';
   if (file.type.includes('wordprocessingml') || ext === 'docx') return 'docx';
@@ -106,7 +108,7 @@ function LegacyOfficeView({ documentId, name, heightClass }: { documentId: strin
     let url: string | undefined;
     const controller = new AbortController();
     setState({});
-    void apiFetch(`/api/portal-storage/workspace/files/?id=${encodeURIComponent(documentId)}&preview=1`, { signal: controller.signal }, 60_000)
+    void apiFetch(`/api/repository/files/${encodeURIComponent(documentId)}/?preview=1`, { signal: controller.signal }, 60_000)
       .then(async (response) => {
         if (!response.ok) throw new Error('Preview unavailable');
         const blob = await response.blob();
@@ -289,7 +291,7 @@ async function loadOriginalFile(doc: EvidenceDocument): Promise<StoredFile | und
   const shared = await fetchSharedOriginal(doc.id);
   if (shared) {
     const file = new File([shared.blob], shared.name, { type: shared.type });
-    await saveStoredFile(doc.id, file, shared.name).catch(() => undefined);
+    await saveStoredFile(doc.id, file, shared.name, false).catch(() => undefined);
     return {
       id: doc.id,
       name: shared.name,
@@ -309,7 +311,7 @@ export function OriginalDocumentView({
   activePassage = null,
   canDownload = true,
   heightClass = 'h-[70vh]',
-  missingFallback = 'summary'
+  missingFallback = 'notice'
 }: OriginalDocumentViewProps) {
   const [state, setState] = useState<{ status: 'loading' | 'ready' | 'missing'; file?: StoredFile; url?: string }>({
     status: 'loading'
@@ -320,9 +322,21 @@ export function OriginalDocumentView({
     let url: string | undefined;
     setState({ status: 'loading' });
     loadOriginalFile(doc)
-      .then((file) => {
+      .then(async (file) => {
         if (cancelled) return;
         if (!file) return setState({ status: 'missing' });
+        // Imported files can carry a PDF extension while containing Office bytes.
+        if (detectKind(file) === 'pdf') {
+          const signature = new Uint8Array(await file.blob.slice(0, 4).arrayBuffer());
+          if (signature[0] === 0x50 && signature[1] === 0x4b) {
+            const {default: JSZip} = await import('jszip');
+            const archive = await JSZip.loadAsync(await file.blob.arrayBuffer());
+            const type = archive.file('word/document.xml') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+              : archive.file('xl/workbook.xml') ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : file.type;
+            file = {...file, type};
+          }
+        }
+        if (cancelled) return;
         const kind = detectKind(file);
         const blob = kind === 'pdf' && file.type !== 'application/pdf' ? new Blob([file.blob], { type: 'application/pdf' }) : file.blob;
         url = URL.createObjectURL(blob);
@@ -333,7 +347,7 @@ export function OriginalDocumentView({
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [doc.id, doc.documentUrl]);
+  }, [doc.id, doc.documentUrl, doc.fileVersion, doc.storageSha256]);
 
   if (state.status === 'loading') return <Loading />;
 

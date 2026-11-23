@@ -19,6 +19,7 @@ interface FolderFormModalProps {
   folder?: EvidenceFolder | null;
   parentId?: string;
   frameworkId?: string;
+  frameworkOptions?: { id: string; name: string }[];
   category?: FrameworkCategory | 'General / Custom';
   simplified?: boolean;
   initialAreaId?: string;
@@ -35,6 +36,7 @@ export function FolderFormModal({
   folder,
   parentId,
   frameworkId,
+  frameworkOptions,
   category,
   simplified,
   initialAreaId,
@@ -45,7 +47,8 @@ export function FolderFormModal({
   onClose,
   onSave
 }: FolderFormModalProps) {
-  const isIso = (frameworkId || folder?.frameworkId) === 'iso';
+  const [selectedFrameworkId, setSelectedFrameworkId] = useState(folder?.frameworkId || frameworkId || 'ia');
+  const isIso = selectedFrameworkId === 'iso';
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
@@ -56,13 +59,18 @@ export function FolderFormModal({
   const [error, setError] = useState('');
 
   useEffect(() => {
+    setSelectedFrameworkId(folder?.frameworkId || frameworkId || 'ia');
+  }, [open, folder, frameworkId]);
+
+  useEffect(() => {
+    const initializingIso = (folder?.frameworkId || frameworkId) === 'iso';
     if (folder) {
       setName(folder.name);
       setCode(folder.code || '');
       setDescription(folder.description || '');
       setStartDate(folder.startDate || folder.createdAt || new Date().toISOString().slice(0, 10));
       setExpiredDate(folder.expiredDate || '');
-      setHasNoDeadline(isIso ? true : (folder.hasNoDeadline ?? (folder.expiredDate === null)));
+      setHasNoDeadline(initializingIso ? true : (folder.hasNoDeadline ?? (folder.expiredDate === null)));
       setSelectedAreaId(folder.areaId ? folder.areaId.toLowerCase() : '');
     } else {
       setName(initialName || '');
@@ -70,15 +78,15 @@ export function FolderFormModal({
       setDescription('');
       setStartDate(new Date().toISOString().slice(0, 10));
       setExpiredDate('');
-      setHasNoDeadline(isIso ? true : false);
+      setHasNoDeadline(initializingIso);
       setSelectedAreaId(
         initialAreaId
           ? initialAreaId.toLowerCase()
-          : (!isIso && areas && areas.length > 0 ? areas[0].code.toLowerCase() : '')
+          : (!initializingIso && areas && areas.length > 0 ? areas[0].code.toLowerCase() : '')
       );
     }
     setError('');
-  }, [folder, open, initialName, initialCode, initialAreaId, isIso, areas]);
+  }, [folder, open, initialName, initialCode, initialAreaId, frameworkId, JSON.stringify(areas)]);
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -93,7 +101,7 @@ export function FolderFormModal({
       id: folder ? folder.id : `folder-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: name.trim(),
       code: safeCode,
-      frameworkId: folder?.frameworkId || frameworkId || 'ia',
+      frameworkId: folder?.frameworkId || selectedFrameworkId,
       category: folder?.category || category || 'Accreditation',
       description: description.trim(),
       isSystem: folder?.isSystem ?? false,
@@ -150,6 +158,12 @@ export function FolderFormModal({
       }
     >
       <div className="space-y-4">
+        {!!frameworkOptions?.length && !folder && <div>
+          <label className="mb-1 block text-xs font-semibold" htmlFor="new-folder-framework">Accreditation framework</label>
+          <select id="new-folder-framework" className="input select w-full text-sm" value={selectedFrameworkId} onChange={event => {setSelectedFrameworkId(event.target.value); setHasNoDeadline(event.target.value === 'iso');}}>
+            {frameworkOptions.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+          </select>
+        </div>}
         {error && (
           <div className="rounded-xl border border-danger-200 bg-danger-50 p-3 text-xs text-danger-700 shadow-2xs">
             {error}

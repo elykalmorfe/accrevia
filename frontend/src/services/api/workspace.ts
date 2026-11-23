@@ -4,6 +4,7 @@ import { apiFetch, isApiConfigured } from './client';
 export async function restoreWorkspace(): Promise<void> {
   if (!isApiConfigured()) return;
   const response = await apiFetch('/api/portal-storage/workspace/records/', {}, 30_000);
+  if ([401,403].includes(response.status)) return;
   if (!response.ok) throw new Error('The database workspace could not be loaded.');
   const { records } = await response.json();
   for (const [name, incoming] of Object.entries(records as Record<string, unknown>)) {
@@ -11,6 +12,7 @@ export async function restoreWorkspace(): Promise<void> {
     const raw = localStorage.getItem(key);
     if (raw === null) {
       localStorage.setItem(key, JSON.stringify(incoming));
+      window.dispatchEvent(new StorageEvent('storage',{key,newValue:JSON.stringify(incoming)}));
       continue;
     }
     // Keep this browser's edits while adding records from the portable copy.

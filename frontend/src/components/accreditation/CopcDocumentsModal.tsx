@@ -86,7 +86,7 @@ export function CopcDocumentsModal({
       campusId={record.campusId}
       campusName={record.campusName}
       rootLabel="COPC"
-      allowNestedFolders={false}
+      allowNestedFolders={true}
       stats={[
         { label: 'Certificate No.', value: record.certificateNumber || '—' },
         { label: 'Status', value: record.copcStatus }

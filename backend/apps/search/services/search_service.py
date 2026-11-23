@@ -54,6 +54,11 @@ def run_search(query: str, filters: dict | None = None, limit: int | None = None
             "dateAdded": None,
         }
         # Prefer fresh passages from index
+        from apps.auth.models import RepositoryEntry
+        from apps.auth.repository import record
+        entry = RepositoryEntry.objects.filter(kind='document', record_id=item['document_id'], deleted=False).first()
+        if entry:
+            doc_payload.update(record(entry))
         passages = item["passages"][:5]
         doc_payload["passages"] = passages
         matchable_fields = {

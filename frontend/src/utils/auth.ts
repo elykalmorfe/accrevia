@@ -9,7 +9,7 @@ import {
   registerRemote,
   RemoteAuthError
 } from '../services/accounts/accountDirectory';
-import { getApiBaseUrl } from '../services/api/client';
+import { apiFetch, getApiBaseUrl } from '../services/api/client';
 import { PortalUser, UserRole, UserStatus } from '../types/user';
 
 const ACCOUNTS_KEY = 'accrevia-users';
@@ -179,7 +179,7 @@ export function readAccounts(): StoredAccount[] {
 }
 
 function writeAccounts(accounts: StoredAccount[]) {
-  window.localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+  window.localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts.map(({password, passwordHash, ...profile}) => profile)));
 }
 
 export function findAccountByEmail(email: string): StoredAccount | undefined {
@@ -291,17 +291,13 @@ let initialization: Promise<void> | null = null;
 /** Idempotent; safe to call on every startup and before every credential check. */
 export function initializeAuthStore(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve();
-  if (!initialization) {
-    initialization = (async () => {
-      sanitizeStoredSession();
-      await migratePlainTextPasswords();
-      purgeDevDemoAccounts();
-      await ensureDefaultSuperadmin();
-    })().catch((error) => {
-      initialization = null;
-      throw error;
-    });
-  }
+  initialization ??= (async () => {
+    window.localStorage.removeItem(AUTH_KEY);
+    window.localStorage.removeItem(SESSION_KEY);
+    window.localStorage.removeItem(ACCOUNTS_KEY);
+    await refreshServerSession();
+    window.setInterval(() => { void refreshServerSession(); }, 5000);
+  })();
   return initialization;
 }
 
@@ -311,33 +307,17 @@ export function initializeAuthStore(): Promise<void> {
 
 export async function authenticate(email: string, password: string): Promise<SessionAccount> {
   await initializeAuthStore();
-  if (getApiBaseUrl()) {
-    try {
-      const remote = await loginRemote(email, password);
-      writeLocalApproval(remote.email, 'approved');
-      markPortalUserStatus(remote.email, 'Active');
-      return remote;
-    } catch (error) {
-      if (error instanceof RemoteAuthError) {
-        if (error.status === 404 || error.reason === 'network') {
-          // This browser may still have the only copy, or the directory is offline.
-        } else if (error.reason === 'pending' || error.reason === 'rejected' || error.reason === 'deactivated') {
-          throw new AuthDeniedError(error.reason, error.message);
-        } else if (error.reason === 'invalid') {
-          try {
-            const local = await authenticateLocal(email, password);
-            const stored = findAccountByEmail(email);
-            if (stored?.passwordHash) void pushPasswordHash(email, stored.passwordHash);
-            return local;
-          } catch (localError) {
-            if (localError instanceof AuthDeniedError) throw localError;
-            throw new AuthDeniedError('invalid', error.message);
-          }
-        }
-      }
+  if (!getApiBaseUrl()) throw new Error('Configure the backend before signing in.');
+  try {
+    const account = await loginRemote(email, password);
+    verifiedSession = toSession(account);
+    return account;
+  } catch (error) {
+    if (error instanceof RemoteAuthError && ['invalid', 'pending', 'rejected', 'deactivated'].includes(error.reason)) {
+      throw new AuthDeniedError(error.reason as AuthDenialReason, error.message);
     }
+    throw error;
   }
-  return authenticateLocal(email, password);
 }
 
 async function authenticateLocal(email: string, password: string): Promise<SessionAccount> {
@@ -406,7 +386,7 @@ export async function provisionManagedAccount(input: {
     name: input.name,
     email,
     role: input.role,
-    office:
+    office:   
       input.role === 'Superadmin'
         ? 'Office of the University President'
         : input.role === 'Administrator'
@@ -553,25 +533,11 @@ export function passwordPolicyError(password: string): string | null {
 }
 
 export async function changePassword(email: string, currentPassword: string, newPassword: string): Promise<void> {
-  const account = findAccountByEmail(email);
-  if (!account?.passwordHash) throw new Error('Your account could not be found. Please sign in again.');
-  if (!(await bcrypt.compare(currentPassword, account.passwordHash))) throw new Error('Current password is incorrect.');
-  if (await bcrypt.compare(newPassword, account.passwordHash)) throw new Error('New password must be different from the current password.');
   const policyError = passwordPolicyError(newPassword);
   if (policyError) throw new Error(policyError);
-
-  const passwordHash = await hashPassword(newPassword);
-  const target = normalizeEmail(email);
-  let updated: StoredAccount | undefined;
-  writeAccounts(
-    readAccounts().map((a) => {
-      if (normalizeEmail(String(a.email ?? '')) !== target) return a;
-      updated = { ...a, passwordHash, mustChangePassword: false, passwordChangedAt: new Date().toISOString() };
-      return updated;
-    })
-  );
-  if (updated && normalizeEmail(getSessionAccount()?.email ?? '') === target) startSession(updated);
-  if (updated?.passwordHash) await pushPasswordHash(email, updated.passwordHash);
+  const response = await apiFetch('/api/accounts/password/', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({currentPassword, newPassword})});
+  if (!response.ok) throw new Error((await response.json()).detail || 'Password change failed.');
+  await refreshServerSession();
 }
 
 // ---------------------------------------------------------------------------
@@ -582,41 +548,56 @@ function notifySessionChange() {
   window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
+let verifiedSession: SessionAccount | null = null;
+let refreshingSession: Promise<void> | undefined;
+const LOGOUT_PENDING_KEY = 'accrevia-logout-pending';
+
+async function refreshServerSession(): Promise<void> {
+  refreshingSession ??= (async () => {
+    try {
+      if (window.localStorage.getItem(LOGOUT_PENDING_KEY)) {
+        const logout = await apiFetch('/api/accounts/logout/', {method: 'POST'});
+        if (!logout.ok) throw new Error('Logout pending');
+        window.localStorage.removeItem(LOGOUT_PENDING_KEY);
+      }
+      const response = await apiFetch('/api/accounts/session/');
+      if ([401,403].includes(response.status)) {
+        if (verifiedSession) {verifiedSession = null; notifySessionChange();}
+        return;
+      }
+      if (!response.ok) throw new Error('Session validation failed');
+      const body = await response.json();
+      const next = body.account ? toSession(body.account) : null;
+      if (JSON.stringify(next) !== JSON.stringify(verifiedSession)) {
+        verifiedSession = next;
+        notifySessionChange();
+      }
+    } catch {
+      // Keep the last server-verified identity during a temporary connection loss.
+      // Queued writes still require current server authorization when connectivity returns.
+    }
+  })().finally(() => { refreshingSession = undefined; });
+  return refreshingSession;
+}
+
 export function startSession(account: StoredAccount | SessionAccount) {
-  const session = toSession(account as StoredAccount);
-  window.localStorage.setItem(AUTH_KEY, 'true');
-  window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  // Login is only allowed for approved/active accounts — refresh directory without reopening pending status.
-  const existingStatus = readPortalUserStatus(session.email);
-  const sessionApproved = (session.approvalStatus || 'approved') === 'approved';
-  upsertPortalUserFromAccount(
-    { ...session, approvalStatus: session.approvalStatus || 'approved' },
-    { preserveExistingStatus: !sessionApproved || (existingStatus !== 'Pending Approval' && existingStatus !== 'Rejected') }
-  );
+  if (!verifiedSession || verifiedSession.email !== account.email) return;
   notifySessionChange();
 }
 
-export function endSession() {
+export async function endSession() {
+  verifiedSession = null;
   window.localStorage.removeItem(AUTH_KEY);
   window.localStorage.removeItem(SESSION_KEY);
+  window.localStorage.setItem(LOGOUT_PENDING_KEY, '1');
   notifySessionChange();
+  const response = await apiFetch('/api/accounts/logout/', {method: 'POST'});
+  if (!response.ok) throw new Error('The backend could not complete logout.');
+  window.localStorage.removeItem(LOGOUT_PENDING_KEY);
 }
 
-let cachedRaw: string | null = null;
-let cachedSession: SessionAccount | null = null;
-
 export function getSessionAccount(): SessionAccount | null {
-  if (typeof window === 'undefined') return null;
-  const raw = window.localStorage.getItem(AUTH_KEY) === 'true' ? window.localStorage.getItem(SESSION_KEY) : null;
-  if (raw !== cachedRaw) {
-    cachedRaw = raw;
-    try {
-      cachedSession = raw ? (JSON.parse(raw) as SessionAccount) : null;
-    } catch {
-      cachedSession = null;
-    }
-  }
-  return cachedSession;
+  return verifiedSession;
 }
 
 function subscribeSession(onChange: () => void) {

@@ -20,6 +20,7 @@ class HealthView(APIView):
         qdrant_ok = False
         mysql_error = None
         qdrant_error = None
+        search_index = False
 
         try:
             connection.ensure_connection()
@@ -35,6 +36,7 @@ class HealthView(APIView):
             client = QdrantClient(url=settings.QDRANT_URL, timeout=3, check_compatibility=False)
             client.get_collections()
             qdrant_ok = True
+            search_index = client.collection_exists(settings.QDRANT_COLLECTION)
         except Exception as exc:  # noqa: BLE001
             qdrant_error = str(exc)
 
@@ -46,6 +48,7 @@ class HealthView(APIView):
             "status": "ok" if ready and not embedding_degraded else "degraded" if ready else "unavailable",
             "mysql": mysql_ok,
             "qdrant": qdrant_ok,
+            "search_index": search_index,
             "jwt_required": settings.REQUIRE_JWT,
             "collection": settings.QDRANT_COLLECTION,
             "embedding_backend": embedding.get("name"),

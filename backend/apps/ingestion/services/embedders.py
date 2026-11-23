@@ -43,11 +43,24 @@ def _dense_model():
         "sentence-transformers/all-MiniLM-L6-v2",
     )
 
+    # The same BGE-M3 checkpoint/pooling through SentenceTransformers avoids
+    # FlagEmbedding's repeated CPU calibration forward pass for every document.
+    if device == "cpu" and getattr(settings, "BGE_CPU_BACKEND", "sentence-transformers") == "sentence-transformers":
+        try:
+            from sentence_transformers import SentenceTransformer
+
+            model = SentenceTransformer(model_name, device=device)
+            model.max_seq_length = 512
+            logger.info("Dense backend active: bge-m3 via sentence-transformers (CPU)")
+            return ("bge_st", model)
+        except Exception as exc:
+            logger.warning("CPU BGE-M3 loader unavailable (%s); trying FlagEmbedding", exc)
+
     try:
         from FlagEmbedding import BGEM3FlagModel
 
         logger.info("Loading BGE-M3 via FlagEmbedding (%s)", model_name)
-        model = BGEM3FlagModel(model_name, use_fp16=False, devices=device)
+        model = BGEM3FlagModel(model_name, use_fp16=False, devices=device, batch_size=settings.EMBEDDING_BATCH_SIZE)
         logger.info("Dense backend active: bge-m3 via FlagEmbedding (primary)")
         return ("bge", model)
     except Exception as exc:  # noqa: BLE001
@@ -58,6 +71,7 @@ def _dense_model():
 
         logger.info("Loading BGE-M3 via sentence-transformers (%s)", model_name)
         model = SentenceTransformer(model_name, device=device)
+        model.max_seq_length = 512
         logger.info("Dense backend active: bge-m3 via sentence-transformers (primary)")
         return ("bge_st", model)
     except Exception as exc:  # noqa: BLE001
@@ -137,7 +151,7 @@ def embed_dense(texts: list[str]) -> list[list[float]]:
     kind, model = _dense_model()
 
     if kind == "bge":
-        out = model.encode(texts, return_dense=True, return_sparse=False, return_colbert_vecs=False)
+        out = model.encode(texts, batch_size=settings.EMBEDDING_BATCH_SIZE, return_dense=True, return_sparse=False, return_colbert_vecs=False)
         dense = out["dense_vecs"]
         return [list(map(float, v)) for v in dense]
 
@@ -146,7 +160,7 @@ def embed_dense(texts: list[str]) -> list[list[float]]:
         return [list(map(float, v)) for v in vectors]
 
     if kind in {"bge_st", "st"}:
-        vectors = model.encode(texts, normalize_embeddings=True)
+        vectors = model.encode(texts, normalize_embeddings=True, batch_size=settings.EMBEDDING_BATCH_SIZE, show_progress_bar=False)
         return [list(map(float, v)) for v in np.asarray(vectors)]
 
     dim = _configured_dense_size()

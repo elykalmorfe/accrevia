@@ -50,6 +50,7 @@ LEVEL_ALIASES = {
     "level 4": "Level 4",
     "level iv": "Level 4",
     "not yet due for accreditation": "Not Yet Due for Accreditation",
+    "yet due for accreditation": "Not Yet Due for Accreditation",
     "not accreditable": "Not Accreditable",
     "new program": "New Program",
     "preliminary": "Candidate",
@@ -204,6 +205,8 @@ def parse_2026(ws):
                 continue
             num, name = row[0], row[1]
             if not isinstance(name, str) or not name.strip():
+                continue
+            if name.strip().upper() in {"CAMPUS", "TOTAL", "GRAND TOTAL"}:
                 continue
             if isinstance(num, str) and "CAMPUS" in num.upper():
                 continue

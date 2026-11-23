@@ -195,8 +195,8 @@ export function buildCanonicalRepoFolders(createdAt = '2026-01-15'): EvidenceFol
 }
 
 /**
- * Ensure canonical PA/COPC folders exist; re-home docs from stray PA/COPC folders;
- * return folders list with stray PA/COPC entries removed (docs kept, folderId remapped).
+ * Ensure default PA/COPC folders exist without flattening source repositories.
+ * Only legacy documents without an existing folder need a default destination.
  */
 export function reconcilePaCopcRepository(
   folders: EvidenceFolder[],
@@ -210,9 +210,6 @@ export function reconcilePaCopcRepository(
     const existing = byId.get(c.id);
     if (!existing) {
       byId.set(c.id, c);
-      changed = true;
-    } else if (existing.parentId !== c.parentId || existing.code !== c.code || existing.name !== c.name) {
-      byId.set(c.id, { ...existing, ...c });
       changed = true;
     }
   }
@@ -232,6 +229,8 @@ export function reconcilePaCopcRepository(
 
   const nextDocs = documents.map((d) => {
     if (d.frameworkId !== 'pa' && d.frameworkId !== 'copc') return d;
+    // Explicit source locations remain valid even while their folders are loading.
+    if (d.folderId) return d;
     const folder = d.folderId ? byId.get(d.folderId) : undefined;
     if (d.frameworkId === 'pa') {
       if (isPaCanonicalFolderId(d.folderId)) return d;
@@ -268,25 +267,7 @@ export function reconcilePaCopcRepository(
     return d;
   });
 
-  const nextFolders: EvidenceFolder[] = [];
-  for (const f of byId.values()) {
-    const isPaStray =
-      f.frameworkId === 'pa' &&
-      f.id !== PA_ROOT_FOLDER_ID &&
-      !isPaCanonicalFolderId(f.id);
-    const isCopcStray =
-      f.frameworkId === 'copc' &&
-      f.id !== COPC_ROOT_FOLDER_ID &&
-      !isCopcCanonicalFolderId(f.id);
-    if (isPaStray || isCopcStray) {
-      changed = true;
-      continue;
-    }
-    nextFolders.push(f);
-  }
-
-  // Keep stable order: roots and other frameworks first, then canonical children already in map
-  return { folders: nextFolders, documents: nextDocs, changed };
+  return { folders: [...byId.values()], documents: nextDocs, changed };
 }
 
 /** `areaId` shared by a program's certificate folders and documents. */

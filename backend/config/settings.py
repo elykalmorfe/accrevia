@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
+os.environ.setdefault("HF_HOME", str(BASE_DIR / "models" / "huggingface"))
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-accrevia-key")
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() in {"1", "true", "yes"}
@@ -138,3 +139,20 @@ EMBEDDING_DEVICE = os.getenv("EMBEDDING_DEVICE", "cpu")
 
 # JWT stub flag for later production auth
 REQUIRE_JWT = os.getenv("REQUIRE_JWT", "false").lower() in {"1", "true", "yes"}
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_AGE = 8 * 60 * 60
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "4" if EMBEDDING_DEVICE == "cpu" else "32"))
+BGE_CPU_BACKEND = os.getenv("BGE_CPU_BACKEND", "sentence-transformers")
+if not TESSERACT_CMD:
+    for candidate in [BASE_DIR / "tools/tesseract/tesseract.exe", Path(os.getenv("ProgramFiles", "C:/Program Files")) / "Tesseract-OCR/tesseract.exe", Path(os.getenv("LOCALAPPDATA", "")) / "Programs/Tesseract-OCR/tesseract.exe"]:
+        if candidate.is_file():
+            TESSERACT_CMD = str(candidate)
+            break
+POPPLER_PATH = os.getenv("POPPLER_PATH", "")
+if not POPPLER_PATH:
+    for candidate in (BASE_DIR / "tools/poppler").glob("*/Library/bin/pdftoppm.exe"):
+        POPPLER_PATH = str(candidate.parent)
+        break

@@ -5,9 +5,12 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from apps.auth.views import DockerDesktopProbeView, RootView
+from apps.auth.protected_media import ProtectedMediaView
 from apps.auth.portal_storage_views import CatalogOriginalView, PortalFilesView, PortalRecordsView, WorkspaceRecordsView, WorkspaceOriginalView
 
 urlpatterns = [
+    path('media/<path:file_path>', ProtectedMediaView.as_view()),
+    path('api/repository/', include('apps.auth.repository_urls')),
     path("api/portal-storage/workspace/records/", WorkspaceRecordsView.as_view(), name="workspace-records"),
     path("api/portal-storage/workspace/files/", WorkspaceOriginalView.as_view(), name="workspace-files"),
     path("", RootView.as_view(), name="root"),
@@ -25,5 +28,3 @@ urlpatterns = [
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

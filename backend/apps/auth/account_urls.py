@@ -2,6 +2,8 @@ from django.urls import path
 
 from .account_views import (
     AccountApprovalView,
+    AccountSessionView,
+    AccountLogoutView,
     AccountDirectoryView,
     AccountEventsView,
     AccountLoginView,
@@ -12,6 +14,8 @@ from .account_views import (
 )
 
 urlpatterns = [
+    path("session/", AccountSessionView.as_view()),
+    path("logout/", AccountLogoutView.as_view()),
     path("directory/", AccountDirectoryView.as_view(), name="account-directory"),
     path("events/", AccountEventsView.as_view(), name="account-events"),
     path("register/", AccountRegisterView.as_view(), name="account-register"),

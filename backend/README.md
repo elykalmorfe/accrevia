@@ -21,7 +21,7 @@ Backend for accreditation document **upload → OCR → chunk → BM25 + BGE-M3 
 
 ## Windows 10/11 setup
 
-1. Install **Python 3.11+**, **MySQL 8.4+** (Docker recommended; Django 6 requires 8.4+), **Docker Desktop** (Qdrant + Redis + optional MySQL), and **Tesseract OCR**  
+1. Install **Python 3.10+**, **MySQL** (Docker Compose supplies 8.4), **Docker Desktop** (Qdrant + Redis + optional MySQL), and **Tesseract OCR**
    ([UB Mannheim installer](https://github.com/UB-Mannheim/tesseract/wiki)).  
    For scanned PDFs, also install [Poppler](https://github.com/oschwartz10612/poppler-windows/releases). If the tools are outside PATH, set `TESSERACT_CMD` to the Tesseract executable and `POPPLER_PATH` to the directory containing `pdfinfo` and `pdftoppm`.
 
@@ -43,6 +43,23 @@ python manage.py migrate
 ```
 
 `.env` defaults: `MYSQL_HOST=127.0.0.1`, `MYSQL_PORT=3306`, `MYSQL_DATABASE=accrevia`, `MYSQL_USER=root`, `MYSQL_PASSWORD=` (empty for Laragon).
+
+Install the OCR executables on Windows (Tesseract through winget, maintained Poppler binaries under `tools/poppler`):
+
+```powershell
+.\.venv\Scripts\python.exe scripts/install_ocr_tools.py
+```
+
+Settings automatically detect Tesseract in Program Files and Poppler under the project tools directory. For another installation, set `TESSERACT_CMD` and `POPPLER_PATH` in `.env`. The Python dependencies are installed with `pip install -r requirements.txt`.
+
+After restoring a portable workspace, populate its search index once. This reads saved originals, extracts PDF/image/Word/Excel text, and uses prepared PDF previews for legacy Office files. Where an original is missing or unreadable, the command explicitly indexes metadata only and records the extraction problem; it never invents document contents. Reruns skip unchanged records and reuse existing vectors for repeated originals.
+
+```powershell
+.\.venv\Scripts\python.exe manage.py index_portal_documents
+.\.venv\Scripts\python.exe manage.py verify_runtime --load-models --ocr-smoke --search-smoke
+```
+
+These commands do not start the API or a Celery worker. First use downloads BGE-M3, sparse BM25, and cross-encoder model weights into local caches; model files and OCR binaries are not distributed by Git. CPU inference uses the same BGE-M3 checkpoint through SentenceTransformers with `EMBEDDING_BATCH_SIZE=4`, avoiding FlagEmbedding's extra CPU calibration pass. `BGE_CPU_BACKEND=flagembedding` selects the original loader when needed. GPU inference continues to prefer FlagEmbedding.
 
 4. Run API + worker in **two separate terminals** (venv activated in both):
 
@@ -182,4 +199,4 @@ python scripts\smoke_upload_search.py
 
 ## Auth
 
-DEBUG allows open CORS to Vite and `AllowAny` on APIs. JWT is stubbed at `POST /api/health/token/` (`REQUIRE_JWT` reserved for later).
+Sign-in, session restoration, account management, and password changes use server-side sessions stored in MySQL. Session cookies are HTTP-only; account writes and hybrid search require CSRF protection. Hybrid search uses the server-verified account and filters non-administrators to public, owned, or granted documents. The frontend rejects browser-only authentication and clears access when session validation cannot reach the backend. Other legacy endpoints retain their individual access rules. The old JWT endpoint remains a compatibility stub and does not implement the session login flow.
