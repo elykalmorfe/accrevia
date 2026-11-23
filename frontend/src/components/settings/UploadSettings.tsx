@@ -1,6 +1,6 @@
 import React from 'react';
 import { SaveBar, SettingRow, SettingsGroup } from './SettingsLayout';
-import { UPLOAD_FILE_TYPES, UploadReviewStatus, useSettingsDraft } from '../../settings/portalSettings';
+import { UPLOAD_FILE_TYPES, useSettingsDraft } from '../../settings/portalSettings';
 import { applyNamingPattern } from '../../utils/uploadRules';
 import { extensionsFor } from '../../utils/fileTypes';
 
@@ -74,11 +74,8 @@ export function UploadSettings() {
             )}
           </div>
         </SettingRow>
-        <SettingRow label="Status of new uploads" description="Pending Review sends files to reviewers first. Approved skips review.">
-          <select aria-label="Status of new uploads" className="input select" value={value.newUploadStatus} onChange={(e) => set({ newUploadStatus: e.target.value as UploadReviewStatus })}>
-            <option value="Pending Review">Pending Review</option>
-            <option value="Approved">Approved automatically</option>
-          </select>
+        <SettingRow label="Upload approval" description="Uploads are marked Approved after AI indexing finishes successfully.">
+          <span className="text-sm font-medium text-ink">Approve after indexing</span>
         </SettingRow>
       </SettingsGroup>
       <SaveBar dirty={dirty} onSave={save} onDiscard={discard} onReset={reset} label="Upload rules saved" />

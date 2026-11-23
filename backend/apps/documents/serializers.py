@@ -28,6 +28,8 @@ class DocumentUploadSerializer(serializers.Serializer):
 class DocumentStatusSerializer(serializers.Serializer):
     id = serializers.CharField()
     status = serializers.CharField()
+    approvalStatus = serializers.CharField()
+    passages = serializers.ListField(child=serializers.CharField())
     progress = serializers.DictField()
     chunkCount = serializers.IntegerField()
     ocrApplied = serializers.BooleanField()

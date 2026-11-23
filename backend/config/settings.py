@@ -89,10 +89,8 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / os.getenv("MEDIA_ROOT", "media")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+frontend_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in frontend_origins.split(",") if origin.strip()]
 CORS_ALLOW_CREDENTIALS = True
 CORS_EXPOSE_HEADERS = ["Content-Disposition"]
 
@@ -126,6 +124,8 @@ RERANK_TOP_K = int(os.getenv("RERANK_TOP_K", "12"))
 SEARCH_RESULT_LIMIT = int(os.getenv("SEARCH_RESULT_LIMIT", "20"))
 
 TESSERACT_CMD = os.getenv("TESSERACT_CMD", "")
+POPPLER_PATH = os.getenv("POPPLER_PATH", "")
+SEARCH_WARMUP = os.getenv("SEARCH_WARMUP", "true" if DEBUG else "false").lower() in {"1", "true", "yes"}
 BGE_MODEL = os.getenv("BGE_MODEL", "BAAI/bge-m3")
 FASTEMBED_DENSE_MODEL = os.getenv(
     "FASTEMBED_DENSE_MODEL",

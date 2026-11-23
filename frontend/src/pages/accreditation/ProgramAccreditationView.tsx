@@ -18,11 +18,9 @@ import {
   certificateAreaKey,
   compareYears,
   findingsAreaKey,
-  formatLevel,
   getExpiryInfo,
   isUrl,
   levelAsOf,
-  programLinkedDocKind,
   statusLabel
 } from '../../utils/programAccreditation';
 import { isLocalCertificatePath, localCertificationFileFor } from '../../utils/linkedCertificates';
@@ -200,48 +198,6 @@ export function ProgramAccreditationView() {
     return stats;
   }, [detailsModalProgram?.requirements, documents, folders]);
 
-  /** Documents linked to the open program, categorized by cert level / ratings / findings / survey area. */
-  const programUploadedDocuments = useMemo(() => {
-    if (!detailsModalProgram) return [];
-    const programId = detailsModalProgram.id;
-    const reqIds = (detailsModalProgram.requirements || []).map((r) => r.id);
-    const reqName = new Map((detailsModalProgram.requirements || []).map((r) => [r.id, r.areaName]));
-    const systemFolder = (folderId?: string) => {
-      if (!folderId) return null;
-      let cursor = folders.find((f) => f.id === folderId);
-      while (cursor && !cursor.isSystem) cursor = folders.find((f) => f.id === cursor?.parentId);
-      return cursor;
-    };
-
-    return documents
-      .filter((d) => d.frameworkId === 'pa')
-      .map((d) => {
-        let kind = programLinkedDocKind(d.areaId, programId, reqIds);
-        const sys = systemFolder(d.folderId);
-        const levelCode = sys?.code || null;
-        // Unified PA repo: TRBA / findings live under certificateAreaKey with fixed folder codes.
-        if (!kind && d.areaId === certificateAreaKey(programId)) {
-          if (levelCode === 'trba') kind = 'ratings';
-          else if (levelCode === 'findings') kind = 'findings';
-          else kind = 'certificate';
-        }
-        if (!kind) return null;
-        const category =
-          kind === 'ratings'
-            ? 'Technical Review & Board Action'
-            : kind === 'findings'
-              ? 'Summary of Findings & Recommendation'
-              : kind === 'certificate'
-                ? levelCode && levelCode !== 'trba' && levelCode !== 'findings'
-                  ? `Certificate · ${formatLevel(levelCode as ProgramAccreditation['status'])}`
-                  : 'Certificate'
-                : reqName.get(d.areaId) || 'Survey area';
-        return { doc: d, kind, category, levelCode };
-      })
-      .filter((row): row is NonNullable<typeof row> => !!row)
-      .sort((a, b) => b.doc.dateAdded.localeCompare(a.doc.dateAdded));
-  }, [detailsModalProgram, documents, folders]);
-
   // AACCUP certificates (per-program level folders)
   const [certificateProgramId, setCertificateProgramId] = useState<string | null>(null);
   const certificateProgram = programAccreditations.find((p) => p.id === certificateProgramId) ?? null;
@@ -286,7 +242,7 @@ export function ProgramAccreditationView() {
       program: prog.programName,
       college: '—',
       department: '—',
-      office: 'Accreditation Office',
+      office: 'Quality Assurance Office',
       campus: prog.campusName,
       campusId: prog.campusId,
       documentDate: today,
@@ -1545,86 +1501,7 @@ export function ProgramAccreditationView() {
             </div>
           }
         >
-          <div className="space-y-4 max-h-[32rem] overflow-y-auto">
-            <section className="panel overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-canvas/40 px-3 py-2">
-                <div>
-                  <p className="text-xs font-bold text-ink">Uploaded Documents</p>
-                  <p className="text-[11px] text-ink-muted">
-                    Linked to this program · shown under {formatLevel(detailsModalProgram.status)} and matching folders
-                  </p>
-                </div>
-                {canMutate && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCertificateProgramId(detailsModalProgram.id);
-                      setDetailsModalProgram(null);
-                    }}
-                    className="btn btn-secondary btn-sm h-7 px-2"
-                  >
-                    <UploadIcon className="h-3.5 w-3.5" /> Upload certificate
-                  </button>
-                )}
-              </div>
-              {programUploadedDocuments.length === 0 ? (
-                <p className="px-3 py-4 text-xs text-ink-muted">No documents uploaded for this program yet.</p>
-              ) : (
-                <ul className="divide-y divide-line">
-                  {programUploadedDocuments.map(({ doc, category, kind, levelCode }) => (
-                    <li key={doc.id} className="flex items-center justify-between gap-3 p-3 text-xs">
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-ink">{doc.title}</p>
-                        <p className="mt-0.5 text-[11px] text-ink-muted">
-                          {category}
-                          {doc.isActive ? ' · Active' : ''}
-                          {kind === 'certificate' && levelCode && levelCode === detailsModalProgram.status
-                            ? ' · Current status folder'
-                            : ''}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm h-7 px-2"
-                          onClick={() => setPreviewCertificate(doc)}
-                          title="Preview"
-                        >
-                          <EyeIcon className="h-3.5 w-3.5" />
-                        </button>
-                        {kind === 'certificate' && (
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm h-7 px-2"
-                            onClick={() => {
-                              setCertificateProgramId(detailsModalProgram.id);
-                              setDetailsModalProgram(null);
-                            }}
-                            title="Open certificate folders"
-                          >
-                            <FolderOpenIcon className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {kind === 'ratings' && (
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm h-7 px-2"
-                            onClick={() => {
-                              setRatingsProgramId(detailsModalProgram.id);
-                              setDetailsModalProgram(null);
-                            }}
-                            title="Open ratings"
-                          >
-                            <FolderOpenIcon className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
+          <div className="max-h-[32rem] overflow-y-auto">
             <section className="panel divide-y divide-line overflow-hidden">
               <div className="border-b border-line bg-canvas/40 px-3 py-2">
                 <p className="text-xs font-bold text-ink">Survey areas</p>

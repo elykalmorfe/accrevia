@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { ProgramAccreditation } from '../../../types/accreditation';
-import { getReportInstitution, ReportSignatories } from '../../../data/reportTemplates';
+import { ReportSignatories } from '../../../data/reportTemplates';
 import { formatPrintTimestamp } from '../../../utils/print';
+import { ReportHeader, ReportMeta, SignatoryBlock } from './PrintControls';
 import {
   accreditedCount,
   compareYears,
@@ -33,38 +34,6 @@ function printedLabel(printedAt: Date | null): string {
   return printedAt ? formatPrintTimestamp(printedAt) : 'Stamped automatically at print time';
 }
 
-function ReportHeader({ title, subtitle }: { title: string; subtitle?: string }) {
-  const institution = getReportInstitution();
-  return (
-    <>
-      <div className="pr-header">
-        <img className="pr-logo" src={institution.logoPath} alt="" />
-        <div className="pr-header-text">
-          <div className="pr-republic">{institution.republic}</div>
-          <div className="pr-univ">{institution.university}</div>
-          <div className="pr-office">{institution.office}</div>
-          <div className="pr-address">{institution.address}</div>
-        </div>
-        <div className="pr-header-spacer" />
-      </div>
-      <h1 className="pr-title">{title}</h1>
-      {subtitle && <p className="pr-subtitle">{subtitle}</p>}
-    </>
-  );
-}
-
-function ReportMeta({ items }: { items: { label: string; value: ReactNode }[] }) {
-  return (
-    <div className="pr-meta">
-      {items.map((item) => (
-        <span key={item.label}>
-          {item.label}: <b>{item.value}</b>
-        </span>
-      ))}
-    </div>
-  );
-}
-
 function Section({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return (
     <section className="pr-section">
@@ -82,29 +51,6 @@ function EmptyRow({ colSpan, text }: { colSpan: number; text: string }) {
         {text}
       </td>
     </tr>
-  );
-}
-
-function SignatoryBlock({ signatories, printedAt }: { signatories: ReportSignatories; printedAt: Date | null }) {
-  const blocks = [
-    { label: 'Prepared by:', person: signatories.preparedBy },
-    { label: 'Checked by:', person: signatories.checkedBy },
-    ...(signatories.approvedBy?.name ? [{ label: 'Approved by:', person: signatories.approvedBy }] : [])
-  ];
-  const dateText = printedAt ? printedAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
-  return (
-    <div className="pr-signatories">
-      {blocks.map(({ label, person }) => (
-        <div key={label}>
-          <div className="pr-sign-label">{label}</div>
-          <div className="pr-sign-line">
-            <div className="pr-sign-name">{person.name || '\u00a0'}</div>
-            <div className="pr-sign-role">{person.designation || 'Name and Designation'}</div>
-          </div>
-          <div className="pr-sign-date">Date: {dateText}</div>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -270,7 +216,7 @@ export function SummaryReportDocument({ programs, scopeLabel, fromYear, toYear, 
 
   return (
     <div className="pr-doc">
-      <ReportHeader title="Program Accreditation Summary Report" subtitle="AACCUP Program Accreditation Progress, Results and Validity Monitoring" />
+      <ReportHeader title="Program Accreditation Summary Report" subtitle="AACCUP Program Accreditation Progress, Results and Validity Monitoring" centerLogo />
       <ReportMeta
         items={[
           { label: 'Scope', value: scopeLabel },

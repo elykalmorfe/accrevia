@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
-import { CampusId, ISOComplianceStatus } from '../../types/accreditation';
+import { ISOComplianceStatus } from '../../types/accreditation';
 import type { EvidenceDocument } from '../../types/evidence';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { IAFolderManager } from '../../components/accreditation/IAFolderManager';
+import { ISOQmsDocumentsTable } from '../../components/accreditation/ISOQmsDocumentsTable';
 import { ISO_FOLDER_FRAMEWORK } from '../../components/accreditation/folderFrameworks';
 import { CertificateFoldersModal, CertificateLevel } from '../../components/accreditation/CertificateFoldersModal';
 import { OfficialCertificatesStrip, useCampusCertificates } from '../../components/accreditation/OfficialCertificatesStrip';
@@ -43,43 +44,23 @@ function readableDate(value?: string): string {
 }
 
 const DEFAULT_ISO_TITLE = 'ISO 9001:2015 Quality Management Framework';
+const ISO_CAMPUS_ID = 'tandag';
 const DEFAULT_ISO_DESCRIPTION =
   'Campus-level quality management system monitoring, surveillance audits, and auditor sign-off.';
 
 export function CampusISOView() {
-  const {
-    campuses,
-    isoRecords,
-    saveISOSurveillanceRecord,
-    selectedCampus,
-    setSelectedCampus
-  } = usePortal();
+  const { campuses, isoRecords, saveISOSurveillanceRecord } = usePortal();
 
   const { canMutate } = useInstitutionalMutationAccess();
 
-  const [selectedCampusId, setSelectedCampusId] = useState<CampusId>(() => {
-    return selectedCampus !== 'all' ? selectedCampus : 'tandag';
-  });
+  const campus = campuses.find((c) => c.id === ISO_CAMPUS_ID) || campuses[0];
+  const campusRecords = isoRecords.filter((r) => r.campusId === ISO_CAMPUS_ID);
+  const isoRecord = campusRecords.find((r) => !r.isHistorical) || campusRecords[0];
 
-  useEffect(() => {
-    if (selectedCampus !== 'all' && selectedCampus !== selectedCampusId) {
-      setSelectedCampusId(selectedCampus);
-    }
-  }, [selectedCampus, selectedCampusId]);
-
-  const campus = campuses.find((c) => c.id === selectedCampusId) || campuses[0];
-  const campusRecords = isoRecords.filter((r) => r.campusId === selectedCampusId);
-  const isoRecord = campusRecords.find((r) => !r.isHistorical) || campusRecords[0] || isoRecords[0];
-
-  const certAreaKey = `cert-iso-${selectedCampusId}`;
+  const certAreaKey = `cert-iso-${ISO_CAMPUS_ID}`;
   const { certificates, activeCertificate, activeLevel, levelCount } = useCampusCertificates('iso', certAreaKey);
   const [certificatesOpen, setCertificatesOpen] = useState(false);
   const [previewCertificate, setPreviewCertificate] = useState<EvidenceDocument | null>(null);
-
-  const handleSelectCampus = (cid: CampusId) => {
-    setSelectedCampusId(cid);
-    setSelectedCampus(cid);
-  };
 
   // Section Header Editing
   const [sectionTitle, setSectionTitle] = useState<string>(() => {
@@ -149,11 +130,6 @@ export function CampusISOView() {
   return (
     <>
       <PageHeader
-        eyebrow={
-          <span>
-            Accreditation & Frameworks / Quality Management
-          </span>
-        }
         title={
           <div className="flex items-center gap-2.5">
             <span>{sectionTitle}</span>
@@ -171,27 +147,6 @@ export function CampusISOView() {
           </div>
         }
         description={sectionDescription}
-        actions={
-          <label className="block min-w-[16rem]">
-            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-subtle">Campus</span>
-            <select
-              value={selectedCampusId}
-              onChange={(e) => handleSelectCampus(e.target.value as CampusId)}
-              aria-label="Select campus"
-              className="input select h-10 w-full text-sm font-semibold"
-            >
-              {campuses.map((c) => {
-                const rec = isoRecords.find((r) => r.campusId === c.id && !r.isHistorical) || isoRecords.find((r) => r.campusId === c.id);
-                const status = campusComplianceLabel(rec?.complianceStatus);
-                return (
-                  <option key={c.id} value={c.id}>
-                    {c.shortName} — {status}
-                  </option>
-                );
-              })}
-            </select>
-          </label>
-        }
       />
 
       {/* Active Surveillance Status Card */}
@@ -280,9 +235,11 @@ export function CampusISOView() {
         </div>
       )}
 
+      <ISOQmsDocumentsTable />
+
       {/* ISO Document & Folder Management (Uniform with IA & PQA) */}
       <IAFolderManager
-        campusId={selectedCampusId}
+        campusId={ISO_CAMPUS_ID}
         campusName={campus.name}
         framework={ISO_FOLDER_FRAMEWORK}
         readOnly={!canMutate}
@@ -303,7 +260,7 @@ export function CampusISOView() {
           program="Quality Management & Institutional Excellence"
           cycle={isoRecord.cycle}
           body="TÜV Rheinland"
-          campusId={selectedCampusId}
+          campusId={ISO_CAMPUS_ID}
           campusName={campus.name}
           stats={[
             { label: 'Surveillance Cycle', value: isoRecord.cycle },

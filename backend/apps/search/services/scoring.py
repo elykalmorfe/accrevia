@@ -9,9 +9,26 @@ FRAMEWORK_CUES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\biso\b", re.I), "iso"),
     (re.compile(r"\bcopc\b|certificate of program compliance", re.I), "copc"),
     (re.compile(r"\bpqa\b|quality award", re.I), "pqa"),
-    (re.compile(r"program accreditation", re.I), "pa"),
     (re.compile(r"institutional accreditation", re.I), "ia"),
+    (re.compile(r"\baaccup\b|program accreditation", re.I), "pa"),
 ]
+
+QUERY_FILLER = {
+    "a", "an", "and", "are", "at", "be", "by", "can", "do", "does", "for", "from", "has", "how",
+    "i", "in", "is", "it", "me", "of", "on", "or", "our", "that", "the", "this", "to", "was", "were",
+    "what", "where", "which", "who", "with", "would", "your", "document", "documents", "find", "looking",
+    "need", "show", "want", "accreditation", "evidence", "program",
+}
+TERM_ALIASES = {
+    "certificates": "certificate",
+    "certification": "certificate",
+    "certifications": "certificate",
+    "certified": "certificate",
+    "certifies": "certificate",
+    "certify": "certificate",
+    "procedures": "procedure",
+    "sop": "procedure",
+}
 
 
 @dataclass
@@ -44,6 +61,35 @@ def parse_intent(query: str) -> QueryIntent:
     return intent
 
 
+def normalized_phrase(text: str) -> str:
+    return " ".join(re.findall(r"[^\W_]+", text.casefold()))
+
+
+def topic_terms(text: str) -> set[str]:
+    words = re.findall(r"[^\W\d_]+|\d+", text.casefold())
+    return {TERM_ALIASES.get(word, word) for word in words if word not in QUERY_FILLER}
+
+
+def metadata_priority(payload: dict, phrase: str) -> int:
+    title = normalized_phrase(payload.get("title") or "")
+    if phrase and title == phrase:
+        return 4
+    program = normalized_phrase(payload.get("program") or "")
+    if " " in phrase and (phrase == program or f" {phrase} " in f" {title} "):
+        return 3
+    return 0
+
+
+def evidence_priority(payload: dict, phrase: str, literal_query: str) -> int:
+    priority = metadata_priority(payload, phrase)
+    if priority or len(phrase.split()) < 3:
+        return priority
+    passage = payload.get("text") or ""
+    if re.search(rf"(?<!\w){re.escape(literal_query)}(?!\w)", passage):
+        return 2
+    return int(f" {phrase} " in f" {normalized_phrase(passage)} ")
+
+
 def accreditation_boost(payload: dict, intent: QueryIntent, base_score: float) -> float:
     score = float(base_score)
     fw = (payload.get("framework_id") or "").lower()
@@ -51,11 +97,11 @@ def accreditation_boost(payload: dict, intent: QueryIntent, base_score: float) -
         score *= 1.35
     if intent.criterion_number:
         crit = str(payload.get("criterion_id") or "")
-        if intent.criterion_number in crit or crit.endswith(intent.criterion_number):
+        if re.search(rf"(?:^|[-_.]){re.escape(intent.criterion_number)}$", crit):
             score += 0.15
     if intent.indicator_code:
         ind = str(payload.get("indicator_id") or "")
-        if intent.indicator_code in ind:
+        if re.search(rf"(?<!\d){re.escape(intent.indicator_code)}(?!\d)", ind):
             score += 0.2
     if intent.year:
         if intent.year in str(payload.get("academic_year") or "") or intent.year in str(payload.get("cycle") or ""):

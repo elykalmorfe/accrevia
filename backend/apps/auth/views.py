@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.ingestion.services.embedders import dense_backend_status
+from apps.search.services.warmup import search_warmup_status
 
 
 class HealthView(APIView):
@@ -50,6 +51,7 @@ class HealthView(APIView):
             "embedding_backend": embedding.get("name"),
             "embedding_degraded": embedding_degraded,
             "embedding_loaded": embedding.get("loaded", False),
+            "search_warmup": search_warmup_status(),
         }
         if mysql_error:
             payload["mysql_error"] = mysql_error

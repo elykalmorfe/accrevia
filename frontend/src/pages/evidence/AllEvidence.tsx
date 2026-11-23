@@ -11,7 +11,6 @@ import {
   XIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
-import { useLookup } from '../../hooks/useLookup';
 import { useDismiss } from '../../hooks/useDismiss';
 import { ApprovalStatus, EvidenceDocument } from '../../types/evidence';
 import { documentTypes } from '../../data/options';
@@ -30,8 +29,6 @@ type FilterKey =
   | 'status'
   | 'approvalStatus'
   | 'campus'
-  | 'criterionId'
-  | 'indicatorId'
   | 'program'
   | 'office'
   | 'academicYear'
@@ -44,13 +41,12 @@ const emptyFilters: Record<FilterKey, string> = {
   status: '',
   approvalStatus: '',
   campus: '',
-  criterionId: '',
-  indicatorId: '',
   program: '',
   office: '',
   academicYear: '',
   cycle: ''
 };
+const filterKeys = Object.keys(emptyFilters) as FilterKey[];
 
 const labels: Record<FilterKey, string> = {
   frameworkId: 'Accreditation',
@@ -59,8 +55,6 @@ const labels: Record<FilterKey, string> = {
   status: 'System Status',
   approvalStatus: 'Review Status',
   campus: 'Campus',
-  criterionId: 'Criterion',
-  indicatorId: 'Indicator',
   program: 'Program',
   office: 'Office / Unit',
   academicYear: 'Academic Year',
@@ -74,8 +68,6 @@ const placeholders: Record<FilterKey, string> = {
   status: 'All statuses',
   approvalStatus: 'All review statuses',
   campus: 'All campuses',
-  criterionId: 'All criteria',
-  indicatorId: 'All indicators',
   program: 'All programs',
   office: 'All offices / units',
   academicYear: 'All academic years',
@@ -83,7 +75,7 @@ const placeholders: Record<FilterKey, string> = {
 };
 
 const advancedGroups: { title: string; keys: FilterKey[] }[] = [
-  { title: 'Accreditation', keys: ['criterionId', 'indicatorId', 'cycle'] },
+  { title: 'Accreditation', keys: ['cycle'] },
   { title: 'Program & office', keys: ['program', 'office'] },
   { title: 'Record', keys: ['academicYear', 'status'] }
 ];
@@ -122,8 +114,7 @@ const kpiTones = {
 };
 
 export function AllEvidence() {
-  const { documents, frameworks, areas, criteria, indicators } = usePortal();
-  const lookup = useLookup();
+  const { documents, frameworks, areas } = usePortal();
   const [text, setText] = useState('');
   const [filters, setFilters] = useState(emptyFilters);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -156,40 +147,22 @@ export function AllEvidence() {
         { value: 'Needs Revision', label: 'Needs Revision' }
       ],
       campus: plain(uniqueValues(activeDocs, (d) => d.campus || 'Main Campus (Tandag City)')),
-      criterionId: criteria
-        .filter((c) => (!filters.frameworkId || c.frameworkId === filters.frameworkId) && (!filters.areaId || c.areaId === filters.areaId))
-        .map((c) => ({ value: c.id, label: `${c.code} – ${c.name}` })),
-      indicatorId: indicators
-        .filter((i) => {
-          const c = lookup.criterion(i.criterionId);
-          if (filters.criterionId) return i.criterionId === filters.criterionId;
-          return (!filters.frameworkId || c?.frameworkId === filters.frameworkId) && (!filters.areaId || c?.areaId === filters.areaId);
-        })
-        .map((i) => ({ value: i.id, label: `${i.code} – ${i.name}` })),
       program: plain(uniqueValues(activeDocs, (d) => d.program)),
       office: plain(uniqueValues(activeDocs, (d) => d.office)),
       academicYear: plain(uniqueValues(activeDocs, (d) => d.academicYear).reverse()),
       cycle: plain(uniqueValues(activeDocs, (d) => d.cycle))
     };
-  }, [frameworks, areas, criteria, indicators, filters.frameworkId, filters.areaId, filters.criterionId, activeDocs, lookup]);
+  }, [frameworks, areas, activeDocs]);
 
   const setFilter = (key: FilterKey, value: string) =>
-    setFilters((f) => {
-      const next = { ...f, [key]: value };
-      if (key === 'frameworkId' || key === 'areaId') {
-        next.criterionId = '';
-        next.indicatorId = '';
-      }
-      if (key === 'criterionId') next.indicatorId = '';
-      return next;
-    });
+    setFilters((f) => ({ ...f, [key]: value }));
 
   const filtered = useMemo(() => {
     const needle = text.trim().toLowerCase();
     return activeDocs
       .filter((d) => {
         // Standard filters matching
-        for (const k of Object.keys(filters) as FilterKey[]) {
+        for (const k of filterKeys) {
           const filterVal = filters[k];
           if (!filterVal) continue;
 
@@ -212,7 +185,7 @@ export function AllEvidence() {
       .sort((a, b) => b.dateAdded.localeCompare(a.dateAdded));
   }, [activeDocs, filters, text]);
 
-  const activeKeys = (Object.keys(filters) as FilterKey[]).filter((k) => filters[k]);
+  const activeKeys = filterKeys.filter((k) => filters[k]);
   const advancedActive = advancedKeys.filter((k) => filters[k]).length;
   const searchTerm = text.trim();
   const hasActiveFilters = activeKeys.length > 0 || searchTerm !== '';
@@ -230,11 +203,6 @@ export function AllEvidence() {
     setAdvancedOpen(false);
     advancedButtonRef.current?.focus();
   };
-  const setDraftValue = (key: FilterKey, value: string) =>
-    setDraft((d) => ({ ...d, [key]: value, ...(key === 'criterionId' ? { indicatorId: '' } : {}) }));
-  const draftIndicatorOptions = draft.criterionId
-    ? indicators.filter((i) => i.criterionId === draft.criterionId).map((i) => ({ value: i.id, label: `${i.code} – ${i.name}` }))
-    : options.indicatorId;
   const displayValue = (key: FilterKey) => options[key].find((o) => o.value === filters[key])?.label ?? filters[key];
 
   const shareOfActive = (n: number) =>
@@ -450,7 +418,7 @@ export function AllEvidence() {
                     id="advanced-filters"
                     role="dialog"
                     aria-labelledby="advanced-filters-title"
-                    className="absolute right-0 top-full z-30 mt-2 w-full rounded-2xl border border-line bg-white p-4 shadow-soft-lg sm:w-[36rem] sm:max-w-full"
+                    className="absolute right-0 top-full z-30 mt-2 w-full rounded-2xl border border-line bg-white p-4 shadow-soft-lg sm:w-[28rem] sm:max-w-full"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <h3 id="advanced-filters-title" className="text-sm font-semibold text-ink">
@@ -472,9 +440,9 @@ export function AllEvidence() {
                           <legend className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-ink-subtle">
                             {group.title}
                           </legend>
-                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                             {group.keys.map((k) => {
-                              const keyOptions = k === 'indicatorId' ? draftIndicatorOptions : options[k];
+                              const keyOptions = options[k];
                               return (
                                 <SelectField
                                   key={k}
@@ -483,7 +451,7 @@ export function AllEvidence() {
                                   compact
                                   className={`min-w-0 ${draft[k] ? activeSelectClass : ''}`}
                                   value={draft[k]}
-                                  onChange={(v) => setDraftValue(k, v)}
+                                  onChange={(value) => setDraft((d) => ({ ...d, [k]: value }))}
                                   placeholder={keyOptions.length ? placeholders[k] : 'None available'}
                                   options={keyOptions}
                                   disabled={keyOptions.length === 0}

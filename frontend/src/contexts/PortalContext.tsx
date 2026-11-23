@@ -2,6 +2,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 import { useRoleLive } from '../hooks/useRoleLive';
 import { applyRemoteAccessRequests } from '../services/accessRequests/mockAccessRequestStore';
 import { RoleLiveBoard } from '../services/live/roleLive';
+import { fetchCompletedUpload, isIndexingUpload } from '../services/documents/uploadClient';
 import { frameworks as initialFrameworks } from '../data/frameworks';
 import { initialFolders, loadHiddenFolderIds } from '../data/folders';
 import { seedMockDocuments } from '../data/mockDocuments';
@@ -56,7 +57,7 @@ import { PortalUser, PortalViewRole, UserStatus } from '../types/user';
 import { AccessAction, AccessLogEntry, AccessRequest, DocumentShare, ShareRecipientInput } from '../types/sharing';
 import { AttachmentAccess, AttachmentRole, DocumentRequest, NewDocumentRequestInput, RequestAttachment, RequestStatus } from '../types/request';
 import { initialDocumentRequests } from '../data/documentRequests';
-import { metadataToPatch } from '../utils/metadata';
+import { metadataToPatch, normalizeDocumentOffice } from '../utils/metadata';
 import { isAdminRole, isRecipientRole, nowIso, permissionLabel, recipientRoles, roleGroupName, seesOfficeQueue, SentFileGrant, shareStatus } from '../utils/sharing';
 import { formatDate } from '../utils/format';
 import { isCampusMatch } from '../utils/campus';
@@ -302,7 +303,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   const [criteria, setCriteria] = useState(initialCriteria);
   const [indicators, setIndicators] = useState(initialIndicators);
   const [documents, setDocuments] = useState<EvidenceDocument[]>(() => {
-    const docs = normalizeDocumentsPublishingFields(loadStorage<EvidenceDocument[]>('documents', []));
+    const docs = normalizeDocumentsPublishingFields(loadStorage<EvidenceDocument[]>('documents', []).map(normalizeDocumentOffice));
     const stored = loadStorage<EvidenceFolder[]>('folders', initialFolders);
     const hidden = new Set(loadHiddenFolderIds());
     const visible = stored.filter((f) => !hidden.has(f.id));
@@ -769,6 +770,41 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   });
 
   const session = useSessionAccount();
+  useEffect(() => {
+    const pendingUploads = documents.filter(isIndexingUpload);
+    if (!session || pendingUploads.length === 0) return;
+
+    let cancelled = false;
+    let timer: number | undefined;
+    const refresh = async () => {
+      const updates = new Map(await Promise.all(
+        pendingUploads.map(async ({ id }) => [id, await fetchCompletedUpload(id)] as const)
+      ));
+      if (cancelled) return;
+
+      if ([...updates.values()].some(Boolean)) {
+        setDocuments((current) => current.map((document) => {
+          const update = updates.get(document.id);
+          if (!update || document.status !== 'Processing') return document;
+          const hasReviewDecision = document.approvalStatus && document.approvalStatus !== 'Pending Review';
+          return {
+            ...document,
+            status: update.status,
+            approvalStatus: hasReviewDecision ? document.approvalStatus : update.approvalStatus ?? document.approvalStatus,
+            passages: update.passages?.length ? update.passages : document.passages
+          };
+        }));
+      }
+      timer = window.setTimeout(refresh, 3000);
+    };
+
+    void refresh();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [documents, session]);
+
   usePortalDatabase(Boolean(session), {
     frameworks, areas, criteria, indicators, documents, folders, pending, shares, accessLog, recentSearches,
     campuses, iaRecords, pqaRecords, programAccreditations, copcRecords, isoRecords,
@@ -841,17 +877,17 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   );
   const updateDocument = useCallback(
     (id: string, patch: Partial<EvidenceDocument>) =>
-      setDocuments((prev) => prev.map((d) => (d.id === id ? normalizePublishingFields({ ...d, ...patch }) : d))),
+      setDocuments((prev) => prev.map((d) => (d.id === id ? normalizeDocumentOffice(normalizePublishingFields({ ...d, ...patch })) : d))),
     []
   );
   const addDocument = useCallback(
     (doc: EvidenceDocument) =>
       setDocuments((prev) => [
-        normalizePublishingFields({
+        normalizeDocumentOffice(normalizePublishingFields({
           ...doc,
           isPubliclyPublished: doc.isPubliclyPublished ?? false,
           publicPublishedAt: doc.publicPublishedAt ?? null
-        }),
+        })),
         ...prev
       ]),
     []

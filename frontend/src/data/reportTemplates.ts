@@ -5,10 +5,16 @@ export interface Signatory {
   designation: string;
 }
 
+interface AdditionalSignatory extends Signatory {
+  id: string;
+  role: string;
+}
+
 export interface ReportSignatories {
   preparedBy: Signatory;
   checkedBy: Signatory;
   approvedBy: Signatory;
+  additionalSignatories: AdditionalSignatory[];
 }
 
 export interface ReportInstitution {
@@ -28,7 +34,8 @@ export function getReportInstitution(): ReportInstitution {
 export const DEFAULT_SIGNATORIES: ReportSignatories = {
   preparedBy: { name: '', designation: 'Accreditation Staff, Office of Quality Assurance' },
   checkedBy: { name: 'Prof. Liza M. Cabrera', designation: 'Director, Quality Assurance & Accreditation' },
-  approvedBy: { name: '', designation: 'University President' }
+  approvedBy: { name: '', designation: 'University President' },
+  additionalSignatories: []
 };
 
 const STORAGE_KEY = 'accrevia_report_signatories';
@@ -41,7 +48,13 @@ export function loadSignatories(): ReportSignatories {
     return {
       preparedBy: { ...DEFAULT_SIGNATORIES.preparedBy, ...parsed.preparedBy },
       checkedBy: { ...DEFAULT_SIGNATORIES.checkedBy, ...parsed.checkedBy },
-      approvedBy: { ...DEFAULT_SIGNATORIES.approvedBy, ...parsed.approvedBy }
+      approvedBy: { ...DEFAULT_SIGNATORIES.approvedBy, ...parsed.approvedBy },
+      additionalSignatories: Array.isArray(parsed.additionalSignatories)
+        ? parsed.additionalSignatories.filter((person) =>
+          person && typeof person.id === 'string' && typeof person.role === 'string' &&
+          typeof person.name === 'string' && typeof person.designation === 'string'
+        )
+        : []
     };
   } catch {
     return DEFAULT_SIGNATORIES;

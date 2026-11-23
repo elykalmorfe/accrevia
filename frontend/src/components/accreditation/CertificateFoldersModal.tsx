@@ -228,7 +228,7 @@ export function CertificateFoldersModal({
       program,
       college: '—',
       department: '—',
-      office: 'Accreditation Office',
+      office: 'Quality Assurance Office',
       campus: campusName,
       campusId,
       documentDate: today(),

@@ -5,6 +5,7 @@ import hashlib
 import logging
 import re
 from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 from django.conf import settings
@@ -46,7 +47,7 @@ def _dense_model():
         from FlagEmbedding import BGEM3FlagModel
 
         logger.info("Loading BGE-M3 via FlagEmbedding (%s)", model_name)
-        model = BGEM3FlagModel(model_name, use_fp16=False, device=device)
+        model = BGEM3FlagModel(model_name, use_fp16=False, devices=device)
         logger.info("Dense backend active: bge-m3 via FlagEmbedding (primary)")
         return ("bge", model)
     except Exception as exc:  # noqa: BLE001
@@ -97,8 +98,9 @@ def dense_backend_status() -> dict:
         kind, _model = _dense_model()
         name, degraded = _BACKEND_META.get(kind, (kind, True))
         return {"name": name, "degraded": degraded, "kind": kind, "loaded": True}
+    configured = getattr(settings, "BGE_MODEL", "BAAI/bge-m3")
     return {
-        "name": getattr(settings, "BGE_MODEL", "BAAI/bge-m3"),
+        "name": "bge-m3" if Path(configured).is_absolute() else configured,
         "degraded": False,
         "kind": "configured",
         "loaded": False,
@@ -163,6 +165,10 @@ def _sparse_model():
         return None
 
 
+def sparse_backend_is_bm25() -> bool:
+    return _sparse_model() is not None
+
+
 def _hashed_sparse(text: str, dim: int = 30000) -> tuple[list[int], list[float]]:
     counts: dict[int, float] = {}
     for tok in _tokenize(text):
@@ -175,13 +181,14 @@ def _hashed_sparse(text: str, dim: int = 30000) -> tuple[list[int], list[float]]
     return indices, values
 
 
-def embed_sparse(texts: list[str]) -> list[tuple[list[int], list[float]]]:
+def embed_sparse(texts: list[str], *, for_query: bool = False) -> list[tuple[list[int], list[float]]]:
     model = _sparse_model()
     if model is None:
         return [_hashed_sparse(t) for t in texts]
 
     results: list[tuple[list[int], list[float]]] = []
-    for emb in model.embed(texts):
+    embeddings = model.query_embed(texts) if for_query else model.embed(texts)
+    for emb in embeddings:
         indices = list(map(int, emb.indices))
         values = list(map(float, emb.values))
         if not indices:

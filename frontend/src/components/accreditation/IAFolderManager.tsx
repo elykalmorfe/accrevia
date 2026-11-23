@@ -35,7 +35,8 @@ import { FolderFormModal } from '../folders/FolderFormModal';
 import { FolderAction, FolderCard, FolderStatus } from '../folders/FolderCard';
 import { pluralize } from '../../utils/format';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
-import { downloadStoredFile, persistUpload } from '../../utils/fileStore';
+import { downloadStoredFile } from '../../utils/fileStore';
+import { saveDocumentUpload } from '../../services/documents/uploadClient';
 import { fileTypeFromName } from '../../utils/fileTypes';
 import { applyNamingPattern } from '../../utils/uploadRules';
 import { isUploadLibraryItem, libraryRootFolderId } from '../../data/folders';
@@ -156,7 +157,7 @@ export function IAFolderManager({
   const { approverRoles, requireRevisionNote, autoVerifyArea } = settings.workflow;
   const canMutate = !readOnly;
   const canReview = !readOnly && approverRoles.includes(currentUser.role);
-  const uploadSettings = { defaultYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
+  const uploadSettings = { defaultYear: settings.general.defaultAcademicYear };
 
   // Document Edit Modal State
   const [editingDoc, setEditingDoc] = useState<EvidenceDocument | null>(null);
@@ -1115,7 +1116,7 @@ export function IAFolderManager({
     }
 
     setIsProcessingUpload(true);
-    setTimeout(() => {
+    void (async () => {
       // Determine target Area and Area ID
       const targetAreaCode = isTopUploadSource
         ? topUploadTargetAreaCode
@@ -1247,7 +1248,8 @@ export function IAFolderManager({
           .map((file) => file.path?.split('/').filter(Boolean)[0])
           .filter((name): name is string => Boolean(name))
       );
-      uploadedFileList.forEach((file, idx) => {
+      for (const [idx, file] of uploadedFileList.entries()) {
+        if (!file.file) continue;
         const pathParts = (file.path || '').split('/').filter(Boolean);
         const directory = pathParts.length > 1 ? pathParts.slice(0, -1) : [];
         const fileFolderId = uploadMode === 'folder' && directory.length ? folderIdFor(directory) : (destinationFolderId || libraryRootFolderId(framework.id));
@@ -1284,14 +1286,11 @@ export function IAFolderManager({
           uploadedBy: currentUser.name,
           passages: ['Institutional evidence registered under ' + (fileFolder?.name || targetAreaObj.name)],
           folderId: fileFolderId || undefined,
-          approvalStatus: uploadSettings.status,
           isoStage: framework.id === 'iso' ? uploadIsoStage : undefined
         };
-        persistUpload(newDoc.id, file.file);
-        addDocument(newDoc);
-      });
+        addDocument(await saveDocumentUpload(file.file, newDoc));
+      }
 
-      setIsProcessingUpload(false);
       setUploadModalOpen(false);
       setIsTopUploadSource(false);
       setUploadedFileList([]);
@@ -1305,7 +1304,8 @@ export function IAFolderManager({
           ? 'Uploaded ' + (uploadedFolderNames.size || 1) + ' folder' + (uploadedFolderNames.size === 1 ? '' : 's') + ' (' + uploadedFileList.length + ' files) into ' + destinationTitle + '.'
           : 'Successfully uploaded ' + uploadedFileList.length + ' document(s) into ' + destinationTitle + '!'
       );
-    }, 600);
+    })().catch(() => toast.error('Unable to finish uploading these documents.'))
+      .finally(() => setIsProcessingUpload(false));
   };
 
   const fileMeta = (doc: EvidenceDocument) =>

@@ -91,7 +91,7 @@ export function buildRatingsDocuments(programs: ProgramAccreditation[]): {
         program: p.programName,
         college: '—',
         department: '—',
-        office: 'Accreditation Office',
+        office: 'Quality Assurance Office',
         campus: p.campusName,
         campusId: p.campusId,
         documentDate: today,

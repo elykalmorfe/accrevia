@@ -94,7 +94,7 @@ export async function searchEvidenceAsync(
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ q, limit, ...filters })
+          body: JSON.stringify({ q, limit, ...filters, workspaceDocumentIds: docs.map(({ id }) => id) })
         },
         60_000
       );

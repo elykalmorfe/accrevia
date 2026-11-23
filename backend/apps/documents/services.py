@@ -90,6 +90,7 @@ def create_document_from_upload(uploaded_file, meta: dict) -> EvidenceDocument:
     except Exception:
         # Redis/Celery unavailable — run ingestion inline for local/dev smoke tests
         ingest_document(str(doc.id))
+    doc.refresh_from_db()
     return doc
 
 
@@ -101,6 +102,8 @@ def document_status_payload(doc: EvidenceDocument) -> dict:
     return {
         "id": str(doc.id),
         "status": doc.status,
+        "approvalStatus": doc.approval_status,
+        "passages": doc.passages if doc.status == "Indexed" else [],
         "progress": doc.progress or {},
         "chunkCount": doc.chunk_count,
         "ocrApplied": doc.ocr_applied == "true",

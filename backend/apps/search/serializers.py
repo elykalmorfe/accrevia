@@ -7,3 +7,4 @@ class SearchRequestSerializer(serializers.Serializer):
     docType = serializers.CharField(required=False, allow_blank=True)
     program = serializers.CharField(required=False, allow_blank=True)
     academicYear = serializers.CharField(required=False, allow_blank=True)
+    workspaceDocumentIds = serializers.ListField(child=serializers.CharField(), required=False)

@@ -8,6 +8,7 @@ export const REPORT_CSS = `
 .pr-doc { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #111827; font-size: 10pt; line-height: 1.4; background: #fff; }
 .pr-doc * { box-sizing: border-box; }
 .pr-header { display: flex; align-items: center; gap: 14px; border-bottom: 2.5px solid #005A9C; padding-bottom: 10px; }
+.pr-header-centered { flex-direction: column; gap: 6px; }
 .pr-logo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .pr-header-text { flex: 1; text-align: center; }
 .pr-header-spacer { width: 64px; flex-shrink: 0; }
@@ -40,7 +41,9 @@ export const REPORT_CSS = `
 .pr-kv th { width: 30%; background: #e8eef6; font-weight: 700; }
 .pr-text { white-space: pre-wrap; border: 1px solid #9ca3af; padding: 8px 10px; min-height: 90px; font-size: 9.5pt; }
 .pr-text-empty { color: #6b7280; font-style: italic; }
-.pr-signatories { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 36px; margin-top: 30px; break-inside: avoid; page-break-inside: avoid; }
+.pr-signatories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 36px; margin-top: 30px; }
+.pr-signatories-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pr-signatories > div { break-inside: avoid; page-break-inside: avoid; overflow-wrap: anywhere; }
 .pr-sign-label { font-weight: 600; font-size: 9.5pt; }
 .pr-sign-line { margin-top: 36px; border-top: 1px solid #111827; padding-top: 3px; text-align: center; }
 .pr-sign-name { font-weight: 700; text-transform: uppercase; min-height: 1.3em; }

@@ -32,6 +32,8 @@ import { isUrl } from '../../utils/programAccreditation';
 import { isLocalCertificatePath } from '../../utils/linkedCertificates';
 import { fetchRepositoryFile, isRepositoryFile } from '../../utils/repositoryFiles';
 import { CopcDocumentsModal } from '../../components/accreditation/CopcDocumentsModal';
+import { COPCSummaryPrintModal } from '../../components/accreditation/reports/COPCSummaryPrintModal';
+import { saveDocumentUpload } from '../../services/documents/uploadClient';
 
 function borResHref(value?: string): string | undefined {
   const v = (value || '').trim();
@@ -61,6 +63,7 @@ export function COPCView() {
 
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [showSummary, setShowSummary] = useState(false);
 
   // Certificate / BOR / Requirements Viewer Modal (same chrome for Certificate Number & BOR Resolution)
   const [viewingCertificateCopc, setViewingCertificateCopc] = useState<COPCRecord | null>(null);
@@ -384,11 +387,11 @@ export function COPCView() {
       sizeMb: Math.round((file.size / (1024 * 1024)) * 10) / 10 || 0.1,
       uploadedBy: currentUser.name,
       passages: [`COPC file for ${record.programName}`],
-      folderId: 'folder-copc',
-      approvalStatus: 'Approved'
+      folderId: 'folder-copc'
     };
-    persistUpload(id, file, file.name);
-    addDocument(document);
+    void saveDocumentUpload(file, document).then(addDocument).catch(() => {
+      toast.error('Unable to add this file to the COPC documents folder.');
+    });
   };
 
   const attachFileToUploadCopc = (file: File) => {
@@ -774,7 +777,22 @@ export function COPCView() {
 
   return (
     <>
-      <PageHeader title="Certificate of Program Compliance (COPC)" />
+      <PageHeader
+        title="Certificate of Program Compliance (COPC)"
+        actions={canMutate && (
+          <button
+            type="button"
+            onClick={() => setShowSummary(true)}
+            className="btn btn-secondary btn-sm"
+          >
+            <PrinterIcon className="h-4 w-4" />
+            Print Summary Report
+          </button>
+        )}
+      />
+      {canMutate && (
+        <COPCSummaryPrintModal open={showSummary} onClose={() => setShowSummary(false)} defaultCampus={selectedCampus} />
+      )}
 
       {/* Institutional COPC Summary Cards */}
       <div className="mb-6 grid gap-3.5 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">

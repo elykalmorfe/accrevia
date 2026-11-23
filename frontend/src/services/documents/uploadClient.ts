@@ -1,102 +1,63 @@
-import { EvidenceDocument } from '../../types/evidence';
+import type { EvidenceDocument } from '../../types/evidence';
+import { persistUpload } from '../../utils/fileStore';
 import { apiFetch, checkApiHealth, isApiConfigured } from '../api/client';
 
-export type UploadMeta = {
-  title?: string;
-  description?: string;
-  frameworkId?: string;
-  areaId?: string;
-  criterionId?: string;
-  indicatorId?: string;
-  folderId?: string;
-  docType?: string;
-  academicYear?: string;
-  cycle?: string;
-  program?: string;
-  college?: string;
-  department?: string;
-  office?: string;
-  campus?: string;
-  campusId?: string;
-  confidentiality?: string;
-  uploadedBy?: string;
-  keywords?: string;
-};
+const metadataFields = [
+  'title', 'description', 'frameworkId', 'areaId', 'criterionId', 'indicatorId',
+  'folderId', 'docType', 'academicYear', 'cycle', 'program', 'college',
+  'department', 'office', 'campus', 'campusId', 'confidentiality', 'uploadedBy'
+] as const;
 
-function sleep(ms: number) {
-  return new Promise((r) => window.setTimeout(r, ms));
-}
+type UploadStatus = Pick<EvidenceDocument, 'status'> &
+  Partial<Pick<EvidenceDocument, 'approvalStatus' | 'passages'>>;
 
-function mapUploadedDoc(raw: Record<string, unknown>, file: File, fallback: Partial<EvidenceDocument>): EvidenceDocument {
-  const sizeMb = Math.max(0.1, Math.round((file.size / 1024 / 1024) * 10) / 10);
-  return {
-    id: String(raw.id),
-    title: String(raw.title ?? fallback.title ?? file.name),
-    description: String(raw.description ?? fallback.description ?? ''),
-    keywords: Array.isArray(raw.keywords) ? (raw.keywords as string[]) : fallback.keywords ?? [],
-    frameworkId: String(raw.frameworkId ?? fallback.frameworkId ?? 'ia'),
-    areaId: String(raw.areaId ?? fallback.areaId ?? ''),
-    criterionId: String(raw.criterionId ?? fallback.criterionId ?? ''),
-    indicatorId: String(raw.indicatorId ?? fallback.indicatorId ?? ''),
-    folderId: (raw.folderId as string) || fallback.folderId,
-    docType: (raw.docType as EvidenceDocument['docType']) || (fallback.docType as EvidenceDocument['docType']) || 'Report',
-    academicYear: String(raw.academicYear ?? fallback.academicYear ?? ''),
-    cycle: String(raw.cycle ?? fallback.cycle ?? ''),
-    program: String(raw.program ?? fallback.program ?? ''),
-    college: String(raw.college ?? fallback.college ?? ''),
-    department: String(raw.department ?? fallback.department ?? ''),
-    office: String(raw.office ?? fallback.office ?? ''),
-    campus: String(raw.campus ?? fallback.campus ?? ''),
-    campusId: (raw.campusId as string) || fallback.campusId,
-    documentDate: String(raw.documentDate ?? fallback.documentDate ?? new Date().toISOString().slice(0, 10)),
-    confidentiality:
-      (raw.confidentiality as EvidenceDocument['confidentiality']) || fallback.confidentiality || 'Internal',
-    status: (raw.status as EvidenceDocument['status']) || 'Processing',
-    dateAdded: String(raw.dateAdded ?? new Date().toISOString()),
-    fileType: (raw.fileType as EvidenceDocument['fileType']) || fallback.fileType || 'PDF',
-    pages: Number(raw.pages ?? fallback.pages ?? Math.max(1, Math.round(sizeMb * 6))),
-    sizeMb: Number(raw.sizeMb ?? sizeMb),
-    uploadedBy: String(raw.uploadedBy ?? fallback.uploadedBy ?? 'system'),
-    passages: Array.isArray(raw.passages) ? (raw.passages as string[]) : fallback.passages ?? [],
-    approvalStatus: (raw.approvalStatus as EvidenceDocument['approvalStatus']) || 'Pending Review'
-  };
-}
+type UploadResponse = UploadStatus & Pick<EvidenceDocument, 'id' | 'dateAdded'>;
 
-/**
- * Upload to Django when healthy. Returns null so callers can fall back to IndexedDB/localStorage.
- */
-export async function uploadDocumentRemote(
-  file: File,
-  meta: UploadMeta,
-  fallback: Partial<EvidenceDocument> = {}
-): Promise<EvidenceDocument | null> {
+async function uploadToIndexer(file: File, document: EvidenceDocument): Promise<UploadResponse | null> {
   if (!isApiConfigured() || !(await checkApiHealth())) return null;
 
   const form = new FormData();
   form.append('file', file);
-  Object.entries(meta).forEach(([k, v]) => {
-    if (v != null && String(v).length > 0) form.append(k, String(v));
-  });
+  for (const field of metadataFields) {
+    const value = document[field];
+    if (value) form.append(field, value);
+  }
+  form.append('keywords', document.keywords.join(', '));
 
   try {
-    const res = await apiFetch('/api/documents/', { method: 'POST', body: form }, 120_000);
-    if (!res.ok) return null;
-    const created = (await res.json()) as Record<string, unknown>;
-    const id = String(created.id);
+    const response = await apiFetch('/api/documents/', { method: 'POST', body: form }, 120_000);
+    return response.ok ? await response.json() as UploadResponse : null;
+  } catch {
+    return null;
+  }
+}
 
-    for (let i = 0; i < 45; i += 1) {
-      const st = await apiFetch(`/api/documents/${id}/status/`, {}, 15_000);
-      if (st.ok) {
-        const body = (await st.json()) as { status?: string };
-        if (body.status === 'Indexed' || body.status === 'Failed') break;
-      }
-      await sleep(2000);
-    }
+/** Save an uploaded original and keep the review status reported by the indexer. */
+export async function saveDocumentUpload(file: File, draft: EvidenceDocument): Promise<EvidenceDocument> {
+  const indexed = await uploadToIndexer(file, draft);
+  const document: EvidenceDocument = {
+    ...draft,
+    id: indexed?.id ?? draft.id,
+    status: indexed?.status ?? draft.status,
+    dateAdded: indexed?.dateAdded ?? draft.dateAdded,
+    passages: indexed?.passages?.length ? indexed.passages : draft.passages,
+    approvalStatus: indexed?.approvalStatus ?? 'Pending Review'
+  };
+  persistUpload(document.id, file);
+  return document;
+}
 
-    const detail = await apiFetch(`/api/documents/${id}/`, {}, 15_000);
-    if (!detail.ok) return mapUploadedDoc(created, file, fallback);
-    const full = (await detail.json()) as Record<string, unknown>;
-    return mapUploadedDoc(full, file, fallback);
+export function isIndexingUpload(document: EvidenceDocument): boolean {
+  return document.status === 'Processing' && /^[0-9a-f]{32}$/.test(document.id);
+}
+
+export async function fetchCompletedUpload(id: string): Promise<UploadStatus | null> {
+  if (!isApiConfigured()) return null;
+  try {
+    const response = await apiFetch(`/api/documents/${id}/status/`, {}, 8_000);
+    if (!response.ok) return null;
+    const update = await response.json() as UploadStatus;
+    return update.status === 'Indexed' || update.status === 'Failed' ? update : null;
   } catch {
     return null;
   }

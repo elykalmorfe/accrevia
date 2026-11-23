@@ -97,7 +97,7 @@ export function ProgramCertificatesModal({
         if (level && level !== program.status) {
           toast.success(`"${doc.title}" activated · program set to ${formatLevel(level)}`);
         } else {
-          toast.success(`"${doc.title}" activated · linked to Uploaded Documents`);
+          toast.success(`"${doc.title}" activated · linked to this program`);
         }
       }}
     />

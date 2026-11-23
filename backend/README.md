@@ -23,7 +23,7 @@ Backend for accreditation document **upload → OCR → chunk → BM25 + BGE-M3 
 
 1. Install **Python 3.11+**, **MySQL 8.4+** (Docker recommended; Django 6 requires 8.4+), **Docker Desktop** (Qdrant + Redis + optional MySQL), and **Tesseract OCR**  
    ([UB Mannheim installer](https://github.com/UB-Mannheim/tesseract/wiki)).  
-   If needed, set `TESSERACT_CMD` in `.env` to `tesseract.exe`.
+   For scanned PDFs, also install [Poppler](https://github.com/oschwartz10612/poppler-windows/releases). If the tools are outside PATH, set `TESSERACT_CMD` to the Tesseract executable and `POPPLER_PATH` to the directory containing `pdfinfo` and `pdftoppm`.
 
 2. Create the MySQL database (if not using `docker compose`, which already creates `accrevia`):
 
@@ -63,6 +63,18 @@ For a single-process smoke test without a worker process, set `CELERY_TASK_ALWAY
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
+
+### Index a portable workspace
+
+After importing a portal bundle and configuring its workspace database, run from `backend/`:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py index_workspace
+```
+
+The command reads originals from the workspace and catalog. It uses prepared PDF previews to extract text from legacy Office files and skips completed entries on repeat runs. The summary lists records without a usable original or extractable text. Use `--document-id` to index a specific record.
+
+`SEARCH_WARMUP=true` preloads the dense and sparse search models and the reranker when Django starts. Check `search_warmup` in `/api/health/`. Searches use the frontend fallback during warmup. `BGE_MODEL` and `CROSS_ENCODER_MODEL` can point to local model directories.
 
 ## Endpoints
 

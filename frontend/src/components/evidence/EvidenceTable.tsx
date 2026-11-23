@@ -23,7 +23,6 @@ import {
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import { useSharingDialogs } from '../../contexts/SharingDialogsContext';
-import { useLookup } from '../../hooks/useLookup';
 import { useAccess } from '../../hooks/useAccess';
 import { downloadStoredFile } from '../../utils/fileStore';
 import { DocumentBulkActions } from './DocumentBulkActions';
@@ -97,7 +96,6 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
   const { updateDocument, logAccess, isAdmin } = usePortal();
   const { rightsFor } = useAccess();
   const { openShare, openManageAccess } = useSharingDialogs();
-  const lookup = useLookup();
   const { pageSize } = usePortalSettings().general;
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(allDocs.length / pageSize));
@@ -264,18 +262,16 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
       )}
 
       <div className="hidden overflow-x-auto lg:block">
-        <table className="w-full min-w-[1240px] table-fixed text-left">
+        <table className="w-full min-w-[1000px] table-fixed text-left">
           <colgroup>
-            <col className="w-[3%]" />
-            <col className="w-[22.5%]" />
-            <col className="w-[11.5%]" />
-            <col className="w-[7.5%]" />
-            <col className="w-[9%]" />
-            <col className="w-[8.5%]" />
-            <col className="w-[8.5%]" />
-            <col className="w-[9.5%]" />
-            <col className="w-[9.5%]" />
-            <col className="w-[10.5%]" />
+            <col className="w-[4%]" />
+            <col className="w-[30.5%]" />
+            <col className="w-[13.5%]" />
+            <col className="w-[8%]" />
+            <col className="w-[10%]" />
+            <col className="w-[13%]" />
+            <col className="w-[10%]" />
+            <col className="w-[11%]" />
           </colgroup>
           <thead className="border-b border-line bg-slate-50/90 text-xs font-bold text-slate-700">
             <tr className="[&>th:first-child]:pl-4 [&>th:first-child]:pr-0 [&>th]:whitespace-normal [&>th]:px-2.5 [&>th]:align-bottom">
@@ -292,8 +288,6 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
               <th className="th">Document Title &amp; Details</th>
               <th className="th">Accreditation Status</th>
               <th className="th">Framework</th>
-              <th className="th">Area / Standard</th>
-              <th className="th">Criterion · Indicator</th>
               <th className="th">Type</th>
               <th className="th">Office / Unit</th>
               <th className="th">Sharing</th>
@@ -304,9 +298,6 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
           </thead>
           <tbody className="divide-y divide-line">
             {docs.map((doc) => {
-              const area = lookup.area(doc.areaId);
-              const criterion = lookup.criterion(doc.criterionId);
-              const indicator = lookup.indicator(doc.indicatorId);
               const details = fileDetails(doc);
               return (
                 <tr
@@ -348,33 +339,6 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
                   <td className="td">{renderApprovalBadge(doc)}</td>
 
                   <td className="td">{doc.frameworkId ? <FrameworkTag frameworkId={doc.frameworkId} /> : emptyCell}</td>
-
-                  <td className="td text-xs font-medium text-slate-700">
-                    {area ? (
-                      <span className="line-clamp-2 break-words" title={area.name}>
-                        {area.shortName || area.name}
-                      </span>
-                    ) : (
-                      emptyCell
-                    )}
-                  </td>
-
-                  <td className="td text-xs">
-                    {criterion ? (
-                      <>
-                        <span className="block truncate font-medium text-slate-800" title={`${criterion.code} – ${criterion.name}`}>
-                          {criterion.code}
-                        </span>
-                        {indicator && (
-                          <span className="block truncate text-[11px] text-slate-500" title={`${indicator.code} – ${indicator.name}`}>
-                            Indicator {indicator.code}
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      emptyCell
-                    )}
-                  </td>
 
                   <td className="td">
                     <span
@@ -462,15 +426,11 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
 
             <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50/80 p-2.5 rounded-lg border border-slate-200/70">
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Area</span>
-                <span className="font-medium text-slate-800">{lookup.area(doc.areaId)?.shortName || emptyCell}</span>
-              </div>
-              <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Type</span>
                 <span className="font-medium text-slate-800">{doc.docType}</span>
               </div>
               {doc.campus && (
-                <div className="col-span-2">
+                <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Campus</span>
                   <span className="font-medium text-slate-800">{doc.campus}</span>
                 </div>

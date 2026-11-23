@@ -54,7 +54,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
   });
 
   const buildDocument = (file: File, folderId: string | null): EvidenceDocument => {
-    const { general, uploads } = getSettings();
+    const { general } = getSettings();
     const sizeMb = Math.max(0.1, Math.round((file.size / (1024 * 1024)) * 10) / 10);
     return {
       id: uid('doc-pa'),
@@ -72,7 +72,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
       program: program.programName,
       college: '—',
       department: '—',
-      office: 'Accreditation Office',
+      office: 'Quality Assurance Office',
       campus: program.campusName,
       campusId: program.campusId,
       documentDate: today(),
@@ -84,8 +84,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
       sizeMb,
       uploadedBy: currentUser.name,
       passages: [`${requirement.areaName} — ${program.programName} (${program.campusName})`],
-      folderId: folderId ?? 'folder-pa',
-      approvalStatus: uploads.newUploadStatus
+      folderId: folderId ?? 'folder-pa'
     };
   };
 

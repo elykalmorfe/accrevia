@@ -6,7 +6,6 @@ import { usePortal } from '../../contexts/PortalContext';
 import { useLookup } from '../../hooks/useLookup';
 import { useDismiss } from '../../hooks/useDismiss';
 import { useAccess } from '../../hooks/useAccess';
-import { evidenceSearchExamples } from '../../data/options';
 import { searchEvidence } from '../../utils/search';
 import { searchEvidenceAsync } from '../../services/search/evidenceSearchClient';
 import { searchVerifiedCatalog } from '../../services/repository/verifiedCatalogSearch';
@@ -15,7 +14,7 @@ import { filterFacultyDiscoverableEvidence } from '../../services/repository/fac
 import { popoverMotion } from '../../utils/motion';
 
 type SuggestionItem =
-{kind: 'query' | 'recent' | 'example';label: string;} |
+{kind: 'query' | 'recent';label: string;} |
 {kind: 'doc';label: string;id: string;score: number;meta: string;} |
 {kind: 'repo';label: string;id: string;href: string;meta: string;};
 
@@ -216,14 +215,7 @@ export function GlobalSearch({
           : [];
       return [{ kind: 'query', label: trimmed }, ...docHits, ...repoHits];
     }
-    const recent = recentSearches.slice(0, 4).map((label) => ({ kind: 'recent' as const, label }));
-    const exampleSource = isFaculty
-      ? ['Research publications', 'Faculty development', 'Accreditation certificate']
-      : evidenceSearchExamples;
-    const examples = exampleSource
-      .filter((s) => !recentSearches.slice(0, 4).includes(s))
-      .map((label) => ({ kind: 'example' as const, label }));
-    return [...recent, ...examples];
+    return recentSearches.slice(0, 4).map((label) => ({ kind: 'recent', label }));
   }, [trimmed, documents, lookup, recentSearches, isFaculty, apiDocSuggestions]);
 
   useEffect(() => setActive(-1), [trimmed]);
@@ -324,11 +316,7 @@ export function GlobalSearch({
             </> :
 
           <>
-              {item.kind === 'recent' ?
-            <HistoryIcon className="h-4 w-4 shrink-0 text-ink-subtle" aria-hidden="true" /> :
-
-            <SearchIcon className="h-4 w-4 shrink-0 text-ink-subtle" aria-hidden="true" />
-            }
+              <HistoryIcon className="h-4 w-4 shrink-0 text-ink-subtle" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate text-ink">{item.label}</span>
             </>
           }
@@ -338,8 +326,7 @@ export function GlobalSearch({
   };
 
   const docItems = items.filter((i) => i.kind === 'doc');
-  const recentItems = items.filter((i) => i.kind === 'recent');
-  const exampleItems = items.filter((i) => i.kind === 'example');
+  const showSuggestions = open && items.length > 0;
 
   return (
     <div ref={wrapRef} className={`relative w-full ${className}`}>
@@ -370,10 +357,10 @@ export function GlobalSearch({
           id={inputId}
           type="text"
           role="combobox"
-          aria-expanded={open}
-          aria-controls={listId}
+          aria-expanded={showSuggestions}
+          aria-controls={showSuggestions ? listId : undefined}
           aria-autocomplete="list"
-          aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+          aria-activedescendant={showSuggestions && active >= 0 ? `${listId}-${active}` : undefined}
           autoComplete="off"
           value={query}
           placeholder={placeholder ?? placeholders[placeholderIndex]}
@@ -423,7 +410,7 @@ export function GlobalSearch({
       </form>
 
       <AnimatePresence>
-        {open &&
+        {showSuggestions &&
         <motion.div
           {...popoverMotion}
           className={`absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-line bg-surface-raised shadow-soft-lg ${overlay || matchInputWidth ? 'w-full' : 'max-w-lg'}`}>
@@ -446,33 +433,13 @@ export function GlobalSearch({
                 </> :
 
             <>
-                  {recentItems.length > 0 &&
-              <li role="presentation" className="px-3 pb-1 pt-2 text-xs font-medium text-ink-muted">
-                      Recent searches
-                    </li>
-              }
-                  {recentItems.map(renderItem)}
-                  {exampleItems.length > 0 &&
-              <li role="presentation" className="px-3 pb-1 pt-3 text-xs font-medium text-ink-muted">
-                      Explore accreditation evidence by area, criterion, or framework
-                    </li>
-              }
-                  {exampleItems.map(renderItem)}
+                  <li role="presentation" className="px-3 pb-1 pt-2 text-xs font-medium text-ink-muted">
+                    Recent searches
+                  </li>
+                  {items.map(renderItem)}
                 </>
             }
             </ul>
-            <div className="hidden items-center gap-4 border-t border-line bg-canvas px-3 py-2 text-[11px] text-ink-muted sm:flex">
-              <span className="flex items-center gap-1">
-                <kbd className="kbd">↑</kbd>
-                <kbd className="kbd">↓</kbd> navigate
-              </span>
-              <span className="flex items-center gap-1">
-                <kbd className="kbd">Enter</kbd> search
-              </span>
-              <span className="flex items-center gap-1">
-                <kbd className="kbd">Esc</kbd> close
-              </span>
-            </div>
           </motion.div>
         }
       </AnimatePresence>

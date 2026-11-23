@@ -14,7 +14,6 @@ export interface IAAreaTemplate {
 
 export type ValidityLevel = 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4';
 export type DateFormatOption = 'MMM d, yyyy' | 'MM/dd/yyyy' | 'dd/MM/yyyy' | 'yyyy-MM-dd';
-export type UploadReviewStatus = 'Pending Review' | 'Approved';
 
 export interface PortalSettings {
   general: {
@@ -49,7 +48,6 @@ export interface PortalSettings {
     allowedTypes: FileType[];
     maxFileSizeMb: number;
     namingPattern: string;
-    newUploadStatus: UploadReviewStatus;
   };
   reminders: {
     enabled: boolean;
@@ -149,8 +147,7 @@ export const DEFAULT_SETTINGS: PortalSettings = {
   uploads: {
     allowedTypes: UPLOAD_FILE_TYPES,
     maxFileSizeMb: 25,
-    namingPattern: '{name}',
-    newUploadStatus: 'Pending Review'
+    namingPattern: '{name}'
   },
   reminders: {
     enabled: true,

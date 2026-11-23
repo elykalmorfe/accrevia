@@ -3,7 +3,7 @@ import { SaveBar, SettingRow, SettingsGroup } from './SettingsLayout';
 import { DEFAULT_SIGNATORIES, loadSignatories, ReportSignatories, saveSignatories, Signatory } from '../../data/reportTemplates';
 import { logoSrc, usePortalSettings, useSettingsDraft } from '../../settings/portalSettings';
 
-const SIGNATORY_ROWS: { key: keyof ReportSignatories; label: string; description: string }[] = [
+const SIGNATORY_ROWS: { key: 'preparedBy' | 'checkedBy' | 'approvedBy'; label: string; description: string }[] = [
 { key: 'preparedBy', label: 'Prepared by', description: 'Usually the accreditation staff who compiled the report.' },
 { key: 'checkedBy', label: 'Checked by', description: 'Usually the Director of Quality Assurance.' },
 { key: 'approvedBy', label: 'Approved by', description: 'Optional. Leave the name blank to omit this signature.' }];

@@ -34,7 +34,6 @@ import { FolderFormModal } from '../../components/folders/FolderFormModal';
 import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
 import { FolderAction, FolderCard } from '../../components/folders/FolderCard';
-import { persistUpload } from '../../utils/fileStore';
 import { fileTypeFromName } from '../../utils/fileTypes';
 import { formatDate, pluralize } from '../../utils/format';
 import { applyNamingPattern, filterAllowedUploads } from '../../utils/uploadRules';
@@ -42,7 +41,7 @@ import type { PendingUpload } from '../../utils/dropFiles';
 import { UploadDropzone } from '../../components/upload/UploadDropzone';
 import { StagedFileList } from '../../components/upload/StagedFileList';
 import { usePortalSettings } from '../../settings/portalSettings';
-import { uploadDocumentRemote } from '../../services/documents/uploadClient';
+import { saveDocumentUpload } from '../../services/documents/uploadClient';
 import {
   COPC_ROOT_FOLDER_ID,
   isCopcCanonicalFolderId,
@@ -123,7 +122,7 @@ export function UploadEvidence() {
     currentUser
   } = usePortal();
   const settings = usePortalSettings();
-  const uploadDefaults = { academicYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
+  const uploadDefaults = { academicYear: settings.general.defaultAcademicYear };
 
   // Keep PA/COPC Online Repository flattened to the allowlisted folders only.
   useEffect(() => {
@@ -622,7 +621,6 @@ export function UploadEvidence() {
           department: 'Quality Assurance Office',
           office: 'Quality Assurance Office',
           status: 'Indexed',
-          approvalStatus: uploadDefaults.status,
           documentDate: today,
           dateAdded: today,
           uploadedBy: currentUser.name,
@@ -632,41 +630,8 @@ export function UploadEvidence() {
           libraryOnly: true
         };
 
-        const remote = await uploadDocumentRemote(file, {
-          title,
-          description: baseDoc.description,
-          frameworkId: baseDoc.frameworkId,
-          areaId: baseDoc.areaId,
-          criterionId: baseDoc.criterionId,
-          indicatorId: baseDoc.indicatorId,
-          folderId: targetFolderId,
-          docType: baseDoc.docType,
-          academicYear: baseDoc.academicYear,
-          cycle: baseDoc.cycle,
-          program: baseDoc.program,
-          college: baseDoc.college,
-          department: baseDoc.department,
-          office: baseDoc.office,
-          campus: campusTag,
-          campusId: campusIdTag,
-          confidentiality: 'Internal',
-          uploadedBy: currentUser.name,
-          keywords: baseDoc.keywords.join(', ')
-        }, baseDoc);
-
-        const finalDoc = remote
-          ? {
-              ...baseDoc,
-              ...remote,
-              folderId: targetFolderId,
-              approvalStatus: uploadDefaults.status,
-              libraryOnly: true,
-              passages: remote.passages?.length ? remote.passages : baseDoc.passages
-            }
-          : baseDoc;
-        if (remote) remoteCount += 1;
-
-        persistUpload(finalDoc.id, file);
+        const finalDoc = await saveDocumentUpload(file, baseDoc);
+        if (finalDoc.id !== baseDoc.id) remoteCount += 1;
         addDocument(finalDoc);
       }
 
@@ -676,8 +641,8 @@ export function UploadEvidence() {
       toast.success(
         `Successfully uploaded ${uploadedFileList.length} document(s) into ${targetFolderName} (${currentFolder.code})!`,
         remoteCount
-          ? { description: `${remoteCount} sent to the indexing API for OCR / hybrid search.` }
-          : undefined
+          ? { description: `${remoteCount} sent for AI indexing. Successful indexing marks the file Approved.` }
+          : { description: 'Files were saved for QA review.' }
       );
     })();
   };

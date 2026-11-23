@@ -38,10 +38,6 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
   const [status, setStatus] = useState<AccreditationLevel>('Candidate');
   const [validityStart, setValidityStart] = useState('');
   const [validityEnd, setValidityEnd] = useState('');
-  const [certificationFile, setCertificationFile] = useState('');
-  const [instrumentLink, setInstrumentLink] = useState('');
-  const [findingsLink, setFindingsLink] = useState('');
-  const [technicalReviewLink, setTechnicalReviewLink] = useState('');
   const [scheduleForAccreditation, setScheduleForAccreditation] = useState('');
   const [remarks, setRemarks] = useState('');
   const [boardAction, setBoardAction] = useState('');
@@ -63,10 +59,6 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
       setStatus(program.status);
       setValidityStart(program.validityStart || '');
       setValidityEnd(program.validityEnd || '');
-      setCertificationFile(program.certificationFile || '');
-      setInstrumentLink(program.instrumentLink || '');
-      setFindingsLink(program.findingsLink || '');
-      setTechnicalReviewLink(program.technicalReviewLink || '');
       setScheduleForAccreditation(program.scheduleForAccreditation || '');
       setRemarks(program.remarks || '');
       setBoardAction(program.boardAction || '');
@@ -79,10 +71,6 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
       setStatus('Candidate');
       setValidityStart('');
       setValidityEnd('');
-      setCertificationFile('');
-      setInstrumentLink('');
-      setFindingsLink('');
-      setTechnicalReviewLink('');
       setScheduleForAccreditation('');
       setRemarks('');
       setBoardAction('');
@@ -134,10 +122,6 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
       status,
       validityStart: validityStart.trim(),
       validityEnd: validityEnd.trim(),
-      certificationFile: certificationFile.trim() || undefined,
-      instrumentLink: instrumentLink.trim() || undefined,
-      findingsLink: findingsLink.trim() || undefined,
-      technicalReviewLink: technicalReviewLink.trim() || undefined,
       scheduleForAccreditation: scheduleForAccreditation.trim() || undefined,
       // Preserve compliance fields from existing record (no longer edited in this form).
       copcStatus: program?.copcStatus ?? 'Compliant',
@@ -169,7 +153,7 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
       open={open}
       onClose={onClose}
       title={program ? 'Edit Program Accreditation' : 'Add Program Accreditation'}
-      description="Track AACCUP program accreditation status, validity schedule, and supporting documents."
+      description="Track AACCUP program accreditation status, validity dates, and level history."
       size="xl"
       footer={
         <div className="flex w-full items-center justify-between">
@@ -285,47 +269,6 @@ export function ProgramFormModal({ open, program, defaultCampusId = 'tandag', on
           onChange={(val) => setBoardAction(val)}
           placeholder="e.g. Re-accredited Level II, valid for 4 years (AACCUP Board, March 2025)"
         />
-
-        {program && (
-          <div className="border-t border-line pt-4">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
-              Official Documents & Supporting Links
-            </h3>
-
-            <div className="space-y-3">
-              <TextField
-                label="Certificate link (optional, legacy)"
-                value={certificationFile}
-                onChange={(val) => setCertificationFile(val)}
-                placeholder="e.g. https://drive.google.com/…"
-                hint="Upload certificate files from the AACCUP Certification column; each level has its own folder."
-              />
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <TextField
-                  label="AACCUP Instrument (Link)"
-                  value={instrumentLink}
-                  onChange={(val) => setInstrumentLink(val)}
-                  placeholder="Google Drive link or URL"
-                />
-
-                <TextField
-                  label="Summary of Findings & Recommendations"
-                  value={findingsLink}
-                  onChange={(val) => setFindingsLink(val)}
-                  placeholder="Google Drive link or URL"
-                />
-
-                <TextField
-                  label="Technical Review & Board Action (link)"
-                  value={technicalReviewLink}
-                  onChange={(val) => setTechnicalReviewLink(val)}
-                  placeholder="Local path or Google Drive link"
-                />
-              </div>
-            </div>
-          </div>
-        )}
 
         {program && (
           <div className="border-t border-line pt-4">

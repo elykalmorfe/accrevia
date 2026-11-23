@@ -1,5 +1,6 @@
 """Copy Accrevia data from the local development portal into MySQL."""
 import re
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.db import DEFAULT_DB_ALIAS
@@ -22,15 +23,18 @@ BROWSER_COLLECTIONS = {
     "pending", "pqaRecords", "programAccreditations", "recentSearches", "report_signatories",
     "saved_ids", "selected_campus", "settings", "shares", "sidebar_collapsed", "theme",
 }
-LOCAL_ORIGINS = {"http://localhost:5173", "http://127.0.0.1:5173"}
+def is_local_browser(request):
+    origin = request.headers.get("Origin", "")
+    return (
+        settings.DEBUG
+        and request.META.get("REMOTE_ADDR") in {"127.0.0.1", "::1"}
+        and origin in settings.CORS_ALLOWED_ORIGINS
+        and urlsplit(origin).hostname in {"localhost", "127.0.0.1", "::1"}
+    )
 
 
 def require_local_browser(request):
-    if (
-        not settings.DEBUG
-        or request.META.get("REMOTE_ADDR") not in {"127.0.0.1", "::1"}
-        or request.headers.get("Origin") not in LOCAL_ORIGINS
-    ):
+    if not is_local_browser(request):
         raise NotFound()
 
 

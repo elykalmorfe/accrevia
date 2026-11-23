@@ -6,9 +6,11 @@ from pathlib import Path
 
 from celery import shared_task
 from django.conf import settings
+from django.db import transaction
 
 from apps.documents.models import EvidenceDocument, utcnow
 from apps.ingestion.services.chunking import chunk_text
+from apps.ingestion.services.embedders import dense_backend_info, sparse_backend_is_bm25
 from apps.ingestion.services.indexer import index_chunks
 from apps.ingestion.services.ocr import extract_text
 
@@ -46,25 +48,23 @@ def ingest_document(self, doc_id: str) -> dict:
 
         _set_progress(doc, "indexing", 70)
         count = index_chunks(doc, chunks)
+        if count != len(chunks):
+            raise RuntimeError("The search index did not store all document passages.")
 
+        can_auto_approve = doc.indexed_at is None and not dense_backend_info()["degraded"] and sparse_backend_is_bm25()
         doc.passages = chunks[:8]
         doc.chunk_count = count
         doc.status = "Indexed"
         doc.indexed_at = utcnow()
         doc.error_message = ""
-        _set_progress(doc, "done", 100)
-        doc.save(
-            update_fields=[
-                "ocr_applied",
-                "passages",
-                "chunk_count",
-                "status",
-                "indexed_at",
-                "error_message",
-                "progress",
-                "updated_at",
-            ]
-        )
+        doc.progress = {"stage": "done", "percent": 100}
+        doc.mark_updated()
+        with transaction.atomic():
+            doc.save(update_fields=[
+                "ocr_applied", "passages", "chunk_count", "status", "indexed_at", "error_message", "progress", "updated_at",
+            ])
+            if can_auto_approve:
+                EvidenceDocument.objects.filter(pk=doc_id, approval_status="Pending Review").update(approval_status="Approved")
         return {"ok": True, "doc_id": doc_id, "chunks": count, "ocr": ocr_applied}
     except Exception as exc:  # noqa: BLE001
         logger.exception("Ingestion failed for %s", doc_id)

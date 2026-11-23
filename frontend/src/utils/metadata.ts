@@ -1,6 +1,12 @@
 ﻿import { DocumentMetadata, DocumentType, EvidenceDocument } from '../types/evidence';
 import { getSettings } from '../settings/portalSettings';
 
+export function normalizeDocumentOffice(doc: EvidenceDocument): EvidenceDocument {
+  return doc.office?.trim().toLowerCase() === 'accreditation office'
+    ? { ...doc, office: 'Quality Assurance Office' }
+    : doc;
+}
+
 export function emptyMetadata(): DocumentMetadata {
   return {
     title: '',

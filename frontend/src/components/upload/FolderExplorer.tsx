@@ -21,10 +21,10 @@ import {
 import { usePortal } from '../../contexts/PortalContext';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
 import { FolderAction, FolderCard, FolderStatus } from '../folders/FolderCard';
-import { downloadStoredFile, persistUpload } from '../../utils/fileStore';
+import { downloadStoredFile } from '../../utils/fileStore';
 import { filesFromInput, PendingUpload } from '../../utils/dropFiles';
 import { pluralize } from '../../utils/format';
-import { uploadDocumentRemote } from '../../services/documents/uploadClient';
+import { saveDocumentUpload } from '../../services/documents/uploadClient';
 import { filterAllowedUploads } from '../../utils/uploadRules';
 import type { EvidenceDocument, EvidenceFolder } from '../../types/evidence';
 import { formatSize } from './fileTypeStyle';
@@ -211,40 +211,7 @@ export function FolderExplorer({
       try {
         for (const { file, path } of accepted) {
           const segments = allowNestedFolders ? path.split('/').filter(Boolean) : [file.name];
-          let doc = buildDocument(file, resolveFolder(segments.slice(0, -1)));
-          const remote = await uploadDocumentRemote(
-            file,
-            {
-              title: doc.title,
-              description: doc.description,
-              frameworkId: doc.frameworkId,
-              areaId: doc.areaId,
-              folderId: doc.folderId,
-              docType: doc.docType,
-              academicYear: doc.academicYear,
-              cycle: doc.cycle,
-              program: doc.program,
-              campus: doc.campus,
-              campusId: doc.campusId,
-              confidentiality: doc.confidentiality,
-              uploadedBy: doc.uploadedBy,
-              keywords: (doc.keywords || []).join(',')
-            },
-            doc
-          );
-          if (remote) {
-            doc = {
-              ...doc,
-              ...remote,
-              frameworkId: doc.frameworkId,
-              areaId: doc.areaId,
-              folderId: doc.folderId,
-              requirementId: doc.requirementId,
-              isActive: doc.isActive,
-              docType: doc.docType || remote.docType
-            };
-          }
-          persistUpload(doc.id, file);
+          const doc = await saveDocumentUpload(file, buildDocument(file, resolveFolder(segments.slice(0, -1))));
           addDocument(doc);
           docs.push(doc);
         }

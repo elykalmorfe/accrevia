@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from math import expm1
 
 from django.conf import settings
 
@@ -14,9 +15,11 @@ def _query_terms(q: str) -> list[str]:
     return [t for t in re.findall(r"[a-z0-9]{2,}", (q or "").lower()) if t]
 
 
-def run_search(query: str, filters: dict | None = None, limit: int | None = None) -> list[dict]:
+def run_search(query: str, filters: dict | None = None, limit: int | None = None, *, workspace_ids=None, workspace=None) -> list[dict]:
     top = limit or settings.SEARCH_RESULT_LIMIT
-    candidates = hybrid_retrieve(query, filters=filters, limit=settings.RETRIEVE_TOP_K)
+    candidates = hybrid_retrieve(
+        query, filters=filters, limit=settings.RETRIEVE_TOP_K, workspace_ids=workspace_ids, workspace=workspace,
+    )
     reranked = rerank(query, candidates, top_k=settings.RERANK_TOP_K)
     aggregated = aggregate_by_document(reranked, result_limit=top)
     terms = _query_terms(query)
@@ -46,22 +49,30 @@ def run_search(query: str, filters: dict | None = None, limit: int | None = None
             "department": item["payload"].get("department") or "",
             "office": item["payload"].get("office") or "",
             "documentDate": "",
-            "fileType": "PDF",
+            "fileType": item["payload"].get("file_type") or "PDF",
             "uploadedBy": item["payload"].get("uploaded_by") or "system",
             "dateAdded": None,
         }
         # Prefer fresh passages from index
-        doc_payload["passages"] = item["passages"][:5]
-        pct = max(0.0, min(100.0, (1 - pow(2.718281828, -float(item["score"]) / 3.0)) * 100))
+        passages = item["passages"][:5]
+        doc_payload["passages"] = passages
+        matchable_fields = {
+            "title": doc_payload.get("title") or "",
+            "program": doc_payload.get("program") or "",
+            "document text": " ".join(passages),
+        }
+        matching = {field: set(_query_terms(text)).intersection(terms) for field, text in matchable_fields.items()}
+        matched_terms = set().union(*matching.values())
+        pct = -100 * expm1(-item["score"])
         results.append(
             {
                 "doc": doc_payload,
                 "score": round(pct, 1),
                 "terms": terms,
-                "passages": item["passages"][:5],
-                "keywords": terms,
+                "passages": passages,
+                "keywords": [term for term in dict.fromkeys(terms) if term in matched_terms],
                 "relatedTerms": [],
-                "fields": ["document text", "title"],
+                "fields": [field for field, matches in matching.items() if matches],
             }
         )
     return results

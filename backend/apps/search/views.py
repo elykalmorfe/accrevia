@@ -2,9 +2,12 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.auth.portal_storage_views import is_local_browser
+from apps.auth.workspace_storage import workspace_source
 from apps.ingestion.services.embedders import dense_backend_info
 from apps.search.serializers import SearchRequestSerializer
 from apps.search.services.search_service import run_search
+from apps.search.services.warmup import search_warmup_status
 
 
 class SearchView(APIView):
@@ -12,6 +15,8 @@ class SearchView(APIView):
     permission_classes = []
 
     def post(self, request):
+        if search_warmup_status() == "warming":
+            return Response({"detail": "Search models are warming up."}, status=503)
         serializer = SearchRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -24,7 +29,11 @@ class SearchView(APIView):
             )
             if data.get(k)
         }
-        results = run_search(data["q"], filters=filters, limit=data.get("limit"))
+        workspace_ids = data.get("workspaceDocumentIds", []) if is_local_browser(request) else []
+        results = run_search(
+            data["q"], filters=filters, limit=data.get("limit"), workspace_ids=workspace_ids,
+            workspace=workspace_source() if workspace_ids else None,
+        )
         info = dense_backend_info()
         return Response(
             {
