@@ -1,0 +1,16 @@
+{
+  "prefix": "area-browser-7af68e0207",
+  "checks": {
+    "nine_ia_menus": true,
+    "unassigned_area_hidden": true,
+    "multiple_assignments_apply_live_without_reload": true,
+    "faculty_editor_folder_saved_to_mysql": true,
+    "viewer_sees_shared_record_without_edit_controls": true,
+    "staff_viewer_previews_exact_original_uploaded_by_editor": true,
+    "live_downgrade_removes_controls_and_rejects_stale_write": true,
+    "live_revocation_closes_preview_and_blocks_original_url": true,
+    "seven_pqa_menus": true,
+    "ten_aaccup_menus_in_program_scope": true,
+    "mobile_program_assignment_dialog": true
+  }
+}

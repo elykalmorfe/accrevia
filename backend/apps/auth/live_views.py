@@ -27,11 +27,12 @@ def _json_body(request) -> dict:
 
 
 def _identity(request, body: dict | None = None) -> tuple[str, str, str]:
-    source = body or {}
-    role = str(source.get("role") or request.GET.get("role") or "Faculty")
-    user_id = str(source.get("userId") or request.GET.get("userId") or "")
-    email = str(source.get("email") or request.GET.get("email") or "")
-    return role, user_id, email
+    from apps.auth.session_auth import session_account
+    from django.core.exceptions import PermissionDenied
+    account = session_account(request)
+    if not account:
+        raise PermissionDenied('A verified account session is required.')
+    return account.role, account.pk, account.email
 
 
 class LiveStateView(APIView):
@@ -65,6 +66,12 @@ class LiveFileView(APIView):
 
     def get(self, request, document_id: str):
         role, user_id, email = _identity(request)
+        from .repository_views import account_for
+        from .repository import may_read, record
+        from .models import RepositoryEntry
+        entry = RepositoryEntry.objects.filter(kind='document', record_id=document_id).first()
+        if entry and (entry.deleted or not may_read(account_for(request), record(entry))):
+            return Response({'detail': 'This document is not authorized.'}, status=403)
         if not file_grant_for(role, user_id, email, document_id):
             return Response({"detail": "You do not have permission to view this file."}, status=403)
         found = open_shared_file(document_id)

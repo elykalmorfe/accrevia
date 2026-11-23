@@ -11,8 +11,7 @@ export const ROOT_FRAMEWORK_FOLDER_IDS: readonly string[] = [
 
 export const ROOT_FRAMEWORK_CODES: readonly string[] = ['IA', 'PA', 'COPC', 'PQA', 'ISO'];
 
-/** The Upload Documents folder that receives every file from that sidebar feature. */
-/** Upload Documents copies stay in that library. Sidebar IA–ISO pages skip them. */
+/** Legacy upload origin; shared uploads also appear in each framework repository. */
 export function isUploadLibraryItem(item: { libraryOnly?: boolean }): boolean {
   return item.libraryOnly === true;
 }
@@ -45,7 +44,7 @@ export function isRootFrameworkFolder(folder?: EvidenceFolder | null): boolean {
   return (
     ROOT_FRAMEWORK_FOLDER_IDS.includes(folder.id) ||
     (folder.isSystem && ROOT_FRAMEWORK_CODES.includes(upperCode)) ||
-    (!folder.parentId && !folder.areaId && ROOT_FRAMEWORK_CODES.includes(upperCode))
+    (!folder.libraryOnly && !folder.parentId && !folder.areaId && ROOT_FRAMEWORK_CODES.includes(upperCode))
   );
 }
 

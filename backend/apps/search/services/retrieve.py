@@ -26,6 +26,8 @@ def _build_filter(filters: dict | None) -> qm.Filter | None:
         val = (filters or {}).get(key)
         if val:
             must.append(qm.FieldCondition(key=field, match=qm.MatchValue(value=val)))
+    if "documentIds" in filters:
+        must.append(qm.FieldCondition(key="document_id", match=qm.MatchAny(any=filters["documentIds"])))
     if not must:
         return None
     return qm.Filter(must=must)
@@ -65,14 +67,15 @@ def hybrid_retrieve(query: str, filters: dict | None = None, limit: int | None =
         points = results.points
     except Exception as exc:  # noqa: BLE001
         logger.warning("Hybrid query failed (%s); trying dense-only", exc)
-        hits = client.search(
+        fallback = client.query_points(
             collection_name=settings.QDRANT_COLLECTION,
-            query_vector=("dense", dense),
+            query=dense,
+            using="dense",
             query_filter=query_filter,
             limit=top_k,
             with_payload=True,
         )
-        points = hits
+        points = fallback.points
 
     candidates: list[dict] = []
     for p in points:

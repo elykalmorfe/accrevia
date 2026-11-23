@@ -50,6 +50,8 @@ import { formatSize } from '../upload/fileTypeStyle';
 import { isCertificateArea } from '../../utils/programAccreditation';
 import { IAAreaTemplate, usePortalSettings } from '../../settings/portalSettings';
 import { FolderFramework, iaFolderFramework } from './folderFrameworks';
+import { AreaAssignmentMenu } from './AreaAssignmentMenu';
+import { useAreaAccess } from '../../services/api/repositoryAccess';
 
 interface IAFolderManagerProps {
   campusId: CampusId;
@@ -154,8 +156,8 @@ export function IAFolderManager({
     framework.formatAreaLabel ? framework.formatAreaLabel(area) : framework.areaNoun + ' ' + area.number;
   const areaRangeLabel = framework.areaRangeLabel ?? (framework.areaNounPlural + ' 1–' + OFFICIAL_IA_AREAS.length);
   const { approverRoles, requireRevisionNote, autoVerifyArea } = settings.workflow;
-  const canMutate = !readOnly;
-  const canReview = !readOnly && approverRoles.includes(currentUser.role);
+  const areaAccess = useAreaAccess();
+  const canReview = !readOnly && !areaAccess.member && approverRoles.includes(currentUser.role);
   const uploadSettings = { defaultYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
 
   // Document Edit Modal State
@@ -167,6 +169,7 @@ export function IAFolderManager({
   const [editDocAcademicYear, setEditDocAcademicYear] = useState('2024–2025');
   const [editDocOffice, setEditDocOffice] = useState('');
   const [editDocIsoStage, setEditDocIsoStage] = useState<ISODocumentStage>('1st Surveillance');
+  const [replacementFile, setReplacementFile] = useState<File | null>(null);
 
   // Upload ISO Stage State (when framework.id === 'iso')
   const [uploadIsoStage, setUploadIsoStage] = useState<ISODocumentStage>('1st Surveillance');
@@ -213,6 +216,14 @@ export function IAFolderManager({
 
   // Folder Drill-down Navigation (null = root level; string = folder ID)
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const activeAreaCode = selectedAreaCode || folders.find(f => f.id === activeFolderId)?.areaId || '';
+  const selectedScope = {campus: campusId, framework: framework.id, area: activeAreaCode.toLowerCase()};
+  const canMutate = areaAccess.member ? !!activeAreaCode && areaAccess.canEdit(selectedScope) : !readOnly;
+  const selectedAccessible = !areaAccess.member || !activeAreaCode || areaAccess.canView(selectedScope);
+  useEffect(() => {
+    if (!selectedAccessible) {setSelectedAreaCode(null); setActiveFolderId(null); setPreviewDoc(null);}
+    if (!canMutate) {setFolderFormOpen(false); setUploadModalOpen(false); setEditingDoc(null);}
+  }, [selectedAccessible, canMutate]);
 
   // Inside-Folder Filtering and Sorting
   const [repoFilter, setRepoFilter] = useState<'all' | 'folders' | 'files'>('all');
@@ -660,6 +671,7 @@ export function IAFolderManager({
   const filteredAreas = useMemo(() => {
     const hidden = new Set(areaLayoutEditable ? isoLayout.hiddenAreas : []);
     let list = namedAreas.filter((area) => !hidden.has(isoLayoutKey(campusId, area.code)));
+    list = list.filter(area => !areaAccess.member || areaAccess.canView({campus: campusId, framework: framework.id, area: area.code.toLowerCase()}));
     if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
     return list.filter(
@@ -669,7 +681,7 @@ export function IAFolderManager({
         a.shortDesc.toLowerCase().includes(q) ||
         `area ${a.number}`.includes(q)
     );
-  }, [searchQuery, namedAreas, areaLayoutEditable, isoLayout.hiddenAreas, campusId]);
+  }, [searchQuery, namedAreas, areaLayoutEditable, isoLayout.hiddenAreas, campusId, areaAccess.assignments, areaAccess.member, framework.id]);
 
   // Folders the ISO page can open. Clause and Quality Manual folders stay out.
   // A folder is shown at the top when its parent is the library root, missing, or hidden.
@@ -840,7 +852,7 @@ export function IAFolderManager({
     );
 
     // If no folder exists yet, immediately prompt to create the first folder for this Area
-    if (existing.length === 0 && canMutate) {
+    if (existing.length === 0 && (areaAccess.member ? areaAccess.canEdit({campus: campusId, framework: framework.id, area: areaCode.toLowerCase()}) : canMutate)) {
       const area = OFFICIAL_IA_AREAS.find((a) => a.code === areaCode);
       setEditingFolder(null);
       setFolderFormParentId(undefined);
@@ -1321,6 +1333,7 @@ export function IAFolderManager({
 
   const handleOpenEditDoc = (doc: EvidenceDocument) => {
     setEditingDoc(doc);
+    setReplacementFile(null);
     setEditDocTitle(doc.title);
     setEditDocDescription(doc.description || '');
     setEditDocType(doc.docType || 'Report');
@@ -1332,14 +1345,19 @@ export function IAFolderManager({
     );
   };
 
-  const handleSaveEditDoc = (e: React.FormEvent) => {
+  const handleSaveEditDoc = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDoc || !canMutate) return;
     if (!editDocTitle.trim()) {
       toast.error('Document title cannot be empty.');
       return;
     }
+    if (replacementFile) {
+      try {await persistUpload(editingDoc.id, replacementFile);}
+      catch {toast.error('The replacement original could not be saved.'); return;}
+    }
     updateDocument(editingDoc.id, {
+      ...(replacementFile ? {fileType: fileTypeFromName(replacementFile.name), sizeMb: replacementFile.size / 1048576} : {}),
       title: editDocTitle.trim(),
       description: editDocDescription.trim() || undefined,
       docType: editDocType,
@@ -1804,8 +1822,11 @@ export function IAFolderManager({
                       name={area.name}
                       meta={`${pluralize(areaStatus.folderCount, 'folder')} · ${pluralize(areaStatus.fileCount, 'file')}`}
                       status={AREA_STATUS[areaStatus.status] ?? AREA_STATUS.needs_evidence}
+                      pinActions={areaAccess.isSuperadmin && ['ia', 'pqa'].includes(framework.id)}
                       actions={
-                        areaLayoutEditable && canMutate ? (
+                        ['ia', 'pqa'].includes(framework.id) ? <AreaAssignmentMenu
+                          scope={{campus: campusId, framework: framework.id, area: area.code.toLowerCase()}}
+                          label={`${areaLabel(area)}: ${area.name}`} campusName={campusName} /> : areaLayoutEditable && canMutate ? (
                           <>
                             <FolderAction
                               icon={PencilIcon}
@@ -3499,7 +3520,7 @@ export function IAFolderManager({
         areas={
           folderFormUnassigned
             ? []
-            : OFFICIAL_IA_AREAS.map((a) => ({
+            : OFFICIAL_IA_AREAS.filter(a => !areaAccess.member || a.code.toLowerCase() === (folderFormAreaId || activeAreaCode).toLowerCase()).map((a) => ({
                 code: a.code,
                 name: a.name,
                 number: a.number
@@ -3630,6 +3651,7 @@ export function IAFolderManager({
           }
         >
           <form onSubmit={handleSaveEditDoc} className="space-y-3.5">
+            <label className="block text-xs">Replace original file<input className="mt-2 w-full" type="file" onChange={e => setReplacementFile(e.target.files?.[0] || null)} /></label>
             <div>
               <label className="label text-xs">Document Title *</label>
               <input
@@ -3700,7 +3722,7 @@ export function IAFolderManager({
                 className="select text-xs"
               >
                 <option value="">No folder (Root)</option>
-                {iaFolders.map((f) => (
+                {iaFolders.filter(f => !areaAccess.member || f.areaId === editingDoc.areaId).map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name} ({f.code || 'Folder'})
                   </option>

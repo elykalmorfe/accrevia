@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Modal } from '../ui/Modal';
 import { FolderExplorer } from '../upload/FolderExplorer';
 import { formatSize } from '../upload/fileTypeStyle';
@@ -8,6 +8,7 @@ import { applyNamingPattern } from '../../utils/uploadRules';
 import { getSettings } from '../../settings/portalSettings';
 import type { ProgramAccreditation, ProgramRequirementItem } from '../../types/accreditation';
 import type { EvidenceDocument, EvidenceFolder } from '../../types/evidence';
+import { useAreaAccess } from '../../services/api/repositoryAccess';
 
 interface ProgramAreaRepositoryModalProps {
   open: boolean;
@@ -23,6 +24,11 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
   const { folders, documents, updateProgramRequirement, currentUser } = usePortal();
 
   const areaKey = requirement?.id ?? '';
+  const access = useAreaAccess();
+  const scope = {campus: program?.campusId || '', framework: 'pa', area: areaKey, program: program?.id || ''};
+  const canView = access.canView(scope);
+  const canEdit = access.canEdit(scope);
+  useEffect(() => {if (open && !canView) onClose();}, [open, canView, onClose]);
 
   const areaFolders = useMemo(
     () => folders.filter((f) => f.frameworkId === 'pa' && f.areaId === areaKey && !f.libraryOnly),
@@ -33,7 +39,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
     [documents, areaKey]
   );
 
-  if (!program || !requirement) return null;
+  if (!program || !requirement || !canView) return null;
 
   const totalSizeMb = areaDocs.reduce((sum, d) => sum + (d.sizeMb || 0), 0);
 
@@ -48,6 +54,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
     createdAt: today(),
     parentId: parentId ?? 'folder-pa',
     areaId: areaKey,
+    program: program.programName,
     campusId: program.campusId,
     campus: program.campusName,
     hasNoDeadline: true
@@ -130,6 +137,8 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
       <FolderExplorer
         folders={areaFolders}
         documents={areaDocs}
+        canEdit={canEdit}
+        openToViewers
         rootLabel={requirement.areaName.split(':')[0]}
         buildFolder={buildFolder}
         buildDocument={buildDocument}

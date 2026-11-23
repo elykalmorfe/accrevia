@@ -39,11 +39,17 @@ export function LogoutConfirmModal({ open, onClose }: { open: boolean; onClose: 
     };
   }, [open]);
 
-  const confirm = () => {
-    onClose();
-    endSession();
-    toast.success('You have been logged out.');
-    navigate('/', { replace: true });
+  const confirm = async () => {
+    try {
+      await endSession();
+      onClose();
+      toast.success('You have been logged out.');
+      navigate('/', { replace: true });
+    } catch {
+      onClose();
+      toast.error('Signed out here. Server logout will finish when the backend is available.');
+      navigate('/login', { replace: true });
+    }
   };
 
   return createPortal(

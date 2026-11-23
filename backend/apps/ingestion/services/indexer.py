@@ -24,6 +24,11 @@ def ensure_collection() -> None:
     name = settings.QDRANT_COLLECTION
     existing = {c.name for c in client.get_collections().collections}
     if name in existing:
+        info = client.get_collection(name)
+        sparse = info.config.params.sparse_vectors or {}
+        if "bm25" not in sparse or sparse["bm25"].modifier != qm.Modifier.IDF:
+            client.update_collection(name, sparse_vectors_config={"bm25": qm.SparseVectorParams(index=qm.SparseIndexParams(on_disk=False), modifier=qm.Modifier.IDF)})
+        _ensure_filter_indexes(client, name, info.payload_schema)
         return
 
     size = dense_vector_size()
@@ -33,10 +38,17 @@ def ensure_collection() -> None:
             "dense": qm.VectorParams(size=size, distance=qm.Distance.COSINE),
         },
         sparse_vectors_config={
-            "bm25": qm.SparseVectorParams(index=qm.SparseIndexParams(on_disk=False)),
+            "bm25": qm.SparseVectorParams(index=qm.SparseIndexParams(on_disk=False), modifier=qm.Modifier.IDF),
         },
     )
     logger.info("Created Qdrant collection %s (dense=%s)", name, size)
+    _ensure_filter_indexes(client, name, {})
+
+
+def _ensure_filter_indexes(client, name, schema):
+    for field in ("document_id", "doc_type", "program", "academic_year", "framework_id", "campus_id"):
+        if field not in schema:
+            client.create_payload_index(name, field, field_schema=qm.PayloadSchemaType.KEYWORD, wait=True)
 
 
 def document_payload(doc, chunk_id: str, text: str, sequence: int) -> dict:
@@ -66,13 +78,13 @@ def document_payload(doc, chunk_id: str, text: str, sequence: int) -> dict:
     }
 
 
-def index_chunks(doc, chunks: list[str]) -> int:
+def index_chunks(doc, chunks: list[str], *, dense_vectors=None, sparse_vectors=None) -> int:
     if not chunks:
         return 0
     ensure_collection()
     client = get_qdrant()
-    dense_vecs = embed_dense(chunks)
-    sparse_vecs = embed_sparse(chunks)
+    dense_vecs = dense_vectors if dense_vectors is not None else embed_dense(chunks)
+    sparse_vecs = sparse_vectors if sparse_vectors is not None else embed_sparse(chunks)
 
     points: list[qm.PointStruct] = []
     for i, text in enumerate(chunks):

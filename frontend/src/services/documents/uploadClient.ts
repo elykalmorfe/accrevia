@@ -84,15 +84,6 @@ export async function uploadDocumentRemote(
     const created = (await res.json()) as Record<string, unknown>;
     const id = String(created.id);
 
-    for (let i = 0; i < 45; i += 1) {
-      const st = await apiFetch(`/api/documents/${id}/status/`, {}, 15_000);
-      if (st.ok) {
-        const body = (await st.json()) as { status?: string };
-        if (body.status === 'Indexed' || body.status === 'Failed') break;
-      }
-      await sleep(2000);
-    }
-
     const detail = await apiFetch(`/api/documents/${id}/`, {}, 15_000);
     if (!detail.ok) return mapUploadedDoc(created, file, fallback);
     const full = (await detail.json()) as Record<string, unknown>;

@@ -30,6 +30,8 @@ backend/.env
 backend/.venv/
 backend/venv/
 backend/models/
+backend/tools/tesseract/
+backend/tools/poppler/
 backend/**/__pycache__/
 backend/**/*.py[cod]
 backend/db.sqlite3

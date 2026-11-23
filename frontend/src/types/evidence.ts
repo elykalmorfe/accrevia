@@ -3,6 +3,11 @@ export type FrameworkCategory = 'Accreditation' | 'Compliance' | 'Quality Excell
 export type FolderColor = 'blue' | 'purple' | 'emerald' | 'amber' | 'indigo' | 'rose' | 'cyan' | 'slate';
 
 export interface EvidenceFolder {
+  program?: string;
+  syncViewOnly?: boolean;
+  sourceModule?: 'accreditation' | 'upload-documents';
+  syncVersion?: number;
+  syncIssue?: string;
   id: string;
   name: string;
   code: string;
@@ -20,8 +25,8 @@ export interface EvidenceFolder {
   expiredDate?: string | null;
   hasNoDeadline?: boolean;
   /**
-   * Created inside Upload Documents. Stays in that library and is never listed
-   * on the sidebar IA, Program, COPC, PQA, or ISO pages.
+   * Created inside Upload Documents. Also displayed in the matching framework
+   * repository; this flag records upload origin, not an access restriction.
    */
   libraryOnly?: boolean;
 }
@@ -104,6 +109,12 @@ export type CommonDocType =
   | 'Board of Regents (BOR) Resolution';
 
 export interface EvidenceDocument {
+  sourceModule?: 'accreditation' | 'upload-documents';
+  syncVersion?: number;
+  syncIssue?: string;
+  storageSha256?: string;
+  fileVersion?: string;
+  fileRef?: string;
   id: string;
   title: string;
   description: string;
@@ -153,8 +164,8 @@ export interface EvidenceDocument {
   /** Certificates only: the one certificate currently in force for its owner. */
   isActive?: boolean;
   /**
-   * Uploaded from Upload Documents. Visible in that library only.
-   * Sidebar IA–ISO pages must ignore these records.
+   * Uploaded from Upload Documents. Also visible in the matching framework
+   * repository for the same campus, using the same record and original file.
    */
   libraryOnly?: boolean;
 }

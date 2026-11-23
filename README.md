@@ -29,7 +29,7 @@ Set in `frontend/.env`:
 VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-Without that variable (or when the API is down), search/upload keep working with localStorage / IndexedDB fallbacks.
+Sign-in requires the Django backend and MySQL. Browser storage caches portal metadata and original files; it does not authenticate users. Login creates an eight-hour server session in an HTTP-only cookie, protected against CSRF. On startup and while signed in, the frontend validates the session with MySQL through the API. If the API is unavailable, the protected UI signs out instead of accepting cached credentials. Password changes are verified and hashed on the server and invalidate other browser sessions. Logging out revokes the server session; if the server is offline, revocation is retried when it becomes available.
 
 ## Browse portal data in MySQL
 
@@ -79,6 +79,8 @@ On another developer's computer, pull the application code, install dependencies
 ```powershell
 .\.venv\Scripts\python.exe manage.py migrate
 .\.venv\Scripts\python.exe manage.py import_portal_bundle exports/accrevia.portal-bundle.zip
+.\.venv\Scripts\python.exe scripts/install_ocr_tools.py
+.\.venv\Scripts\python.exe manage.py index_portal_documents
 .\.venv\Scripts\python.exe manage.py runserver 8000
 ```
 

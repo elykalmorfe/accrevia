@@ -19,9 +19,13 @@ interface DocumentPreviewModalProps {
   grantAccess?: boolean;
 }
 
-export function DocumentPreviewModal({ doc, onClose, terms = [], query, grantAccess = false }: DocumentPreviewModalProps) {
+export function DocumentPreviewModal({ doc: originalDoc, onClose, terms = [], query, grantAccess = false }: DocumentPreviewModalProps) {
   const lookup = useLookup();
-  const { logAccess } = usePortal();
+  const { logAccess, documents } = usePortal();
+  const doc = originalDoc ? documents.find(item => item.id === originalDoc.id) || originalDoc : null;
+  React.useEffect(() => {
+    if (originalDoc?.syncVersion && !documents.some(item => item.id === originalDoc.id)) onClose();
+  },[originalDoc,documents,onClose]);
   const { rightsFor } = useAccess();
   const rights = !doc ? { canView: false, canDownload: false } : grantAccess ? { canView: true, canDownload: true } : rightsFor(doc.id);
   const meta = doc ?

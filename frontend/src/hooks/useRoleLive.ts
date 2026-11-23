@@ -97,9 +97,15 @@ export function useRoleLive(input: RoleLiveInput) {
     const stop = subscribeRoleLive(() => {
       void pull();
     });
+    const accessChanged = () => {void runLiveTask(async () => {
+      const board = await fetchRoleLive(identity());
+      if (board && !cancelled) remember(board);
+    });};
+    window.addEventListener('accrevia-area-access-changed', accessChanged);
     return () => {
       cancelled = true;
       stop();
+      window.removeEventListener('accrevia-area-access-changed', accessChanged);
     };
     // Reconnect when the signed-in person changes so the stream follows that role.
     // eslint-disable-next-line react-hooks/exhaustive-deps

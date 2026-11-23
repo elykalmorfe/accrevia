@@ -78,7 +78,7 @@ export function ProgramCertificatesModal({
       campusId={program.campusId}
       campusName={program.campusName}
       rootLabel="Program Accreditation"
-      allowNestedFolders={false}
+      allowNestedFolders={true}
       activatableCodes={[...CERTIFICATE_LEVELS]}
       canonicalFolders={canonicalFolders}
       preferredFolderId={preferredId}

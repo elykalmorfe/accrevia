@@ -231,7 +231,7 @@ export function UserFormModal({ open, user, onClose, onSave }: UserFormModalProp
       role: form.role,
       office: user?.office || (form.role === 'Superadmin' ? 'Office of the President' : 'Quality Assurance Office'),
       campusId: user?.campusId || 'Main Campus (Tandag City)',
-      personnelClassification: needsClassification(form.role) ? form.personnelClassification : undefined,
+      personnelClassification: needsClassification(form.role) ? form.personnelClassification || undefined : undefined,
       affiliationVerified: true,
       temporaryPassword: form.password.trim() || undefined,
       allowedFeatures: selectedFeatures,

@@ -39,7 +39,7 @@ function browserCollections(): Record<string, unknown> {
   return collections;
 }
 
-export function usePortalDatabase(active: boolean, records: Record<string, unknown>) {
+export function usePortalDatabase(active: boolean, records: Record<string, unknown>, role?: string) {
   const current = useRef(records);
   current.current = records;
 
@@ -59,6 +59,11 @@ export function usePortalDatabase(active: boolean, records: Record<string, unkno
 
     async function sync() {
       const collections = { ...browserCollections(), ...current.current };
+      delete collections.folders; delete collections.documents;
+      if (!['Superadmin','Administrator'].includes(role || '')) {
+        const personal = new Set(['theme','sidebar_collapsed','saved_ids','recentSearches','dismissed_reminders','selected_campus']);
+        for (const name of Object.keys(collections)) if (!personal.has(name) && !name.startsWith('profile_')) delete collections[name];
+      }
       const snapshot = new Map(Object.entries(collections).map(([name, value]) => [name, JSON.stringify(value)]));
       const changed = Object.keys(collections).filter((name) => snapshot.get(name) !== sent.get(name));
       const removed = [...sent.keys()].filter((name) => !snapshot.has(name));
@@ -75,18 +80,7 @@ export function usePortalDatabase(active: boolean, records: Record<string, unkno
         removed.forEach((name) => sent.delete(name));
       }
 
-      for (const id of await listStoredFileIds()) {
-        if (stopped) return;
-        const file = await getLocalStoredFile(id);
-        if (!file || fileStamps.get(id) === file.storedAt) continue;
-        if (!await isRepositoryFile(file.blob, file.name)) continue;
-        const data = new FormData();
-        data.set('id', id);
-        data.set('file', file.blob, file.name);
-        const response = await apiFetch(`${path}/files/`, { method: 'POST', body: data }, 120_000);
-        if (!response.ok) throw new Error(`MySQL could not save ${file.name}.`);
-        fileStamps.set(id, file.storedAt);
-      }
+
     }
 
     function run() {
@@ -105,5 +99,5 @@ export function usePortalDatabase(active: boolean, records: Record<string, unkno
       window.removeEventListener('online', retry);
       if (syncNow === run) syncNow = undefined;
     };
-  }, [active]);
+  }, [active,role]);
 }

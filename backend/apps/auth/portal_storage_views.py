@@ -6,7 +6,7 @@ from django.db import DEFAULT_DB_ALIAS
 from django.http import StreamingHttpResponse
 from django.utils.http import content_disposition_header
 from rest_framework import serializers
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, ValidationError, PermissionDenied
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,6 +14,9 @@ from rest_framework.views import APIView
 from .models import PortalFile
 from .portal_storage import store_collection, store_file
 from .workspace_storage import workspace_database, workspace_records, workspace_source
+from .repository_views import account_for
+from .repository import snapshot, may_read, record
+from .models import RepositoryEntry
 
 BROWSER_COLLECTIONS = {
     "accessLog", "areas", "campuses", "copcRecords", "criteria", "dismissed_reminders",
@@ -42,6 +45,13 @@ def browser_source(request, browser_id):
 class PortalRecordsView(APIView):
     def put(self, request, browser_id):
         source = browser_source(request, browser_id)
+        account = account_for(request)
+        if any(name in request.data for name in ('folders', 'documents')):
+            raise ValidationError('Folders and documents must use the versioned repository API.')
+        if account.role not in {'Superadmin','Administrator'}:
+            personal = {'theme','sidebar_collapsed','saved_ids','recentSearches','dismissed_reminders','selected_campus'}
+            if any(name not in personal and not str(name).startswith('profile_') for name in request.data):
+                raise PermissionDenied('Institutional records require administrator permission.')
         if not isinstance(request.data, dict) or not request.data:
             raise ValidationError("Expected portal collections.")
         for name in request.data:
@@ -60,6 +70,11 @@ class PortalFilesView(APIView):
 
     def post(self, request, browser_id):
         source = browser_source(request, browser_id)
+        account = account_for(request)
+        if account.role not in {'Superadmin', 'Administrator'}:
+            raise PermissionDenied('Use an authorized accreditation area to upload originals.')
+        if RepositoryEntry.objects.filter(kind='document', record_id=request.data.get('id')).exists():
+            raise ValidationError('Existing originals must be replaced through the versioned repository API.')
         serializer = PortalFileSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         upload = serializer.validated_data["file"]
@@ -69,8 +84,11 @@ class PortalFilesView(APIView):
 
 class CatalogOriginalView(APIView):
     def get(self, request):
-        require_local_browser(request)
         path = request.query_params.get("path", "")
+        account = account_for(request)
+        matches = RepositoryEntry.objects.filter(kind='document', deleted=False, data__documentUrl=path)
+        if not any(may_read(account, record(entry)) for entry in matches):
+            raise NotFound()
         if (
             not path.startswith("/certificates/") or len(path) > 513
             or "\\" in path or any(part in {"", ".", ".."} for part in path[1:].split("/"))
@@ -94,12 +112,20 @@ class CatalogOriginalView(APIView):
 class WorkspaceRecordsView(APIView):
     def get(self, request):
         require_local_browser(request)
-        return Response({"records": workspace_records()})
+        account = account_for(request)
+        records = workspace_records()
+        shared = snapshot(account)
+        records.update(folders=shared['folders'], documents=shared['documents'])
+        return Response({"records": records})
 
 
 class WorkspaceOriginalView(APIView):
     def get(self, request):
         require_local_browser(request)
+        account = account_for(request)
+        entry = RepositoryEntry.objects.filter(kind='document', record_id=request.query_params.get('id',''), deleted=False).first()
+        if not entry or not may_read(account, record(entry)):
+            raise NotFound()
         source = workspace_source()
         if not source:
             raise NotFound()

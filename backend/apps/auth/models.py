@@ -98,6 +98,7 @@ class PortalAccount(models.Model):
             "lastName": self.last_name,
             "email": self.email,
             "role": self.role,
+            "campusId": self.campus_id or None,
             "approvalStatus": self.approval_status,
             "mustChangePassword": self.must_change_password,
             "createdAt": self.registered_at or None,
@@ -166,3 +167,96 @@ class PortalFile(models.Model):
     class Meta:
         db_table = "portal_files"
         constraints = [models.UniqueConstraint(fields=["source", "key"], name="portal_file_key")]
+
+
+class RepositoryClock(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1)
+    revision = models.PositiveBigIntegerField(default=0)
+
+
+class RepositoryEntry(models.Model):
+    kind = models.CharField(max_length=16)
+    record_id = models.CharField(max_length=190)
+    origin = models.CharField(max_length=32)
+    framework = models.CharField(max_length=16)
+    campus = models.CharField(max_length=64, blank=True)
+    parent_id = models.CharField(max_length=190, blank=True)
+    version = models.PositiveBigIntegerField(default=1)
+    data = models.JSONField(default=dict)
+    deleted = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['kind', 'record_id'], name='repository_record_identity')]
+        indexes = [models.Index(fields=['kind', 'campus', 'deleted'])]
+
+
+class RepositoryChange(models.Model):
+    revision = models.PositiveBigIntegerField(primary_key=True)
+    kind = models.CharField(max_length=16)
+    record_id = models.CharField(max_length=190)
+    before = models.JSONField(null=True)
+    after = models.JSONField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class RepositoryOperation(models.Model):
+    id = models.CharField(primary_key=True, max_length=64)
+    account_id = models.CharField(max_length=64)
+    result = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class RepositoryIndexDelivery(models.Model):
+    record_id = models.CharField(primary_key=True, max_length=190)
+    target_version = models.PositiveBigIntegerField()
+    next_attempt = models.DateTimeField(db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True)
+
+
+class RepositoryAccessAssignment(models.Model):
+    user = models.ForeignKey(PortalAccount, on_delete=models.CASCADE, related_name='repository_access')
+    campus = models.CharField(max_length=64)
+    framework = models.CharField(max_length=16)
+    area = models.CharField(max_length=64)
+    program = models.CharField(max_length=64, blank=True)
+    level = models.CharField(max_length=16, default='none', choices=[('none', 'No access'), ('viewer', 'Viewer'), ('editor', 'Editor')])
+    updated_by = models.CharField(max_length=64)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'repository_access_assignments'
+        constraints = [models.UniqueConstraint(fields=['user', 'campus', 'framework', 'area', 'program'], name='repository_access_scope')]
+        indexes = [models.Index(fields=['campus', 'framework', 'area', 'level'], name='repository__campus_0dbd59_idx')]
+
+
+class RepositoryAccessAudit(models.Model):
+    actor_id = models.CharField(max_length=64)
+    user_id = models.CharField(max_length=64, blank=True)
+    action = models.CharField(max_length=32)
+    campus = models.CharField(max_length=64)
+    framework = models.CharField(max_length=16)
+    area = models.CharField(max_length=64)
+    program = models.CharField(max_length=64, blank=True)
+    previous_level = models.CharField(max_length=16, blank=True)
+    level = models.CharField(max_length=16, blank=True)
+    actor_role = models.CharField(max_length=40, blank=True)
+    resource_id = models.CharField(max_length=190, blank=True)
+    previous = models.JSONField(null=True)
+    updated = models.JSONField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'repository_access_audit'
+        indexes = [models.Index(fields=['user_id', 'created_at'], name='repository__user_id_9d5cfc_idx')]
+
+
+class RepositoryAreaDefinition(models.Model):
+    framework = models.CharField(max_length=16)
+    code = models.CharField(max_length=64)
+    name = models.CharField(max_length=190)
+    position = models.PositiveSmallIntegerField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['framework', 'code'], name='repository_official_area')]

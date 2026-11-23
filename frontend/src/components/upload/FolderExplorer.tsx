@@ -16,7 +16,8 @@ import {
   SearchIcon,
   Trash2Icon,
   UploadIcon,
-  XIcon
+  XIcon,
+  ArrowRightIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
@@ -30,6 +31,8 @@ import type { EvidenceDocument, EvidenceFolder } from '../../types/evidence';
 import { formatSize } from './fileTypeStyle';
 import { FileList, FileRow, FileRowAction, FileStatusPill } from './FileRow';
 import { UploadDropzone } from './UploadDropzone';
+import { Modal } from '../ui/Modal';
+import { fileTypeFromName } from '../../utils/fileTypes';
 
 export interface UploadTarget {
   folderId: string | null;
@@ -96,7 +99,7 @@ export function FolderExplorer({
   preferredFolderId = null,
   allowNestedFolders = true
 }: FolderExplorerProps) {
-  const { saveFolder, deleteFolder, addDocument, deleteDocument } = usePortal();
+  const { saveFolder, deleteFolder, addDocument, deleteDocument, updateDocument } = usePortal();
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -106,6 +109,11 @@ export function FolderExplorer({
   const [renameValue, setRenameValue] = useState('');
   const [previewDoc, setPreviewDoc] = useState<EvidenceDocument | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [editingFile, setEditingFile] = useState<EvidenceDocument | null>(null);
+  const [movingFolder, setMovingFolder] = useState<EvidenceFolder | null>(null);
+  const [moveTarget, setMoveTarget] = useState('');
+  const [replacement, setReplacement] = useState<File | null>(null);
+  useEffect(() => {if (!canEdit) {setCreatingFolder(false); setRenamingId(null); setEditingFile(null); setMovingFolder(null);}}, [canEdit]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -161,7 +169,7 @@ export function FolderExplorer({
       ? folders.filter((f) => f.name.toLowerCase().includes(q) && (allowNestedFolders || isSystem(f)))
       : folders.filter(
           (f) =>
-            (f.parentId ?? null) === currentFolderId && (allowNestedFolders || isSystem(f) || currentFolderId === null)
+            (f.parentId && folders.some(parent => parent.id === f.parentId) ? f.parentId : null) === currentFolderId && (allowNestedFolders || isSystem(f) || currentFolderId === null)
         )
   )
     .slice()
@@ -173,7 +181,7 @@ export function FolderExplorer({
       const ids = new Set(descendantFolderIds(currentFolderId));
       return documents.filter((d) => d.folderId && ids.has(d.folderId));
     }
-    return documents.filter((d) => (d.folderId ?? null) === currentFolderId);
+    return documents.filter((d) => (d.folderId && folders.some(f => f.id === d.folderId) ? d.folderId : null) === currentFolderId);
   })();
 
   const visibleDocs = q ? docsInCurrent.filter((d) => d.title.toLowerCase().includes(q)) : docsInCurrent;
@@ -193,7 +201,7 @@ export function FolderExplorer({
       if (!allowNestedFolders) return target.folderId;
       let parent = target.folderId;
       for (const name of segments) {
-        const match = [...folders, ...created].find((f) => f.name === name && (f.parentId ?? null) === parent);
+        const match = created.find((f) => f.name === name && (f.parentId ?? null) === parent);
         if (match) {
           parent = match.id;
         } else {
@@ -244,7 +252,7 @@ export function FolderExplorer({
               docType: doc.docType || remote.docType
             };
           }
-          persistUpload(doc.id, file);
+          await persistUpload(doc.id, file);
           addDocument(doc);
           docs.push(doc);
         }
@@ -263,6 +271,7 @@ export function FolderExplorer({
   };
 
   const handleCreateFolder = () => {
+    if (!canEdit) return;
     const name = newFolderName.trim();
     if (!name) return;
     const exists = folders.some((f) => f.name.toLowerCase() === name.toLowerCase() && (f.parentId ?? null) === currentFolderId);
@@ -277,6 +286,7 @@ export function FolderExplorer({
   };
 
   const handleRename = (folder: EvidenceFolder) => {
+    if (!canEdit) return;
     const name = renameValue.trim();
     if (name && name !== folder.name) {
       saveFolder({ ...folder, name });
@@ -286,6 +296,7 @@ export function FolderExplorer({
   };
 
   const handleDeleteFolder = (folder: EvidenceFolder) => {
+    if (!canEdit) return;
     const ids = descendantFolderIds(folder.id);
     const inside = documents.filter((d) => d.folderId && ids.includes(d.folderId));
     const detail = inside.length ? ` and its ${pluralize(inside.length, 'file')}` : '';
@@ -296,6 +307,7 @@ export function FolderExplorer({
   };
 
   const handleDeleteDoc = (doc: EvidenceDocument) => {
+    if (!canEdit) return;
     if (!confirm(`Delete "${doc.title}"?`)) return;
     deleteDocument(doc.id);
     toast.success('File removed');
@@ -533,6 +545,7 @@ export function FolderExplorer({
                             }}
                           />
                           <FolderAction icon={Trash2Icon} label={`Delete ${folder.name}`} danger onClick={() => handleDeleteFolder(folder)} />
+                          <FolderAction icon={ArrowRightIcon} label={`Move ${folder.name}`} onClick={() => {setMovingFolder(folder); setMoveTarget(folder.parentId || '');}} />
                         </>
                       ) : undefined;
 
@@ -606,6 +619,9 @@ export function FolderExplorer({
                             <FileRowAction icon={DownloadIcon} label={`Download ${doc.title}`} onClick={() => handleDownload(doc)} />
                           )}
                           {canEdit && (
+                            <FileRowAction icon={PencilIcon} label={`Edit ${doc.title}`} onClick={() => {setEditingFile({...doc}); setReplacement(null);}} />
+                          )}
+                          {canEdit && (
                             <FileRowAction icon={Trash2Icon} label={`Delete ${doc.title}`} danger onClick={() => handleDeleteDoc(doc)} />
                           )}
                         </>
@@ -618,6 +634,22 @@ export function FolderExplorer({
           </div>
         )}
       </UploadDropzone>
+
+      {canEdit && editingFile && createPortal(<Modal open onClose={() => setEditingFile(null)} title="Edit file" zIndex="z-[75]" footer={<button className="btn btn-primary" onClick={() => void (async () => {
+        if (!editingFile.title.trim()) return;
+        if (replacement) await persistUpload(editingFile.id, replacement);
+        updateDocument(editingFile.id, {...editingFile, ...(replacement ? {fileType: fileTypeFromName(replacement.name), sizeMb: replacement.size / 1048576} : {})});
+        setEditingFile(null);
+      })().catch(() => toast.error('The replacement could not be saved.'))}>Save file</button>}>
+        <label className="mb-3 block text-sm">File title<input className="input mt-1 w-full" value={editingFile.title} onChange={e => setEditingFile({...editingFile, title: e.target.value})} /></label>
+        <label className="mb-3 block text-sm">Description<textarea className="input mt-1 w-full" value={editingFile.description || ''} onChange={e => setEditingFile({...editingFile, description: e.target.value})} /></label>
+        <label className="mb-3 block text-sm">Move to folder<select className="input mt-1 w-full" value={editingFile.folderId && folders.some(f => f.id === editingFile.folderId) ? editingFile.folderId : ''} onChange={e => setEditingFile({...editingFile, folderId: e.target.value || undefined})}><option value="">{rootLabel}</option>{folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
+        <label className="block text-sm">Replace original file<input type="file" className="mt-2 w-full" onChange={e => setReplacement(e.target.files?.[0] || null)} /></label>
+      </Modal>, document.body)}
+
+      {canEdit && movingFolder && createPortal(<Modal open onClose={() => setMovingFolder(null)} title={`Move ${movingFolder.name}`} zIndex="z-[75]" footer={<button className="btn btn-primary" onClick={() => {saveFolder({...movingFolder, parentId: moveTarget || undefined}); setMovingFolder(null);}}>Move folder</button>}>
+        <label className="text-sm">Destination<select className="input mt-2 w-full" value={moveTarget} onChange={e => setMoveTarget(e.target.value)}><option value="">{rootLabel}</option>{folders.filter(f => !descendantFolderIds(movingFolder.id).includes(f.id)).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
+      </Modal>, document.body)}
 
       {/* Portaled so it isn't trapped inside a parent modal's transformed container. */}
       {createPortal(

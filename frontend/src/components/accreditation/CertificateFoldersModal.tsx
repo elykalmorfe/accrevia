@@ -77,7 +77,7 @@ export function CertificateFoldersModal({
   onActivate,
   activatableCodes,
   rootLabel = 'Certificates',
-  allowNestedFolders = false,
+  allowNestedFolders = true,
   canonicalFolders,
   preferredFolderId = null
 }: CertificateFoldersModalProps) {
@@ -86,7 +86,11 @@ export function CertificateFoldersModal({
   const useCanonical = !!canonicalFolders?.length;
 
   const certFolders = useMemo(() => {
-    if (useCanonical) return canonicalFolders!;
+    if (useCanonical) {
+      const ids = new Set(canonicalFolders!.map(folder => folder.id));
+      return [...canonicalFolders!, ...folders.filter(folder => !ids.has(folder.id) && folder.frameworkId === frameworkId &&
+        !folder.libraryOnly && folder.areaId === areaKey && folder.campusId === campusId && (!program || folder.program === program))];
+    }
     return folders.filter(
       (f) =>
         f.frameworkId === frameworkId &&
@@ -94,7 +98,7 @@ export function CertificateFoldersModal({
         !f.libraryOnly &&
         (allowNestedFolders || f.isSystem || !f.parentId)
     );
-  }, [useCanonical, canonicalFolders, folders, frameworkId, areaKey, allowNestedFolders]);
+  }, [useCanonical, canonicalFolders, folders, frameworkId, areaKey, allowNestedFolders,campusId,program]);
 
   const certFolderIds = useMemo(() => new Set(certFolders.map((f) => f.id)), [certFolders]);
 
@@ -105,15 +109,16 @@ export function CertificateFoldersModal({
         (d) =>
           d.frameworkId === frameworkId &&
           !d.libraryOnly &&
+          d.campusId === campusId &&
           d.folderId &&
           certFolderIds.has(d.folderId) &&
-          (d.program === program || d.areaId === areaKey)
+          (program ? d.program === program : d.areaId === areaKey)
       );
     }
     return documents.filter(
       (d) => d.frameworkId === frameworkId && d.areaId === areaKey && !d.libraryOnly
     );
-  }, [useCanonical, documents, frameworkId, areaKey, certFolderIds, program]);
+  }, [useCanonical, documents, frameworkId, areaKey, certFolderIds, program,campusId]);
 
   const switchableCodes = useMemo(
     () => new Set(activatableCodes ?? (onActivate ? levels.map((l) => l.code) : [])),
@@ -164,6 +169,7 @@ export function CertificateFoldersModal({
     name,
     code: 'CERT',
     frameworkId,
+    program,
     category: 'Accreditation',
     description: `Certificates — ${subject}`,
     color: 'amber',

@@ -51,6 +51,11 @@ def run_search(query: str, filters: dict | None = None, limit: int | None = None
             "dateAdded": None,
         }
         # Prefer fresh passages from index
+        from apps.auth.models import RepositoryEntry
+        from apps.auth.repository import record
+        entry = RepositoryEntry.objects.filter(kind='document',record_id=item['document_id'],deleted=False).first()
+        if entry:
+            doc_payload.update(record(entry))
         doc_payload["passages"] = item["passages"][:5]
         pct = max(0.0, min(100.0, (1 - pow(2.718281828, -float(item["score"]) / 3.0)) * 100))
         results.append(

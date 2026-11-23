@@ -11,6 +11,7 @@ from django.db import transaction
 from apps.auth.models import PortalAccount, PortalLiveBoard, PortalCollection, PortalRecord, PortalFileContent, PortalFile
 from apps.auth.portal_storage import store_collection
 from apps.documents.models import EvidenceDocument
+from apps.auth.models import RepositoryAccessAssignment, RepositoryAccessAudit, RepositoryAreaDefinition, RepositoryEntry, RepositoryClock
 
 
 class Command(BaseCommand):
@@ -32,7 +33,7 @@ class Command(BaseCommand):
         partial = destination.with_name(destination.name + ".partial")
         if partial.exists():
             raise CommandError("A partial export already exists; choose a new filename.")
-        models = [PortalAccount, PortalLiveBoard, EvidenceDocument, PortalCollection, PortalRecord, PortalFileContent, PortalFile]
+        models = [PortalAccount, PortalLiveBoard, EvidenceDocument, PortalCollection, PortalRecord, PortalFileContent, PortalFile, RepositoryClock, RepositoryEntry, RepositoryAccessAssignment, RepositoryAccessAudit, RepositoryAreaDefinition]
         counts = {}
         try:
             with transaction.atomic():

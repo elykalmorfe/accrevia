@@ -32,6 +32,7 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+
 def normalize_email(email: str | None) -> str:
     return (email or "").strip().lower()
 
@@ -174,48 +175,9 @@ def _new_id(preferred: str | None = None) -> str:
     return f"u-{uuid.uuid4().hex[:12]}"
 
 
-def ensure_superadmin() -> PortalAccount:
-    email = SUPERADMIN_EMAIL
-    row = PortalAccount.objects.filter(email=email).first()
-    if row and row.password_hash:
-        return row
-    password_hash = hash_password(SUPERADMIN_PASSWORD)
-    if row:
-        row.password_hash = password_hash
-        row.approval_status = "approved"
-        row.portal_status = "Active"
-        row.role = "Superadmin"
-        row.is_default_superadmin = True
-        row.affiliation_verified = True
-        if not row.name:
-            row.name = "System Superadmin"
-        row.save()
-        bump_revision()
-        return row
-    row = PortalAccount(
-        id=SUPERADMIN_ID,
-        email=email,
-        first_name="System",
-        last_name="Superadmin",
-        name="System Superadmin",
-        role="Superadmin",
-        password_hash=password_hash,
-        approval_status="approved",
-        portal_status="Active",
-        office="Office of the University President",
-        employee_id="NEMSU-SUPERADMIN",
-        affiliation_verified=True,
-        registered_at=now_iso(),
-        is_default_superadmin=True,
-    )
-    try:
-        with transaction.atomic():
-            row.save()
-    except IntegrityError:
-        existing = PortalAccount.objects.get(email=email)
-        return existing
-    bump_revision()
-    return row
+def ensure_superadmin() -> PortalAccount | None:
+    """Existing accounts are provisioned explicitly, never recreated during login."""
+    return PortalAccount.objects.filter(email=SUPERADMIN_EMAIL).first()
 
 
 def list_directory() -> dict:

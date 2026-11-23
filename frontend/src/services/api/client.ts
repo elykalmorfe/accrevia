@@ -7,7 +7,30 @@ const DEFAULT_TIMEOUT_MS = 12_000;
 
 export function getApiBaseUrl(): string {
   const raw = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ?? '';
+  if (raw && typeof window !== 'undefined') {
+    const url = new URL(raw, window.location.origin);
+    if (['localhost', '127.0.0.1'].includes(url.hostname) && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+      url.hostname = window.location.hostname;
+      return url.href.replace(/\/$/, '');
+    }
+  }
   return raw.replace(/\/$/, '');
+}
+
+let csrfToken: string | undefined;
+let csrfRequest: Promise<string> | undefined;
+
+async function getCsrfToken(): Promise<string> {
+  if (csrfToken) return csrfToken;
+  csrfRequest ??= (async () => {
+    const response = await fetch(`${getApiBaseUrl()}/api/accounts/session/`, { credentials: 'include', signal: AbortSignal.timeout(4000) });
+    if (!response.ok) throw new Error('The authentication server is unavailable.');
+    const body = await response.json();
+    if (!body.csrfToken) throw new Error('The authentication server did not provide CSRF protection.');
+    csrfToken = body.csrfToken;
+    return csrfToken!;
+  })().finally(() => { csrfRequest = undefined; });
+  return csrfRequest;
 }
 
 export function isApiConfigured(): boolean {
@@ -45,7 +68,9 @@ export async function apiFetch(path: string, init: RequestInit = {}, timeoutMs =
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...init, signal: init.signal ?? controller.signal });
+    const headers = new Headers(init.headers);
+    if (!['GET', 'HEAD', 'OPTIONS'].includes((init.method || 'GET').toUpperCase())) headers.set('X-CSRFToken', await getCsrfToken());
+    return await fetch(url, { ...init, headers, credentials: 'include', signal: init.signal ?? controller.signal });
   } finally {
     window.clearTimeout(timer);
   }

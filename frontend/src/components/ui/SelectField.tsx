@@ -6,7 +6,7 @@ interface SelectFieldProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  options: Option[];
+  options: readonly Option[];
   placeholder?: string;
   hideLabel?: boolean;
   disabled?: boolean;

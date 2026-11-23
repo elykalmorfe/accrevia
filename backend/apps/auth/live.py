@@ -141,7 +141,27 @@ def visible_for(board: PortalLiveBoard, role: str, user_id: str, email: str) -> 
 
 
 def snapshot_for(role: str, user_id: str, email: str) -> dict:
-    return visible_for(_board(), role or "Faculty", user_id, email)
+    result = visible_for(_board(), role or "Faculty", user_id, email)
+    if role not in {'Faculty', 'Staff'}:
+        return result
+    from .models import PortalAccount, RepositoryEntry
+    from .repository_access import effective_level, PROTECTED
+    from .repository import record
+    account = PortalAccount.objects.filter(pk=user_id).first()
+    if not account:
+        return result
+    restricted = set()
+    for entry in RepositoryEntry.objects.filter(kind='document', framework__in=PROTECTED):
+        if entry.deleted or effective_level(account, record(entry)) == 'none':
+            restricted.add(entry.record_id)
+    result['fileGrants'] = [grant for grant in result['fileGrants'] if grant.get('documentId') not in restricted]
+    import copy
+    result['documentRequests'] = copy.deepcopy(result['documentRequests'])
+    for request in result['documentRequests']:
+        for message in request.get('messages', []):
+            if isinstance(message, dict):
+                message['attachments'] = [item for item in message.get('attachments', []) if item.get('documentId') not in restricted]
+    return result
 
 
 def file_grant_for(role: str, user_id: str, email: str, document_id: str) -> dict | None:

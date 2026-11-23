@@ -1,3 +1,5 @@
+import { isApiConfigured } from '../services/api/client';
+import { useRepositorySync } from '../services/api/repositorySync';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useRoleLive } from '../hooks/useRoleLive';
 import { applyRemoteAccessRequests } from '../services/accessRequests/mockAccessRequestStore';
@@ -9,7 +11,7 @@ import { areas as initialAreas } from '../data/areas';
 import { criteria as initialCriteria } from '../data/criteria';
 import { indicators as initialIndicators } from '../data/indicators';
 import { users as initialUsers, PORTAL_USERS_SEED_VERSION } from '../data/users';
-import { DEFAULT_SUPERADMIN_ID, exportAccountSnapshot, initializeAuthStore, writeLocalApprovalIfChanged } from '../utils/auth';
+import { DEFAULT_SUPERADMIN_ID, exportAccountSnapshot, initializeAuthStore, writeLocalApprovalIfChanged, getSessionAccount } from '../utils/auth';
 import {
   fetchAccountDirectory,
   mergeRemoteUsers,
@@ -352,13 +354,14 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       try {
         if (!synced) {
           await initializeAuthStore();
-          await syncBrowserAccounts(exportAccountSnapshot());
+          const role = getSessionAccount()?.role;
+          if (role === 'Superadmin' || role === 'Administrator') await syncBrowserAccounts(exportAccountSnapshot());
           synced = true;
         }
         const remote = await fetchAccountDirectory();
         if (remote) applyDirectory(remote);
       } catch {
-        // Keep retrying the upload until the shared directory accepts this browser's accounts.
+        // Directory refresh remains available independently of legacy account synchronization.
       } finally {
         pulling = false;
       }
@@ -426,6 +429,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   }, [setSidebarCollapsed]);
 
   useEffect(() => {
+    if (isApiConfigured()) return;
     setFolders((current) => {
       const next = current.filter((folder) => !isIsoClauseFolder(folder));
       return next.length === current.length ? current : next;
@@ -442,6 +446,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   }, []);
 
   useEffect(() => {
+    if (isApiConfigured()) return;
     setDocuments((current) => {
       const existing = new Set(current.map((document) => document.id));
       const additions: EvidenceDocument[] = [];
@@ -471,6 +476,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   }, []);
 
   useEffect(() => {
+    if (isApiConfigured()) return;
     if (localStorage.getItem('accrevia_framework_memory_cleared') === '1') return;
     const frameworks = new Set(['ia', 'pa', 'copc', 'pqa', 'iso']);
     const uploadedFolder = /^folder-\d{10,}-/;
@@ -543,6 +549,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
   // Seed AACCUP certificate folders/docs from the local manifest (once per seed version).
   useEffect(() => {
+    if (isApiConfigured()) return;
     try {
       if (localStorage.getItem(LINKED_CERTIFICATES_KEY) !== LINKED_CERTIFICATES_VERSION) {
         localStorage.setItem(LINKED_CERTIFICATES_KEY, LINKED_CERTIFICATES_VERSION);
@@ -595,6 +602,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
   // Prefetch COPC official certificate binaries into IndexedDB once per version.
   useEffect(() => {
+    if (isApiConfigured()) return;
     try {
       if (localStorage.getItem(COPC_CERT_FILES_KEY) === COPC_CERT_FILES_VERSION) return;
       localStorage.setItem(COPC_CERT_FILES_KEY, COPC_CERT_FILES_VERSION);
@@ -608,6 +616,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
   // Seed COPC Status certificates / BOR into Upload Documents → COPC folders.
   useEffect(() => {
+    if (isApiConfigured()) return;
     try {
       if (localStorage.getItem(LINKED_COPC_DOCUMENTS_KEY) === LINKED_COPC_DOCUMENTS_VERSION) return;
       localStorage.setItem(LINKED_COPC_DOCUMENTS_KEY, LINKED_COPC_DOCUMENTS_VERSION);
@@ -618,7 +627,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
         const seededIds = new Set(seeded.map((d) => d.id));
         const kept = prev.filter((d) => !seededIds.has(d.id));
         return normalizeDocumentsPublishingFields(
-          reconcilePaCopcRepository([], [...kept, ...seeded]).documents
+          [...kept, ...seeded]
         );
       });
     } catch {
@@ -629,6 +638,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
   // Seed Technical Review & Board Action rating documents (once per version).
   useEffect(() => {
+    if (isApiConfigured()) return;
     try {
       if (localStorage.getItem(RATINGS_DOCUMENTS_KEY) === RATINGS_DOCUMENTS_VERSION) return;
       localStorage.setItem(RATINGS_DOCUMENTS_KEY, RATINGS_DOCUMENTS_VERSION);
@@ -681,6 +691,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
 
   // Seed Summary of Findings & Recommendation documents (once per version).
   useEffect(() => {
+    if (isApiConfigured()) return;
     try {
       if (localStorage.getItem(FINDINGS_DOCUMENTS_KEY) === FINDINGS_DOCUMENTS_VERSION) return;
       localStorage.setItem(FINDINGS_DOCUMENTS_KEY, FINDINGS_DOCUMENTS_VERSION);
@@ -769,11 +780,12 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   });
 
   const session = useSessionAccount();
+  const repositoryReady = useRepositorySync(session?.id, folders, documents, setFolders, setDocuments, `${session?.role}:${session?.campusId || ''}:${JSON.stringify(fileGrants)}`);
   usePortalDatabase(Boolean(session), {
     frameworks, areas, criteria, indicators, documents, folders, pending, shares, accessLog, recentSearches,
     campuses, iaRecords, pqaRecords, programAccreditations, copcRecords, isoRecords,
     saved_ids: savedIds, selected_campus: selectedCampus, sidebar_collapsed: sidebarCollapsed
-  });
+  },session?.role);
   const currentUser = useMemo(() => {
     if (session?.email) {
       const byId = session.id ? users.find((u) => u.id === session.id) : undefined;
@@ -849,6 +861,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
       setDocuments((prev) => [
         normalizePublishingFields({
           ...doc,
+          status: isApiConfigured() ? 'Processing' : doc.status,
           isPubliclyPublished: doc.isPubliclyPublished ?? false,
           publicPublishedAt: doc.publicPublishedAt ?? null
         }),
@@ -1653,7 +1666,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     ]
   );
 
-  return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
+  return <PortalContext.Provider value={value}>{session && !repositoryReady ? <div role="status" className="grid min-h-screen place-items-center text-sm text-ink-muted">Connecting to the shared document repository?</div> : children}</PortalContext.Provider>;
 }
 
 export function usePortalSafe(): PortalContextValue | null {
