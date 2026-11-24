@@ -156,12 +156,12 @@ export function CampusISOView() {
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-4">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-bold text-ink">{campus.name}</h2>
+                  <h2 className="text-lg font-bold text-ink">{campus?.name || 'Campus'}</h2>
                   <Badge tone="success">
                     {campusComplianceLabel(isoRecord.complianceStatus)}
                   </Badge>
                 </div>
-                <p className="mt-1 text-xs text-ink-muted">{campus.location}</p>
+                <p className="mt-1 text-xs text-ink-muted">{campus?.location || 'Main Campus'}</p>
                 {isoRecord.scope && (
                   <p className="mt-1 max-w-3xl text-xs leading-relaxed text-ink-muted">
                     <span className="font-semibold text-ink">Scope.</span> {isoRecord.scope}

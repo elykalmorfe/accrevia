@@ -27,7 +27,7 @@ export function DocumentPreviewModal({ doc: originalDoc, onClose, terms = [], qu
     if (originalDoc?.syncVersion && !documents.some(item => item.id === originalDoc.id)) onClose();
   },[originalDoc,documents,onClose]);
   const { rightsFor } = useAccess();
-  const rights = !doc ? { canView: false, canDownload: false } : grantAccess ? { canView: true, canDownload: true } : rightsFor(doc.id);
+  const rights = !doc ? { canView: false, canDownload: false } : doc.certificateAccess || (grantAccess ? { canView: true, canDownload: true } : rightsFor(doc.id));
   const meta = doc ?
   [lookup.framework(doc.frameworkId)?.shortName, lookup.criterion(doc.criterionId)?.code, doc.docType, `${doc.pages} pages`].filter(Boolean).join(' · ') :
   '';

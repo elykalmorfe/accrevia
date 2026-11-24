@@ -20,6 +20,13 @@ class ProtectedMediaView(APIView):
         docs = EvidenceDocument.objects.filter(storage_path__in=[str(target), target.as_posix(), file_path])
         if not any(authorized_document(account, doc) for doc in docs):
             raise NotFound()
+        if request.GET.get('download')=='1':
+            from .models import RepositoryEntry
+            from .certificate_access import is_certificate,rights
+            for doc in docs:
+                entry=RepositoryEntry.objects.filter(kind='document',record_id=doc.pk).first()
+                if entry and is_certificate(entry.data) and not rights(account,entry.data,entry)['canDownload']:
+                    raise NotFound()
         response = FileResponse(target.open('rb'), content_type=mimetypes.guess_type(target.name)[0] or 'application/octet-stream')
         response['Cache-Control'] = 'no-store'
         response['X-Content-Type-Options'] = 'nosniff'

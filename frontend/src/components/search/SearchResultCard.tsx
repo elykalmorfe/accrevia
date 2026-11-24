@@ -21,6 +21,7 @@ import { joinNatural, SearchResult } from '../../utils/search';
 import { downloadStoredFile } from '../../utils/fileStore';
 import { Highlight } from '../ui/Highlight';
 import { PermissionIndicator } from '../sharing/PermissionIndicator';
+import { CertificateMenu } from '../accreditation/CertificateMenu';
 
 const LONG_EXCERPT = 220;
 
@@ -173,6 +174,7 @@ export function SearchResultCard({ result, query, onPreview }: SearchResultCardP
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
+          {doc.docType==='Certificate'&&<CertificateMenu doc={doc}/>}
           <Link to={viewHref} className="btn btn-primary btn-sm">View Document</Link>
           {rights.canView && (
             <button type="button" className="btn btn-secondary btn-sm" onClick={onPreview} title="Preview without leaving the results">

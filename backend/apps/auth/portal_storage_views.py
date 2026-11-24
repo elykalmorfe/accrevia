@@ -93,6 +93,9 @@ class CatalogOriginalView(APIView):
         matches = RepositoryEntry.objects.filter(kind='document', deleted=False, data__documentUrl=path)
         if not any(may_read(account, record(entry)) for entry in matches):
             raise NotFound()
+        from .certificate_access import is_certificate, rights
+        if request.GET.get('download')=='1' and not any(may_read(account,record(entry)) and (not is_certificate(entry.data) or rights(account,record(entry),entry)['canDownload']) for entry in matches):
+            raise PermissionDenied('Download access is required.')
         if (
             not path.startswith("/certificates/") or len(path) > 513
             or "\\" in path or any(part in {"", ".", ".."} for part in path[1:].split("/"))
@@ -130,6 +133,9 @@ class WorkspaceOriginalView(APIView):
         entry = RepositoryEntry.objects.filter(kind='document', record_id=request.query_params.get('id',''), deleted=False).first()
         if not entry or not may_read(account, record(entry)):
             raise NotFound()
+        from .certificate_access import is_certificate, rights
+        if request.GET.get('download')=='1' and is_certificate(entry.data) and not rights(account,record(entry),entry)['canDownload']:
+            raise PermissionDenied('Download access is required.')
         source = workspace_source()
         if not source:
             raise NotFound()

@@ -61,6 +61,18 @@ class SearchView(APIView):
             data["q"], filters=filters, limit=data.get("limit"), workspace_ids=workspace_ids,
             workspace=workspace_source() if workspace_ids else None,
         )
+        current=session_account(request)
+        if not current:
+            return Response({'detail':'Sign in to search the document index.'},status=401)
+        if RepositoryEntry.objects.exists():
+            from apps.auth.certificate_access import for_viewer
+            authorized=[]
+            for result in results:
+                entry=RepositoryEntry.objects.filter(kind='document',record_id=result.get('doc',{}).get('id'),deleted=False).first()
+                if entry and may_read(current,record(entry)):
+                    result['doc'].update(for_viewer(current,record(entry)))
+                    authorized.append(result)
+            results=authorized
         info = dense_backend_info()
         return Response(
             {

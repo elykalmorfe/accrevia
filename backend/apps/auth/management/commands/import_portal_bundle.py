@@ -9,7 +9,7 @@ from django.db import transaction
 
 from apps.auth.models import PortalAccount, PortalLiveBoard, PortalCollection, PortalRecord, PortalFileContent, PortalFileChunk, PortalFile
 from apps.documents.models import EvidenceDocument
-from apps.auth.models import RepositoryAccessAssignment, RepositoryAccessAudit, RepositoryAreaDefinition, RepositoryEntry, RepositoryClock, RepositoryChange, RepositoryOperation
+from apps.auth.models import CertificateDefault, CertificatePolicy, CertificateGrant, RepositoryAccessAssignment, RepositoryAccessAudit, RepositoryAreaDefinition, RepositoryEntry, RepositoryClock, RepositoryChange, RepositoryOperation
 
 
 class Command(BaseCommand):
@@ -20,8 +20,8 @@ class Command(BaseCommand):
         parser.add_argument("--replace", action="store_true", help="Explicitly replace existing portal records, accounts, and files.")
 
     def handle(self, *args, **options):
-        models = [PortalAccount, PortalLiveBoard, EvidenceDocument, PortalCollection, PortalRecord, PortalFileContent, PortalFile, RepositoryClock, RepositoryEntry, RepositoryAccessAssignment, RepositoryAccessAudit, RepositoryAreaDefinition]
-        if not options["replace"] and any(model.objects.exists() for model in models if model != RepositoryAreaDefinition):
+        models = [PortalAccount, PortalLiveBoard, EvidenceDocument, PortalCollection, PortalRecord, PortalFileContent, PortalFile, RepositoryClock, RepositoryEntry, RepositoryAccessAssignment, RepositoryAccessAudit, RepositoryAreaDefinition, CertificateDefault, CertificatePolicy, CertificateGrant]
+        if not options["replace"] and any(model.objects.exists() for model in models if model not in {RepositoryAreaDefinition, CertificateDefault}):
             raise CommandError("Portal data already exists. Restore into a fresh database, or use --replace to replace it explicitly.")
         with zipfile.ZipFile(options["bundle"]) as bundle:
             manifest = json.loads(bundle.read("manifest.json"))
@@ -30,7 +30,7 @@ class Command(BaseCommand):
             records = {}
             for model in models:
                 filename = "records/" + model._meta.model_name + ".json"
-                if filename not in bundle.namelist() and model in {RepositoryClock, RepositoryEntry, RepositoryAccessAssignment, RepositoryAccessAudit, RepositoryAreaDefinition}:
+                if filename not in bundle.namelist() and model in {RepositoryClock, RepositoryEntry, RepositoryAccessAssignment, RepositoryAccessAudit, RepositoryAreaDefinition, CertificateDefault, CertificatePolicy, CertificateGrant}:
                     records[model] = []
                     continue
                 rows = list(serializers.deserialize("json", bundle.read(filename)))
@@ -49,10 +49,12 @@ class Command(BaseCommand):
                     raise CommandError("Original file integrity check failed: " + row.object.pk)
             with transaction.atomic():
                 if options["replace"]:
-                    for model in [RepositoryAccessAssignment, RepositoryAccessAudit, RepositoryAreaDefinition, RepositoryChange, RepositoryOperation, RepositoryEntry, RepositoryClock, PortalFile, PortalFileChunk, PortalFileContent, PortalRecord, PortalCollection, EvidenceDocument, PortalLiveBoard, PortalAccount]:
-                        if model == RepositoryAreaDefinition and not records[model]:
+                    for model in [CertificateGrant, CertificatePolicy, CertificateDefault, RepositoryAccessAssignment, RepositoryAccessAudit, RepositoryAreaDefinition, RepositoryChange, RepositoryOperation, RepositoryEntry, RepositoryClock, PortalFile, PortalFileChunk, PortalFileContent, PortalRecord, PortalCollection, EvidenceDocument, PortalLiveBoard, PortalAccount]:
+                        if model in {RepositoryAreaDefinition,CertificateDefault} and not records[model]:
                             continue
                         model.objects.all().delete()
+                for catalog in [RepositoryAreaDefinition,CertificateDefault]:
+                    if records[catalog]:catalog.objects.all().delete()
                 for model in models:
                     for row in records[model]:
                         row.save()

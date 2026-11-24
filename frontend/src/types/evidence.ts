@@ -3,6 +3,7 @@ export type FrameworkCategory = 'Accreditation' | 'Compliance' | 'Quality Excell
 export type FolderColor = 'blue' | 'purple' | 'emerald' | 'amber' | 'indigo' | 'rose' | 'cyan' | 'slate';
 
 export interface EvidenceFolder {
+  certificateLocked?: boolean;
   program?: string;
   syncViewOnly?: boolean;
   sourceModule?: 'accreditation' | 'upload-documents';
@@ -109,6 +110,8 @@ export type CommonDocType =
   | 'Board of Regents (BOR) Resolution';
 
 export interface EvidenceDocument {
+  certificateProtected?: boolean;
+  certificateAccess?: {canView: boolean; canDownload: boolean; canManage: boolean; level: 'none' | 'viewer' | 'download'};
   sourceModule?: 'accreditation' | 'upload-documents';
   syncVersion?: number;
   syncIssue?: string;

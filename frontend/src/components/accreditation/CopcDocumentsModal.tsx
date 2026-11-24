@@ -11,6 +11,7 @@ import {
 } from '../../utils/programAccreditation';
 import type { COPCRecord } from '../../types/accreditation';
 import type { EvidenceDocument } from '../../types/evidence';
+import { useAreaAccess } from '../../services/api/repositoryAccess';
 
 interface CopcDocumentsModalProps {
   open: boolean;
@@ -27,9 +28,10 @@ export function CopcDocumentsModal({
   preferredFolderCode = 'certificate'
 }: CopcDocumentsModalProps) {
   const { folders, documents, saveFolder, updateDocument, updateCOPCRecord } = usePortal();
+  const {isSuperadmin}=useAreaAccess();
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !isSuperadmin) return;
     const result = reconcilePaCopcRepository(folders, documents);
     result.folders
       .filter((f) => f.parentId === COPC_ROOT_FOLDER_ID)

@@ -39,6 +39,15 @@ class RepositoryMutationView(APIView):
             return Response(mutate(account, request.data.get('operationId'), request.data.get('operations'), request.data.get('context')))
         except VersionConflict as exc:
             return Response({'detail': str(exc), 'conflict': True}, status=409)
+        except PermissionDenied:
+            from .certificate_access import is_certificate, audit, ancestors
+            for op in request.data.get('operations') or []:
+                entry=RepositoryEntry.objects.filter(kind='document',record_id=op.get('id')).first()
+                if entry and is_certificate(entry.data): audit(account,entry,'certificate_write_denied',status='denied')
+                if op.get('kind')=='folder':
+                    for certificate in RepositoryEntry.objects.filter(kind='document',deleted=False,data__docType='Certificate'):
+                        if op.get('id') in ancestors(certificate):audit(account,certificate,'certificate_parent_denied',before={'folderId':op.get('id')},status='denied')
+            raise
 
 
 class EventStreamRenderer(JSONRenderer):
@@ -138,7 +147,17 @@ class RepositoryOriginalView(APIView):
         account = account_for(request)
         entry = RepositoryEntry.objects.filter(kind='document', record_id=document_id, deleted=False).first()
         if not entry or not may_read(account, record(entry)):
+            if entry:
+                from .certificate_access import is_certificate, audit
+                if is_certificate(entry.data): audit(account,entry,'certificate_view_denied',status='denied')
             raise NotFound('Document is unavailable to this account.')
+        from .certificate_access import is_certificate, rights, audit
+        download=request.GET.get('download')=='1'
+        if is_certificate(entry.data):
+            if download and not rights(account,record(entry),entry)['canDownload']:
+                audit(account,entry,'certificate_download_denied',status='denied')
+                raise PermissionDenied('This certificate is available for viewing only.')
+            audit(account,entry,'certificate_download' if download else 'certificate_preview')
         data = entry.data
         file = PortalFile.objects.select_related('content').filter(source='repository-stage', key=data.get('fileRef', '')).first()
         if not file:
@@ -158,7 +177,7 @@ class RepositoryOriginalView(APIView):
         chunks = file.content.chunks.order_by('position').values_list('data', flat=True)
         response = StreamingHttpResponse((bytes(value) for value in chunks.iterator(chunk_size=4)), content_type=file.mime_type)
         response['Content-Length'] = file.content.size_bytes
-        response['Content-Disposition'] = content_disposition_header(False, file.name)
+        response['Content-Disposition'] = content_disposition_header(download, file.name)
         response['Cache-Control'] = 'no-store'
         response['X-Content-Type-Options'] = 'nosniff'
         response['ETag'] = '"' + file.content_id + '"'

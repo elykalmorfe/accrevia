@@ -245,6 +245,7 @@ class RepositoryAccessAudit(models.Model):
     resource_id = models.CharField(max_length=190, blank=True)
     previous = models.JSONField(null=True)
     updated = models.JSONField(null=True)
+    status = models.CharField(max_length=16, default='success')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -260,3 +261,43 @@ class RepositoryAreaDefinition(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['framework', 'code'], name='repository_official_area')]
+
+
+class CertificatePolicy(models.Model):
+    certificate = models.OneToOneField(RepositoryEntry, on_delete=models.CASCADE, related_name='certificate_policy')
+    general = models.CharField(max_length=16, default='inherit')
+    allow_cross_campus = models.BooleanField(default=False)
+    inherited_level = models.CharField(max_length=16, default='viewer')
+    inherited_cross_campus = models.BooleanField(default=False)
+    inherited_from = models.JSONField(default=dict)
+    version = models.PositiveBigIntegerField(default=1)
+    updated_by = models.CharField(max_length=64, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class CertificateGrant(models.Model):
+    policy = models.ForeignKey(CertificatePolicy, on_delete=models.CASCADE, related_name='grants')
+    user = models.ForeignKey(PortalAccount, on_delete=models.CASCADE)
+    level = models.CharField(max_length=16)
+    allow_cross_campus = models.BooleanField(default=False)
+    updated_by = models.CharField(max_length=64)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['policy', 'user'], name='certificate_user_permission')]
+
+
+class CertificateDefault(models.Model):
+    campus = models.CharField(max_length=64, blank=True)
+    framework = models.CharField(max_length=16, blank=True)
+    area = models.CharField(max_length=64, blank=True)
+    program = models.CharField(max_length=64, blank=True)
+    folder = models.CharField(max_length=190, blank=True)
+    level = models.CharField(max_length=16, default='viewer')
+    allow_cross_campus = models.BooleanField(default=False)
+    version = models.PositiveBigIntegerField(default=1)
+    updated_by = models.CharField(max_length=64, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['campus', 'framework', 'area', 'program', 'folder'], name='certificate_default_scope')]

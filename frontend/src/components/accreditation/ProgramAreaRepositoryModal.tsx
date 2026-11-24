@@ -26,7 +26,7 @@ export function ProgramAreaRepositoryModal({ open, program, requirement, onClose
   const areaKey = requirement?.id ?? '';
   const access = useAreaAccess();
   const scope = {campus: program?.campusId || '', framework: 'pa', area: areaKey, program: program?.id || ''};
-  const canView = access.canView(scope);
+  const canView = access.canView(scope) || documents.some(d=>d.certificateAccess?.canView&&d.campusId===scope.campus&&d.frameworkId==='pa'&&d.areaId===areaKey);
   const canEdit = access.canEdit(scope);
   useEffect(() => {if (open && !canView) onClose();}, [open, canView, onClose]);
 

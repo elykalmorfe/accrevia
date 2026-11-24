@@ -199,4 +199,18 @@ python scripts\smoke_upload_search.py
 
 ## Auth
 
-Sign-in, session restoration, account management, and password changes use server-side sessions stored in MySQL. Session cookies are HTTP-only; account writes and hybrid search require CSRF protection. Hybrid search uses the server-verified account and filters non-administrators to public, owned, or granted documents. The frontend rejects browser-only authentication and clears access when session validation cannot reach the backend. Other legacy endpoints retain their individual access rules. The old JWT endpoint remains a compatibility stub and does not implement the session login flow.
+Sign-in, session restoration, account management, and password changes use server-side sessions stored in MySQL. Session cookies are HTTP-only; account writes and hybrid search require CSRF protection. Fresh sign-in requires the backend. A temporary connection loss preserves the last verified identity in memory so queued edits can survive; the server checks current authorization before accepting them after reconnection. The old JWT endpoint remains a compatibility stub.
+
+## Area and certificate access
+
+Super Admin assigns Faculty/Staff as Editors or Viewers using the menu on each official IA, AACCUP, or PQA area. Assignments include campus, area, and AACCUP program. Unassigned Faculty/Staff cannot access ordinary area evidence.
+
+Certificates have separate permissions across IA, PA, COPC, PQA, and ISO. Their three-dot menu provides access management and certificate actions. Use **Certificate Access & Defaults** for bulk changes or inherited defaults. Individual No Access overrides general access. Cross-campus certificate access requires explicit authorization. Existing and newly uploaded certificates initially receive same-campus Viewer Only access unless a more specific default or explicit policy applies. Defaults are captured at upload; applying a changed default to existing certificates is a separate confirmed action.
+
+Only Super Admin can modify certificates, including their names, original bytes, locations, and permissions. Parent-folder rename, move, and delete operations cannot bypass this rule. Preview requests use authenticated repository originals; downloads use `/api/repository/files/<id>/?download=1`, which separately requires download access. Views, downloads, denied requests, administrative changes, and permission changes are audited in MySQL.
+
+Permission events use the existing ordered repository log, Redis wake-ups, and authenticated SSE, with reconnect replay. Permission changes do not rebuild embeddings. Search filters authorized document IDs before retrieval and checks authorization again before returning results. Source records retain the same identifiers in Upload Documents; independent Upload Documents records retain their original one-way synchronization behavior.
+
+Serve the frontend's `dist` output only. Do not expose `frontend/public/certificates` or backend media as unauthenticated static directories. Legacy certificate URLs must go through the authenticated catalog endpoint. Development Vite routes protect certificate paths, including public-directory and filesystem aliases; production builds exclude original certificate assets. Preserve SSE flushing in the production reverse proxy (`X-Accel-Buffering: no`; proxy buffering disabled).
+
+Apply schema changes using `python manage.py migrate`. The portable export/import commands include certificate policies, user exceptions, and default settings. Viewer Only hides application download/print/export controls; it cannot prevent screenshots or copying bytes already delivered for viewing.

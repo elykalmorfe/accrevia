@@ -163,13 +163,15 @@ export function SearchResults() {
   }, [query, documents, lookup, attempt, filters.docType, filters.program, filters.academicYear]);
 
   const sorted = useMemo(() => {
+    const allowed=new Set(documents.map(d=>d.id));
+    const visible=results.filter(r=>allowed.has(r.doc.id));
     const byDate = (a: SearchResult, b: SearchResult) =>
       (a.doc.documentDate || a.doc.dateAdded || '').localeCompare(b.doc.documentDate || b.doc.dateAdded || '');
-    if (sort === 'newest') return [...results].sort((a, b) => byDate(b, a));
-    if (sort === 'oldest') return [...results].sort(byDate);
-    if (sort === 'name') return [...results].sort((a, b) => a.doc.title.localeCompare(b.doc.title));
-    return results;
-  }, [results, sort]);
+    if (sort === 'newest') return [...visible].sort((a, b) => byDate(b, a));
+    if (sort === 'oldest') return [...visible].sort(byDate);
+    if (sort === 'name') return [...visible].sort((a, b) => a.doc.title.localeCompare(b.doc.title));
+    return visible;
+  }, [results, sort,documents]);
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const page = Math.min(requestedPage, pageCount);

@@ -47,7 +47,7 @@ export function UploadedFrameworkRepository({frameworkId, campus}: {frameworkId:
       <input className="input ml-auto max-w-xs text-sm" aria-label="Search uploaded folders and files" placeholder="Search this folder…" value={query} onChange={event => setQuery(event.target.value)} />
     </div>
     {childFolders.length > 0 && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{childFolders.map(folder => <button key={folder.id} type="button" className="flex items-center gap-3 rounded-xl border border-line p-4 text-left hover:bg-brand-50" onClick={() => {setActiveId(folder.id);setQuery('');}}><FolderIcon className="h-6 w-6 shrink-0 text-brand-600" /><span className="min-w-0 break-words text-sm font-semibold">{folder.name}</span></button>)}</div>}
-    {childDocs.length > 0 && <FileList>{childDocs.map(doc => <FileRow key={doc.id} name={doc.title} fileType={doc.fileType} meta={[doc.campus, doc.program].filter(Boolean).join(' · ')} onOpen={() => setPreview(doc)} actions={<FileRowAction icon={EyeIcon} label={`View ${doc.title}`} onClick={() => setPreview(doc)} />} />)}</FileList>}
+    {childDocs.length > 0 && <FileList>{childDocs.map(doc => <FileRow documentId={doc.id} key={doc.id} name={doc.title} fileType={doc.fileType} meta={[doc.campus, doc.program].filter(Boolean).join(' · ')} onOpen={() => setPreview(doc)} actions={<FileRowAction icon={EyeIcon} label={`View ${doc.title}`} onClick={() => setPreview(doc)} />} />)}</FileList>}
     {!childFolders.length && !childDocs.length && <p className="py-4 text-sm text-ink-muted">No matching uploaded folders or files in this location.</p>}
     <DocumentPreviewModal doc={preview} onClose={() => setPreview(null)} grantAccess={canMutate} />
   </section>;

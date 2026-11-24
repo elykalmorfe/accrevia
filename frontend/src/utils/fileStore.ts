@@ -114,6 +114,19 @@ export async function loadRepositoryFile(id: string, path: string, force = false
 }
 
 export async function downloadStoredFile(id: string, fallbackName: string, originalPath?: string): Promise<boolean> {
+  if (isApiConfigured()) {
+    try {
+      const response=await apiFetch(`/api/repository/files/${encodeURIComponent(id)}/?download=1`,{},120000);
+      if (!response.ok) return false;
+      const url=URL.createObjectURL(await response.blob());
+      const link=document.createElement('a'); link.href=url;
+      const disposition=response.headers.get('Content-Disposition') || '';
+      const encoded=/filename\*=utf-8''([^;]+)/i.exec(disposition)?.[1];
+      link.download=encoded ? decodeURIComponent(encoded) : /filename="([^"]+)"/.exec(disposition)?.[1] || fallbackName;
+      document.body.appendChild(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+      return true;
+    } catch {return false;}
+  }
   const stored = await (originalPath && isLocalCertificatePath(originalPath)
     ? loadRepositoryFile(id, originalPath) : getStoredFile(id))
     .catch(() => undefined);

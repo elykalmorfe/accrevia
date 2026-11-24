@@ -336,7 +336,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   useEffect(() => {
     let cancelled = false;
     let poll = 0;
-    let stopStream = () => {};
+    let stopStream = () => { /* no-op */ };
     let pulling = false;
     let synced = false;
 
@@ -781,7 +781,43 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   });
 
   const session = useSessionAccount();
-  const repositoryReady = useRepositorySync(session?.id, folders, documents, setFolders, setDocuments, `${session?.role}:${session?.campusId || ''}:${JSON.stringify(fileGrants)}`);
+
+  const currentUser = useMemo(() => {
+    if (session?.email) {
+      const byId = session.id ? users.find((u) => u.id === session.id) : undefined;
+      if (byId) return byId;
+      const email = session.email.trim().toLowerCase();
+      const byEmail = users.find((u) => u.email.trim().toLowerCase() === email);
+      if (byEmail) return byEmail;
+      // Session exists but portal directory has not synced yet — never fall back to a seeded admin.
+      const role = (session.role as PortalUser['role']) || 'Faculty';
+      const name =
+        [session.firstName, session.middleName, session.lastName].filter(Boolean).join(' ').trim() || session.email;
+      return {
+        id: session.id || `session-${email}`,
+        name,
+        email: session.email,
+        role,
+        office: '',
+        status: 'Active' as const,
+        lastLogin: null
+      };
+    }
+    return users.find((u) => u.id === activeUserId) ?? users.find((u) => u.id === viewAsUserId[viewAs]) ?? users[0];
+  }, [users, activeUserId, viewAs, session]);
+
+  const activeSyncId = session?.id || currentUser.id;
+  const activeSyncRole = session?.role || currentUser.role;
+  const activeSyncCampus = session?.campusId || currentUser.campusId || '';
+
+  useRepositorySync(
+    activeSyncId,
+    folders,
+    documents,
+    setFolders,
+    setDocuments,
+    `${activeSyncRole}:${activeSyncCampus}:${JSON.stringify(fileGrants)}`
+  );
   useEffect(() => {
     const pendingUploads = documents.filter(isIndexingUpload);
     if (!session || pendingUploads.length === 0) return;
@@ -821,29 +857,6 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     campuses, iaRecords, pqaRecords, programAccreditations, copcRecords, isoRecords,
     saved_ids: savedIds, selected_campus: selectedCampus, sidebar_collapsed: sidebarCollapsed
   },session?.role);
-  const currentUser = useMemo(() => {
-    if (session?.email) {
-      const byId = session.id ? users.find((u) => u.id === session.id) : undefined;
-      if (byId) return byId;
-      const email = session.email.trim().toLowerCase();
-      const byEmail = users.find((u) => u.email.trim().toLowerCase() === email);
-      if (byEmail) return byEmail;
-      // Session exists but portal directory has not synced yet — never fall back to a seeded admin.
-      const role = (session.role as PortalUser['role']) || 'Faculty';
-      const name =
-        [session.firstName, session.middleName, session.lastName].filter(Boolean).join(' ').trim() || session.email;
-      return {
-        id: session.id || `session-${email}`,
-        name,
-        email: session.email,
-        role,
-        office: '',
-        status: 'Active' as const,
-        lastLogin: null
-      };
-    }
-    return users.find((u) => u.id === activeUserId) ?? users.find((u) => u.id === viewAsUserId[viewAs]) ?? users[0];
-  }, [users, activeUserId, viewAs, session]);
 
   const switchUser = useCallback((userId: string) => {
     setActiveUserId(userId);
@@ -1701,7 +1714,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     ]
   );
 
-  return <PortalContext.Provider value={value}>{session && !repositoryReady ? <div role="status" className="grid min-h-screen place-items-center text-sm text-ink-muted">Connecting to the shared document repository?</div> : children}</PortalContext.Provider>;
+  return <PortalContext.Provider value={value}>{children}</PortalContext.Provider>;
 }
 
 export function usePortalSafe(): PortalContextValue | null {

@@ -151,10 +151,17 @@ def snapshot_for(role: str, user_id: str, email: str) -> dict:
     if not account:
         return result
     restricted = set()
-    for entry in RepositoryEntry.objects.filter(kind='document', framework__in=PROTECTED):
-        if entry.deleted or effective_level(account, record(entry)) == 'none':
+    from django.db.models import Q
+    from .certificate_access import is_certificate,rights
+    import json
+    hidden_certificates=[]
+    for entry in RepositoryEntry.objects.filter(Q(framework__in=PROTECTED)|Q(data__docType='Certificate'),kind='document'):
+        denied=not rights(account,record(entry),entry)['canView'] if is_certificate(entry.data) else effective_level(account,record(entry))=='none'
+        if entry.deleted or denied:
             restricted.add(entry.record_id)
+            if is_certificate(entry.data): hidden_certificates.extend([entry.record_id,entry.data.get('title')])
     result['fileGrants'] = [grant for grant in result['fileGrants'] if grant.get('documentId') not in restricted]
+    result['notifications']=[n for n in result['notifications'] if not any(value and value in json.dumps(n) for value in hidden_certificates)]
     import copy
     result['documentRequests'] = copy.deepcopy(result['documentRequests'])
     for request in result['documentRequests']:

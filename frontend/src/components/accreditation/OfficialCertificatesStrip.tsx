@@ -3,6 +3,8 @@ import { BadgeCheckIcon, EyeIcon, FileCheck2Icon, FileCheckIcon, UploadIcon } fr
 import { usePortal } from '../../contexts/PortalContext';
 import { pluralize } from '../../utils/format';
 import type { EvidenceDocument } from '../../types/evidence';
+import { CertificateMenu, CertificateManagementButton } from './CertificateMenu';
+import { useAreaAccess } from '../../services/api/repositoryAccess';
 
 /** Certificates stored under `areaKey`, newest first, plus the active one and its level folder name. */
 // eslint-disable-next-line react-refresh/only-export-components
@@ -73,11 +75,13 @@ export function OfficialCertificatesStrip({
   activeCertificate,
   activeLevel,
   levelCount,
-  isAdmin,
+  isAdmin: requestedAdmin,
   onOpen,
   onPreview,
   className = 'mt-3'
 }: OfficialCertificatesStripProps) {
+  const access=useAreaAccess();
+  const isAdmin=requestedAdmin&&access.isSuperadmin;
   const tone = activeCertificate ? 'active' : certificates.length > 0 ? 'inactive' : 'empty';
   const style = CERT_STRIP[tone];
 
@@ -112,6 +116,8 @@ export function OfficialCertificatesStrip({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
+        <CertificateManagementButton frameworkId={activeCertificate?.frameworkId || certificates[0]?.frameworkId} />
+        {activeCertificate&&<CertificateMenu doc={activeCertificate}/>}
         {activeCertificate && (
           <button
             type="button"

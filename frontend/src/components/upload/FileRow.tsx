@@ -1,12 +1,17 @@
-import { ReactNode } from 'react';
+import { ReactNode, createContext, useContext } from 'react';
 import { LucideIcon } from 'lucide-react';
 import { fileTypeStyle } from './fileTypeStyle';
+import { usePortal } from '../../contexts/PortalContext';
+import type { EvidenceDocument } from '../../types/evidence';
+import { CertificateMenu } from '../accreditation/CertificateMenu';
+const CertificateRowContext=createContext<EvidenceDocument|undefined>(undefined);
 
 export function FileList({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <ul className={`divide-y divide-line overflow-hidden rounded-xl border border-line bg-white ${className}`}>{children}</ul>;
 }
 
 interface FileRowProps {
+  documentId?: string;
   name: ReactNode;
   /** File type (`PDF`) or a file name to derive it from. */
   fileType: string;
@@ -20,11 +25,12 @@ interface FileRowProps {
   selected?: boolean;
 }
 
-export function FileRow({ name, fileType, meta, status, actions, children, onOpen, selected }: FileRowProps) {
+export function FileRow({ name, fileType, meta, status, actions, children, onOpen, selected, documentId }: FileRowProps) {
+  const {documents}=usePortal();const doc=documents.find(d=>d.id===documentId);
   const style = fileTypeStyle(fileType);
   const Icon = style.icon;
   return (
-    <li className={`group px-3 py-2.5 transition ${selected ? 'bg-brand-50/60' : 'hover:bg-brand-50/40'}`}>
+    <CertificateRowContext.Provider value={doc}><li className={`group px-3 py-2.5 transition ${selected ? 'bg-brand-50/60' : 'hover:bg-brand-50/40'}`}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="flex min-w-[12rem] flex-1 items-center gap-3">
           <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ${style.className}`}>
@@ -47,9 +53,10 @@ export function FileRow({ name, fileType, meta, status, actions, children, onOpe
         </div>
         {status && <span className="inline-flex shrink-0">{status}</span>}
         {actions && <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1">{actions}</div>}
+        {doc?.docType==='Certificate'&&<CertificateMenu doc={doc}/>}
       </div>
       {children && <div className="mt-2 pl-12">{children}</div>}
-    </li>
+    </li></CertificateRowContext.Provider>
   );
 }
 
@@ -61,6 +68,8 @@ interface FileRowActionProps {
 }
 
 export function FileRowAction({ icon: Icon, label, onClick, danger }: FileRowActionProps) {
+  const doc=useContext(CertificateRowContext);
+  if(doc?.certificateAccess && (/download|export|print/i.test(label)&&!doc.certificateAccess.canDownload || /^(edit|rename|replace|move|delete)/i.test(label)&&!doc.certificateAccess.canManage))return null;
   return (
     <button
       type="button"

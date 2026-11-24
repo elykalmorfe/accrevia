@@ -30,6 +30,8 @@ class DocumentListCreateView(APIView):
         serializer = DocumentUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        from apps.auth.certificate_access import require_management
+        require_management(account,data)
         may_write(account, campus_id(data.get('campusId') or data.get('campus')), 'accreditation', data)
         data['uploadedBy'] = account.pk
         uploaded = data.pop("file")

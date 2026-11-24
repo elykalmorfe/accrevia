@@ -43,7 +43,7 @@ export async function saveDocumentUpload(file: File, draft: EvidenceDocument): P
     passages: indexed?.passages?.length ? indexed.passages : draft.passages,
     approvalStatus: indexed?.approvalStatus ?? 'Pending Review'
   };
-  persistUpload(document.id, file);
+  await persistUpload(document.id, file);
   return document;
 }
 

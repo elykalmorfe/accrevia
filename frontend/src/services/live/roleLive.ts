@@ -114,7 +114,7 @@ export async function syncRoleLive(
 
 export function subscribeRoleLive(onChange: () => void): () => void {
   const base = getApiBaseUrl();
-  if (!base || typeof EventSource === 'undefined') return () => {};
+  if (!base || typeof EventSource === 'undefined') return () => { /* no-op */ };
   const source = new EventSource(`${base}/api/live/events/`);
   source.onmessage = () => onChange();
   return () => source.close();

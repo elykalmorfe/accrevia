@@ -85,7 +85,7 @@ export function CampusPQAView() {
                 <Badge tone="gold">{pqaRecord.recognitionLevel}</Badge>
               </div>
               <p className="mt-1 text-xs text-ink-muted">
-                {campus.location} · PQA Application Cycle: <span className="font-medium text-ink">{pqaRecord.cycle}</span>
+                {campus?.location || 'Main Campus'} · PQA Application Cycle: <span className="font-medium text-ink">{pqaRecord.cycle}</span>
               </p>
             </div>
 

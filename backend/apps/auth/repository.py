@@ -35,9 +35,10 @@ def campus_id(value):
 def campuses_for(account):
     if account.role in {'Faculty', 'Staff'}:
         from .repository_access import assignments_for
+        from .certificate_access import cross_campuses
         assigned = {key[0] for key, level in assignments_for(account).items() if level in {'viewer', 'editor'}}
         own = campus_id(account.campus_id)
-        return assigned | ({own} if own else set())
+        return assigned | ({own} if own else set()) | cross_campuses(account)
     if account.role == 'Superadmin' or not account.campus_id:
         return set(CAMPUSES)
     campus = campus_id(account.campus_id)
@@ -76,6 +77,9 @@ def record(entry):
 
 
 def may_read(account, data, kind='document'):
+    from .certificate_access import is_certificate, rights
+    if kind == 'document' and is_certificate(data):
+        return rights(account, data)['canView']
     campus = data.get('campusId') or ''
     if campus not in campuses_for(account) and campus != '*' and not (not campus and account.role == 'Superadmin'):
         return False
@@ -127,6 +131,7 @@ def may_write(account, campus, origin, data=None):
 
 def snapshot(account):
     account.__dict__.pop('_area_assignments', None)
+    account.__dict__.pop('_certificate_permissions', None)
     # The clock lock makes the snapshot and cursor consistent with every writer.
     with transaction.atomic():
         clock, _ = RepositoryClock.objects.get_or_create(pk=1)
@@ -135,7 +140,8 @@ def snapshot(account):
         if account.role == 'Superadmin':
             scope |= Q(campus='')
         rows = list(RepositoryEntry.objects.filter(scope,deleted=False))
-        docs = [record(row) for row in rows if row.kind == 'document' and may_read(account, record(row))]
+        from .certificate_access import for_viewer
+        docs = [for_viewer(account,record(row)) for row in rows if row.kind == 'document' and may_read(account, record(row))]
         visible = {doc.get('folderId') for doc in docs}
         folders = {row.record_id: row for row in rows if row.kind == 'folder'}
         for folder_id in list(visible):
@@ -146,7 +152,15 @@ def snapshot(account):
                 visible.add(parent)
                 folder_id = parent
         from .repository_access import access_snapshot
-        return {'revision': clock.revision, 'folders': [record(row) for row in folders.values()
+        from .certificate_access import is_certificate
+        locked=set()
+        for item in rows:
+            if item.kind=='document' and is_certificate(item.data):
+                parent,seen=item.parent_id,set()
+                while parent and parent not in seen:
+                    locked.add(parent); seen.add(parent)
+                    parent=folders[parent].parent_id if parent in folders else ''
+        return {'revision': clock.revision, 'folders': [{**record(row),'certificateLocked':row.record_id in locked and account.role!='Superadmin'} for row in folders.values()
                 if may_read(account, record(row), 'folder') or row.record_id in visible], 'documents': docs,
                 'access': access_snapshot(account)}
 
@@ -180,13 +194,18 @@ def changes(account, since):
     rows = list(RepositoryChange.objects.filter(revision__gt=since).order_by('revision')[:200])
     allowed_folders = {folder['id'] for folder in snapshot(account)['folders']} if rows and account.role not in MANAGERS else set()
     for event in rows:
+        if event.kind == 'cert-access':
+            if account.role in {'Superadmin','Administrator','Faculty','Staff'}:
+                result.append({'revision':event.revision,'kind':'access','id':account.pk,'data':None})
+            continue
         if event.kind == 'access':
             if event.record_id == account.pk or account.role == 'Superadmin':
                 result.append({'revision': event.revision, 'kind': 'access', 'id': event.record_id, 'data': None})
             continue
         after = event.after
         if after and (may_read(account, after, event.kind) or event.kind == 'folder' and event.record_id in allowed_folders):
-            result.append({'revision': event.revision, 'kind': event.kind, 'id': event.record_id, 'data': after})
+            from .certificate_access import for_viewer
+            result.append({'revision': event.revision, 'kind': event.kind, 'id': event.record_id, 'data': for_viewer(account,after)})
         elif event.before and may_read(account, event.before, event.kind):
             result.append({'revision': event.revision, 'kind': event.kind, 'id': event.record_id, 'data': None})
     return {'revision': rows[-1].revision if rows else since, 'events': result}
@@ -195,6 +214,7 @@ def changes(account, since):
 @transaction.atomic
 def mutate(account, operation_id, operations, context):
     account.__dict__.pop('_area_assignments', None)
+    account.__dict__.pop('_certificate_permissions', None)
     if context not in {'accreditation', 'upload-documents'} or not re.fullmatch(r'[\w-]{8,64}', operation_id or ''):
         raise ValidationError('An operation ID and valid origin context are required.')
     RepositoryClock.objects.get_or_create(pk=1)
@@ -227,6 +247,8 @@ def mutate(account, operation_id, operations, context):
         if context == 'accreditation' and account.allowed_features and f'framework_{framework}' not in account.allowed_features:
             raise PermissionDenied('This accreditation framework is not enabled for your account.')
         data = op.get('data')
+        from .certificate_access import require_management, is_certificate, ensure_policy, audit as certificate_audit
+        require_management(account,data,kind,before,entry)
         if data is None:
             if not entry or entry.deleted:
                 raise ValidationError('Record no longer exists.')
@@ -266,7 +288,7 @@ def mutate(account, operation_id, operations, context):
                 cursor = RepositoryEntry.objects.filter(kind='folder', record_id=cursor.parent_id, deleted=False).first() if cursor.parent_id else None
             if not entry:
                 entry = RepositoryEntry(kind=kind, record_id=identity, origin=context)
-            data = {key: value for key, value in data.items() if key not in {'syncVersion', 'syncIssue'}}
+            data = {key: value for key, value in data.items() if key not in {'syncVersion', 'syncIssue','certificateAccess','certificateProtected','certificateLocked'}}
             if data.get('fileRef'):
                 staged = PortalFile.objects.select_related('content').filter(source='repository-stage',key=data['fileRef']).first()
                 if not staged or ((not entry or data['fileRef'] != entry.data.get('fileRef')) and not str(data['fileRef']).startswith(account.pk + ':')):
@@ -282,6 +304,12 @@ def mutate(account, operation_id, operations, context):
         if before is not None or entry.pk:
             entry.version += 1
         entry.save()
+        if kind=='document' and is_certificate(entry.data):
+            ensure_policy(entry)
+            certificate_action='certificate_deleted' if entry.deleted else 'certificate_uploaded' if before is None else 'certificate_replaced' if before.get('fileVersion')!=entry.data.get('fileVersion') else 'certificate_moved' if before.get('folderId')!=entry.parent_id or before.get('campusId')!=entry.campus else 'certificate_renamed' if before.get('title')!=entry.data.get('title') else 'certificate_updated'
+            certificate_audit(account,entry,certificate_action,before,None if entry.deleted else record(entry))
+            from .certificate_access import signal_access
+            signal_access(entry.record_id)
         revision = emit(entry, before)
         from .repository_access import audit_resource
         audit_resource(account, before, None if entry.deleted else record(entry), kind, identity)
