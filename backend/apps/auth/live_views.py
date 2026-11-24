@@ -72,6 +72,10 @@ class LiveFileView(APIView):
         entry = RepositoryEntry.objects.filter(kind='document', record_id=document_id).first()
         if entry and (entry.deleted or not may_read(account_for(request), record(entry))):
             return Response({'detail': 'This document is not authorized.'}, status=403)
+        if entry and request.GET.get('download')=='1':
+            from .certificate_access import is_certificate, rights
+            if is_certificate(entry.data) and not rights(account_for(request),record(entry),entry)['canDownload']:
+                return Response({'detail':'This certificate is available for viewing only.'},status=403)
         if not file_grant_for(role, user_id, email, document_id):
             return Response({"detail": "You do not have permission to view this file."}, status=403)
         found = open_shared_file(document_id)

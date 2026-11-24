@@ -22,7 +22,7 @@ import {
 import { usePortal } from '../../contexts/PortalContext';
 import { DocumentPreviewModal } from '../documents/DocumentPreviewModal';
 import { FolderAction, FolderCard, FolderStatus } from '../folders/FolderCard';
-import { downloadStoredFile } from '../../utils/fileStore';
+import { downloadStoredFile, persistUpload } from '../../utils/fileStore';
 import { filesFromInput, PendingUpload } from '../../utils/dropFiles';
 import { pluralize } from '../../utils/format';
 import { saveDocumentUpload } from '../../services/documents/uploadClient';
@@ -501,7 +501,7 @@ export function FolderExplorer({
                     const meta = `${pluralize(count, 'file')}${subCount > 0 ? ` · ${pluralize(subCount, 'folder')}` : ''}`;
                     const status = folderStatus ? folderStatus(folder, count) : count === 0 ? { label: 'No files yet', tone: 'neutral' as const } : null;
                     const actions =
-                      canEdit && !locked ? (
+                      canEdit && !locked && !folder.certificateLocked ? (
                         <>
                           <FolderAction
                             icon={PencilIcon}
@@ -549,7 +549,7 @@ export function FolderExplorer({
 
                     return (
                       <FolderCard
-                        key={folder.id}
+                        folderId={folder.id} key={folder.id}
                         onOpen={openFolder}
                         title={`Open ${folder.name}`}
                         eyebrow={folderEyebrow?.(folder)}
@@ -570,7 +570,7 @@ export function FolderExplorer({
                 <FileList>
                   {visibleDocs.map((doc) => (
                     <FileRow
-                      key={doc.id}
+                      documentId={doc.id} key={doc.id}
                       name={doc.title}
                       fileType={doc.fileType}
                       onOpen={() => setPreviewDoc(doc)}

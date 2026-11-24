@@ -6,6 +6,7 @@ import { Switch } from '../ui/Switch';
 import { FolderExplorer, UploadTarget } from '../upload/FolderExplorer';
 import { usePortal } from '../../contexts/PortalContext';
 import { useInstitutionalMutationAccess } from '../../hooks/useInstitutionalMutationAccess';
+import { useAreaAccess } from '../../services/api/repositoryAccess';
 import { fileTypeFromName } from '../../utils/fileTypes';
 import { getSettings } from '../../settings/portalSettings';
 import type { CampusId } from '../../types/accreditation';
@@ -82,7 +83,7 @@ export function CertificateFoldersModal({
   preferredFolderId = null
 }: CertificateFoldersModalProps) {
   const { folders, documents, saveFolder, updateDocument, currentUser } = usePortal();
-  const { canMutate } = useInstitutionalMutationAccess();
+  const {isSuperadmin:canMutate}=useAreaAccess();
   const useCanonical = !!canonicalFolders?.length;
 
   const certFolders = useMemo(() => {

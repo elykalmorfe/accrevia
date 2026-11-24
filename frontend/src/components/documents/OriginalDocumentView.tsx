@@ -123,7 +123,7 @@ function LegacyOfficeView({ documentId, name, heightClass }: { documentId: strin
   return (
     <div className="space-y-2">
       <p className="text-xs text-ink-muted">PDF preview exported from {name}. Download original keeps the original file format.</p>
-      <iframe title={name} src={state.url} className={`w-full rounded-xl border border-line bg-white ${heightClass}`} />
+      <iframe title={name} src={`${state.url}#toolbar=0&navpanes=0`} className={`w-full rounded-xl border border-line bg-white ${heightClass}`} />
     </div>
   );
 }

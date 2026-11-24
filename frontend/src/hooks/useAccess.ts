@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { usePortal } from '../contexts/PortalContext';
 import { accessFor, AccessRights, grantsFromRequests } from '../utils/sharing';
 import { EvidenceDocument } from '../types/evidence';
-import { useAreaAccess } from '../services/api/repositoryAccess';
+import { useAreaAccess, isRevokedCertificate } from '../services/api/repositoryAccess';
 
 export function useAccess(): {rightsFor: (documentId: string) => AccessRights;accessibleDocuments: EvidenceDocument[];} {
   const { currentUser, shares, documents, folders, programAccreditations, isAdmin, documentRequests, fileGrants } = usePortal();
@@ -25,7 +25,9 @@ export function useAccess(): {rightsFor: (documentId: string) => AccessRights;ac
   );
   return useMemo(() => {
     const rightsFor = (documentId: string): AccessRights => {
+      if(isRevokedCertificate(documentId))return {canView:false,canDownload:false,shares:[]};
       const doc = documents.find(d => d.id === documentId);
+      if (doc?.certificateAccess) return {canView:doc.certificateAccess.canView,canDownload:doc.certificateAccess.canDownload,shares:[]};
       if (areaAccess.member && doc && ['ia', 'pa', 'pqa'].includes(doc.frameworkId)) {
         let area = doc.areaId;
         let parent = folders.find(f => f.id === doc.folderId);

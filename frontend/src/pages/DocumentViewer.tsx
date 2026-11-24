@@ -33,6 +33,7 @@ import { AccessRestricted } from '../components/sharing/AccessRestricted';
 import { PermissionIndicator } from '../components/sharing/PermissionIndicator';
 import { EvidenceDocument, FileType } from '../types/evidence';
 import { RequestAttachment } from '../types/request';
+import { CertificateMenu } from '../components/accreditation/CertificateMenu';
 import {
   canPublishToPublicPortal,
   canUnpublishFromPublicPortal,
@@ -217,7 +218,8 @@ export function DocumentViewer() {
             <h1 className="mt-2 font-serif text-[26px] font-semibold leading-tight text-ink">{doc.title}</h1>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
-            {isAdmin &&
+            {doc.docType==='Certificate'&&<CertificateMenu doc={doc}/>}
+            {isAdmin && doc.docType!=='Certificate' &&
             <>
                 <button type="button" className="btn btn-secondary" onClick={() => setEditing(doc)}>
                   <PencilIcon className="h-4 w-4" /> Edit metadata

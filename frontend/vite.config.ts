@@ -9,8 +9,14 @@ const protectedOriginals = {
   configureServer(server: import('vite').ViteDevServer) {
     server.middlewares.use((req, res, next) => {
       let pathname: string;
-      try {pathname = decodeURIComponent(new URL(req.url || '/', 'http://localhost').pathname);} catch {res.statusCode = 400; res.end(); return;}
-      if (!/^\/certificates(?:\/|$)/i.test(pathname)) {next(); return;}
+      try {
+        pathname=new URL(req.url || '/', 'http://localhost').pathname;
+        for(let pass=0;pass<3;pass++){const decoded=decodeURIComponent(pathname);if(decoded===pathname)break;pathname=decoded;}
+        pathname=pathname.replace(/\\/g,'/');
+      } catch {res.statusCode = 400; res.end(); return;}
+      const certificatePath=/(?:^|\/)(?:public\/)?certificates(?:\/|$)/i.exec(pathname);
+      if (!certificatePath) {next(); return;}
+      pathname='/certificates/'+pathname.slice(certificatePath.index+certificatePath[0].length);
       const hostname = (req.headers.host || '127.0.0.1').split(':')[0];
       res.statusCode = 307;
       res.setHeader('Cache-Control', 'no-store');

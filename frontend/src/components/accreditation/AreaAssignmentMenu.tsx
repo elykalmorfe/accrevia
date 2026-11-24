@@ -82,7 +82,7 @@ function AssignmentDialog({scope, label, campusName, programName, historyOnly, o
       toast.success('Assignments saved to the database.'); await load();
     } catch (e) {setError(e instanceof Error ? e.message : 'Save failed.');} finally {setBusy(false);}
   };
-  return <Modal open onClose={busy ? () => {} : onClose} zIndex="z-[80]" size="xl" title={historyOnly ? 'Area Activity History' : 'Manage Assigned Faculty & Staff'}
+  return <Modal open onClose={busy ? () => { /* busy */ } : onClose} zIndex="z-[80]" size="xl" title={historyOnly ? 'Area Activity History' : 'Manage Assigned Faculty & Staff'}
     description={`Campus: ${campusName} · Module: ${MODULES[scope.framework]}${programName ? ` · Program: ${programName}` : ''} · ${label}`}
     footer={<div className="flex w-full flex-wrap justify-end gap-2">
       {!historyOnly && <button className="btn btn-secondary" disabled={busy || !loaded || !selected.size} onClick={() => void save(true)}>Revoke Access</button>}

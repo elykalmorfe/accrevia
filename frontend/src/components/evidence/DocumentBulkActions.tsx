@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { AlertTriangleIcon, ArchiveIcon, CheckCircle2Icon, ChevronDownIcon, ClockIcon, DownloadIcon, ListChecksIcon, XIcon } from 'lucide-react';
+import { CertificateManagementButton } from '../accreditation/CertificateMenu';
 import { toast } from 'sonner';
 import { usePortal } from '../../contexts/PortalContext';
 import { useAccess } from '../../hooks/useAccess';
@@ -38,9 +39,10 @@ export function DocumentBulkActions({ selected, totalCount, onSelectAll, onClear
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
+  const manageable=selected.filter(d=>d.docType!=='Certificate'||d.certificateAccess?.canManage);
   const count = selected.length;
   const downloadable = selected.filter((d) => rightsFor(d.id).canDownload);
-  const statusTargets = pendingStatus ? selected.filter((d) => (d.approvalStatus ?? 'Pending Review') !== pendingStatus) : [];
+  const statusTargets = pendingStatus ? manageable.filter((d) => (d.approvalStatus ?? 'Pending Review') !== pendingStatus) : [];
   const notesMissing = pendingStatus === 'Needs Revision' && requireRevisionNote && !revisionNotes.trim();
 
   const handleDownload = async () => {
@@ -93,7 +95,7 @@ export function DocumentBulkActions({ selected, totalCount, onSelectAll, onClear
   };
 
   const applyArchive = () => {
-    const previous = selected.map((d) => ({ id: d.id, status: d.status }));
+    const previous = manageable.map((d) => ({ id: d.id, status: d.status }));
     previous.forEach((p) => updateDocument(p.id, { status: 'Archived' }));
     toast(`Moved ${plural(previous.length)} to Archived Documents`, {
       action: { label: 'Undo', onClick: () => previous.forEach((p) => updateDocument(p.id, { status: p.status })) }
@@ -125,6 +127,7 @@ export function DocumentBulkActions({ selected, totalCount, onSelectAll, onClear
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {selected.some(d=>d.docType==='Certificate')&&<CertificateManagementButton certificateIds={selected.filter(d=>d.docType==='Certificate').map(d=>d.id)}/>}
           <button
             type="button"
             className="btn btn-secondary btn-sm gap-1.5 bg-white"

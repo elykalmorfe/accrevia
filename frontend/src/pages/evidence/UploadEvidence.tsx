@@ -35,6 +35,7 @@ import { hideFolderId, initialFolders, isRootFrameworkFolder, loadHiddenFolderId
 import { FolderFormModal } from '../../components/folders/FolderFormModal';
 import { DeleteFolderModal } from '../../components/folders/DeleteFolderModal';
 import { DocumentPreviewModal } from '../../components/documents/DocumentPreviewModal';
+import { CertificateMenu, CertificateManagementButton } from '../../components/accreditation/CertificateMenu';
 import { FolderAction, FolderCard } from '../../components/folders/FolderCard';
 import { fileTypeFromName } from '../../utils/fileTypes';
 import { formatDate, pluralize } from '../../utils/format';
@@ -93,7 +94,7 @@ export function UploadEvidence() {
   const view = useMemo(() => projectRepositoryAreas(storedFolders, storedDocuments,
     {ia:settings.accreditation.iaAreas,pqa:PQA_CATEGORY_AREAS},campuses), [storedFolders,storedDocuments,settings.accreditation.iaAreas,campuses]);
   const {folders,documents} = view;
-  const uploadDefaults = { academicYear: settings.general.defaultAcademicYear, status: settings.uploads.newUploadStatus };
+  const uploadDefaults = { academicYear: settings.general.defaultAcademicYear, status: 'Pending Review' as const };
 
   // Root directory view states
   const [folderSearch, setFolderSearch] = useState('');
@@ -565,6 +566,7 @@ export function UploadEvidence() {
 
   return (
     <div className="space-y-6">
+      <CertificateManagementButton/>
       {/* ========================================================================= */}
       {/* 1. PROFESSIONAL UNIFIED HEADER                                             */}
       {/* ========================================================================= */}
@@ -914,7 +916,7 @@ export function UploadEvidence() {
 
                 return (
                   <FolderCard
-                    key={folder.id}
+                    folderId={folder.id} key={folder.id}
                     onOpen={() => setFolder(folder.id)}
                     title={folder.description || `Open ${folder.name}`}
                     eyebrow={folder.category ? `${folder.code} · ${folder.category}` : folder.code}
@@ -1395,7 +1397,7 @@ export function UploadEvidence() {
 
                     return (
                       <FolderCard
-                        key={sub.id}
+                        folderId={sub.id} key={sub.id}
                         onOpen={() => setFolder(sub.id)}
                         title={sub.description || `Open ${sub.name}`}
                         eyebrow={[sub.code, sub.campus && sub.campus !== 'All Campuses' ? sub.campus : null].filter(Boolean).join(' · ') || undefined}
@@ -1585,6 +1587,7 @@ export function UploadEvidence() {
 
                       {/* Actions (Right) - Icon-Only: View, Rename/Edit, Delete (Download removed) */}
                       <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                        {doc.docType==='Certificate'&&<CertificateMenu doc={doc}/>}
                         {/* View Icon Button */}
                         <button
                           type="button"
@@ -1597,6 +1600,7 @@ export function UploadEvidence() {
                         </button>
 
                         {/* Rename / Edit Icon Button */}
+                        {doc.docType!=='Certificate'&&<>
                         <button
                           type="button"
                           onClick={() => handleOpenEditDoc(doc)}
@@ -1617,6 +1621,7 @@ export function UploadEvidence() {
                         >
                           <Trash2Icon className="h-4 w-4" />
                         </button>
+                        </>}
                       </div>
                     </div>
                   ))}

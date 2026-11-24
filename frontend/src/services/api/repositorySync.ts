@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { apiFetch, getApiBaseUrl, isApiConfigured } from './client';
 import { getLocalStoredFile } from '../../utils/fileStore';
 import type { EvidenceDocument, EvidenceFolder } from '../../types/evidence';
-import { setRepositoryAccess } from './repositoryAccess';
+import { setRepositoryAccess, setCertificateVisibility } from './repositoryAccess';
 
 type Row = (EvidenceDocument | EvidenceFolder) & {syncVersion?: number; sourceModule?: string; fileLocalStamp?: string; fileRef?: string; storageSha256?: string; fileVersion?: string};
 type Event = {revision: number; kind: 'folder' | 'document'; id: string; data: Row | null};
@@ -27,7 +27,6 @@ export function useRepositorySync(accountId: string | undefined, folders: Eviden
     let inFlightId = '';
     let stream: EventSource | undefined;
     let reconnect: ReturnType<typeof setTimeout> | undefined;
-    let fallback: ReturnType<typeof setInterval> | undefined;
     const known = new Map<string, Row>();
     const revisions = new Map<string, number>();
     let rendered = new Map<string, Row>();
@@ -81,6 +80,7 @@ export function useRepositorySync(accountId: string | undefined, folders: Eviden
         for (const batch of pending) if (batch.operations.some(op => !mayEdit(op))) batch.blocked = true;
         persist();
       }
+      setCertificateVisibility(accountId!,data.documents.filter((row:EvidenceDocument)=>row.docType==='Certificate').map((row:EvidenceDocument)=>row.id),[...known.values()].filter(row=>'docType' in row&&row.docType==='Certificate').map(row=>row.id));
       known.clear();
       for (const row of data.folders) known.set(idFor('folder', row.id), row);
       for (const row of data.documents) known.set(idFor('document', row.id), row);
@@ -211,7 +211,7 @@ export function useRepositorySync(accountId: string | undefined, folders: Eviden
       }
     })();
     // Poll only as missed-event/reconnection fallback; ordinary delivery uses SSE.
-    fallback = setInterval(() => {void recover();}, 5000);
+    const fallback = setInterval(() => {void recover();}, 5000);
     return () => {stopped = true;setConnected(false);setRepositoryAccess();observer.current = undefined;stream?.close();clearTimeout(reconnect);clearInterval(fallback);window.removeEventListener('accrevia-original-stored',originalStored);};
   }, [accountId, authorizationKey, setFolders, setDocuments]);
   useEffect(() => {observer.current?.(folders, documents);}, [folders, documents]);

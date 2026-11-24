@@ -7,6 +7,15 @@ export type AreaAssignment = AreaScope & {level: AccessLevel};
 type AccessState = {assignments: AreaAssignment[]; officialAreas: {framework: string; code: string; name: string; position: number}[]};
 let state: AccessState = {assignments: [], officialAreas: []};
 const listeners = new Set<() => void>();
+let certificateAccount='';
+const revokedCertificates=new Set<string>();
+export function setCertificateVisibility(accountId:string,visibleIds:string[],previousIds:string[]){
+  if(certificateAccount!==accountId){certificateAccount=accountId;revokedCertificates.clear();}
+  const visible=new Set(visibleIds);
+  previousIds.forEach(id=>{if(!visible.has(id))revokedCertificates.add(id);});
+  visibleIds.forEach(id=>revokedCertificates.delete(id));
+}
+export const isRevokedCertificate=(id:string)=>revokedCertificates.has(id);
 export function setRepositoryAccess(value?: AccessState) {
   state = value || {assignments: [], officialAreas: []};
   listeners.forEach(listener => listener());

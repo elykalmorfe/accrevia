@@ -34,6 +34,7 @@ import { fetchRepositoryFile, isRepositoryFile } from '../../utils/repositoryFil
 import { CopcDocumentsModal } from '../../components/accreditation/CopcDocumentsModal';
 import { COPCSummaryPrintModal } from '../../components/accreditation/reports/COPCSummaryPrintModal';
 import { saveDocumentUpload } from '../../services/documents/uploadClient';
+import { CertificateMenu, CertificateManagementButton } from '../../components/accreditation/CertificateMenu';
 
 function borResHref(value?: string): string | undefined {
   const v = (value || '').trim();
@@ -52,6 +53,7 @@ export function COPCView() {
   const {
     campuses,
     copcRecords,
+    documents,
     updateCOPCRecord,
     updateCOPCRequirement,
     addDocument,
@@ -96,57 +98,18 @@ export function COPCView() {
     return null;
   };
 
+  const certificateFor=(copc:COPCRecord)=>documents.find(d=>d.docType==='Certificate'&&d.frameworkId==='copc'&&d.campusId===copc.campusId&&(d.id===`doc-copc-cert-${copc.id}`||d.id===`${copc.id}-COPC-CERT`||d.program===copc.programName));
   const loadOfficialCertificate = async (copc: COPCRecord) => {
-    setOfficialCertLoading(true);
-    setOfficialCertUrl(null);
-    setOfficialCertKind(null);
-    setOfficialCertMissing(false);
-    const key = `${copc.id}-COPC-CERT`;
-    const link = copc.documentLink?.trim();
+    setOfficialCertLoading(true);setOfficialCertUrl(null);setOfficialCertKind(null);setOfficialCertMissing(false);
+    const doc=certificateFor(copc);
     try {
-      const stored = await getStoredFile(key);
-      if (stored?.blob && await isRepositoryFile(stored.blob, stored.name || link || '')) {
-        const kind = certificateKind(stored.blob, stored.name || link || '');
-        if (kind) {
-          setOfficialCertUrl(URL.createObjectURL(stored.blob));
-          setOfficialCertKind(kind);
-          setOfficialCertLoading(false);
-          return;
-        }
-        deleteStoredFile(key).catch(() => undefined);
-      }
-    } catch {
-      // fall through to documentLink
-    }
-
-    if (link?.startsWith('/certificates/') || link?.startsWith('blob:')) {
-      try {
-        if (link.startsWith('blob:')) {
-          setOfficialCertUrl(link);
-          setOfficialCertKind(/\.(png|jpe?g|gif|webp)(\?|$)/i.test(link) ? 'image' : 'pdf');
-          setOfficialCertLoading(false);
-          return;
-        }
-        const blob = await fetchRepositoryFile(link);
-        if (blob) {
-          const name = link.split('/').pop() || '';
-          const kind = certificateKind(blob, name);
-          if (kind) {
-            persistUpload(key, blob, name);
-            setOfficialCertUrl(URL.createObjectURL(blob));
-            setOfficialCertKind(kind);
-            setOfficialCertLoading(false);
-            return;
-          }
-        }
-      } catch {
-        // ignore
-      }
-      setOfficialCertMissing(true);
-    } else if (link) {
-      setOfficialCertMissing(true);
-    }
-    setOfficialCertLoading(false);
+      if(!doc||doc.certificateAccess?.canView===false)throw new Error('Certificate unavailable.');
+      const stored=await getStoredFile(doc.id);
+      if(!stored)throw new Error('Original unavailable.');
+      const kind=certificateKind(stored.blob,stored.name);
+      if(!kind)throw new Error('Preview unavailable.');
+      setOfficialCertUrl(URL.createObjectURL(stored.blob));setOfficialCertKind(kind);
+    }catch{setOfficialCertMissing(true);}finally{setOfficialCertLoading(false);}
   };
 
   const loadBorDocument = async (copc: COPCRecord) => {
@@ -198,6 +161,10 @@ export function COPCView() {
     setBorDocKind(null);
     setViewingCertificateCopc(null);
   };
+
+  useEffect(()=>{
+    if(viewingCertificateCopc&&viewModalTab==='certificate'&&!certificateFor(viewingCertificateCopc))closeViewModal();
+  },[documents,viewingCertificateCopc,viewModalTab]);
 
   const handleOpenView = (
     copc: COPCRecord,
@@ -779,16 +746,21 @@ export function COPCView() {
     <>
       <PageHeader
         title="Certificate of Program Compliance (COPC)"
-        actions={canMutate && (
-          <button
-            type="button"
-            onClick={() => setShowSummary(true)}
-            className="btn btn-secondary btn-sm"
-          >
-            <PrinterIcon className="h-4 w-4" />
-            Print Summary Report
-          </button>
-        )}
+        actions={
+          <div className="flex items-center gap-2">
+            <CertificateManagementButton frameworkId="copc" />
+            {canMutate && (
+              <button
+                type="button"
+                onClick={() => setShowSummary(true)}
+                className="btn btn-secondary btn-sm"
+              >
+                <PrinterIcon className="h-4 w-4" />
+                Print Summary Report
+              </button>
+            )}
+          </div>
+        }
       />
       {canMutate && (
         <COPCSummaryPrintModal open={showSummary} onClose={() => setShowSummary(false)} defaultCampus={selectedCampus} />
@@ -1076,7 +1048,8 @@ export function COPCView() {
                     </td>
 
                     <td className="td py-3 whitespace-nowrap">
-                      {copc.certificateNumber || copc.documentLink ? (
+                      {certificateFor(copc)&&<CertificateMenu doc={certificateFor(copc)!}/>}
+                      {certificateFor(copc) && (copc.certificateNumber || copc.documentLink) ? (
                         <button
                           type="button"
                           onClick={() => handleOpenView(copc, 'certificate')}
@@ -1214,7 +1187,8 @@ export function COPCView() {
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs bg-canvas/60 p-2.5 rounded-lg border border-line">
                     <div>
                       <span className="text-[11px] text-ink-muted">Certificate No:</span>
-                      {copc.certificateNumber || copc.documentLink ? (
+                      {certificateFor(copc)&&<CertificateMenu doc={certificateFor(copc)!}/>}
+                      {certificateFor(copc) && (copc.certificateNumber || copc.documentLink) ? (
                         <button
                           type="button"
                           onClick={() => handleOpenView(copc, 'certificate')}
@@ -1337,7 +1311,8 @@ export function COPCView() {
           size="xl"
           footer={
             <div className="flex w-full items-center justify-between gap-2">
-              {canMutate && viewModalTab !== 'bor' && (
+              {certificateFor(viewingCertificateCopc)&&<CertificateMenu doc={certificateFor(viewingCertificateCopc)!}/>}
+              {canMutate && viewModalTab !== 'bor' && (viewModalTab!=='certificate'||currentUser.role==='Superadmin') && (
                 <div>
                   <button
                     type="button"
@@ -1355,6 +1330,7 @@ export function COPCView() {
               )}
               {viewModalTab === 'bor' && <div />}
               <div className="flex items-center gap-2">
+                {(viewModalTab!=='certificate'||certificateFor(viewingCertificateCopc)?.certificateAccess?.canDownload)&&
                 <button
                   type="button"
                   onClick={() => {
@@ -1369,6 +1345,7 @@ export function COPCView() {
                   <PrinterIcon className="h-3.5 w-3.5" />
                   <span>Print</span>
                 </button>
+                }
                 <button
                   type="button"
                   onClick={closeViewModal}

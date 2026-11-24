@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import { ChevronRightIcon, FolderIcon, LucideIcon } from 'lucide-react';
+import { usePortal } from '../../contexts/PortalContext';
 
 export type FolderStatusTone = 'neutral' | 'warning' | 'info' | 'danger' | 'success';
 
@@ -17,6 +18,7 @@ const TONE_STYLE: Record<FolderStatusTone, { text: string; dot: string }> = {
 };
 
 interface FolderCardProps {
+  folderId?: string;
   name: ReactNode;
   /** Small line above the name, e.g. "Area 1" or a deadline. */
   eyebrow?: ReactNode;
@@ -31,7 +33,9 @@ interface FolderCardProps {
   title?: string;
 }
 
-export function FolderCard({ name, eyebrow, meta, status, actions, pinActions = false, onOpen, title }: FolderCardProps) {
+export function FolderCard({ name, eyebrow, meta, status, actions, pinActions = false, onOpen, title,folderId }: FolderCardProps) {
+  const {folders}=usePortal();
+  if(folderId&&folders.find(f=>f.id===folderId)?.certificateLocked)actions=undefined;
   const tone = status ? TONE_STYLE[status.tone] : null;
   return (
     <div

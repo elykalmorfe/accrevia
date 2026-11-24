@@ -26,6 +26,7 @@ import { useSharingDialogs } from '../../contexts/SharingDialogsContext';
 import { useAccess } from '../../hooks/useAccess';
 import { downloadStoredFile } from '../../utils/fileStore';
 import { DocumentBulkActions } from './DocumentBulkActions';
+import { CertificateMenu } from '../accreditation/CertificateMenu';
 import { DocumentStatus, EvidenceDocument } from '../../types/evidence';
 import { formatDate } from '../../utils/format';
 import { FrameworkTag } from '../ui/FrameworkTag';
@@ -390,7 +391,7 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
                       >
                         <Share2Icon className="h-3.5 w-3.5" />
                       </button>
-                      <RowActionsMenu label={`More actions for ${doc.title}`} actions={actionsFor(doc)} />
+                      {doc.docType==='Certificate'?<CertificateMenu doc={doc}/>:<RowActionsMenu label={`More actions for ${doc.title}`} actions={actionsFor(doc)} />}
                     </div>
                   </td>
                 </tr>
@@ -421,7 +422,7 @@ export function EvidenceTable({ docs: allDocs, onPreview, onEdit }: EvidenceTabl
                   {processingIndicator(doc)}
                 </div>
               </div>
-              <RowActionsMenu label={`Actions for ${doc.title}`} actions={actionsFor(doc)} />
+              {doc.docType==='Certificate'?<CertificateMenu doc={doc}/>:<RowActionsMenu label={`Actions for ${doc.title}`} actions={actionsFor(doc)} />}
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50/80 p-2.5 rounded-lg border border-slate-200/70">

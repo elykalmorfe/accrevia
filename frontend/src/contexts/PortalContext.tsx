@@ -1,6 +1,7 @@
 import { isApiConfigured } from '../services/api/client';
 import { useRepositorySync } from '../services/api/repositorySync';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Loader2Icon } from 'lucide-react';
 import { useRoleLive } from '../hooks/useRoleLive';
 import { applyRemoteAccessRequests } from '../services/accessRequests/mockAccessRequestStore';
 import { RoleLiveBoard } from '../services/live/roleLive';
@@ -336,7 +337,7 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
   useEffect(() => {
     let cancelled = false;
     let poll = 0;
-    let stopStream = () => {};
+    let stopStream = () => { /* no-op */ };
     let pulling = false;
     let synced = false;
 
@@ -1701,7 +1702,21 @@ export function PortalProvider({ children, viewAs = 'Administrator' }: { childre
     ]
   );
 
-  return <PortalContext.Provider value={value}>{session && !repositoryReady ? <div role="status" className="grid min-h-screen place-items-center text-sm text-ink-muted">Connecting to the shared document repository?</div> : children}</PortalContext.Provider>;
+  return (
+    <PortalContext.Provider value={value}>
+      {session && !repositoryReady ? (
+        <div role="status" className="flex min-h-screen flex-col items-center justify-center gap-3 bg-canvas text-ink-muted">
+          <Loader2Icon className="h-6 w-6 animate-spin text-brand-600" />
+          <div className="text-center">
+            <p className="text-sm font-semibold text-ink">Connecting to the shared document repository…</p>
+            <p className="text-xs text-ink-subtle mt-0.5">Synchronizing real-time documents and permissions</p>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
+    </PortalContext.Provider>
+  );
 }
 
 export function usePortalSafe(): PortalContextValue | null {
