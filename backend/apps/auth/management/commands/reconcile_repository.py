@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from apps.auth.repository import reconcile
 
 
@@ -9,9 +9,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--apply', action='store_true')
+        parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--report')
 
     def handle(self, *args, **options):
+        if options['dry_run'] and options['apply']:
+            raise CommandError('--dry-run and --apply cannot be used together.')
         result = reconcile(apply=options['apply'])
         text = json.dumps(result, indent=2)
         if options['report']:

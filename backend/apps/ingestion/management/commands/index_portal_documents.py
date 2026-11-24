@@ -26,12 +26,36 @@ class Command(BaseCommand):
         parser.add_argument("--force", action="store_true")
         parser.add_argument("--framework")
         parser.add_argument("--document-id", action="append", help="Index only the selected document ID; may be repeated.")
+        parser.add_argument("--apply", action="store_true", help="Apply indexing changes. Without this flag, run as a dry-run.")
 
     def handle(self, *args, **options):
+        if not options["apply"]:
+            self.stdout.write("DRY-RUN: no EvidenceDocument, media, or Qdrant changes will be made.")
         database = workspace_database()
         source = workspace_source()
         if not source:
             raise CommandError("Import a portable workspace before indexing.")
+        if not options["apply"]:
+            files = {(file.source, file.key): file for file in PortalFile.objects.using(database).select_related("content")}
+            rows = PortalRecord.objects.using(database).filter(collection_id=source + "/documents").order_by("position")
+            eligible = 0
+            missing_original = []
+            for row in rows:
+                data = row.data or {}
+                if options["document_id"] and data.get("id") not in options["document_id"]:
+                    continue
+                if options["framework"] and data.get("frameworkId") != options["framework"]:
+                    continue
+                identity = str(data.get("id") or "")
+                url = data.get("documentUrl") or ""
+                original = files.get(("catalog", unquote(url).lstrip("/"))) if url.startswith("/certificates/") else None
+                original = files.get(("repository-stage", data.get("fileRef"))) or original or files.get((source, identity))
+                if not original:
+                    missing_original.append(identity)
+                    continue
+                eligible += 1
+            self.stdout.write(json.dumps({"dry_run": True, "eligible_with_original": eligible, "missing_original": missing_original}))
+            return
         ensure_collection()
         backend = dense_backend_info()["name"]
         # SQL snapshots may contain Indexed flags without the separate Qdrant data.
@@ -65,7 +89,11 @@ class Command(BaseCommand):
             original_url = data.get("documentUrl") or ""
             original = files.get(("catalog", unquote(original_url).lstrip("/"))) if original_url.startswith("/certificates/") else None
             original = files.get(('repository-stage', data.get('fileRef'))) or original or files.get((source, str(data["id"])))
-            content_id = original.content_id if original else "metadata"
+            if not original:
+                stats["failed"] += 1
+                self.stderr.write(f"Skipped {data.get('id')}: no exact original file is available.")
+                continue
+            content_id = original.content_id
             fingerprint = hashlib.sha256(json.dumps([data, content_id, backend], sort_keys=True).encode()).hexdigest()
             existing = EvidenceDocument.objects.filter(pk=data["id"]).first()
             if (existing and not options["force"] and existing.status == "Indexed"

@@ -313,11 +313,20 @@ def reconcile(apply=False):
             for item in values:
                 identity, framework = item.get('id'), item.get('frameworkId')
                 if not identity or framework not in FRAMEWORKS:
-                    report['conflicts'].append({'id': identity, 'reason': 'missing identity or framework'})
+                    report['conflicts'].append({'id': identity, 'reason': 'missing identity or supported framework'})
+                    continue
+                if item.get('status') == 'Archived' or item.get('deleted') is True:
+                    report['conflicts'].append({'id': identity, 'reason': 'archived or deleted source record; original preserved'})
                     continue
                 campus = infer_campus(item, folders)
-                if not campus:
+                if not campus and identity not in ROOTS:
                     report['conflicts'].append({'id': identity, 'reason': 'ambiguous campus; original preserved'})
+                    continue
+                if kind == 'folder':
+                    parent_id = item.get('parentId') or ''
+                    if parent_id and parent_id not in folders:
+                        report['hierarchy_conflicts'].append({'id': identity, 'parentId': parent_id, 'reason': 'parent is not present in selected source; original preserved'})
+                        continue
                 existing = RepositoryEntry.objects.filter(kind=kind, record_id=identity).first()
                 if existing:
                     if kind == 'folder' and identity in ROOTS and existing.campus != '*':
@@ -335,11 +344,18 @@ def reconcile(apply=False):
                     file = PortalFile.objects.using(workspace_database()).filter(source=workspace_source(), key=identity).first()
                     if not file and str(item.get('documentUrl', '')).startswith('/certificates/'):
                         file = PortalFile.objects.using(workspace_database()).filter(source='catalog', key=item['documentUrl'].lstrip('/')).first()
-                    if file:
-                        data['storageSha256'] = file.content_id
-                        data['fileVersion'] = file.content_id
-                    else:
+                    if not file:
                         report['files_missing'].append(identity)
+                        continue
+                    if not file.content.chunks.using(workspace_database()).exists():
+                        report['files_missing'].append(identity)
+                        continue
+                    data['storageSha256'] = file.content_id
+                    data['fileVersion'] = file.content_id
+                    parent_id = item.get('folderId') or ''
+                    if parent_id and parent_id not in folders:
+                        report['hierarchy_conflicts'].append({'id': identity, 'parentId': parent_id, 'reason': 'parent folder is not present in selected source; original preserved'})
+                        continue
                 report['created'] += 1
                 if apply:
                     entry = RepositoryEntry.objects.create(kind=kind, record_id=identity, origin=record_origin(item), framework=framework,

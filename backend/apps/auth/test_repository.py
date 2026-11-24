@@ -116,10 +116,11 @@ class RepositoryContractTests(TestCase):
         stored = [self.folder_data('backfill','cantilan')]
         store_collection('browser-inventory','folders',stored)
         before = list(__import__('apps.auth.models',fromlist=['PortalRecord']).PortalRecord.objects.values_list('data',flat=True))
-        self.assertEqual(reconcile()['created'],1)
-        self.assertEqual(RepositoryEntry.objects.count(),0)
-        self.assertEqual(reconcile(True)['created'],1)
-        self.assertEqual(reconcile(True)['created'],0)
+        with patch('apps.auth.workspace_storage.workspace_database',return_value='default'), patch('apps.auth.workspace_storage.workspace_source',return_value='browser-inventory'), patch('apps.auth.repository.workspace_database',return_value='default'), patch('apps.auth.repository.workspace_source',return_value='browser-inventory'):
+            self.assertEqual(reconcile()['created'],1)
+            self.assertEqual(RepositoryEntry.objects.count(),0)
+            self.assertEqual(reconcile(True)['created'],1)
+            self.assertEqual(reconcile(True)['created'],0)
         self.assertEqual(before,list(__import__('apps.auth.models',fromlist=['PortalRecord']).PortalRecord.objects.values_list('data',flat=True)))
 
     def test_original_bytes_shared_across_sessions_and_no_physical_delete(self):
@@ -202,6 +203,21 @@ class RepositoryContractTests(TestCase):
         entry=RepositoryEntry.objects.get(record_id='replacement-race')
         self.assertEqual(entry.data['status'],'Processing')
         self.assertNotEqual(entry.data.get('passages'),['Stale original'])
+
+    def test_reconcile_excludes_ambiguous_and_fileless_records(self):
+        store_collection('workspace','config',{'source':'safe-browser-inventory'})
+        store_collection('safe-browser-inventory','folders',[self.folder_data('safe-folder','cantilan')])
+        store_collection('safe-browser-inventory','documents',[
+            {'id':'ambiguous','title':'Ambiguous','frameworkId':'ia'},
+            {'id':'fileless','title':'Fileless','frameworkId':'ia','campusId':'cantilan','folderId':'safe-folder'},
+        ])
+        with patch('apps.auth.workspace_storage.workspace_database',return_value='default'), patch('apps.auth.workspace_storage.workspace_source',return_value='safe-browser-inventory'), patch('apps.auth.repository.workspace_database',return_value='default'), patch('apps.auth.repository.workspace_source',return_value='safe-browser-inventory'):
+            result = reconcile(False)
+            self.assertIn('ambiguous', [row['id'] for row in result['conflicts']])
+            self.assertIn('fileless', result['files_missing'])
+            self.assertEqual(reconcile(True)['created'],1)
+            self.assertEqual(reconcile(True)['created'],0)
+        self.assertFalse(RepositoryEntry.objects.filter(record_id__in=['ambiguous','fileless']).exists())
 
 
 class RepositoryConcurrentWritersTests(TransactionTestCase):

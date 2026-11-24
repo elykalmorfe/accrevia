@@ -7,6 +7,7 @@ from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import patch
 from pathlib import Path
+import io
 
 from django.test import SimpleTestCase, TestCase
 from django.core.management import call_command
@@ -63,7 +64,9 @@ class PortableIndexRestoreTests(TestCase):
 
         self.data = {"id": "restored", "title": "Quality evidence", "frameworkId": "iso"}
         store_collection("browser-test", "documents", [self.data])
-        fingerprint = hashlib.sha256(json.dumps([self.data, "metadata", "test"], sort_keys=True).encode()).hexdigest()
+        from apps.auth.portal_storage import store_file
+        file = store_file("browser-test", "restored", "restored.pdf", "application/pdf", io.BytesIO(b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\n"))
+        fingerprint = hashlib.sha256(json.dumps([self.data, file.content_id, "test"], sort_keys=True).encode()).hexdigest()
         EvidenceDocument.objects.create(id="restored", title="Quality evidence", storage_path="", status="Indexed", chunk_count=1,
                                         progress={"index_fingerprint": fingerprint, "indexed_source": "metadata"})
 
@@ -79,7 +82,7 @@ class PortableIndexRestoreTests(TestCase):
             stack.enter_context(patch(path + "embed_dense", return_value=[[1.0, 0.0]]))
             stack.enter_context(patch(path + "embed_sparse", return_value=[([1], [1.0])]))
             index = stack.enter_context(patch(path + "index_chunks", return_value=1))
-            call_command("index_portal_documents", stdout=StringIO())
+            call_command("index_portal_documents", "--apply", stdout=StringIO())
             return index.call_count
 
     def test_sql_indexed_flag_does_not_skip_empty_qdrant_after_restore(self):
