@@ -1,0 +1,98 @@
+
+name: accrevia-production
+
+x-django-base: &django-base
+  build:
+    context: .
+    dockerfile: Dockerfile.production
+  restart: unless-stopped
+  env_file:
+    - .env.production
+  environment:
+    DJANGO_SETTINGS_MODULE: config.settings_production
+    MYSQL_HOST: mysql
+    MYSQL_PORT: "3306"
+    MYSQL_DATABASE: accrevia
+    MYSQL_USER: accrevia
+    MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:?Required}
+    REDIS_URL: redis://redis:6379/0
+    QDRANT_URL: http://qdrant:6333
+    HF_HOME: /home/app/.cache/huggingface
+    EMBEDDING_DEVICE: cpu
+    EMBEDDING_BATCH_SIZE: "1"
+  volumes:
+    - media_data:/app/media
+    - static_data:/app/staticfiles
+    - ai_cache:/home/app/.cache
+  depends_on:
+    mysql:
+      condition: service_healthy
+    redis:
+      condition: service_started
+    qdrant:
+      condition: service_started
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: accrevia
+      MYSQL_USER: accrevia
+      MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:?Required}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Required}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql -h 127.0.0.1 -u "$$MYSQL_USER" -e "SELECT 1" >/dev/null 2>&1'
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  django:
+    <<: *django-base
+    command:
+      - gunicorn
+      - config.wsgi:application
+      - --bind
+      - 0.0.0.0:8000
+      - --workers
+      - "1"
+      - --threads
+      - "2"
+      - --timeout
+      - "120"
+
+  celery:
+    <<: *django-base
+    command:
+      - celery
+      - -A
+      - config.celery:app
+      - worker
+      - --loglevel=info
+      - --pool=solo
+      - --concurrency=1
+
+volumes:
+  mysql_data:
+  redis_data:
+  qdrant_data:
+  media_data:
+  static_data:
+  ai_cache:

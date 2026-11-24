@@ -1,0 +1,46 @@
+{
+  "name": "accrevedia-frontend",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "gen:dark": "node scripts/gen-dark-css.mjs",
+    "import:certs": "node scripts/import-certificates.mjs",
+    "import:ratings": "node scripts/import-ratings.mjs",
+    "generate:verified-catalog": "node scripts/generate-verified-catalog.mjs",
+    "generate:demo-pdfs": "node scripts/generate-demo-pdfs.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "date-fns": "^4.0.0",
+    "docx-preview": "^0.4.1",
+    "framer-motion": "^11.5.4",
+    "jszip": "^3.10.1",
+    "lucide-react": "0.522.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "read-excel-file": "^9.3.14",
+    "sonner": "^2.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.18",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^5.54.0",
+    "@typescript-eslint/parser": "^5.54.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "latest",
+    "eslint": "^8.50.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.1",
+    "postcss": "latest",
+    "tailwindcss": "3.4.17",
+    "typescript": "^5.5.4",
+    "vite": "^5.2.0"
+  }
+}

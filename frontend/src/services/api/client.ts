@@ -5,15 +5,31 @@
 
 const DEFAULT_TIMEOUT_MS = 12_000;
 
+
 export function getApiBaseUrl(): string {
-  const raw = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ?? '';
+  const raw =
+    (import.meta.env.VITE_API_BASE_URL as string | undefined)
+      ?.trim() ?? '';
+
+  // Hostinger production: use the same origin as React.
+  if (import.meta.env.PROD && !raw) {
+    return window.location.origin;
+  }
+
+  // Preserve existing local development behavior.
   if (raw && typeof window !== 'undefined') {
     const url = new URL(raw, window.location.origin);
-    if (['localhost', '127.0.0.1'].includes(url.hostname) && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+
+    if (
+      ['localhost', '127.0.0.1'].includes(url.hostname) &&
+      ['localhost', '127.0.0.1'].includes(window.location.hostname)
+    ) {
       url.hostname = window.location.hostname;
-      return url.href.replace(/\/$/, '');
     }
+
+    return url.href.replace(/\/$/, '');
   }
+
   return raw.replace(/\/$/, '');
 }
 

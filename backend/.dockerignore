@@ -1,0 +1,15 @@
+﻿.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.git/
+.env
+.env.*
+*.sqlite3
+node_modules/
+media/
+staticfiles/
+models/
+*.log
