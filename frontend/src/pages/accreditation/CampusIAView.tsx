@@ -133,12 +133,12 @@ export function CampusIAView() {
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
-                <h2 className="text-lg font-bold text-ink">{campus.name}</h2>
+                <h2 className="text-lg font-bold text-ink">{campus?.name || 'Campus'}</h2>
 
                 <Badge tone="brand">{iaRecord.status}</Badge>
               </div>
               <p className="mt-1 text-xs text-ink-muted">
-                {campus.location} · Campus Director: <span className="font-medium text-ink">{campus.director}</span>
+                {campus?.location || 'Main Campus'} · Campus Director: <span className="font-medium text-ink">{campus?.director || 'Director'}</span>
               </p>
             </div>
 

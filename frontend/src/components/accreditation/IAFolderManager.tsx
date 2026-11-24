@@ -144,8 +144,13 @@ export function IAFolderManager({
   const activeAreaCode = selectedAreaCode || folders.find(f => f.id === activeFolderId)?.areaId || '';
   const scope = { campus: campusId, framework: framework.id, area: activeAreaCode.toLowerCase() };
   const canMutate = areaAccess.member ? !!activeAreaCode && areaAccess.canEdit(scope) : !readOnly;
-  const canViewArea = !areaAccess.member || !activeAreaCode || areaAccess.canView(scope) || documents.some(d => d.certificateAccess?.canView && d.campusId === campusId && d.frameworkId === framework.id && d.areaId?.toLowerCase() === activeAreaCode.toLowerCase());
-  useEffect(() => { if (!canViewArea) { setSelectedAreaCode(null); setActiveFolderId(null); setPreviewDoc(null); } if (!canMutate) { setFolderFormOpen(false); setUploadModalOpen(false); setEditingDoc(null); } }, [canViewArea, canMutate]);
+  useEffect(() => {
+    if (!canMutate) {
+      setFolderFormOpen(false);
+      setUploadModalOpen(false);
+      setEditingDoc(null);
+    }
+  }, [canMutate]);
 
   // Inside-Folder Filtering and Sorting
   const [repoFilter, setRepoFilter] = useState<'all' | 'folders' | 'files'>('all');
@@ -554,7 +559,7 @@ export function IAFolderManager({
 
   // Filtered and Sorted IA Areas
   const filteredAreas = useMemo(() => {
-    const allowed = OFFICIAL_IA_AREAS.filter(a => !areaAccess.member || areaAccess.canView({ campus: campusId, framework: framework.id, area: a.code.toLowerCase() }) || documents.some(d => d.certificateAccess?.canView && d.frameworkId === framework.id && d.campusId === campusId && d.areaId?.toLowerCase() === a.code.toLowerCase()));
+    const allowed = OFFICIAL_IA_AREAS;
     if (!searchQuery.trim()) return allowed;
     const q = searchQuery.toLowerCase();
     return allowed.filter(
@@ -564,7 +569,7 @@ export function IAFolderManager({
         a.shortDesc.toLowerCase().includes(q) ||
         `area ${a.number}`.includes(q)
     );
-  }, [searchQuery, OFFICIAL_IA_AREAS, areaAccess.assignments, areaAccess.member, documents, campusId, framework.id]);
+  }, [searchQuery, OFFICIAL_IA_AREAS]);
 
   // Root Folders created outside the clauses for ISO
   const rootIsoFolders = useMemo(() => {
@@ -1497,7 +1502,7 @@ export function IAFolderManager({
                       meta={`${pluralize(areaStatus.folderCount, 'folder')} · ${pluralize(areaStatus.fileCount, 'file')}`}
                       status={AREA_STATUS[areaStatus.status] ?? AREA_STATUS.needs_evidence}
                       pinActions={areaAccess.isSuperadmin}
-                      actions={['ia', 'pqa'].includes(framework.id) ? <AreaAssignmentMenu scope={{ campus: campusId, framework: framework.id, area: area.code.toLowerCase() }} label={`${areaLabel(area)}: ${area.name}`} campusName={campusName} /> : undefined}
+                      actions={['ia', 'pqa'].includes(framework.id) && areaAccess.isSuperadmin ? <AreaAssignmentMenu scope={{ campus: campusId, framework: framework.id, area: area.code.toLowerCase() }} label={`${areaLabel(area)}: ${area.name}`} campusName={campusName} /> : undefined}
                     />
                   );
                 })}
