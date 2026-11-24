@@ -48,17 +48,11 @@ Open [phpMyAdmin](http://localhost:8080/index.php?route=/database/structure&db=a
 
 The local development portal (`localhost:5173` or `127.0.0.1:5173` with the Django API on port `8000`) copies the signed-in browser's records and IndexedDB files to MySQL. Use **System Settings → Maintenance → Copy to MySQL** to verify a copy from that browser. Each browser and each site address has its own local storage. The portal continues to use it for its local workflows, and phpMyAdmin shows the copied data.
 
-Git distributes the code, migrations, and import command. Each developer runs the commands against their local MySQL instance. External Drive entries are stored as links.
+Git distributes the code, migrations, import command, and public certificate catalog files. Each developer runs the commands against their local MySQL instance. External Drive entries are stored as links.
 
-### Install original documents after pulling
+### Public certificate catalog
 
-Get `accrevia-certificates.tar.gz` from the person who maintains the accreditation documents. Extract it from the repository root so the files land under `frontend/public/certificates/`:
-
-```powershell
-tar -xzf "C:\path\to\accrevia-certificates.tar.gz" -C frontend/public
-```
-
-Open Program Accreditation and select **View** on a certificate to preview the original. The same bundle contains the available COPC certificates, Board resolutions, ratings, and findings. Running `import_portal_catalog` also makes these originals available from local MySQL.
+The files under `frontend/public/certificates/` are served from `/certificates/` on the deployed frontend and can be opened by anyone with the file URL. This folder contains the AACCUP and COPC certificates, Board resolutions, ratings, and findings. Run `import_portal_catalog` to store these originals in MySQL as well.
 
 ### Portable copy of the complete portal
 

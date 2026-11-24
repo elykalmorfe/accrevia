@@ -13,8 +13,7 @@ dist-ssr
 *.local
 *.timestamp-*
 
-# Imported certificate binaries (regenerate via: npm run import:certs)
-public/certificates/
+# Temporary import directories
 .tmp-aaccup-extract/
 .tmp-copc-xlsx/
 .tmp-ratings-extract/
